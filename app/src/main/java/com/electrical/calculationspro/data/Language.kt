@@ -11,7 +11,9 @@ object Strings {
         key: String,
         lang: AppLanguage
     ): String {
+
         return when (lang) {
+
             AppLanguage.ENGLISH ->
                 english[key] ?: key
 
@@ -24,6 +26,15 @@ object Strings {
 
         "app_name" to
             "Electrical Calculations Pro",
+
+        "engineering_tools" to
+            "Engineering Tools",
+
+        "update_program" to
+            "Update Program",
+
+        "update_program_description" to
+            "Check latest version",
 
         "conductor_sizing_protection" to
             "Conductor sizing and protective device coordination",
@@ -83,7 +94,7 @@ object Strings {
             "Line length:",
 
         "method_installation" to
-            "Method of installation:",
+            "Installation method:",
 
         "ambient_temp" to
             "Ambient temperature:",
@@ -189,6 +200,15 @@ object Strings {
 
         "app_name" to
             "حاسبة الحسابات الكهربائية برو",
+
+        "engineering_tools" to
+            "الأدوات الهندسية",
+
+        "update_program" to
+            "تحديث البرنامج",
+
+        "update_program_description" to
+            "التحقق من أحدث إصدار",
 
         "conductor_sizing_protection" to
             "تحديد مقطع الموصل وتنسيق أجهزة الحماية",
