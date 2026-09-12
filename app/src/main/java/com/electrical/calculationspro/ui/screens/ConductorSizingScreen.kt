@@ -20,9 +20,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,50 +67,24 @@ fun ConductorSizingScreen(
         )
     }
 
-    var voltage by remember {
-        mutableStateOf("230")
-    }
-
-    var load by remember {
-        mutableStateOf("5000")
-    }
-
-    var powerFactor by remember {
-        mutableStateOf("0.90")
-    }
-
-    var lineLength by remember {
-        mutableStateOf("60")
-    }
-
-    var ambientTemp by remember {
-        mutableStateOf("30")
-    }
-
-    var circuits by remember {
-        mutableStateOf("1")
-    }
-
-    var maxDrop by remember {
-        mutableStateOf("4")
-    }
+    var voltage by remember { mutableStateOf("230") }
+    var load by remember { mutableStateOf("5000") }
+    var powerFactor by remember { mutableStateOf("0.90") }
+    var lineLength by remember { mutableStateOf("60") }
+    var ambientTemp by remember { mutableStateOf("30") }
+    var circuits by remember { mutableStateOf("1") }
+    var maxDrop by remember { mutableStateOf("4") }
 
     var conductor by remember {
-        mutableStateOf(
-            ConductorMaterial.Copper
-        )
+        mutableStateOf(ConductorMaterial.Copper)
     }
 
     var insulation by remember {
-        mutableStateOf(
-            InsulationType.PVC
-        )
+        mutableStateOf(InsulationType.PVC)
     }
 
     var method by remember {
-        mutableStateOf(
-            iecInstallationMethods.first()
-        )
+        mutableStateOf(iecInstallationMethods.first())
     }
 
     var result by remember {
@@ -126,7 +100,6 @@ fun ConductorSizingScreen(
     }
 
     fun buildInput(): ConductorSizingInput {
-
         return ConductorSizingInput(
             currentType = currentType,
             voltage = voltage.toDouble(),
@@ -143,13 +116,7 @@ fun ConductorSizingScreen(
     }
 
     fun calculate() {
-
-        result = null
-        selectedSection = null
-        error = null
-
         try {
-
             val input = buildInput()
 
             val calculated =
@@ -161,40 +128,32 @@ fun ConductorSizingScreen(
             result = calculated
             selectedSection =
                 calculated.selectedSection
+            error = null
 
-        } catch (exception: Exception) {
-
+        } catch (e: Exception) {
+            result = null
             error =
-                exception.message
-                    ?: "Invalid engineering input."
+                e.message ?: "Invalid engineering input."
         }
     }
 
-    fun changeSelectedSection(
-        section: Double
-    ) {
-
+    fun selectSection(section: Double) {
         try {
-
-            val input = buildInput()
-
             val recalculated =
                 ElectricalCalculations
                     .evaluateSelectedSection(
-                        input = input,
+                        input = buildInput(),
                         selectedSection = section,
                         standard = standard
                     )
 
-            selectedSection = section
             result = recalculated
+            selectedSection = section
             error = null
 
-        } catch (exception: Exception) {
-
+        } catch (e: Exception) {
             error =
-                exception.message
-                    ?: "Unable to evaluate selected cable."
+                e.message ?: "Unable to evaluate selected section."
         }
     }
 
@@ -225,7 +184,6 @@ fun ConductorSizingScreen(
 
             Text(
                 text = when (standard) {
-
                     Standard.IEC ->
                         "IEC 60364-5-52"
 
@@ -247,9 +205,10 @@ fun ConductorSizingScreen(
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = DarkSurface
-                )
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor = DarkSurface
+                    )
             ) {
 
                 Column(
@@ -264,13 +223,11 @@ fun ConductorSizingScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    EnumDropdown(
+                    SelectionDropdown(
                         value = currentType,
-                        values = CurrentType.entries,
-                        label = {
-
+                        values = CurrentType.values().toList(),
+                        text = {
                             when (it) {
-
                                 CurrentType.DirectCurrent ->
                                     t("direct_current")
 
@@ -306,8 +263,7 @@ fun ConductorSizingScreen(
                     )
 
                     NumberField(
-                        label =
-                            t("power_factor_label"),
+                        label = t("power_factor_label"),
                         value = powerFactor,
                         onValueChange = {
                             powerFactor = it
@@ -331,8 +287,7 @@ fun ConductorSizingScreen(
                     )
 
                     NumberField(
-                        label =
-                            t("circuits_conduit"),
+                        label = t("circuits_conduit"),
                         value = circuits,
                         onValueChange = {
                             circuits = it
@@ -340,8 +295,7 @@ fun ConductorSizingScreen(
                     )
 
                     NumberField(
-                        label =
-                            t("max_voltage_drop"),
+                        label = t("max_voltage_drop"),
                         value = maxDrop,
                         onValueChange = {
                             maxDrop = it
@@ -354,8 +308,12 @@ fun ConductorSizingScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    InstallationDropdown(
+                    SelectionDropdown(
                         value = method,
+                        values = iecInstallationMethods,
+                        text = {
+                            "${it.code} — ${it.description}"
+                        },
                         onSelected = {
                             method = it
                         }
@@ -367,14 +325,12 @@ fun ConductorSizingScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    EnumDropdown(
+                    SelectionDropdown(
                         value = conductor,
                         values =
-                            ConductorMaterial.entries,
-                        label = {
-
+                            ConductorMaterial.values().toList(),
+                        text = {
                             when (it) {
-
                                 ConductorMaterial.Copper ->
                                     t("copper")
 
@@ -393,14 +349,12 @@ fun ConductorSizingScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    EnumDropdown(
+                    SelectionDropdown(
                         value = insulation,
                         values =
-                            InsulationType.entries,
-                        label = {
-
+                            InsulationType.values().toList(),
+                        text = {
                             when (it) {
-
                                 InsulationType.PVC ->
                                     t("pvc")
 
@@ -408,10 +362,10 @@ fun ConductorSizingScreen(
                                     t("xlpe")
 
                                 InsulationType.EPR ->
-                                    "EPR"
+                                    t("epr")
 
                                 InsulationType.Rubber ->
-                                    "Rubber"
+                                    t("rubber")
                             }
                         },
                         onSelected = {
@@ -426,7 +380,6 @@ fun ConductorSizingScreen(
                             calculate()
                         }
                     ) {
-
                         Text(
                             text = t("calculate"),
                             fontWeight = FontWeight.Bold
@@ -435,26 +388,26 @@ fun ConductorSizingScreen(
                 }
             }
 
-            error?.let { message ->
-
+            error?.let {
                 Card(
                     modifier =
                         Modifier.fillMaxWidth(),
                     colors =
                         CardDefaults.cardColors(
                             containerColor =
-                                MaterialTheme
+                                androidx.compose.material3
+                                    .MaterialTheme
                                     .colorScheme
                                     .errorContainer
                         )
                 ) {
-
                     Text(
-                        text = message,
+                        text = it,
                         modifier =
                             Modifier.padding(16.dp),
                         color =
-                            MaterialTheme
+                            androidx.compose.material3
+                                .MaterialTheme
                                 .colorScheme
                                 .onErrorContainer
                     )
@@ -487,75 +440,61 @@ fun ConductorSizingScreen(
                         )
 
                         ResultRow(
-                            title =
-                                t("design_current"),
-                            value =
-                                "%.2f A"
-                                    .format(
-                                        calculation
-                                            .designCurrent
-                                    )
+                            t("design_current"),
+                            "%.2f A"
+                                .format(
+                                    calculation.designCurrent
+                                )
                         )
 
                         ResultRow(
-                            title =
-                                t("recommended_section"),
-                            value =
-                                "%.1f mm²"
-                                    .format(
-                                        calculation
-                                            .recommendedSection
-                                    )
+                            t("recommended_section"),
+                            "%.1f mm²"
+                                .format(
+                                    calculation.recommendedSection
+                                )
                         )
 
                         ResultRow(
-                            title = t("ampacity"),
-                            value =
-                                "%.1f A"
-                                    .format(
-                                        calculation.ampacity
-                                    )
+                            t("ampacity"),
+                            "%.1f A"
+                                .format(
+                                    calculation.ampacity
+                                )
                         )
 
                         ResultRow(
-                            title =
-                                t("voltage_drop_result"),
-                            value =
-                                "%.2f %% (%.2f V)"
-                                    .format(
-                                        calculation
-                                            .voltageDropPercent,
-                                        calculation
-                                            .voltageDropVolts
-                                    )
-                        )
-
-                        ResultRow(
-                            title =
-                                t("protective_device"),
-                            value =
-                                if (
+                            t("voltage_drop_result"),
+                            "%.2f %% (%.2f V)"
+                                .format(
                                     calculation
-                                        .protectiveDevice > 0.0
-                                ) {
-                                    "%.0f A"
-                                        .format(
-                                            calculation
-                                                .protectiveDevice
-                                        )
-                                } else {
-                                    "NOT VALID"
-                                }
+                                        .voltageDropPercent,
+                                    calculation
+                                        .voltageDropVolts
+                                )
                         )
 
                         ResultRow(
-                            title = "Short Circuit",
-                            value =
-                                "%.2f kA"
-                                    .format(
-                                        calculation
-                                            .shortCircuitCurrentKA
-                                    )
+                            t("protective_device"),
+                            if (
+                                calculation
+                                    .protectiveDevice > 0.0
+                            ) {
+                                "%.0f A".format(
+                                    calculation
+                                        .protectiveDevice
+                                )
+                            } else {
+                                "NOT VALID"
+                            }
+                        )
+
+                        ResultRow(
+                            "Short Circuit",
+                            "%.2f kA".format(
+                                calculation
+                                    .shortCircuitCurrentKA
+                            )
                         )
 
                         Spacer(
@@ -570,48 +509,37 @@ fun ConductorSizingScreen(
                                 FontWeight.SemiBold
                         )
 
-                        EnumDropdown(
+                        SelectionDropdown(
                             value =
                                 selectedSection
                                     ?: calculation
                                         .selectedSection,
-                            values =
-                                standardSections,
-                            label = {
+                            values = standardSections,
+                            text = {
                                 "%.1f mm²".format(it)
                             },
                             onSelected = {
-                                changeSelectedSection(it)
+                                selectSection(it)
                             }
                         )
 
-                        Spacer(
-                            modifier =
-                                Modifier.height(4.dp)
-                        )
-
-                        StatusCard(
-                            title =
-                                "Voltage Drop",
+                        StatusRow(
+                            title = "Voltage Drop",
                             valid =
                                 calculation
                                     .voltageDropWithinLimit,
-                            validText =
-                                "PASS",
-                            invalidText =
-                                "FAIL"
+                            validText = "PASS",
+                            invalidText = "FAIL"
                         )
 
-                        StatusCard(
+                        StatusRow(
                             title =
                                 "Protection Coordination",
                             valid =
                                 calculation
                                     .breakerWithinCableCapacity,
-                            validText =
-                                "Ib ≤ In ≤ Iz",
-                            invalidText =
-                                "CHECK BREAKER"
+                            validText = "Ib ≤ In ≤ Iz",
+                            invalidText = "CHECK"
                         )
 
                         Spacer(
@@ -626,10 +554,9 @@ fun ConductorSizingScreen(
                                 FontWeight.Bold
                         )
 
-                        calculation.notes.forEach { note ->
-
+                        calculation.notes.forEach {
                             Text(
-                                text = "• $note",
+                                text = "• $it",
                                 color = TextSecondary,
                                 fontSize = 13.sp
                             )
@@ -647,24 +574,19 @@ private fun NumberField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
-
     OutlinedTextField(
         value = value,
         onValueChange = { newValue ->
-
             if (
                 newValue.isEmpty() ||
                 newValue.matches(
-                    Regex(
-                        "^-?\\d*(\\.\\d*)?$"
-                    )
+                    Regex("^-?\\d*(\\.\\d*)?$")
                 )
             ) {
                 onValueChange(newValue)
             }
         },
-        modifier =
-            Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         label = {
             Text(label)
         },
@@ -674,10 +596,10 @@ private fun NumberField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun <T> EnumDropdown(
+private fun <T> SelectionDropdown(
     value: T,
     values: List<T>,
-    label: (T) -> String,
+    text: (T) -> String,
     onSelected: (T) -> Unit
 ) {
 
@@ -693,7 +615,7 @@ private fun <T> EnumDropdown(
     ) {
 
         OutlinedTextField(
-            value = label(value),
+            value = text(value),
             onValueChange = {},
             readOnly = true,
             modifier =
@@ -709,95 +631,18 @@ private fun <T> EnumDropdown(
             singleLine = true
         )
 
-        androidx.compose.material3
-            .ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = {
-                    expanded = false
-                }
-            ) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+            }
+        ) {
 
             values.forEach { item ->
 
                 DropdownMenuItem(
                     text = {
-                        Text(label(item))
-                    },
-                    onClick = {
-                        onSelected(item)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun InstallationDropdown(
-    value: InstallationMethod,
-    onSelected: (InstallationMethod) -> Unit
-) {
-
-    var expanded by remember {
-        mutableStateOf(false)
-    }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = {
-            expanded = !expanded
-        }
-    ) {
-
-        OutlinedTextField(
-            value =
-                "${value.code} — ${value.description}",
-            onValueChange = {},
-            readOnly = true,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(),
-            trailingIcon = {
-                ExposedDropdownMenuDefaults
-                    .TrailingIcon(
-                        expanded = expanded
-                    )
-            },
-            singleLine = true
-        )
-
-        androidx.compose.material3
-            .ExposedDropdownMenu(
-                expanded = expanded,
-                onDismissRequest = {
-                    expanded = false
-                }
-            ) {
-
-            iecInstallationMethods.forEach { item ->
-
-                DropdownMenuItem(
-                    text = {
-
-                        Column {
-
-                            Text(
-                                text = item.code,
-                                fontWeight =
-                                    FontWeight.SemiBold
-                            )
-
-                            Text(
-                                text =
-                                    item.description,
-                                fontSize = 12.sp,
-                                color =
-                                    TextSecondary
-                            )
-                        }
+                        Text(text(item))
                     },
                     onClick = {
                         onSelected(item)
@@ -814,7 +659,6 @@ private fun ResultRow(
     title: String,
     value: String
 ) {
-
     Row(
         modifier =
             Modifier.fillMaxWidth(),
@@ -846,65 +690,43 @@ private fun ResultRow(
 }
 
 @Composable
-private fun StatusCard(
+private fun StatusRow(
     title: String,
     valid: Boolean,
     validText: String,
     invalidText: String
 ) {
-
-    Card(
+    Row(
         modifier =
-            Modifier.fillMaxWidth(),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    if (valid) {
-                        DarkSurface
-                    } else {
-                        MaterialTheme
-                            .colorScheme
-                            .errorContainer
-                    }
-            )
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+        horizontalArrangement =
+            Arrangement.SpaceBetween,
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
 
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-            horizontalArrangement =
-                Arrangement.SpaceBetween,
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
+        Text(
+            text = title,
+            color = TextPrimary,
+            fontWeight =
+                FontWeight.SemiBold
+        )
 
-            Text(
-                text = title,
-                color = TextPrimary,
-                fontWeight =
-                    FontWeight.SemiBold
-            )
-
-            Text(
-                text =
-                    if (valid) {
-                        validText
-                    } else {
-                        invalidText
-                    },
-                color =
-                    if (valid) {
-                        PrimaryTeal
-                    } else {
-                        MaterialTheme
-                            .colorScheme
-                            .error
-                    },
-                fontWeight =
-                    FontWeight.Bold
-            )
-        }
+        Text(
+            text =
+                if (valid) validText
+                else invalidText,
+            color =
+                if (valid) PrimaryTeal
+                else androidx.compose.material3
+                    .MaterialTheme
+                    .colorScheme
+                    .error,
+            fontWeight =
+                FontWeight.Bold
+        )
     }
 }
+```0
