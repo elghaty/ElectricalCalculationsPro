@@ -3,13 +3,35 @@ package com.electrical.calculationspro.data
 import kotlin.math.sqrt
 
 /**
- * Comprehensive Electrical Calculations
- * Includes: Conductor sizing, Demand/Diversity factors, Voltage drop, Short circuit
- * Based on IEC 60364 + Egyptian Code practices
+ * Single calculation engine for the application.
+ *
+ * All electrical calculations used by the UI must pass through this object.
  */
 object ElectricalCalculations {
 
-    // ==================== BASIC CURRENT ====================
+    private const val MIN_POSITIVE = 1.0e-9
+
+    private val standardBreakers = listOf(
+        6.0,
+        10.0,
+        16.0,
+        20.0,
+        25.0,
+        32.0,
+        40.0,
+        50.0,
+        63.0,
+        80.0,
+        100.0,
+        125.0,
+        160.0,
+        200.0,
+        250.0,
+        315.0,
+        400.0,
+        500.0,
+        630.0
+    )
 
     fun calculateDesignCurrent(
         loadWatts: Double,
@@ -17,27 +39,51 @@ object ElectricalCalculations {
         powerFactor: Double,
         currentType: CurrentType
     ): Double {
+
+        require(loadWatts >= 0.0) {
+            "Load cannot be negative."
+        }
+
+        require(voltage > MIN_POSITIVE) {
+            "Voltage must be greater than zero."
+        }
+
+        val pf = powerFactor.coerceIn(MIN_POSITIVE, 1.0)
+
         return when (currentType) {
-            CurrentType.DirectCurrent -> loadWatts / voltage
-            CurrentType.AlternatingSinglePhase -> loadWatts / (voltage * powerFactor)
-            CurrentType.AlternatingTwoPhase -> loadWatts / (voltage * powerFactor * sqrt(2.0))
-            CurrentType.AlternatingThreePhase -> loadWatts / (voltage * powerFactor * sqrt(3.0))
+
+            CurrentType.DirectCurrent ->
+                loadWatts / voltage
+
+            CurrentType.AlternatingSinglePhase ->
+                loadWatts / (voltage * pf)
+
+            CurrentType.AlternatingTwoPhase ->
+                loadWatts / (voltage * pf * sqrt(2.0))
+
+            CurrentType.AlternatingThreePhase ->
+                loadWatts / (voltage * pf * sqrt(3.0))
         }
     }
 
-    /**
-     * Apply Demand Factor + Diversity Factor
-     * Ib_corrected = Ib × DemandFactor × DiversityFactor
-     */
     fun applyDemandAndDiversity(
         ib: Double,
         demandFactor: Double = 1.0,
         diversityFactor: Double = 1.0
     ): Double {
-        return ib * demandFactor.coerceIn(0.1, 1.0) * diversityFactor.coerceIn(0.1, 1.0)
-    }
 
-    // ==================== VOLTAGE DROP ====================
+        require(ib >= 0.0) {
+            "Design current cannot be negative."
+        }
+
+        val demand =
+            demandFactor.coerceIn(0.0, 1.0)
+
+        val diversity =
+            diversityFactor.coerceIn(0.0, 1.0)
+
+        return ib * demand * diversity
+    }
 
     fun calculateVoltageDrop(
         current: Double,
@@ -48,26 +94,60 @@ object ElectricalCalculations {
         material: ConductorMaterial,
         voltage: Double
     ): Pair<Double, Double> {
-        val resistivity = if (material == ConductorMaterial.Copper) 0.0225 else 0.036
-        val r = resistivity / sectionMm2
-        val x = 0.08 / 1000.0
 
-        val cosPhi = powerFactor.coerceIn(0.0, 1.0)
-        val sinPhi = sqrt((1 - cosPhi * cosPhi).coerceAtLeast(0.0))
+        require(current >= 0.0)
+        require(length >= 0.0)
+        require(sectionMm2 > MIN_POSITIVE)
+        require(voltage > MIN_POSITIVE)
 
-        val factor = when (currentType) {
-            CurrentType.DirectCurrent -> 2.0
-            CurrentType.AlternatingSinglePhase -> 2.0
-            CurrentType.AlternatingTwoPhase -> 2.0
-            CurrentType.AlternatingThreePhase -> sqrt(3.0)
-        }
+        val resistivity =
+            when (material) {
+                ConductorMaterial.Copper -> 0.0225
+                ConductorMaterial.Aluminum -> 0.036
+            }
 
-        val dropVolts = factor * current * length * (r * cosPhi + x * sinPhi)
-        val dropPercent = (dropVolts / voltage) * 100.0
+        val resistance =
+            resistivity / sectionMm2
+
+        val reactance =
+            0.08 / 1000.0
+
+        val cosPhi =
+            powerFactor.coerceIn(0.0, 1.0)
+
+        val sinPhi =
+            sqrt(
+                (1.0 - cosPhi * cosPhi)
+                    .coerceAtLeast(0.0)
+            )
+
+        val systemFactor =
+            when (currentType) {
+
+                CurrentType.DirectCurrent ->
+                    2.0
+
+                CurrentType.AlternatingSinglePhase ->
+                    2.0
+
+                CurrentType.AlternatingTwoPhase ->
+                    2.0
+
+                CurrentType.AlternatingThreePhase ->
+                    sqrt(3.0)
+            }
+
+        val dropVolts =
+            systemFactor *
+                current *
+                length *
+                (resistance * cosPhi + reactance * sinPhi)
+
+        val dropPercent =
+            (dropVolts / voltage) * 100.0
+
         return dropPercent to dropVolts
     }
-
-    // ==================== SHORT CIRCUIT ====================
 
     fun calculateShortCircuitCurrent(
         voltage: Double,
@@ -77,42 +157,76 @@ object ElectricalCalculations {
         currentType: CurrentType,
         sourceIkKA: Double = 50.0
     ): ShortCircuitResult {
-        val resistivity = if (material == ConductorMaterial.Copper) 0.018 else 0.029
-        val rCable = (resistivity * length * 2) / sectionMm2
-        val xCable = (0.08 * length) / 1000.0 * 2
 
-        val zCable = sqrt(rCable * rCable + xCable * xCable)
+        require(voltage > MIN_POSITIVE)
+        require(length >= 0.0)
+        require(sectionMm2 > MIN_POSITIVE)
 
-        val zSource = if (sourceIkKA > 0) {
-            (voltage / sqrt(3.0)) / (sourceIkKA * 1000.0)
-        } else 0.0
+        val resistivity =
+            when (material) {
+                ConductorMaterial.Copper -> 0.018
+                ConductorMaterial.Aluminum -> 0.029
+            }
 
-        val zTotal = zSource + zCable
+        val cableResistance =
+            (resistivity * length * 2.0) /
+                sectionMm2
 
-        val ik = when (currentType) {
-            CurrentType.AlternatingThreePhase -> (voltage / sqrt(3.0)) / zTotal
-            else -> (voltage / 2.0) / zTotal
-        }
+        val cableReactance =
+            (0.08 * length / 1000.0) * 2.0
 
-        val ikKA = ik / 1000.0
-        val i2t = ik * ik * 0.1
+        val cableImpedance =
+            sqrt(
+                cableResistance * cableResistance +
+                    cableReactance * cableReactance
+            )
+
+        val sourceImpedance =
+            if (sourceIkKA > MIN_POSITIVE) {
+                (voltage / sqrt(3.0)) /
+                    (sourceIkKA * 1000.0)
+            } else {
+                0.0
+            }
+
+        val totalImpedance =
+            (sourceImpedance + cableImpedance)
+                .coerceAtLeast(MIN_POSITIVE)
+
+        val faultCurrent =
+            when (currentType) {
+
+                CurrentType.AlternatingThreePhase ->
+                    (voltage / sqrt(3.0)) /
+                        totalImpedance
+
+                else ->
+                    (voltage / 2.0) /
+                        totalImpedance
+            }
+
+        val faultCurrentKA =
+            faultCurrent / 1000.0
+
+        val i2t =
+            faultCurrent *
+                faultCurrent *
+                0.1
 
         return ShortCircuitResult(
-            ikAmps = ik,
-            ikKA = ikKA,
-            cableImpedance = zCable,
-            sourceImpedance = zSource,
+            ikAmps = faultCurrent,
+            ikKA = faultCurrentKA,
+            cableImpedance = cableImpedance,
+            sourceImpedance = sourceImpedance,
             i2t = i2t,
             notes = listOf(
-                "Ik ≈ ${"%.2f".format(ikKA)} kA",
-                "Z cable ≈ ${"%.4f".format(zCable)} Ω",
-                "Z source ≈ ${"%.4f".format(zSource)} Ω",
+                "Ik ≈ ${"%.2f".format(faultCurrentKA)} kA",
+                "Z cable ≈ ${"%.4f".format(cableImpedance)} Ω",
+                "Z source ≈ ${"%.4f".format(sourceImpedance)} Ω",
                 "I²t (0.1s) ≈ ${"%.0f".format(i2t)}"
             )
         )
     }
-
-    // ==================== CONDUCTOR SIZING (FULL) ====================
 
     fun sizeConductor(
         input: ConductorSizingInput,
@@ -121,146 +235,367 @@ object ElectricalCalculations {
         diversityFactor: Double = 1.0
     ): ConductorSizingResult {
 
-        val ibRaw = calculateDesignCurrent(
-            input.load, input.voltage, input.powerFactor, input.currentType
-        )
+        require(input.voltage > MIN_POSITIVE)
+        require(input.load >= 0.0)
+        require(input.lineLength >= 0.0)
+        require(input.powerFactor > 0.0)
+        require(input.circuitsInConduit > 0)
+        require(input.maxVoltageDrop > 0.0)
 
-        val ib = applyDemandAndDiversity(ibRaw, demandFactor, diversityFactor)
+        val rawDesignCurrent =
+            calculateDesignCurrent(
+                loadWatts = input.load,
+                voltage = input.voltage,
+                powerFactor = input.powerFactor,
+                currentType = input.currentType
+            )
 
-        val methodKey = IecTables.methodToKey(input.installationMethod.code)
+        val designCurrent =
+            applyDemandAndDiversity(
+                ib = rawDesignCurrent,
+                demandFactor = demandFactor,
+                diversityFactor = diversityFactor
+            )
 
-        val loadedConductors = when (input.currentType) {
-            CurrentType.DirectCurrent, CurrentType.AlternatingSinglePhase -> 2
-            CurrentType.AlternatingTwoPhase -> 2
-            CurrentType.AlternatingThreePhase -> 3
-        }
+        val methodKey =
+            IecTables.methodToKey(
+                input.installationMethod.code
+            )
 
-        val tempFactor = if (input.insulation == InsulationType.XLPE || input.insulation == InsulationType.EPR)
-            IecTables.ambientCorrectionXlpe(input.ambientTemp)
-        else
-            IecTables.ambientCorrectionPvc(input.ambientTemp)
+        val loadedConductors =
+            when (input.currentType) {
 
-        val groupFactor = IecTables.groupingFactor(input.circuitsInConduit)
-        val requiredIz = ib / (tempFactor * groupFactor)
+                CurrentType.DirectCurrent ->
+                    2
 
-        var selectedSection = 1.5
-        var ampacity = 0.0
-        var vdPercent = 100.0
-        var vdVolts = 0.0
-        var found = false
+                CurrentType.AlternatingSinglePhase ->
+                    2
+
+                CurrentType.AlternatingTwoPhase ->
+                    2
+
+                CurrentType.AlternatingThreePhase ->
+                    3
+            }
+
+        val temperatureFactor =
+            when (input.insulation) {
+
+                InsulationType.XLPE,
+                InsulationType.EPR ->
+                    IecTables.ambientCorrectionXlpe(
+                        input.ambientTemp
+                    )
+
+                InsulationType.PVC,
+                InsulationType.Rubber ->
+                    IecTables.ambientCorrectionPvc(
+                        input.ambientTemp
+                    )
+            }
+
+        val groupingFactor =
+            IecTables.groupingFactor(
+                input.circuitsInConduit
+            )
+
+        val combinedFactor =
+            (temperatureFactor * groupingFactor)
+                .coerceAtLeast(MIN_POSITIVE)
+
+        val requiredIz =
+            designCurrent / combinedFactor
+
+        var selectedSection =
+            standardSections.last()
+
+        var selectedAmpacity =
+            0.0
+
+        var voltageDropPercent =
+            0.0
+
+        var voltageDropVolts =
+            0.0
+
+        var foundSection =
+            false
 
         for (section in standardSections) {
-            val baseIz = IecTables.getBaseAmpacity(
-                section, methodKey, loadedConductors, input.conductor, input.insulation
-            )
-            ampacity = baseIz * tempFactor * groupFactor
-            if (ampacity < requiredIz) continue
 
-            val (percent, volts) = calculateVoltageDrop(
-                ib, input.lineLength, section, input.powerFactor,
-                input.currentType, input.conductor, input.voltage
-            )
-            if (percent <= input.maxVoltageDrop) {
-                selectedSection = section
-                vdPercent = percent
-                vdVolts = volts
-                found = true
+            val baseAmpacity =
+                IecTables.getBaseAmpacity(
+                    section = section,
+                    methodKey = methodKey,
+                    loadedConductors = loadedConductors,
+                    conductor = input.conductor,
+                    insulation = input.insulation
+                )
+
+            val correctedAmpacity =
+                baseAmpacity *
+                    temperatureFactor *
+                    groupingFactor
+
+            if (correctedAmpacity < requiredIz) {
+                continue
+            }
+
+            val voltageDrop =
+                calculateVoltageDrop(
+                    current = designCurrent,
+                    length = input.lineLength,
+                    sectionMm2 = section,
+                    powerFactor = input.powerFactor,
+                    currentType = input.currentType,
+                    material = input.conductor,
+                    voltage = input.voltage
+                )
+
+            if (voltageDrop.first <= input.maxVoltageDrop) {
+
+                selectedSection =
+                    section
+
+                selectedAmpacity =
+                    correctedAmpacity
+
+                voltageDropPercent =
+                    voltageDrop.first
+
+                voltageDropVolts =
+                    voltageDrop.second
+
+                foundSection =
+                    true
+
                 break
             }
         }
 
-        if (!found) {
-            for (section in standardSections.reversed()) {
-                val baseIz = IecTables.getBaseAmpacity(section, methodKey, loadedConductors, input.conductor, input.insulation)
-                ampacity = baseIz * tempFactor * groupFactor
-                if (ampacity >= requiredIz) {
-                    selectedSection = section
-                    val (percent, volts) = calculateVoltageDrop(
-                        ib, input.lineLength, section, input.powerFactor,
-                        input.currentType, input.conductor, input.voltage
-                    )
-                    vdPercent = percent
-                    vdVolts = volts
-                    break
+        if (!foundSection) {
+
+            val ampacityCandidate =
+                standardSections.lastOrNull { section ->
+
+                    val baseAmpacity =
+                        IecTables.getBaseAmpacity(
+                            section = section,
+                            methodKey = methodKey,
+                            loadedConductors = loadedConductors,
+                            conductor = input.conductor,
+                            insulation = input.insulation
+                        )
+
+                    baseAmpacity *
+                        temperatureFactor *
+                        groupingFactor >= requiredIz
                 }
+
+            if (ampacityCandidate != null) {
+
+                selectedSection =
+                    ampacityCandidate
+
+                val baseAmpacity =
+                    IecTables.getBaseAmpacity(
+                        section = selectedSection,
+                        methodKey = methodKey,
+                        loadedConductors = loadedConductors,
+                        conductor = input.conductor,
+                        insulation = input.insulation
+                    )
+
+                selectedAmpacity =
+                    baseAmpacity *
+                        temperatureFactor *
+                        groupingFactor
+
+                val voltageDrop =
+                    calculateVoltageDrop(
+                        current = designCurrent,
+                        length = input.lineLength,
+                        sectionMm2 = selectedSection,
+                        powerFactor = input.powerFactor,
+                        currentType = input.currentType,
+                        material = input.conductor,
+                        voltage = input.voltage
+                    )
+
+                voltageDropPercent =
+                    voltageDrop.first
+
+                voltageDropVolts =
+                    voltageDrop.second
             }
         }
 
-        val standardBreakers = listOf(
-            6.0, 10.0, 16.0, 20.0, 25.0, 32.0, 40.0, 50.0,
-            63.0, 80.0, 100.0, 125.0, 160.0, 200.0, 250.0, 315.0, 400.0, 500.0, 630.0
-        )
-        val protective = standardBreakers.firstOrNull { it >= ib } ?: (ib * 1.25)
+        val protectiveDevice =
+            standardBreakers.firstOrNull {
+                it >= designCurrent
+            } ?: (designCurrent * 1.25)
 
-        val sc = calculateShortCircuitCurrent(
-            input.voltage, input.lineLength, selectedSection,
-            input.conductor, input.currentType
-        )
+        val shortCircuit =
+            calculateShortCircuitCurrent(
+                voltage = input.voltage,
+                length = input.lineLength,
+                sectionMm2 = selectedSection,
+                material = input.conductor,
+                currentType = input.currentType
+            )
 
-        val notes = mutableListOf<String>()
-        notes.add("Ib raw = ${"%.2f".format(ibRaw)} A")
-        notes.add("Demand = ${"%.2f".format(demandFactor)} | Diversity = ${"%.2f".format(diversityFactor)}")
-        notes.add("Ib corrected = ${"%.2f".format(ib)} A")
-        notes.add("Required Iz ≈ ${"%.1f".format(requiredIz)} A")
-        notes.add("Selected S = $selectedSection mm²")
-        notes.add("Iz (after factors) ≈ ${"%.1f".format(ampacity)} A")
-        notes.add("ΔU = \( {"%.2f".format(vdPercent)} % ( \){"%.2f".format(vdVolts)} V)")
-        notes.add("Method: ${input.installationMethod.code} → $methodKey")
-        notes.add("Ca = ${"%.2f".format(tempFactor)} | Cg = ${"%.2f".format(groupFactor)}")
-        notes.add("Ik ≈ ${"%.2f".format(sc.ikKA)} kA")
+        val notes =
+            mutableListOf<String>()
+
+        notes +=
+            "Ib raw = ${"%.2f".format(rawDesignCurrent)} A"
+
+        notes +=
+            "Demand = ${"%.2f".format(demandFactor)} | Diversity = ${"%.2f".format(diversityFactor)}"
+
+        notes +=
+            "Ib corrected = ${"%.2f".format(designCurrent)} A"
+
+        notes +=
+            "Required Iz ≈ ${"%.1f".format(requiredIz)} A"
+
+        notes +=
+            "Selected S = $selectedSection mm²"
+
+        notes +=
+            "Iz after factors ≈ ${"%.1f".format(selectedAmpacity)} A"
+
+        notes +=
+            "ΔU = ${"%.2f".format(voltageDropPercent)} % (${ "%.2f".format(voltageDropVolts) } V)"
+
+        notes +=
+            "Method: ${input.installationMethod.code} → $methodKey"
+
+        notes +=
+            "Ca = ${"%.2f".format(temperatureFactor)} | Cg = ${"%.2f".format(groupingFactor)}"
+
+        notes +=
+            "Ik ≈ ${"%.2f".format(shortCircuit.ikKA)} kA"
 
         when (standard) {
-            Standard.EGYPTIAN -> {
-                notes.add("حسب الكود المصري (IEC 60364-5-52)")
-                notes.add("يشمل: طلب + تشتت + قصر + هبوط جهد")
-            }
+
             Standard.IEC -> {
-                notes.add("IEC 60364-5-52 full tables")
-                notes.add("Includes: Demand + Diversity + Short circuit")
+                notes +=
+                    "IEC 60364-5-52"
             }
-            else -> notes.add("Verify with official standard tables")
+
+            Standard.EGYPTIAN -> {
+                notes +=
+                    "الكود المصري المبني على IEC 60364"
+            }
+
+            Standard.CEI -> {
+                notes +=
+                    "CEI 64-8"
+            }
+
+            Standard.NEC -> {
+                notes +=
+                    "NEC / NFPA 70"
+            }
+
+            Standard.CEC -> {
+                notes +=
+                    "Canadian Electrical Code"
+            }
         }
 
-        if (vdPercent > input.maxVoltageDrop) {
-            notes.add("⚠ هبوط الجهد أكبر من الحد المسموح")
+        if (voltageDropPercent > input.maxVoltageDrop) {
+
+            notes +=
+                "⚠ Voltage drop exceeds the configured limit."
         }
 
         return ConductorSizingResult(
-            designCurrent = ib,
+            designCurrent = designCurrent,
             recommendedSection = selectedSection,
             selectedSection = selectedSection,
-            ampacity = ampacity,
-            voltageDropPercent = vdPercent,
-            voltageDropVolts = vdVolts,
-            protectiveDevice = protective,
+            ampacity = selectedAmpacity,
+            voltageDropPercent = voltageDropPercent,
+            voltageDropVolts = voltageDropVolts,
+            protectiveDevice = protectiveDevice,
             notes = notes
         )
     }
 
-    // ==================== POWER CALCULATIONS ====================
+    fun calculateActivePower(
+        voltage: Double,
+        current: Double,
+        pf: Double,
+        phases: Int
+    ): Double {
 
-    fun calculateActivePower(voltage: Double, current: Double, pf: Double, phases: Int): Double {
+        val powerFactor =
+            pf.coerceIn(0.0, 1.0)
+
         return when (phases) {
-            1 -> voltage * current * pf
-            3 -> sqrt(3.0) * voltage * current * pf
-            else -> voltage * current * pf
+
+            1 ->
+                voltage * current * powerFactor
+
+            3 ->
+                sqrt(3.0) *
+                    voltage *
+                    current *
+                    powerFactor
+
+            else ->
+                voltage *
+                    current *
+                    powerFactor
         }
     }
 
-    fun calculateApparentPower(voltage: Double, current: Double, phases: Int): Double {
+    fun calculateApparentPower(
+        voltage: Double,
+        current: Double,
+        phases: Int
+    ): Double {
+
         return when (phases) {
-            1 -> voltage * current
-            3 -> sqrt(3.0) * voltage * current
-            else -> voltage * current
+
+            1 ->
+                voltage * current
+
+            3 ->
+                sqrt(3.0) *
+                    voltage *
+                    current
+
+            else ->
+                voltage * current
         }
     }
 
-    fun calculateReactivePower(active: Double, apparent: Double): Double {
-        return sqrt((apparent * apparent - active * active).coerceAtLeast(0.0))
+    fun calculateReactivePower(
+        active: Double,
+        apparent: Double
+    ): Double {
+
+        return sqrt(
+            (
+                apparent * apparent -
+                    active * active
+                ).coerceAtLeast(0.0)
+        )
     }
 
-    fun calculatePowerFactor(active: Double, apparent: Double): Double {
-        return if (apparent > 0) (active / apparent).coerceIn(0.0, 1.0) else 0.0
+    fun calculatePowerFactor(
+        active: Double,
+        apparent: Double
+    ): Double {
+
+        return if (apparent > MIN_POSITIVE) {
+            (active / apparent)
+                .coerceIn(0.0, 1.0)
+        } else {
+            0.0
+        }
     }
 }
 
