@@ -1,5 +1,8 @@
 package com.electrical.calculationspro.data
 
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlin.math.sqrt
 
 object ElectricalCalculations {
@@ -18,7 +21,6 @@ object ElectricalCalculations {
         powerFactor: Double,
         currentType: CurrentType
     ): Double {
-
         require(loadWatts >= 0.0)
         require(voltage > EPSILON)
         require(powerFactor > 0.0 && powerFactor <= 1.0)
@@ -44,7 +46,6 @@ object ElectricalCalculations {
         demandFactor: Double = 1.0,
         diversityFactor: Double = 1.0
     ): Double {
-
         require(ib >= 0.0)
         require(demandFactor in 0.0..1.0)
         require(diversityFactor in 0.0..1.0)
@@ -80,6 +81,7 @@ object ElectricalCalculations {
             0.08 / 1000.0
 
         val cosPhi = powerFactor
+
         val sinPhi = sqrt(
             (1.0 - cosPhi * cosPhi)
                 .coerceAtLeast(0.0)
@@ -671,3 +673,302 @@ data class ShortCircuitResult(
     val i2t: Double,
     val notes: List<String>
 )
+
+/*
+ * ============================================================
+ * SAVED CALCULATIONS
+ * ============================================================
+ *
+ * Storage is intentionally kept in this file so the project
+ * does not need a separate CalculationStorage.kt file.
+ */
+
+data class SavedCalculation(
+    val id: Long,
+    val name: String,
+    val standard: Standard,
+    val currentType: CurrentType,
+    val voltage: Double,
+    val load: Double,
+    val powerFactor: Double,
+    val lineLength: Double,
+    val ambientTemp: Double,
+    val circuits: Int,
+    val maxDrop: Double,
+    val conductor: ConductorMaterial,
+    val insulation: InsulationType,
+    val installationMethodCode: String
+)
+
+object CalculationStorage {
+
+    private const val PREFS_NAME =
+        "electrical_calculations_storage"
+
+    private const val KEY_CALCULATIONS =
+        "saved_calculations"
+
+    fun getAll(
+        context: Context
+    ): List<SavedCalculation> {
+
+        val prefs =
+            context.getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+
+        val raw =
+            prefs.getString(
+                KEY_CALCULATIONS,
+                null
+            ) ?: return emptyList()
+
+        return try {
+
+            val array =
+                JSONArray(raw)
+
+            val result =
+                mutableListOf<SavedCalculation>()
+
+            for (index in 0 until array.length()) {
+
+                val item =
+                    array.getJSONObject(index)
+
+                result +=
+                    SavedCalculation(
+                        id = item.optLong("id"),
+                        name = item.optString(
+                            "name",
+                            "Calculation"
+                        ),
+                        standard =
+                            enumValueOrDefault(
+                                item.optString(
+                                    "standard"
+                                ),
+                                Standard.IEC
+                            ),
+                        currentType =
+                            enumValueOrDefault(
+                                item.optString(
+                                    "currentType"
+                                ),
+                                CurrentType.AlternatingSinglePhase
+                            ),
+                        voltage =
+                            item.optDouble(
+                                "voltage",
+                                230.0
+                            ),
+                        load =
+                            item.optDouble(
+                                "load",
+                                5000.0
+                            ),
+                        powerFactor =
+                            item.optDouble(
+                                "powerFactor",
+                                0.90
+                            ),
+                        lineLength =
+                            item.optDouble(
+                                "lineLength",
+                                60.0
+                            ),
+                        ambientTemp =
+                            item.optDouble(
+                                "ambientTemp",
+                                30.0
+                            ),
+                        circuits =
+                            item.optInt(
+                                "circuits",
+                                1
+                            ),
+                        maxDrop =
+                            item.optDouble(
+                                "maxDrop",
+                                4.0
+                            ),
+                        conductor =
+                            enumValueOrDefault(
+                                item.optString(
+                                    "conductor"
+                                ),
+                                ConductorMaterial.Copper
+                            ),
+                        insulation =
+                            enumValueOrDefault(
+                                item.optString(
+                                    "insulation"
+                                ),
+                                InsulationType.PVC
+                            ),
+                        installationMethodCode =
+                            item.optString(
+                                "installationMethodCode"
+                            )
+                    )
+            }
+
+            result.sortedByDescending {
+                it.id
+            }
+
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    fun save(
+        context: Context,
+        calculation: SavedCalculation
+    ) {
+
+        val existing =
+            getAll(context)
+                .filterNot {
+                    it.id == calculation.id
+                }
+                .toMutableList()
+
+        existing += calculation
+
+        write(
+            context = context,
+            calculations = existing
+        )
+    }
+
+    fun delete(
+        context: Context,
+        id: Long
+    ) {
+
+        val updated =
+            getAll(context)
+                .filterNot {
+                    it.id == id
+                }
+
+        write(
+            context = context,
+            calculations = updated
+        )
+    }
+
+    private fun write(
+        context: Context,
+        calculations: List<SavedCalculation>
+    ) {
+
+        val array =
+            JSONArray()
+
+        calculations.forEach { calculation ->
+
+            val item =
+                JSONObject()
+
+            item.put(
+                "id",
+                calculation.id
+            )
+
+            item.put(
+                "name",
+                calculation.name
+            )
+
+            item.put(
+                "standard",
+                calculation.standard.name
+            )
+
+            item.put(
+                "currentType",
+                calculation.currentType.name
+            )
+
+            item.put(
+                "voltage",
+                calculation.voltage
+            )
+
+            item.put(
+                "load",
+                calculation.load
+            )
+
+            item.put(
+                "powerFactor",
+                calculation.powerFactor
+            )
+
+            item.put(
+                "lineLength",
+                calculation.lineLength
+            )
+
+            item.put(
+                "ambientTemp",
+                calculation.ambientTemp
+            )
+
+            item.put(
+                "circuits",
+                calculation.circuits
+            )
+
+            item.put(
+                "maxDrop",
+                calculation.maxDrop
+            )
+
+            item.put(
+                "conductor",
+                calculation.conductor.name
+            )
+
+            item.put(
+                "insulation",
+                calculation.insulation.name
+            )
+
+            item.put(
+                "installationMethodCode",
+                calculation.installationMethodCode
+            )
+
+            array.put(item)
+        }
+
+        context
+            .getSharedPreferences(
+                PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            .edit()
+            .putString(
+                KEY_CALCULATIONS,
+                array.toString()
+            )
+            .apply()
+    }
+
+    private inline fun <reified T : Enum<T>>
+        enumValueOrDefault(
+            value: String,
+            default: T
+        ): T {
+
+        return try {
+            enumValueOf<T>(value)
+        } catch (_: Exception) {
+            default
+        }
+    }
+}
