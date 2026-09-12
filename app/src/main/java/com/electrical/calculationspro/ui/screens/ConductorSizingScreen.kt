@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -125,7 +126,8 @@ fun ConductorSizingScreen(
 
         return ConductorSizingInput(
 
-            currentType = currentType,
+            currentType =
+                currentType,
 
             voltage =
                 voltage.toDoubleOrNull()
@@ -170,15 +172,11 @@ fun ConductorSizingScreen(
 
         try {
 
-            val input =
-                buildInput()
-
             val calculated =
-                ElectricalCalculations
-                    .sizeConductor(
-                        input = input,
-                        standard = standard
-                    )
+                ElectricalCalculations.sizeConductor(
+                    input = buildInput(),
+                    standard = standard
+                )
 
             result = calculated
 
@@ -213,8 +211,7 @@ fun ConductorSizingScreen(
 
             result = recalculated
 
-            selectedSection =
-                section
+            selectedSection = section
 
             error = null
 
@@ -241,7 +238,7 @@ fun ConductorSizingScreen(
                 .verticalScroll(
                     rememberScrollState()
                 )
-                .padding(20.dp),
+                .padding(16.dp),
 
             verticalArrangement =
                 Arrangement.spacedBy(12.dp)
@@ -298,13 +295,12 @@ fun ConductorSizingScreen(
                         containerColor =
                             DarkSurface
                     )
-
             ) {
 
                 Column(
 
                     modifier =
-                        Modifier.padding(16.dp),
+                        Modifier.padding(12.dp),
 
                     verticalArrangement =
                         Arrangement.spacedBy(10.dp)
@@ -312,20 +308,25 @@ fun ConductorSizingScreen(
                 ) {
 
                     Text(
+
                         text =
                             t("current_type"),
+
                         color =
-                            TextPrimary,
+                            PrimaryTeal,
+
                         fontWeight =
-                            FontWeight.SemiBold
+                            FontWeight.Bold
                     )
 
                     SelectionDropdown(
+
                         value =
                             currentType,
 
                         values =
-                            CurrentType.values().toList(),
+                            CurrentType.values()
+                                .toList(),
 
                         text = {
 
@@ -350,172 +351,222 @@ fun ConductorSizingScreen(
                         }
                     )
 
-                    NumberField(
-                        label = t("voltage"),
-                        value = voltage,
-                        onValueChange = {
-                            voltage = it
-                        }
-                    )
+                    TwoColumnRow {
 
-                    NumberField(
-                        label = t("load"),
-                        value = load,
-                        onValueChange = {
-                            load = it
-                        }
-                    )
-
-                    NumberField(
-                        label =
-                            t("power_factor_label"),
-                        value =
-                            powerFactor,
-                        onValueChange = {
-                            powerFactor = it
-                        }
-                    )
-
-                    NumberField(
-                        label =
-                            t("line_length"),
-                        value =
-                            lineLength,
-                        onValueChange = {
-                            lineLength = it
-                        }
-                    )
-
-                    NumberField(
-                        label =
-                            t("ambient_temp"),
-                        value =
-                            ambientTemp,
-                        onValueChange = {
-                            ambientTemp = it
-                        }
-                    )
-
-                    NumberField(
-                        label =
-                            t("circuits_conduit"),
-                        value =
-                            circuits,
-                        onValueChange = {
-                            circuits = it
-                        }
-                    )
-
-                    NumberField(
-                        label =
-                            t("max_voltage_drop"),
-                        value =
-                            maxDrop,
-                        onValueChange = {
-                            maxDrop = it
-                        }
-                    )
-
-                    Text(
-                        text =
-                            t("method_installation"),
-                        color =
-                            TextPrimary,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-
-                    SelectionDropdown(
-                        value =
-                            method,
-
-                        values =
-                            iecInstallationMethods,
-
-                        text = {
-                            "${it.code} — ${it.description}"
-                        },
-
-                        onSelected = {
-                            method = it
-                        }
-                    )
-
-                    Text(
-                        text =
-                            t("conductor"),
-                        color =
-                            TextPrimary,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-
-                    SelectionDropdown(
-                        value =
-                            conductor,
-
-                        values =
-                            ConductorMaterial
-                                .values()
-                                .toList(),
-
-                        text = {
-
-                            when (it) {
-
-                                ConductorMaterial.Copper ->
-                                    t("copper")
-
-                                ConductorMaterial.Aluminum ->
-                                    t("aluminum")
+                        NumberField(
+                            modifier =
+                                Modifier.weight(1f),
+                            label =
+                                t("voltage"),
+                            value =
+                                voltage,
+                            onValueChange = {
+                                voltage = it
                             }
-                        },
+                        )
 
-                        onSelected = {
-                            conductor = it
-                        }
-                    )
-
-                    Text(
-                        text =
-                            t("insulation"),
-                        color =
-                            TextPrimary,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-
-                    SelectionDropdown(
-                        value =
-                            insulation,
-
-                        values =
-                            InsulationType
-                                .values()
-                                .toList(),
-
-                        text = {
-
-                            when (it) {
-
-                                InsulationType.PVC ->
-                                    t("pvc")
-
-                                InsulationType.XLPE ->
-                                    t("xlpe")
-
-                                InsulationType.EPR ->
-                                    t("epr")
-
-                                InsulationType.Rubber ->
-                                    t("rubber")
+                        NumberField(
+                            modifier =
+                                Modifier.weight(1f),
+                            label =
+                                t("load"),
+                            value =
+                                load,
+                            onValueChange = {
+                                load = it
                             }
-                        },
+                        )
+                    }
 
-                        onSelected = {
-                            insulation = it
+                    TwoColumnRow {
+
+                        NumberField(
+                            modifier =
+                                Modifier.weight(1f),
+                            label =
+                                t("power_factor_label"),
+                            value =
+                                powerFactor,
+                            onValueChange = {
+                                powerFactor = it
+                            }
+                        )
+
+                        NumberField(
+                            modifier =
+                                Modifier.weight(1f),
+                            label =
+                                t("line_length"),
+                            value =
+                                lineLength,
+                            onValueChange = {
+                                lineLength = it
+                            }
+                        )
+                    }
+
+                    TwoColumnRow {
+
+                        NumberField(
+                            modifier =
+                                Modifier.weight(1f),
+                            label =
+                                t("ambient_temp"),
+                            value =
+                                ambientTemp,
+                            onValueChange = {
+                                ambientTemp = it
+                            }
+                        )
+
+                        NumberField(
+                            modifier =
+                                Modifier.weight(1f),
+                            label =
+                                t("circuits_conduit"),
+                            value =
+                                circuits,
+                            onValueChange = {
+                                circuits = it
+                            }
+                        )
+                    }
+
+                    TwoColumnRow {
+
+                        NumberField(
+                            modifier =
+                                Modifier.weight(1f),
+                            label =
+                                t("max_voltage_drop"),
+                            value =
+                                maxDrop,
+                            onValueChange = {
+                                maxDrop = it
+                            }
+                        )
+
+                        Column(
+                            modifier =
+                                Modifier.weight(1f)
+                        ) {
+
+                            Text(
+                                text =
+                                    t("conductor"),
+                                color =
+                                    TextSecondary,
+                                fontSize =
+                                    12.sp,
+                                fontWeight =
+                                    FontWeight.SemiBold
+                            )
+
+                            SelectionDropdown(
+                                value =
+                                    conductor,
+
+                                values =
+                                    ConductorMaterial
+                                        .values()
+                                        .toList(),
+
+                                text = {
+
+                                    when (it) {
+
+                                        ConductorMaterial.Copper ->
+                                            t("copper")
+
+                                        ConductorMaterial.Aluminum ->
+                                            t("aluminum")
+                                    }
+                                },
+
+                                onSelected = {
+                                    conductor = it
+                                }
+                            )
                         }
-                    )
+                    }
+
+                    Column {
+
+                        Text(
+                            text =
+                                t("insulation"),
+                            color =
+                                TextSecondary,
+                            fontSize =
+                                12.sp,
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+
+                        SelectionDropdown(
+
+                            value =
+                                insulation,
+
+                            values =
+                                InsulationType
+                                    .values()
+                                    .toList(),
+
+                            text = {
+
+                                when (it) {
+
+                                    InsulationType.PVC ->
+                                        t("pvc")
+
+                                    InsulationType.XLPE ->
+                                        t("xlpe")
+
+                                    InsulationType.EPR ->
+                                        t("epr")
+
+                                    InsulationType.Rubber ->
+                                        t("rubber")
+                                }
+                            },
+
+                            onSelected = {
+                                insulation = it
+                            }
+                        )
+                    }
+
+                    Column {
+
+                        Text(
+                            text =
+                                t("method_installation"),
+                            color =
+                                TextSecondary,
+                            fontSize =
+                                12.sp,
+                            fontWeight =
+                                FontWeight.SemiBold
+                        )
+
+                        SelectionDropdown(
+
+                            value =
+                                method,
+
+                            values =
+                                iecInstallationMethods,
+
+                            text = {
+                                "${it.code} — ${it.description}"
+                            },
+
+                            onSelected = {
+                                method = it
+                            }
+                        )
+                    }
 
                     Button(
 
@@ -552,7 +603,6 @@ fun ConductorSizingScreen(
                                     .colorScheme
                                     .errorContainer
                         )
-
                 ) {
 
                     Text(
@@ -567,7 +617,7 @@ fun ConductorSizingScreen(
                             MaterialTheme
                                 .colorScheme
                                 .onErrorContainer
-                    )
+                    }
                 }
             }
 
@@ -583,7 +633,6 @@ fun ConductorSizingScreen(
                             containerColor =
                                 DarkSurface
                         )
-
                 ) {
 
                     Column(
@@ -780,7 +829,30 @@ fun ConductorSizingScreen(
 }
 
 @Composable
+private fun TwoColumnRow(
+    content: @Composable RowScope.() -> Unit
+) {
+
+    Row(
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        horizontalArrangement =
+            Arrangement.spacedBy(8.dp),
+
+        verticalAlignment =
+            Alignment.CenterVertically
+
+    ) {
+
+        content()
+    }
+}
+
+@Composable
 private fun NumberField(
+    modifier: Modifier = Modifier,
     label: String,
     value: String,
     onValueChange: (String) -> Unit
@@ -802,12 +874,14 @@ private fun NumberField(
                 )
             ) {
 
-                onValueChange(newValue)
+                onValueChange(
+                    newValue
+                )
             }
         },
 
         modifier =
-            Modifier.fillMaxWidth(),
+            modifier.fillMaxWidth(),
 
         label = {
             Text(label)
@@ -874,7 +948,9 @@ private fun <T> SelectionDropdown(
                 DropdownMenuItem(
 
                     text = {
-                        Text(text(item))
+                        Text(
+                            text(item)
+                        )
                     },
 
                     onClick = {
