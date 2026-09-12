@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.Strings
+import com.electrical.calculationspro.ui.screens.AboutScreen
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
 import com.electrical.calculationspro.ui.screens.EngineeringCalculatorScreen
 import com.electrical.calculationspro.ui.theme.DarkBackground
@@ -250,6 +251,12 @@ fun MainScreen() {
         }
     }
 
+    /*
+     * ============================================================
+     * UPDATE CHECK DIALOG
+     * ============================================================
+     */
+
     if (checkingUpdate) {
 
         AlertDialog(
@@ -297,6 +304,12 @@ fun MainScreen() {
             confirmButton = {}
         )
     }
+
+    /*
+     * ============================================================
+     * NEW UPDATE AVAILABLE
+     * ============================================================
+     */
 
     updateRelease?.let { release ->
 
@@ -434,41 +447,11 @@ fun MainScreen() {
         )
     }
 
-    if (showAbout) {
-
-        AlertDialog(
-
-            onDismissRequest = {
-                showAbout = false
-            },
-
-            title = {
-                Text(
-                    text("app_name")
-                )
-            },
-
-            text = {
-                Text(
-                    text("about_description")
-                )
-            },
-
-            confirmButton = {
-
-                TextButton(
-                    onClick = {
-                        showAbout = false
-                    }
-                ) {
-
-                    Text(
-                        text("close")
-                    )
-                }
-            }
-        )
-    }
+    /*
+     * ============================================================
+     * FUNCTIONS DIALOG
+     * ============================================================
+     */
 
     if (showFunctions) {
 
@@ -506,6 +489,33 @@ fun MainScreen() {
         )
     }
 
+    /*
+     * ============================================================
+     * ABOUT SCREEN
+     *
+     * الصفحة أصبحت شاشة كاملة فعلية
+     * وليست AlertDialog.
+     * ============================================================
+     */
+
+    if (showAbout) {
+
+        AboutScreen(
+            language = language,
+            onClose = {
+                showAbout = false
+            }
+        )
+
+        return
+    }
+
+    /*
+     * ============================================================
+     * MAIN SCAFFOLD
+     * ============================================================
+     */
+
     Scaffold(
         containerColor = DarkBackground
     ) { paddingValues ->
@@ -518,9 +528,9 @@ fun MainScreen() {
         ) {
 
             /*
-             * ============================================================
+             * ========================================================
              * TOP BAR
-             * ============================================================
+             * ========================================================
              */
 
             Row(
@@ -560,6 +570,12 @@ fun MainScreen() {
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
+
+                /*
+                 * ====================================================
+                 * LANGUAGE
+                 * ====================================================
+                 */
 
                 Box {
 
@@ -621,9 +637,9 @@ fun MainScreen() {
                 }
 
                 /*
-                 * ========================================================
+                 * ====================================================
                  * UPDATE BUTTON
-                 * ========================================================
+                 * ====================================================
                  */
 
                 IconButton(
@@ -641,6 +657,12 @@ fun MainScreen() {
                     )
                 }
 
+                /*
+                 * ====================================================
+                 * FUNCTIONS BUTTON
+                 * ====================================================
+                 */
+
                 IconButton(
                     onClick = {
                         showFunctions = true
@@ -655,6 +677,12 @@ fun MainScreen() {
                         tint = TextPrimary
                     )
                 }
+
+                /*
+                 * ====================================================
+                 * ABOUT BUTTON
+                 * ====================================================
+                 */
 
                 IconButton(
                     onClick = {
@@ -775,6 +803,12 @@ fun MainScreen() {
     }
 }
 
+/*
+ * ============================================================================
+ * LEFT CALCULATION MENU
+ * ============================================================================
+ */
+
 @Composable
 private fun LeftCalculationMenu(
     modifier: Modifier,
@@ -879,6 +913,12 @@ private fun LeftCalculationMenu(
     }
 }
 
+/*
+ * ============================================================================
+ * STANDARD SELECTOR
+ * ============================================================================
+ */
+
 @Composable
 private fun StandardSelector(
     language: AppLanguage,
@@ -969,6 +1009,12 @@ private fun StandardSelector(
     }
 }
 
+/*
+ * ============================================================================
+ * STANDARD NAME
+ * ============================================================================
+ */
+
 private fun standardName(
     standard: Standard,
     language: AppLanguage
@@ -995,6 +1041,12 @@ private fun standardName(
             "CEC"
     }
 }
+
+/*
+ * ============================================================================
+ * LEFT MENU ITEM
+ * ============================================================================
+ */
 
 @Composable
 private fun LeftMenuItem(
@@ -1089,6 +1141,12 @@ private fun LeftMenuItem(
         }
     }
 }
+
+/*
+ * ============================================================================
+ * WELCOME SCREEN
+ * ============================================================================
+ */
 
 @Composable
 private fun WelcomeScreen(
@@ -1186,3 +1244,8 @@ private fun WelcomeScreen(
         }
     }
 }
+
+مسار الملف:
+"app/src/main/java/com/electrical/calculationspro/MainActivity.kt"
+
+التغيير الأساسي: زر About أصبح يفتح "AboutScreen.kt" كشاشة كاملة فعلية بدل النافذة القديمة.
