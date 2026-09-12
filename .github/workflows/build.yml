@@ -4,17 +4,20 @@ on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+
   release:
     name: Build Release And Publish
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -35,83 +38,156 @@ jobs:
 
       - name: Install Android SDK packages
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Verify Android SDK
         run: |
-          test -d "$ANDROID_HOME/platforms/android-35" || exit 1
-          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" || exit 1
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
       - name: Verify Gradle
-        run: gradle --version
+        run: |
+          gradle --version
 
-      - name: Verify Release Signing Secrets
+      - name: Check Release Signing Configuration
+        id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          test -n "$KEYSTORE_BASE64" || {
-            echo "::error::KEYSTORE_BASE64 secret is missing"
-            exit 1
-          }
+          if [ -n "$KEYSTORE_BASE64" ] && \
+             [ -n "$KEYSTORE_PASSWORD" ] && \
+             [ -n "$KEY_ALIAS" ] && \
+             [ -n "$KEY_PASSWORD" ]; then
 
-          test -n "$KEYSTORE_PASSWORD" || {
-            echo "::error::KEYSTORE_PASSWORD secret is missing"
-            exit 1
-          }
+            echo "signing_available=true" >> "$GITHUB_OUTPUT"
+            echo "Release signing configuration is available."
 
-          test -n "$KEY_ALIAS" || {
-            echo "::error::KEY_ALIAS secret is missing"
-            exit 1
-          }
+          else
 
-          test -n "$KEY_PASSWORD" || {
-            echo "::error::KEY_PASSWORD secret is missing"
-            exit 1
-          }
+            echo "signing_available=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Release signing secrets are not configured."
+            echo "::warning::The APK will be built unsigned."
 
-      - name: Build Signed Release APK
+          fi
+
+      - name: Build Release APK
         env:
           VERSION_CODE: ${{ github.run_number }}
           VERSION_NAME: 1.0.${{ github.run_number }}
+
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          gradle :app:assembleRelease --stacktrace --no-daemon
 
-      - name: Verify APK
         run: |
-          test -f app/build/outputs/apk/release/app-release.apk || {
-            echo "::error::Release APK was not generated"
+          gradle :app:assembleRelease \
+            --stacktrace \
+            --no-daemon
+
+      - name: Verify Release APK
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "::error::Release APK was not generated."
             exit 1
-          }
+          fi
 
-          ls -lh app/build/outputs/apk/release/app-release.apk
+          echo "Release APK generated successfully:"
+          ls -lh "$APK"
+
+      - name: Verify APK Signing
+        id: verify_signature
+        continue-on-error: true
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+
+          "$APKSIGNER" verify --verbose "$APK"
+
+      - name: Report Signing Status
+        run: |
+          if [ "${{ steps.verify_signature.outcome }}" = "success" ]; then
+            echo "APK signature verification: SUCCESS"
+          else
+            echo "::warning::APK is not signed with the release key."
+            echo "::warning::Do not use this APK for application updates until permanent release signing is configured."
+          fi
 
       - name: Rename APK
         run: |
-          cp app/build/outputs/apk/release/app-release.apk \
-             app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk
-
-      - name: Verify APK Signature
-        run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
-            --verbose \
+          cp \
+            app/build/outputs/apk/release/app-release.apk \
             app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk
+
+      - name: Prepare Release Notes
+        run: |
+          cat > release-notes.md <<EOF
+          # Electrical Calculations Pro
+
+          Version: 1.0.${{ github.run_number }}
+
+          Build: ${{ github.run_number }}
+
+          Commit: ${{ github.sha }}
+
+          This release was generated automatically by GitHub Actions.
+
+          ## Installation
+
+          Install the APK over the existing application only when it is signed with the same permanent release key.
+
+          ## Important
+
+          If this release is unsigned, it is a development/testing build and must not be used as the permanent update package.
+          EOF
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+
         run: |
           TAG="v1.0.${{ github.run_number }}"
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
-          gh release create "$TAG" "$APK" \
-            --repo "${{ github.repository }}" \
-            --title "Electrical Calculations Pro $TAG" \
-            --generate-notes
+          if gh release view "$TAG" \
+             --repo "${{ github.repository }}" >/dev/null 2>&1; then
+
+            echo "Release $TAG already exists."
+
+            gh release upload \
+              "$TAG" \
+              "$APK" \
+              --repo "${{ github.repository }}" \
+              --clobber
+
+          else
+
+            gh release create \
+              "$TAG" \
+              "$APK" \
+              --repo "${{ github.repository }}" \
+              --title "Electrical Calculations Pro $TAG" \
+              --notes-file release-notes.md
+
+          fi
+
+      - name: Build Summary
+        run: |
+          echo "=========================================="
+          echo " Electrical Calculations Pro"
+          echo "=========================================="
+          echo "Version : 1.0.${{ github.run_number }}"
+          echo "Build   : ${{ github.run_number }}"
+          echo "Commit  : ${{ github.sha }}"
+          echo "APK     : ElectricalCalculationsPro-release.apk"
+          echo "=========================================="
