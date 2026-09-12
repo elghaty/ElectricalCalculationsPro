@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -38,7 +40,7 @@ if (hasCiSigning) {
 
     if (!keystoreFile.exists()) {
         keystoreFile.writeBytes(
-            java.util.Base64
+            Base64
                 .getDecoder()
                 .decode(keystoreBase64)
         )
