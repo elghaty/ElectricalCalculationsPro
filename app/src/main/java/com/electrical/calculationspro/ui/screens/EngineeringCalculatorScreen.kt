@@ -2,7 +2,7 @@ package com.electrical.calculationspro.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -52,7 +52,9 @@ private fun CurrentCalculator(language: AppLanguage) {
     var load by remember { mutableStateOf("5000") }
     var voltage by remember { mutableStateOf("230") }
     var pf by remember { mutableStateOf("0.90") }
-    var type by remember { mutableStateOf(CurrentType.AlternatingSinglePhase) }
+    var type by remember {
+        mutableStateOf(CurrentType.AlternatingSinglePhase)
+    }
     var result by remember { mutableStateOf<Double?>(null) }
 
     CalculatorLayout(
@@ -107,7 +109,9 @@ private fun VoltageCalculator(language: AppLanguage) {
     var load by remember { mutableStateOf("5000") }
     var current by remember { mutableStateOf("25") }
     var pf by remember { mutableStateOf("0.90") }
-    var type by remember { mutableStateOf(CurrentType.AlternatingSinglePhase) }
+    var type by remember {
+        mutableStateOf(CurrentType.AlternatingSinglePhase)
+    }
     var result by remember { mutableStateOf<Double?>(null) }
 
     CalculatorLayout(
@@ -517,11 +521,10 @@ private fun VoltageDropCalculator(language: AppLanguage) {
         result?.let {
             ResultCard(
                 title = Strings.get("results", language),
-                value =
-                    "%.3f V\n%.3f %%".format(
-                        it.second,
-                        it.first
-                    )
+                value = "%.3f V\n%.3f %%".format(
+                    it.second,
+                    it.first
+                )
             )
         }
     }
@@ -559,7 +562,9 @@ private fun NumberField(
         onValueChange = {
             onValueChange(
                 it.filter { char ->
-                    char.isDigit() || char == '.' || char == '-'
+                    char.isDigit() ||
+                        char == '.' ||
+                        char == '-'
                 }
             )
         },
@@ -643,7 +648,9 @@ private fun CurrentTypeDropdown(
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = {
+                expanded = false
+            }
         ) {
             CurrentType.values().forEach { item ->
                 DropdownMenuItem(
@@ -651,16 +658,28 @@ private fun CurrentTypeDropdown(
                         Text(
                             when (item) {
                                 CurrentType.DirectCurrent ->
-                                    Strings.get("direct_current", language)
+                                    Strings.get(
+                                        "direct_current",
+                                        language
+                                    )
 
                                 CurrentType.AlternatingSinglePhase ->
-                                    Strings.get("alternating_single", language)
+                                    Strings.get(
+                                        "alternating_single",
+                                        language
+                                    )
 
                                 CurrentType.AlternatingTwoPhase ->
-                                    Strings.get("alternating_two", language)
+                                    Strings.get(
+                                        "alternating_two",
+                                        language
+                                    )
 
                                 CurrentType.AlternatingThreePhase ->
-                                    Strings.get("alternating_three", language)
+                                    Strings.get(
+                                        "alternating_three",
+                                        language
+                                    )
                             }
                         )
                     },
@@ -688,16 +707,19 @@ private fun PhaseDropdown(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                if (phases == 1)
+                if (phases == 1) {
                     "1 Phase / أحادي الطور"
-                else
+                } else {
                     "3 Phase / ثلاثي الطور"
+                }
             )
         }
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = {
+                expanded = false
+            }
         ) {
             DropdownMenuItem(
                 text = {
@@ -748,7 +770,9 @@ private fun MaterialDropdown(
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = {
+                expanded = false
+            }
         ) {
             ConductorMaterial.values().forEach { material ->
                 DropdownMenuItem(
@@ -756,10 +780,16 @@ private fun MaterialDropdown(
                         Text(
                             when (material) {
                                 ConductorMaterial.Copper ->
-                                    Strings.get("copper", language)
+                                    Strings.get(
+                                        "copper",
+                                        language
+                                    )
 
                                 ConductorMaterial.Aluminum ->
-                                    Strings.get("aluminum", language)
+                                    Strings.get(
+                                        "aluminum",
+                                        language
+                                    )
                             }
                         )
                     },
