@@ -4,6 +4,40 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val ciVersionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 1
+val ciVersionName = System.getenv("VERSION_NAME") ?: "1.0.0"
+
+val keystoreBase64 = System.getenv("KEYSTORE_BASE64")
+val keystorePassword = System.getenv("KEYSTORE_PASSWORD")
+val keyAliasValue = System.getenv("KEY_ALIAS")
+val keyPasswordValue = System.getenv("KEY_PASSWORD")
+
+val hasReleaseSigning = listOf(
+    keystoreBase64,
+    keystorePassword,
+    keyAliasValue,
+    keyPasswordValue
+).all { !it.isNullOrBlank() }
+
+if (hasReleaseSigning) {
+    val keystoreFile = rootProject.file("release.keystore")
+
+    if (!keystoreFile.exists()) {
+        keystoreFile.writeBytes(
+            java.util.Base64
+                .getDecoder()
+                .decode(keystoreBase64)
+        )
+    }
+
+    android.signingConfigs.create("ciRelease") {
+        storeFile = keystoreFile
+        storePassword = keystorePassword
+        keyAlias = keyAliasValue
+        keyPassword = keyPasswordValue
+    }
+}
+
 android {
     namespace = "com.electrical.calculationspro"
     compileSdk = 35
@@ -12,13 +46,18 @@ android {
         applicationId = "com.electrical.calculationspro"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+
+        versionCode = ciVersionCode
+        versionName = ciVersionName
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("ciRelease")
+            }
 
             proguardFiles(
                 getDefaultProguardFile(
@@ -53,28 +92,19 @@ dependencies {
     implementation(composeBom)
 
     implementation(
-        "androidx.compose.ui:ui"
+        "androidx.core:core-ktx:1.15.0"
     )
 
     implementation(
-        "androidx.compose.ui:ui-graphics"
+        "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
     )
 
-    implementation(
-        "androidx.compose.ui:ui-tooling-preview"
-    )
-
-    implementation(
-        "androidx.compose.material3:material3"
-    )
-
-    implementation(
-        "androidx.compose.material:material-icons-extended"
-    )
-
-    implementation(
-        "androidx.compose.foundation:foundation"
-    )
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.compose.foundation:foundation")
 
     implementation(
         "androidx.activity:activity-compose:1.9.3"
