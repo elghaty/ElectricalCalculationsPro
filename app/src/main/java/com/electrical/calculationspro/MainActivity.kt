@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +41,7 @@ import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -59,6 +61,7 @@ import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.Strings
 import com.electrical.calculationspro.ui.components.SidebarItem
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
+import com.electrical.calculationspro.ui.screens.EngineeringCalculatorScreen
 import com.electrical.calculationspro.ui.theme.DarkBackground
 import com.electrical.calculationspro.ui.theme.DarkSurface
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
@@ -106,6 +109,14 @@ fun MainScreen() {
     }
 
     var showLanguageMenu by remember {
+        mutableStateOf(false)
+    }
+
+    var showFunctionsDialog by remember {
+        mutableStateOf(false)
+    }
+
+    var showInfoDialog by remember {
         mutableStateOf(false)
     }
 
@@ -195,13 +206,62 @@ fun MainScreen() {
         return Strings.get(key, language)
     }
 
+    if (showFunctionsDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showFunctionsDialog = false
+            },
+            title = {
+                Text(t("functions"))
+            },
+            text = {
+                Text(
+                    t("functions_description")
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showFunctionsDialog = false
+                    }
+                ) {
+                    Text(t("close"))
+                }
+            }
+        )
+    }
+
+    if (showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showInfoDialog = false
+            },
+            title = {
+                Text(t("app_name"))
+            },
+            text = {
+                Text(
+                    t("about_description")
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showInfoDialog = false
+                    }
+                ) {
+                    Text(t("close"))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
 
             TopAppBar(
 
                 title = {
-
                     Text(
                         text = t(selectedMenu),
                         fontSize = 15.sp,
@@ -218,9 +278,11 @@ fun MainScreen() {
                 navigationIcon = {
 
                     IconButton(
-                        onClick = {}
+                        onClick = {
+                            selectedMenu =
+                                "conductor_sizing_protection"
+                        }
                     ) {
-
                         Icon(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Menu",
@@ -238,7 +300,6 @@ fun MainScreen() {
                                 showLanguageMenu = true
                             }
                         ) {
-
                             Icon(
                                 imageVector = Icons.Default.Language,
                                 contentDescription = t("language"),
@@ -258,17 +319,14 @@ fun MainScreen() {
                                     Text(t("english"))
                                 },
                                 onClick = {
-
                                     language = AppLanguage.ENGLISH
                                     showLanguageMenu = false
                                 },
                                 leadingIcon = {
-
                                     if (
                                         language ==
                                         AppLanguage.ENGLISH
                                     ) {
-
                                         Icon(
                                             imageVector =
                                                 Icons.Default.Check,
@@ -284,17 +342,14 @@ fun MainScreen() {
                                     Text(t("arabic"))
                                 },
                                 onClick = {
-
                                     language = AppLanguage.ARABIC
                                     showLanguageMenu = false
                                 },
                                 leadingIcon = {
-
                                     if (
                                         language ==
                                         AppLanguage.ARABIC
                                     ) {
-
                                         Icon(
                                             imageVector =
                                                 Icons.Default.Check,
@@ -308,23 +363,25 @@ fun MainScreen() {
                     }
 
                     IconButton(
-                        onClick = {}
+                        onClick = {
+                            showFunctionsDialog = true
+                        }
                     ) {
-
                         Icon(
                             imageVector = Icons.Default.Functions,
-                            contentDescription = null,
+                            contentDescription = t("functions"),
                             tint = TextPrimary
                         )
                     }
 
                     IconButton(
-                        onClick = {}
+                        onClick = {
+                            showInfoDialog = true
+                        }
                     ) {
-
                         Icon(
                             imageVector = Icons.Default.Info,
-                            contentDescription = null,
+                            contentDescription = t("about"),
                             tint = TextPrimary
                         )
                     }
@@ -343,9 +400,12 @@ fun MainScreen() {
         ) {
 
             ScrollableTabRow(
-                selectedTabIndex = selectedStandard.ordinal,
-                containerColor = Color(0xFF1E2A3A),
-                contentColor = PrimaryTeal,
+                selectedTabIndex =
+                    selectedStandard.ordinal,
+                containerColor =
+                    Color(0xFF1E2A3A),
+                contentColor =
+                    PrimaryTeal,
                 edgePadding = 8.dp,
                 divider = {}
             ) {
@@ -479,30 +539,20 @@ fun MainScreen() {
                             )
                         }
 
-                        else -> {
+                        "voltage_drop",
+                        "current",
+                        "voltage",
+                        "active_power",
+                        "apparent_power",
+                        "reactive_power",
+                        "power_factor",
+                        "resistance",
+                        "impedance" -> {
 
-                            Box(
-
-                                modifier =
-                                    Modifier.fillMaxSize(),
-
-                                contentAlignment =
-                                    Alignment.Center
-
-                            ) {
-
-                                Text(
-
-                                    text =
-                                        "${t("coming_soon")}\n" +
-                                            t(selectedMenu),
-
-                                    color =
-                                        TextSecondary,
-
-                                    fontSize = 16.sp
-                                )
-                            }
+                            EngineeringCalculatorScreen(
+                                calculation = selectedMenu,
+                                language = language
+                            )
                         }
                     }
                 }
