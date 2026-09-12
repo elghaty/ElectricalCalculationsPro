@@ -1,1 +1,4 @@
-
+<resources>
+    <color name="icon_background">#101A2A</color>
+    <color name="icon_cyan">#26C6DA</color>
+</resources>
