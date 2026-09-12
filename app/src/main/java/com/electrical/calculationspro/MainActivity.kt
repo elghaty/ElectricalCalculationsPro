@@ -5,13 +5,47 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Cable
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ElectricBolt
+import androidx.compose.material.icons.filled.ElectricalServices
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Functions
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LinearScale
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Power
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,12 +58,18 @@ import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.Strings
 import com.electrical.calculationspro.ui.components.SidebarItem
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
-import com.electrical.calculationspro.ui.theme.*
+import com.electrical.calculationspro.ui.theme.DarkBackground
+import com.electrical.calculationspro.ui.theme.DarkSurface
+import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
+import com.electrical.calculationspro.ui.theme.PrimaryTeal
+import com.electrical.calculationspro.ui.theme.TextPrimary
+import com.electrical.calculationspro.ui.theme.TextSecondary
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         enableEdgeToEdge()
 
         setContent {
@@ -48,83 +88,93 @@ data class MenuItem(
     val iconTint: Color = Color.White
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
 
-    var selectedStandard by remember { mutableStateOf(Standard.IEC) }
-    var selectedMenu by remember { mutableStateOf("conductor_sizing_protection") }
-    var language by remember { mutableStateOf(AppLanguage.ARABIC) }
-    var showLanguageMenu by remember { mutableStateOf(false) }
+    var selectedStandard by remember {
+        mutableStateOf(Standard.IEC)
+    }
+
+    var selectedMenu by remember {
+        mutableStateOf("conductor_sizing_protection")
+    }
+
+    var language by remember {
+        mutableStateOf(AppLanguage.ARABIC)
+    }
+
+    var showLanguageMenu by remember {
+        mutableStateOf(false)
+    }
 
     val menuItems = listOf(
         MenuItem(
-            "conductor_sizing",
-            "conductor_sizing",
-            Icons.Default.Cable,
-            Color(0xFF4CAF50)
+            id = "conductor_sizing",
+            titleKey = "conductor_sizing",
+            icon = Icons.Default.Cable,
+            iconBg = Color(0xFF4CAF50)
         ),
         MenuItem(
-            "conductor_sizing_protection",
-            "conductor_sizing_protection",
-            Icons.Default.Security,
-            Color(0xFF607D8B)
+            id = "conductor_sizing_protection",
+            titleKey = "conductor_sizing_protection",
+            icon = Icons.Default.Security,
+            iconBg = Color(0xFF607D8B)
         ),
         MenuItem(
-            "voltage_drop",
-            "voltage_drop",
-            Icons.Default.Bolt,
-            Color(0xFFE53935)
+            id = "voltage_drop",
+            titleKey = "voltage_drop",
+            icon = Icons.Default.Bolt,
+            iconBg = Color(0xFFE53935)
         ),
         MenuItem(
-            "current",
-            "current",
-            Icons.Default.ElectricBolt,
-            Color(0xFF4CAF50)
+            id = "current",
+            titleKey = "current",
+            icon = Icons.Default.ElectricBolt,
+            iconBg = Color(0xFF4CAF50)
         ),
         MenuItem(
-            "voltage",
-            "voltage",
-            Icons.Default.ElectricalServices,
-            Color(0xFFE91E63)
+            id = "voltage",
+            titleKey = "voltage",
+            icon = Icons.Default.ElectricalServices,
+            iconBg = Color(0xFFE91E63)
         ),
         MenuItem(
-            "active_power",
-            "active_power",
-            Icons.Default.Power,
-            Color(0xFF9C27B0)
+            id = "active_power",
+            titleKey = "active_power",
+            icon = Icons.Default.Power,
+            iconBg = Color(0xFF9C27B0)
         ),
         MenuItem(
-            "apparent_power",
-            "apparent_power",
-            Icons.Default.FlashOn,
-            Color(0xFF3F51B5)
+            id = "apparent_power",
+            titleKey = "apparent_power",
+            icon = Icons.Default.FlashOn,
+            iconBg = Color(0xFF3F51B5)
         ),
         MenuItem(
-            "reactive_power",
-            "reactive_power",
-            Icons.Default.Tune,
-            Color(0xFF00BCD4)
+            id = "reactive_power",
+            titleKey = "reactive_power",
+            icon = Icons.Default.Tune,
+            iconBg = Color(0xFF00BCD4)
         ),
         MenuItem(
-            "power_factor",
-            "power_factor",
-            Icons.Default.Speed,
-            Color(0xFFFF9800)
+            id = "power_factor",
+            titleKey = "power_factor",
+            icon = Icons.Default.Speed,
+            iconBg = Color(0xFFFF9800)
         ),
         MenuItem(
-            "resistance",
-            "resistance",
-            Icons.Default.LinearScale,
-            Color(0xFFFFEB3B),
-            Color.Black
+            id = "resistance",
+            titleKey = "resistance",
+            icon = Icons.Default.LinearScale,
+            iconBg = Color(0xFFFFEB3B),
+            iconTint = Color.Black
         ),
         MenuItem(
-            "impedance",
-            "impedance",
-            Icons.Default.Timeline,
-            Color(0xFFFFEB3B),
-            Color.Black
+            id = "impedance",
+            titleKey = "impedance",
+            icon = Icons.Default.Timeline,
+            iconBg = Color(0xFFFFEB3B),
+            iconTint = Color.Black
         )
     )
 
@@ -134,7 +184,6 @@ fun MainScreen() {
 
     Scaffold(
         topBar = {
-
             TopAppBar(
                 title = {
                     Text(
@@ -144,33 +193,28 @@ fun MainScreen() {
                         maxLines = 1
                     )
                 },
-
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF1E2A3A),
                     titleContentColor = TextPrimary
                 ),
-
                 navigationIcon = {
                     IconButton(onClick = {}) {
                         Icon(
-                            Icons.Default.Menu,
+                            imageVector = Icons.Default.Menu,
                             contentDescription = "Menu",
                             tint = TextPrimary
                         )
                     }
                 },
-
                 actions = {
-
-                    Box {
-
+                    androidx.compose.foundation.layout.Box {
                         IconButton(
                             onClick = {
                                 showLanguageMenu = true
                             }
                         ) {
                             Icon(
-                                Icons.Default.Language,
+                                imageVector = Icons.Default.Language,
                                 contentDescription = t("language"),
                                 tint = TextPrimary
                             )
@@ -182,7 +226,6 @@ fun MainScreen() {
                                 showLanguageMenu = false
                             }
                         ) {
-
                             DropdownMenuItem(
                                 text = {
                                     Text(t("english"))
@@ -194,7 +237,7 @@ fun MainScreen() {
                                 leadingIcon = {
                                     if (language == AppLanguage.ENGLISH) {
                                         Icon(
-                                            Icons.Default.Check,
+                                            imageVector = Icons.Default.Check,
                                             contentDescription = null,
                                             tint = PrimaryTeal
                                         )
@@ -213,7 +256,7 @@ fun MainScreen() {
                                 leadingIcon = {
                                     if (language == AppLanguage.ARABIC) {
                                         Icon(
-                                            Icons.Default.Check,
+                                            imageVector = Icons.Default.Check,
                                             contentDescription = null,
                                             tint = PrimaryTeal
                                         )
@@ -225,7 +268,7 @@ fun MainScreen() {
 
                     IconButton(onClick = {}) {
                         Icon(
-                            Icons.Default.Functions,
+                            imageVector = Icons.Default.Functions,
                             contentDescription = null,
                             tint = TextPrimary
                         )
@@ -233,7 +276,7 @@ fun MainScreen() {
 
                     IconButton(onClick = {}) {
                         Icon(
-                            Icons.Default.Info,
+                            imageVector = Icons.Default.Info,
                             contentDescription = null,
                             tint = TextPrimary
                         )
@@ -241,9 +284,7 @@ fun MainScreen() {
                 }
             )
         },
-
         containerColor = DarkBackground
-
     ) { padding ->
 
         Column(
@@ -259,36 +300,33 @@ fun MainScreen() {
                 edgePadding = 8.dp,
                 divider = {}
             ) {
-
-                Standard.values().forEach { standard ->
+                Standard.entries.forEach { standard ->
 
                     Tab(
                         selected = selectedStandard == standard,
                         onClick = {
                             selectedStandard = standard
                         },
-
                         text = {
-
                             Text(
                                 text = when (standard) {
                                     Standard.IEC -> "IEC"
-                                    Standard.EGYPTIAN -> t("egyptian_code")
+                                    Standard.EGYPTIAN ->
+                                        t("egyptian_code")
+
                                     Standard.CEI -> "CEI"
                                     Standard.NEC -> "NEC"
                                     Standard.CEC -> "CEC"
                                 },
-
                                 fontWeight =
-                                    if (selectedStandard == standard)
+                                    if (selectedStandard == standard) {
                                         FontWeight.Bold
-                                    else
-                                        FontWeight.Normal,
-
+                                    } else {
+                                        FontWeight.Normal
+                                    },
                                 fontSize = 13.sp
                             )
                         },
-
                         selectedContentColor = PrimaryTeal,
                         unselectedContentColor = TextSecondary
                     )
@@ -302,18 +340,20 @@ fun MainScreen() {
                 LazyColumn(
                     modifier = Modifier
                         .width(
-                            if (language == AppLanguage.ARABIC)
+                            if (language == AppLanguage.ARABIC) {
                                 240.dp
-                            else
+                            } else {
                                 220.dp
+                            }
                         )
                         .fillMaxHeight()
                         .background(DarkSurface)
                 ) {
-
                     items(
                         items = menuItems,
-                        key = { it.id }
+                        key = {
+                            it.id
+                        }
                     ) { item ->
 
                         SidebarItem(
@@ -335,12 +375,10 @@ fun MainScreen() {
                         .fillMaxHeight()
                         .background(DarkBackground)
                 ) {
-
                     when (selectedMenu) {
 
                         "conductor_sizing_protection",
                         "conductor_sizing" -> {
-
                             ConductorSizingScreen(
                                 language = language,
                                 standard = selectedStandard
@@ -348,12 +386,10 @@ fun MainScreen() {
                         }
 
                         else -> {
-
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
                             ) {
-
                                 Text(
                                     text =
                                         "${t("coming_soon")}\n${t(selectedMenu)}",
