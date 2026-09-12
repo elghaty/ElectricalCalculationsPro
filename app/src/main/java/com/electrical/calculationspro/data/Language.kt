@@ -12,93 +12,181 @@ object Strings {
         lang: AppLanguage
     ): String {
         return when (lang) {
-            AppLanguage.ENGLISH -> english[key] ?: key
-            AppLanguage.ARABIC -> arabic[key] ?: key
+            AppLanguage.ENGLISH ->
+                english[key] ?: key
+
+            AppLanguage.ARABIC ->
+                arabic[key] ?: key
         }
     }
 
     private val english = mapOf(
-        "app_name" to "Electrical Calculations Pro",
+
+        "app_name" to
+            "Electrical Calculations Pro",
+
         "conductor_sizing_protection" to
             "Conductor sizing and protective device coordination",
+
         "conductor_sizing" to
             "Conductor sizing",
+
         "voltage_drop" to
             "Calculation of voltage drop",
+
         "current" to
             "Calculation of current",
+
         "voltage" to
-            "Voltage:",
+            "Calculation of voltage",
+
         "active_power" to
             "Calculation of active power",
+
         "apparent_power" to
             "Calculation of apparent power",
+
         "reactive_power" to
             "Calculation of reactive power",
+
         "power_factor" to
             "Calculation of power factor",
+
         "resistance" to
             "Calculation of resistance",
+
         "impedance" to
             "Calculation of impedance",
 
-        "current_type" to "Current type:",
-        "direct_current" to "Direct current",
+        "current_type" to
+            "Current type:",
+
+        "direct_current" to
+            "Direct current",
+
         "alternating_single" to
             "Alternating single-phase",
+
         "alternating_two" to
             "Alternating two-phase",
+
         "alternating_three" to
             "Alternating three-phase",
 
-        "load" to "Load:",
-        "power_factor_label" to "Power factor:",
-        "line_length" to "Line length:",
+        "load" to
+            "Load:",
+
+        "power_factor_label" to
+            "Power factor:",
+
+        "line_length" to
+            "Line length:",
+
         "method_installation" to
             "Method of installation:",
+
         "ambient_temp" to
             "Ambient temperature:",
-        "conductor" to "Conductor:",
-        "insulation" to "Insulation:",
+
+        "conductor" to
+            "Conductor:",
+
+        "insulation" to
+            "Insulation:",
+
         "circuits_conduit" to
             "Circuits in the same conduit:",
+
         "max_voltage_drop" to
             "Max voltage drop:",
 
-        "calculate" to "Calculate",
-        "results" to "Results",
+        "calculate" to
+            "Calculate",
+
+        "results" to
+            "Results",
+
         "design_current" to
             "Design current (Ib)",
+
         "recommended_section" to
             "Recommended section",
+
         "selected_section" to
             "Selected section",
+
         "ampacity" to
             "Ampacity (Iz)",
+
         "voltage_drop_result" to
             "Voltage drop",
+
         "protective_device" to
             "Protective device",
 
-        "copper" to "Copper",
-        "aluminum" to "Aluminum",
-        "pvc" to "PVC",
-        "xlpe" to "XLPE",
-        "epr" to "EPR",
-        "rubber" to "Rubber",
+        "copper" to
+            "Copper",
 
-        "coming_soon" to "Coming soon...",
-        "language" to "Language",
-        "english" to "English",
-        "arabic" to "العربية",
-        "standard" to "Standard",
-        "egyptian_code" to "Egyptian Code",
-        "single_core" to "Single-core",
-        "multi_core" to "Multi-core",
-        "notes" to "Notes"
+        "aluminum" to
+            "Aluminum",
+
+        "pvc" to
+            "PVC",
+
+        "xlpe" to
+            "XLPE",
+
+        "epr" to
+            "EPR",
+
+        "rubber" to
+            "Rubber",
+
+        "coming_soon" to
+            "Coming soon...",
+
+        "language" to
+            "Language",
+
+        "english" to
+            "English",
+
+        "arabic" to
+            "العربية",
+
+        "standard" to
+            "Standard",
+
+        "egyptian_code" to
+            "Egyptian Code",
+
+        "single_core" to
+            "Single-core",
+
+        "multi_core" to
+            "Multi-core",
+
+        "notes" to
+            "Notes",
+
+        "functions" to
+            "Engineering Functions",
+
+        "functions_description" to
+            "Electrical calculations, conductor sizing, voltage drop, current, voltage, active power, apparent power, reactive power, power factor, resistance and impedance.",
+
+        "about" to
+            "About",
+
+        "about_description" to
+            "Electrical Calculations Pro\nProfessional electrical engineering calculation application.",
+
+        "close" to
+            "Close"
     )
 
     private val arabic = mapOf(
+
         "app_name" to
             "حاسبة الحسابات الكهربائية برو",
 
@@ -115,7 +203,7 @@ object Strings {
             "حساب التيار",
 
         "voltage" to
-            "الجهد:",
+            "حساب الجهد",
 
         "active_power" to
             "حساب القدرة الفعالة",
@@ -244,6 +332,21 @@ object Strings {
             "متعدد النواة",
 
         "notes" to
-            "ملاحظات"
+            "ملاحظات",
+
+        "functions" to
+            "الوظائف الهندسية",
+
+        "functions_description" to
+            "حسابات كهربائية، تحديد مقطع الموصل، هبوط الجهد، التيار، الجهد، القدرة الفعالة، القدرة الظاهرية، القدرة غير الفعالة، معامل القدرة، المقاومة والمعاوقة.",
+
+        "about" to
+            "عن البرنامج",
+
+        "about_description" to
+            "حاسبة الحسابات الكهربائية برو\nبرنامج احترافي للحسابات والتصميمات الهندسية الكهربائية.",
+
+        "close" to
+            "إغلاق"
     )
 }
