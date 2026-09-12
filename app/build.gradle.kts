@@ -4,12 +4,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val ciVersionCode =
+val versionCodeValue =
     System.getenv("VERSION_CODE")
         ?.toIntOrNull()
         ?: 1
 
-val ciVersionName =
+val versionNameValue =
     System.getenv("VERSION_NAME")
         ?: "1.0.0"
 
@@ -19,25 +19,24 @@ val keystoreBase64 =
 val keystorePassword =
     System.getenv("KEYSTORE_PASSWORD")
 
-val keyAliasValue =
+val keyAlias =
     System.getenv("KEY_ALIAS")
 
-val keyPasswordValue =
+val keyPassword =
     System.getenv("KEY_PASSWORD")
 
-val hasReleaseSigning =
+val hasCiSigning =
     !keystoreBase64.isNullOrBlank() &&
     !keystorePassword.isNullOrBlank() &&
-    !keyAliasValue.isNullOrBlank() &&
-    !keyPasswordValue.isNullOrBlank()
+    !keyAlias.isNullOrBlank() &&
+    !keyPassword.isNullOrBlank()
 
-if (hasReleaseSigning) {
+if (hasCiSigning) {
 
     val keystoreFile =
         rootProject.file("release.keystore")
 
     if (!keystoreFile.exists()) {
-
         keystoreFile.writeBytes(
             java.util.Base64
                 .getDecoder()
@@ -46,24 +45,16 @@ if (hasReleaseSigning) {
     }
 
     android.signingConfigs.create("ciRelease") {
-
         storeFile = keystoreFile
-
-        storePassword =
-            keystorePassword
-
-        keyAlias =
-            keyAliasValue
-
-        keyPassword =
-            keyPasswordValue
+        storePassword = keystorePassword
+        this.keyAlias = keyAlias
+        this.keyPassword = keyPassword
     }
 }
 
 android {
 
-    namespace =
-        "com.electrical.calculationspro"
+    namespace = "com.electrical.calculationspro"
 
     compileSdk = 35
 
@@ -77,25 +68,37 @@ android {
         targetSdk = 35
 
         versionCode =
-            ciVersionCode
+            versionCodeValue
 
         versionName =
-            ciVersionName
+            versionNameValue
     }
 
     buildTypes {
+
+        debug {
+            isMinifyEnabled = false
+        }
 
         release {
 
             isMinifyEnabled = false
 
-            check(
-                hasReleaseSigning
-            ) {
-                "Permanent release signing is required. " +
-                    "Configure KEYSTORE_BASE64, " +
-                    "KEYSTORE_PASSWORD, KEY_ALIAS and " +
-                    "KEY_PASSWORD in GitHub Actions Secrets."
+            check(hasCiSigning) {
+                """
+                RELEASE SIGNING IS NOT CONFIGURED.
+
+                Required GitHub Actions Secrets:
+
+                KEYSTORE_BASE64
+                KEYSTORE_PASSWORD
+                KEY_ALIAS
+                KEY_PASSWORD
+
+                A permanent signing key is required so that
+                future APK versions can update the existing
+                application installation.
+                """.trimIndent()
             }
 
             signingConfig =
@@ -122,12 +125,10 @@ android {
     }
 
     kotlinOptions {
-
         jvmTarget = "17"
     }
 
     buildFeatures {
-
         compose = true
     }
 }
@@ -139,9 +140,7 @@ dependencies {
             "androidx.compose:compose-bom:2024.10.01"
         )
 
-    implementation(
-        composeBom
-    )
+    implementation(composeBom)
 
     implementation(
         "androidx.core:core-ktx:1.15.0"
