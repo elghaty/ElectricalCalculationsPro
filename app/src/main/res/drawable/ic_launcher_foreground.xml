@@ -1,1 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
 
+    <!-- Circuit paths -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#26C6DA"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="
+            M14,30
+            L30,30
+            M78,30
+            L94,30
+            M14,78
+            L30,78
+            M78,78
+            L94,78" />
+
+    <!-- Circuit nodes -->
+    <path
+        android:fillColor="#26C6DA"
+        android:pathData="
+            M10,26
+            A4,4 0,1 0,10,34
+            A4,4 0,1 0,10,26
+            M98,26
+            A4,4 0,1 0,98,34
+            A4,4 0,1 0,98,26
+            M10,74
+            A4,4 0,1 0,10,82
+            A4,4 0,1 0,10,74
+            M98,74
+            A4,4 0,1 0,98,82
+            A4,4 0,1 0,98,74" />
+
+    <!-- Main lightning bolt -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="
+            M62,8
+            L27,58
+            L48,58
+            L41,100
+            L82,46
+            L60,46
+            Z" />
+
+    <!-- Inner cyan accent -->
+    <path
+        android:fillColor="#26C6DA"
+        android:pathData="
+            M61,20
+            L38,53
+            L54,53
+            L50,78
+            L71,49
+            L55,49
+            Z" />
+
+    <!-- Engineering circuit center -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="
+            M24,30
+            L30,30
+            L34,26
+            M84,78
+            L78,78
+            L74,82" />
+
+</vector>
