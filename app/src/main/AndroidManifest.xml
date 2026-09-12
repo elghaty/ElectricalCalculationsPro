@@ -6,16 +6,23 @@
         android:label="Electrical Calculations Pro"
         android:supportsRtl="true"
         android:theme="@style/Theme.ElectricalCalculationsPro">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.ElectricalCalculationsPro"
             android:windowSoftInputMode="adjustResize">
+
             <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
+                <action
+                    android:name="android.intent.action.MAIN" />
+
+                <category
+                    android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
+
     </application>
 
 </manifest>
