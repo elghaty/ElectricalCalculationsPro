@@ -1,8 +1,7 @@
 package com.electrical.calculationspro
 
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -37,6 +36,7 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -48,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,9 @@ import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
 import com.electrical.calculationspro.ui.theme.PrimaryTeal
 import com.electrical.calculationspro.ui.theme.TextPrimary
 import com.electrical.calculationspro.ui.theme.TextSecondary
+import com.electrical.calculationspro.update.AppReleaseInfo
+import com.electrical.calculationspro.update.AppUpdateManager
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -94,6 +98,7 @@ data class MenuItem(
 fun MainScreen() {
 
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
 
     var language by remember {
         mutableStateOf(AppLanguage.ARABIC)
@@ -117,6 +122,18 @@ fun MainScreen() {
 
     var showFunctions by remember {
         mutableStateOf(false)
+    }
+
+    var checkingUpdate by remember {
+        mutableStateOf(false)
+    }
+
+    var updateRelease by remember {
+        mutableStateOf<AppReleaseInfo?>(null)
+    }
+
+    val updateManager = remember {
+        AppUpdateManager(context)
     }
 
     val menuItems = remember {
@@ -199,16 +216,222 @@ fun MainScreen() {
         return Strings.get(key, language)
     }
 
-    fun openUpdatePage() {
+    fun checkForUpdate() {
 
-        val intent = Intent(
-            Intent.ACTION_VIEW,
-            Uri.parse(
-                "https://github.com/elghaty/ElectricalCalculationsPro/releases/latest"
-            )
+        if (checkingUpdate) {
+            return
+        }
+
+        checkingUpdate = true
+
+        coroutineScope.launch {
+
+            val release =
+                updateManager.checkForUpdate()
+
+            checkingUpdate = false
+
+            if (release == null) {
+
+                Toast.makeText(
+                    context,
+                    if (language == AppLanguage.ARABIC) {
+                        "البرنامج محدث بالفعل"
+                    } else {
+                        "The program is already up to date"
+                    },
+                    Toast.LENGTH_LONG
+                ).show()
+
+            } else {
+
+                updateRelease = release
+            }
+        }
+    }
+
+    if (checkingUpdate) {
+
+        AlertDialog(
+
+            onDismissRequest = {
+                // Prevent closing while checking
+            },
+
+            title = {
+                Text(
+                    if (language == AppLanguage.ARABIC) {
+                        "التحقق من التحديث"
+                    } else {
+                        "Checking for updates"
+                    }
+                )
+            },
+
+            text = {
+
+                Row(
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(30.dp),
+                        color = PrimaryTeal
+                    )
+
+                    Spacer(
+                        modifier = Modifier.width(16.dp)
+                    )
+
+                    Text(
+                        if (language == AppLanguage.ARABIC) {
+                            "جاري البحث عن أحدث إصدار..."
+                        } else {
+                            "Checking for the latest version..."
+                        }
+                    )
+                }
+            },
+
+            confirmButton = {}
         )
+    }
 
-        context.startActivity(intent)
+    updateRelease?.let { release ->
+
+        AlertDialog(
+
+            onDismissRequest = {
+                updateRelease = null
+            },
+
+            title = {
+                Text(
+                    if (language == AppLanguage.ARABIC) {
+                        "تحديث جديد متاح"
+                    } else {
+                        "New update available"
+                    }
+                )
+            },
+
+            text = {
+
+                Column {
+
+                    Text(
+                        text =
+                            if (language == AppLanguage.ARABIC) {
+                                "الإصدار الجديد: ${release.versionName}"
+                            } else {
+                                "New version: ${release.versionName}"
+                            },
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryTeal
+                    )
+
+                    if (release.releaseNotes.isNotBlank()) {
+
+                        Spacer(
+                            modifier = Modifier.height(12.dp)
+                        )
+
+                        Text(
+                            text = release.releaseNotes,
+                            color = TextSecondary
+                        )
+                    }
+                }
+            },
+
+            dismissButton = {
+
+                TextButton(
+                    onClick = {
+                        updateRelease = null
+                    }
+                ) {
+
+                    Text(
+                        if (language == AppLanguage.ARABIC) {
+                            "لاحقاً"
+                        } else {
+                            "Later"
+                        }
+                    )
+                }
+            },
+
+            confirmButton = {
+
+                TextButton(
+                    onClick = {
+
+                        val releaseToInstall =
+                            updateRelease
+
+                        updateRelease = null
+
+                        if (releaseToInstall == null) {
+                            return@TextButton
+                        }
+
+                        if (
+                            updateManager.canInstallPackages()
+                        ) {
+
+                            updateManager.downloadAndInstall(
+                                releaseToInstall
+                            )
+
+                            Toast.makeText(
+                                context,
+                                if (
+                                    language ==
+                                    AppLanguage.ARABIC
+                                ) {
+                                    "جاري تحميل التحديث..."
+                                } else {
+                                    "Downloading update..."
+                                },
+                                Toast.LENGTH_LONG
+                            ).show()
+
+                        } else {
+
+                            updateManager
+                                .openInstallPermissionSettings()
+
+                            Toast.makeText(
+                                context,
+                                if (
+                                    language ==
+                                    AppLanguage.ARABIC
+                                ) {
+                                    "اسمح للبرنامج بتثبيت التطبيقات من هذا المصدر ثم اضغط تحديث مرة أخرى"
+                                } else {
+                                    "Allow this app to install unknown apps, then press Update again"
+                                },
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                ) {
+
+                    Text(
+                        text =
+                            if (language == AppLanguage.ARABIC) {
+                                "تحديث الآن"
+                            } else {
+                                "Update now"
+                            },
+                        color = PrimaryTeal,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        )
     }
 
     if (showAbout) {
@@ -220,11 +443,15 @@ fun MainScreen() {
             },
 
             title = {
-                Text(text("app_name"))
+                Text(
+                    text("app_name")
+                )
             },
 
             text = {
-                Text(text("about_description"))
+                Text(
+                    text("about_description")
+                )
             },
 
             confirmButton = {
@@ -234,7 +461,10 @@ fun MainScreen() {
                         showAbout = false
                     }
                 ) {
-                    Text(text("close"))
+
+                    Text(
+                        text("close")
+                    )
                 }
             }
         )
@@ -249,11 +479,15 @@ fun MainScreen() {
             },
 
             title = {
-                Text(text("functions"))
+                Text(
+                    text("functions")
+                )
             },
 
             text = {
-                Text(text("functions_description"))
+                Text(
+                    text("functions_description")
+                )
             },
 
             confirmButton = {
@@ -263,7 +497,10 @@ fun MainScreen() {
                         showFunctions = false
                     }
                 ) {
-                    Text(text("close"))
+
+                    Text(
+                        text("close")
+                    )
                 }
             }
         )
@@ -290,7 +527,9 @@ fun MainScreen() {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(58.dp)
-                    .background(Color(0xFF1E2A3A))
+                    .background(
+                        Color(0xFF1E2A3A)
+                    )
                     .padding(horizontal = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -303,7 +542,8 @@ fun MainScreen() {
 
                     Icon(
                         imageVector = Icons.Default.Menu,
-                        contentDescription = text("app_name"),
+                        contentDescription =
+                            text("app_name"),
                         tint = TextPrimary
                     )
                 }
@@ -330,14 +570,17 @@ fun MainScreen() {
                     ) {
 
                         Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = text("language"),
+                            imageVector =
+                                Icons.Default.Language,
+                            contentDescription =
+                                text("language"),
                             tint = TextPrimary
                         )
                     }
 
                     DropdownMenu(
-                        expanded = languageExpanded,
+                        expanded =
+                            languageExpanded,
                         onDismissRequest = {
                             languageExpanded = false
                         }
@@ -345,35 +588,55 @@ fun MainScreen() {
 
                         DropdownMenuItem(
                             text = {
-                                Text(text("arabic"))
+                                Text(
+                                    text("arabic")
+                                )
                             },
                             onClick = {
-                                language = AppLanguage.ARABIC
-                                languageExpanded = false
+
+                                language =
+                                    AppLanguage.ARABIC
+
+                                languageExpanded =
+                                    false
                             }
                         )
 
                         DropdownMenuItem(
                             text = {
-                                Text(text("english"))
+                                Text(
+                                    text("english")
+                                )
                             },
                             onClick = {
-                                language = AppLanguage.ENGLISH
-                                languageExpanded = false
+
+                                language =
+                                    AppLanguage.ENGLISH
+
+                                languageExpanded =
+                                    false
                             }
                         )
                     }
                 }
 
+                /*
+                 * ========================================================
+                 * UPDATE BUTTON
+                 * ========================================================
+                 */
+
                 IconButton(
                     onClick = {
-                        openUpdatePage()
+                        checkForUpdate()
                     }
                 ) {
 
                     Icon(
-                        imageVector = Icons.Default.SystemUpdate,
-                        contentDescription = text("update_program"),
+                        imageVector =
+                            Icons.Default.SystemUpdate,
+                        contentDescription =
+                            text("update_program"),
                         tint = TextPrimary
                     )
                 }
@@ -385,8 +648,10 @@ fun MainScreen() {
                 ) {
 
                     Icon(
-                        imageVector = Icons.Default.Calculate,
-                        contentDescription = text("functions"),
+                        imageVector =
+                            Icons.Default.Calculate,
+                        contentDescription =
+                            text("functions"),
                         tint = TextPrimary
                     )
                 }
@@ -398,8 +663,10 @@ fun MainScreen() {
                 ) {
 
                     Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = text("about"),
+                        imageVector =
+                            Icons.Default.Info,
+                        contentDescription =
+                            text("about"),
                         tint = TextPrimary
                     )
                 }
@@ -435,7 +702,8 @@ fun MainScreen() {
 
                     selectedId = selectedMenu,
 
-                    selectedStandard = selectedStandard,
+                    selectedStandard =
+                        selectedStandard,
 
                     language = language,
 
@@ -467,9 +735,10 @@ fun MainScreen() {
 
                             WelcomeScreen(
                                 language = language,
-                                standard = selectedStandard,
+                                standard =
+                                    selectedStandard,
                                 onUpdate = {
-                                    openUpdatePage()
+                                    checkForUpdate()
                                 }
                             )
                         }
@@ -478,7 +747,8 @@ fun MainScreen() {
 
                             ConductorSizingScreen(
                                 language = language,
-                                standard = selectedStandard
+                                standard =
+                                    selectedStandard
                             )
                         }
 
@@ -493,7 +763,8 @@ fun MainScreen() {
                         "impedance" -> {
 
                             EngineeringCalculatorScreen(
-                                calculation = selectedMenu,
+                                calculation =
+                                    selectedMenu,
                                 language = language
                             )
                         }
@@ -518,7 +789,9 @@ private fun LeftCalculationMenu(
     Column(
 
         modifier = modifier
-            .background(Color(0xFF182331))
+            .background(
+                Color(0xFF182331)
+            )
             .padding(
                 horizontal = 8.dp,
                 vertical = 10.dp
@@ -541,8 +814,10 @@ private fun LeftCalculationMenu(
 
         StandardSelector(
             language = language,
-            selectedStandard = selectedStandard,
-            onSelected = onStandardSelected
+            selectedStandard =
+                selectedStandard,
+            onSelected =
+                onStandardSelected
         )
 
         Spacer(
@@ -551,7 +826,8 @@ private fun LeftCalculationMenu(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+            verticalArrangement =
+                Arrangement.spacedBy(5.dp)
         ) {
 
             item {
@@ -561,12 +837,15 @@ private fun LeftCalculationMenu(
                         "conductor_sizing",
                         language
                     ),
-                    icon = Icons.Default.Cable,
-                    iconBackground = Color(0xFF4CAF50),
+                    icon =
+                        Icons.Default.Cable,
+                    iconBackground =
+                        Color(0xFF4CAF50),
                     selected =
                         selectedId ==
                             "conductor_sizing_protection",
                     onClick = {
+
                         onSelect(
                             "conductor_sizing_protection"
                         )
@@ -587,8 +866,10 @@ private fun LeftCalculationMenu(
                         language
                     ),
                     icon = item.icon,
-                    iconBackground = item.iconBackground,
-                    selected = selectedId == item.id,
+                    iconBackground =
+                        item.iconBackground,
+                    selected =
+                        selectedId == item.id,
                     onClick = {
                         onSelect(item.id)
                     }
@@ -620,7 +901,8 @@ private fun StandardSelector(
                     expanded = true
                 },
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF263445)
+                containerColor =
+                    Color(0xFF263445)
             )
         ) {
 
@@ -667,6 +949,7 @@ private fun StandardSelector(
 
                 DropdownMenuItem(
                     text = {
+
                         Text(
                             standardName(
                                 standard,
@@ -748,7 +1031,8 @@ private fun LeftMenuItem(
                     horizontal = 8.dp,
                     vertical = 8.dp
                 ),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment =
+                Alignment.CenterVertically
         ) {
 
             Box(
@@ -756,18 +1040,23 @@ private fun LeftMenuItem(
                     .size(38.dp)
                     .background(
                         color = iconBackground,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(
-                            8.dp
-                        )
+                        shape =
+                            androidx.compose.foundation
+                                .shape
+                                .RoundedCornerShape(
+                                    8.dp
+                                )
                     ),
-                contentAlignment = Alignment.Center
+                contentAlignment =
+                    Alignment.Center
             ) {
 
                 Icon(
                     imageVector = icon,
                     contentDescription = title,
                     tint =
-                        if (iconBackground ==
+                        if (
+                            iconBackground ==
                             Color(0xFFFFEB3B)
                         ) {
                             Color.Black
@@ -813,12 +1102,15 @@ private fun WelcomeScreen(
             .fillMaxSize()
             .padding(24.dp)
             .background(DarkBackground),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment =
+            Alignment.CenterHorizontally,
+        verticalArrangement =
+            Arrangement.Center
     ) {
 
         Icon(
-            imageVector = Icons.Default.ElectricBolt,
+            imageVector =
+                Icons.Default.ElectricBolt,
             contentDescription = null,
             tint = PrimaryTeal,
             modifier = Modifier.size(72.dp)
@@ -874,7 +1166,8 @@ private fun WelcomeScreen(
         ) {
 
             Icon(
-                imageVector = Icons.Default.SystemUpdate,
+                imageVector =
+                    Icons.Default.SystemUpdate,
                 contentDescription = null,
                 tint = PrimaryTeal
             )
