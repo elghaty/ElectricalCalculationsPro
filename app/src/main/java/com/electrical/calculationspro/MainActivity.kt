@@ -1244,8 +1244,3 @@ private fun WelcomeScreen(
         }
     }
 }
-
-مسار الملف:
-"app/src/main/java/com/electrical/calculationspro/MainActivity.kt"
-
-التغيير الأساسي: زر About أصبح يفتح "AboutScreen.kt" كشاشة كاملة فعلية بدل النافذة القديمة.
