@@ -1,19 +1,26 @@
 package com.electrical.calculationspro
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Cable
@@ -29,14 +36,18 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -53,17 +64,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.Strings
-import com.electrical.calculationspro.ui.components.SidebarItem
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
 import com.electrical.calculationspro.ui.screens.EngineeringCalculatorScreen
 import com.electrical.calculationspro.ui.theme.DarkBackground
-import com.electrical.calculationspro.ui.theme.DarkSurface
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
 import com.electrical.calculationspro.ui.theme.PrimaryTeal
 import com.electrical.calculationspro.ui.theme.TextPrimary
@@ -88,7 +98,7 @@ data class MenuItem(
     val id: String,
     val titleKey: String,
     val icon: ImageVector,
-    val iconBg: Color = Color.Gray,
+    val iconBg: Color,
     val iconTint: Color = Color.White
 )
 
@@ -96,12 +106,14 @@ data class MenuItem(
 @Composable
 fun MainScreen() {
 
+    val context = LocalContext.current
+
     var selectedStandard by remember {
         mutableStateOf(Standard.IEC)
     }
 
     var selectedMenu by remember {
-        mutableStateOf("conductor_sizing_protection")
+        mutableStateOf("home")
     }
 
     var language by remember {
@@ -206,7 +218,20 @@ fun MainScreen() {
         return Strings.get(key, language)
     }
 
+    fun openLatestRelease() {
+
+        val intent = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse(
+                "https://github.com/elghaty/ElectricalCalculationsPro/releases/latest"
+            )
+        )
+
+        context.startActivity(intent)
+    }
+
     if (showFunctionsDialog) {
+
         AlertDialog(
             onDismissRequest = {
                 showFunctionsDialog = false
@@ -215,9 +240,7 @@ fun MainScreen() {
                 Text(t("functions"))
             },
             text = {
-                Text(
-                    t("functions_description")
-                )
+                Text(t("functions_description"))
             },
             confirmButton = {
                 TextButton(
@@ -232,6 +255,7 @@ fun MainScreen() {
     }
 
     if (showInfoDialog) {
+
         AlertDialog(
             onDismissRequest = {
                 showInfoDialog = false
@@ -240,9 +264,7 @@ fun MainScreen() {
                 Text(t("app_name"))
             },
             text = {
-                Text(
-                    t("about_description")
-                )
+                Text(t("about_description"))
             },
             confirmButton = {
                 TextButton(
@@ -257,13 +279,20 @@ fun MainScreen() {
     }
 
     Scaffold(
+
         topBar = {
 
             TopAppBar(
 
                 title = {
+
                     Text(
-                        text = t(selectedMenu),
+                        text =
+                            if (selectedMenu == "home") {
+                                t("app_name")
+                            } else {
+                                t(selectedMenu)
+                            },
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1
@@ -279,13 +308,13 @@ fun MainScreen() {
 
                     IconButton(
                         onClick = {
-                            selectedMenu =
-                                "conductor_sizing_protection"
+                            selectedMenu = "home"
                         }
                     ) {
+
                         Icon(
                             imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu",
+                            contentDescription = t("app_name"),
                             tint = TextPrimary
                         )
                     }
@@ -300,6 +329,7 @@ fun MainScreen() {
                                 showLanguageMenu = true
                             }
                         ) {
+
                             Icon(
                                 imageVector = Icons.Default.Language,
                                 contentDescription = t("language"),
@@ -315,18 +345,23 @@ fun MainScreen() {
                         ) {
 
                             DropdownMenuItem(
+
                                 text = {
                                     Text(t("english"))
                                 },
+
                                 onClick = {
                                     language = AppLanguage.ENGLISH
                                     showLanguageMenu = false
                                 },
+
                                 leadingIcon = {
+
                                     if (
                                         language ==
                                         AppLanguage.ENGLISH
                                     ) {
+
                                         Icon(
                                             imageVector =
                                                 Icons.Default.Check,
@@ -338,18 +373,23 @@ fun MainScreen() {
                             )
 
                             DropdownMenuItem(
+
                                 text = {
                                     Text(t("arabic"))
                                 },
+
                                 onClick = {
                                     language = AppLanguage.ARABIC
                                     showLanguageMenu = false
                                 },
+
                                 leadingIcon = {
+
                                     if (
                                         language ==
                                         AppLanguage.ARABIC
                                     ) {
+
                                         Icon(
                                             imageVector =
                                                 Icons.Default.Check,
@@ -364,12 +404,30 @@ fun MainScreen() {
 
                     IconButton(
                         onClick = {
+                            openLatestRelease()
+                        }
+                    ) {
+
+                        Icon(
+                            imageVector =
+                                Icons.Default.SystemUpdate,
+                            contentDescription =
+                                t("update_program"),
+                            tint = TextPrimary
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
                             showFunctionsDialog = true
                         }
                     ) {
+
                         Icon(
-                            imageVector = Icons.Default.Functions,
-                            contentDescription = t("functions"),
+                            imageVector =
+                                Icons.Default.Functions,
+                            contentDescription =
+                                t("functions"),
                             tint = TextPrimary
                         )
                     }
@@ -379,9 +437,12 @@ fun MainScreen() {
                             showInfoDialog = true
                         }
                     ) {
+
                         Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = t("about"),
+                            imageVector =
+                                Icons.Default.Info,
+                            contentDescription =
+                                t("about"),
                             tint = TextPrimary
                         )
                     }
@@ -400,13 +461,18 @@ fun MainScreen() {
         ) {
 
             ScrollableTabRow(
+
                 selectedTabIndex =
                     selectedStandard.ordinal,
+
                 containerColor =
                     Color(0xFF1E2A3A),
+
                 contentColor =
                     PrimaryTeal,
+
                 edgePadding = 8.dp,
+
                 divider = {}
             ) {
 
@@ -466,66 +532,31 @@ fun MainScreen() {
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxSize()
-            ) {
+            if (selectedMenu == "home") {
 
-                LazyColumn(
+                HomeDashboard(
 
-                    modifier = Modifier
-                        .width(
-                            if (
-                                language ==
-                                AppLanguage.ARABIC
-                            ) {
-                                240.dp
-                            } else {
-                                220.dp
-                            }
-                        )
-                        .fillMaxHeight()
-                        .background(DarkSurface)
+                    menuItems = menuItems,
 
-                ) {
+                    language = language,
 
-                    items(
-                        items = menuItems,
-                        key = {
-                            it.id
-                        }
-                    ) { item ->
+                    onSelect = {
+                        selectedMenu = it
+                    },
 
-                        SidebarItem(
-
-                            title =
-                                t(item.titleKey),
-
-                            icon =
-                                item.icon,
-
-                            iconColor =
-                                item.iconTint,
-
-                            iconBackground =
-                                item.iconBg,
-
-                            isSelected =
-                                selectedMenu == item.id,
-
-                            onClick = {
-                                selectedMenu = item.id
-                            }
-                        )
+                    onUpdate = {
+                        openLatestRelease()
                     }
-                }
+                )
+
+            } else {
 
                 Box(
-
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .background(DarkBackground)
-
+                        .fillMaxSize()
+                        .background(
+                            DarkBackground
+                        )
                 ) {
 
                     when (selectedMenu) {
@@ -550,13 +581,293 @@ fun MainScreen() {
                         "impedance" -> {
 
                             EngineeringCalculatorScreen(
-                                calculation = selectedMenu,
-                                language = language
+                                calculation =
+                                    selectedMenu,
+                                language =
+                                    language
                             )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun HomeDashboard(
+    menuItems: List<MenuItem>,
+    language: AppLanguage,
+    onSelect: (String) -> Unit,
+    onUpdate: () -> Unit
+) {
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp)
+    ) {
+
+        Text(
+            text = Strings.get(
+                "engineering_tools",
+                language
+            ),
+            style =
+                MaterialTheme.typography.headlineSmall,
+            color = TextPrimary,
+            modifier = Modifier.padding(
+                horizontal = 8.dp,
+                vertical = 8.dp
+            )
+        )
+
+        LazyVerticalGrid(
+
+            columns =
+                GridCells.Fixed(2),
+
+            modifier =
+                Modifier.fillMaxSize(),
+
+            horizontalArrangement =
+                Arrangement.spacedBy(10.dp),
+
+            verticalArrangement =
+                Arrangement.spacedBy(10.dp),
+
+            contentPadding =
+                PaddingValues(
+                    start = 4.dp,
+                    end = 4.dp,
+                    bottom = 20.dp
+                )
+        ) {
+
+            items(
+                items = menuItems,
+                key = {
+                    it.id
+                }
+            ) { item ->
+
+                DashboardCard(
+
+                    item = item,
+
+                    title = Strings.get(
+                        item.titleKey,
+                        language
+                    ),
+
+                    onClick = {
+                        onSelect(item.id)
+                    }
+                )
+            }
+
+            item {
+
+                DashboardUpdateCard(
+
+                    title = Strings.get(
+                        "update_program",
+                        language
+                    ),
+
+                    subtitle = Strings.get(
+                        "update_program_description",
+                        language
+                    ),
+
+                    onClick = onUpdate
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardCard(
+    item: MenuItem,
+    title: String,
+    onClick: () -> Unit
+) {
+
+    Card(
+
+        modifier = Modifier
+            .fillMaxWidth(),
+
+        onClick = onClick,
+
+        colors = CardDefaults.cardColors(
+            containerColor =
+                Color(0xFF263445)
+        ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 3.dp
+            )
+    ) {
+
+        Column(
+
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+
+            horizontalAlignment =
+                Alignment.CenterHorizontally,
+
+            verticalArrangement =
+                Arrangement.Center
+        ) {
+
+            Box(
+
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(
+                        color = item.iconBg,
+                        shape =
+                            androidx.compose.foundation
+                                .shape
+                                .RoundedCornerShape(
+                                    12.dp
+                                )
+                    ),
+
+                contentAlignment =
+                    Alignment.Center
+            ) {
+
+                Icon(
+
+                    imageVector =
+                        item.icon,
+
+                    contentDescription =
+                        title,
+
+                    tint =
+                        item.iconTint,
+
+                    modifier =
+                        Modifier.size(27.dp)
+                )
+            }
+
+            Text(
+
+                text = title,
+
+                color = TextPrimary,
+
+                fontSize = 13.sp,
+
+                fontWeight =
+                    FontWeight.Medium,
+
+                maxLines = 3,
+
+                modifier =
+                    Modifier.padding(
+                        top = 10.dp
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardUpdateCard(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+
+    Card(
+
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        onClick = onClick,
+
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    Color(0xFF174A55)
+            ),
+
+        elevation =
+            CardDefaults.cardElevation(
+                defaultElevation = 3.dp
+            )
+    ) {
+
+        Column(
+
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+
+            horizontalAlignment =
+                Alignment.CenterHorizontally,
+
+            verticalArrangement =
+                Arrangement.Center
+        ) {
+
+            Icon(
+
+                imageVector =
+                    Icons.Default.SystemUpdate,
+
+                contentDescription =
+                    title,
+
+                tint =
+                    PrimaryTeal,
+
+                modifier =
+                    Modifier.size(42.dp)
+            )
+
+            Text(
+
+                text = title,
+
+                color = TextPrimary,
+
+                fontSize = 14.sp,
+
+                fontWeight =
+                    FontWeight.Bold,
+
+                modifier =
+                    Modifier.padding(
+                        top = 8.dp
+                    )
+            )
+
+            Text(
+
+                text = subtitle,
+
+                color = TextSecondary,
+
+                fontSize = 10.sp,
+
+                maxLines = 2,
+
+                modifier =
+                    Modifier.padding(
+                        top = 4.dp
+                    )
+            )
         }
     }
 }
