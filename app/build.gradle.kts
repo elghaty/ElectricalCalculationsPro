@@ -1,6 +1,3 @@
-import java.util.Base64
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,55 +8,6 @@ plugins {
 kotlin {
     jvmToolchain(17)
 }
-
-val ciSigningFile = rootProject.file("ci-signing.properties")
-
-val ciSigningProperties = Properties().apply {
-    if (ciSigningFile.isFile) {
-        ciSigningFile.inputStream().use {
-            load(it)
-        }
-    }
-}
-
-fun decodeSigningProperty(name: String): String? {
-    val value = ciSigningProperties.getProperty(name)
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-        ?: return null
-
-    return try {
-        String(
-            Base64.getDecoder().decode(value),
-            Charsets.UTF_8
-        )
-    } catch (_: Exception) {
-        null
-    }
-}
-
-val ciStoreFile =
-    ciSigningProperties
-        .getProperty("storeFile")
-        ?.trim()
-        ?.takeIf { it.isNotEmpty() }
-
-val ciStorePassword =
-    decodeSigningProperty("storePasswordB64")
-
-val ciKeyAlias =
-    decodeSigningProperty("keyAliasB64")
-
-val ciKeyPassword =
-    decodeSigningProperty("keyPasswordB64")
-
-val hasCiSigning =
-    ciSigningFile.isFile &&
-        !ciStoreFile.isNullOrBlank() &&
-        !ciStorePassword.isNullOrBlank() &&
-        !ciKeyAlias.isNullOrBlank() &&
-        !ciKeyPassword.isNullOrBlank() &&
-        rootProject.file(ciStoreFile!!).isFile
 
 android {
     namespace = "com.electrical.calculationspro"
@@ -101,40 +49,14 @@ android {
         compose = true
     }
 
-    if (hasCiSigning) {
-        signingConfigs {
-            create("releaseCi") {
-                storeFile =
-                    rootProject.file(
-                        ciStoreFile!!
-                    )
-
-                storePassword =
-                    ciStorePassword
-
-                keyAlias =
-                    ciKeyAlias
-
-                keyPassword =
-                    ciKeyPassword
-            }
-        }
-    }
-
     buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-            isShrinkResources = false
-
-            if (hasCiSigning) {
-                signingConfig =
-                    signingConfigs.getByName(
-                        "releaseCi"
-                    )
-            }
-        }
 
         getByName("debug") {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
+
+        getByName("release") {
             isMinifyEnabled = false
             isShrinkResources = false
         }
