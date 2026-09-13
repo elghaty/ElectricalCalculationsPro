@@ -103,7 +103,7 @@ jobs:
 
           echo "Preparing permanent release signing..."
 
-          echo "$KEYSTORE_BASE64" > keystore.base64
+          printf '%s' "$KEYSTORE_BASE64" > keystore.base64
 
           test -s keystore.base64
 
@@ -113,14 +113,16 @@ jobs:
 
           rm -f keystore.base64
 
-          STORE_PASSWORD_B64="$(echo -n "$KEYSTORE_PASSWORD" | base64 -w 0)"
-          KEY_ALIAS_B64="$(echo -n "$KEY_ALIAS" | base64 -w 0)"
-          KEY_PASSWORD_B64="$(echo -n "$KEY_PASSWORD" | base64 -w 0)"
+          STORE_PASSWORD_B64="$(printf '%s' "$KEYSTORE_PASSWORD" | base64 -w 0)"
+          KEY_ALIAS_B64="$(printf '%s' "$KEY_ALIAS" | base64 -w 0)"
+          KEY_PASSWORD_B64="$(printf '%s' "$KEY_PASSWORD" | base64 -w 0)"
 
-          echo "storeFile=release.keystore" > ci-signing.properties
-          echo "storePasswordB64=$STORE_PASSWORD_B64" >> ci-signing.properties
-          echo "keyAliasB64=$KEY_ALIAS_B64" >> ci-signing.properties
-          echo "keyPasswordB64=$KEY_PASSWORD_B64" >> ci-signing.properties
+          {
+            printf '%s\n' "storeFile=release.keystore"
+            printf '%s\n' "storePasswordB64=$STORE_PASSWORD_B64"
+            printf '%s\n' "keyAliasB64=$KEY_ALIAS_B64"
+            printf '%s\n' "keyPasswordB64=$KEY_PASSWORD_B64"
+          } > ci-signing.properties
 
           test -s ci-signing.properties
 
@@ -174,10 +176,7 @@ jobs:
 
           APK="app/build/outputs/apk/release/app-release.apk"
 
-          if [ ! -f "$APK" ]; then
-            echo "::error::Release APK was not generated."
-            exit 1
-          fi
+          test -f "$APK"
 
           echo "APK generated successfully."
           ls -lh "$APK"
@@ -203,9 +202,15 @@ jobs:
 
           APK="app/build/outputs/apk/release/app-release.apk"
 
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" \
-            dump badging \
-            "$APK" \
+          BADGING=$(
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+              dump badging \
+              "$APK"
+          )
+
+          echo "$BADGING"
+
+          echo "$BADGING" \
             | grep "package: name='com.electrical.calculationspro'"
 
           echo "Application ID verified."
@@ -222,8 +227,6 @@ jobs:
               dump badging \
               "$APK"
           )
-
-          echo "$BADGING"
 
           echo "$BADGING" \
             | grep "versionCode='${{ github.run_number }}'"
@@ -264,21 +267,23 @@ jobs:
         run: |
           set -e
 
-          echo "# Electrical Calculations Pro" > release-notes.md
-          echo "" >> release-notes.md
-          echo "Version: 1.0.${{ github.run_number }}" >> release-notes.md
-          echo "" >> release-notes.md
-          echo "Version Code: ${{ github.run_number }}" >> release-notes.md
-          echo "" >> release-notes.md
-          echo "Commit: ${{ github.sha }}" >> release-notes.md
-          echo "" >> release-notes.md
-          echo "Application ID: com.electrical.calculationspro" >> release-notes.md
-          echo "" >> release-notes.md
-          echo "Automatically built and permanently signed." >> release-notes.md
-          echo "" >> release-notes.md
-          echo "## SHA-256" >> release-notes.md
-          echo "" >> release-notes.md
-          cat apk-sha256.txt >> release-notes.md
+          cat > release-notes.md <<EOF
+          # Electrical Calculations Pro
+
+          Version: 1.0.${{ github.run_number }}
+
+          Version Code: ${{ github.run_number }}
+
+          Commit: ${{ github.sha }}
+
+          Application ID: com.electrical.calculationspro
+
+          Automatically built and permanently signed.
+
+          ## SHA-256
+
+          $(cat apk-sha256.txt)
+          EOF
 
           cat release-notes.md
 
@@ -294,33 +299,13 @@ jobs:
 
           echo "Publishing release: $TAG"
 
-          if gh release view "$TAG" \
+          gh release create \
+            "$TAG" \
+            "$APK" \
+            apk-sha256.txt \
             --repo "${{ github.repository }}" \
-            >/dev/null 2>&1
-          then
-
-            echo "Release already exists."
-
-            gh release upload \
-              "$TAG" \
-              "$APK" \
-              apk-sha256.txt \
-              --repo "${{ github.repository }}" \
-              --clobber
-
-          else
-
-            echo "Creating new GitHub Release."
-
-            gh release create \
-              "$TAG" \
-              "$APK" \
-              apk-sha256.txt \
-              --repo "${{ github.repository }}" \
-              --title "Electrical Calculations Pro $TAG" \
-              --notes-file release-notes.md
-
-          fi
+            --title "Electrical Calculations Pro $TAG" \
+            --notes-file release-notes.md
 
       - name: Verify GitHub Release
         env:
