@@ -32,19 +32,34 @@ data class InstallationMethod(
     val description: String
 )
 
-val iecInstallationMethods = IecTables.allInstallationMethods
+val iecInstallationMethods =
+    IecTables.allInstallationMethods
 
 data class ConductorSizingInput(
-    val currentType: CurrentType = CurrentType.AlternatingSinglePhase,
+    val currentType: CurrentType =
+        CurrentType.AlternatingSinglePhase,
+
     val voltage: Double = 230.0,
+
     val load: Double = 5000.0,
+
     val powerFactor: Double = 0.90,
+
     val lineLength: Double = 60.0,
-    val installationMethod: InstallationMethod = iecInstallationMethods.first(),
+
+    val installationMethod: InstallationMethod =
+        iecInstallationMethods.first(),
+
     val ambientTemp: Double = 30.0,
-    val conductor: ConductorMaterial = ConductorMaterial.Copper,
-    val insulation: InsulationType = InsulationType.PVC,
+
+    val conductor: ConductorMaterial =
+        ConductorMaterial.Copper,
+
+    val insulation: InsulationType =
+        InsulationType.PVC,
+
     val circuitsInConduit: Int = 1,
+
     val maxVoltageDrop: Double = 4.0
 )
 
@@ -78,6 +93,5 @@ val standardSections = listOf(
     150.0,
     185.0,
     240.0,
-    300.0,
-    400.0
+    300.0
 )
