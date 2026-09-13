@@ -57,15 +57,14 @@ jobs:
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
 
-      - name: Verify Signing Configuration
-        shell: bash
+      - name: Verify Signing Secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
         run: |
-
           failed=0
 
           if [ -z "$KEYSTORE_BASE64" ]; then
@@ -89,31 +88,82 @@ jobs:
           fi
 
           if [ "$failed" -ne 0 ]; then
-            echo "::error::Permanent Android release signing is not configured."
             exit 1
           fi
 
-          echo "Signing configuration detected."
+          echo "All signing secrets are present."
 
-      - name: Set Version
-        shell: bash
-        run: |
-
-          echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
-
-          echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
-
-      - name: Build Release
+      - name: Prepare Release Signing
         env:
-          VERSION_CODE: ${{ env.VERSION_CODE }}
-          VERSION_NAME: ${{ env.VERSION_NAME }}
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         shell: bash
         run: |
+          set -e
 
+          echo "$KEYSTORE_BASE64" |
+            base64 --decode >
+            release.keystore
+
+          test -s release.keystore
+
+          STORE_PASSWORD_B64=$(
+            printf '%s' "$KEYSTORE_PASSWORD" |
+            base64 -w 0
+          )
+
+          KEY_ALIAS_B64=$(
+            printf '%s' "$KEY_ALIAS" |
+            base64 -w 0
+          )
+
+          KEY_PASSWORD_B64=$(
+            printf '%s' "$KEY_PASSWORD" |
+            base64 -w 0
+          )
+
+          cat > ci-signing.properties <<EOF
+          storeFile=release.keystore
+          storePasswordB64=$STORE_PASSWORD_B64
+          keyAliasB64=$KEY_ALIAS_B64
+          keyPasswordB64=$KEY_PASSWORD_B64
+          EOF
+
+          test -s ci-signing.properties
+
+          echo "Release signing files prepared."
+
+      - name: Verify Keystore
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        shell: bash
+        run: |
+          set -e
+
+          keytool \
+            -list \
+            -keystore release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            >/dev/null
+
+          echo "Keystore and alias verified."
+
+      - name: Set Version
+        shell: bash
+        run: |
+          echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - name: Build Release
+        env:
+          VERSION_CODE: ${{ env.VERSION_CODE }}
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+        shell: bash
+        run: |
           gradle \
             :app:assembleRelease \
             --no-daemon \
@@ -122,7 +172,6 @@ jobs:
       - name: Verify APK
         shell: bash
         run: |
-
           APK="app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -f "$APK" ]; then
@@ -136,7 +185,6 @@ jobs:
       - name: Verify APK Signature
         shell: bash
         run: |
-
           APK="app/build/outputs/apk/release/app-release.apk"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
@@ -147,7 +195,6 @@ jobs:
       - name: Verify Application ID
         shell: bash
         run: |
-
           APK="app/build/outputs/apk/release/app-release.apk"
 
           "$ANDROID_HOME/build-tools/35.0.0/aapt" \
@@ -159,7 +206,6 @@ jobs:
       - name: Rename APK
         shell: bash
         run: |
-
           cp \
             app/build/outputs/apk/release/app-release.apk \
             app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk
@@ -167,7 +213,6 @@ jobs:
       - name: Calculate SHA256
         shell: bash
         run: |
-
           sha256sum \
             app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk \
             > apk-sha256.txt
@@ -177,7 +222,6 @@ jobs:
       - name: Create Release Notes
         shell: bash
         run: |
-
           cat > release-notes.md <<EOF
           # Electrical Calculations Pro
 
@@ -193,7 +237,7 @@ jobs:
           Application ID:
           com.electrical.calculationspro
 
-          The APK is designed to update an existing installation
+          The APK can update an existing installation
           without uninstalling the application.
 
           ## SHA-256
@@ -206,42 +250,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-
           TAG="v1.0.${{ github.run_number }}"
-
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
-          if gh release view \
+          gh release create \
             "$TAG" \
+            "$APK" \
+            apk-sha256.txt \
             --repo "${{ github.repository }}" \
-            >/dev/null 2>&1
-          then
-
-            gh release upload \
-              "$TAG" \
-              "$APK" \
-              apk-sha256.txt \
-              --repo "${{ github.repository }}" \
-              --clobber
-
-          else
-
-            gh release create \
-              "$TAG" \
-              "$APK" \
-              apk-sha256.txt \
-              --repo "${{ github.repository }}" \
-              --title "Electrical Calculations Pro $TAG" \
-              --notes-file release-notes.md
-
-          fi
+            --title "Electrical Calculations Pro $TAG" \
+            --notes-file release-notes.md
 
       - name: Final Verification
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-
           TAG="v1.0.${{ github.run_number }}"
 
           gh release view \
@@ -258,3 +282,10 @@ jobs:
           echo "Tag     : $TAG"
           echo "APK     : ElectricalCalculationsPro-release.apk"
           echo "========================================"
+
+      - name: Cleanup Signing Files
+        if: always()
+        shell: bash
+        run: |
+          rm -f release.keystore
+          rm -f ci-signing.properties
