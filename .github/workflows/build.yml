@@ -1,259 +1,71 @@
-name: Build And Release APK
-
-on:
-push:
-branches:
-- main
-
-workflow_dispatch:
-
-permissions:
-contents: write
-
-concurrency:
-group: electrical-calculations-pro-build
-cancel-in-progress: false
-
-jobs:
-
-build:
-
 name: Build APK
 
-runs-on: ubuntu-latest
+"on":
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
-steps:
+permissions:
+  contents: read
 
-  - name: Checkout
-    uses: actions/checkout@v4
+jobs:
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
 
-  - name: Setup JDK 17
-    uses: actions/setup-java@v5
-    with:
-      distribution: temurin
-      java-version: "17"
-      cache: gradle
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Setup Android SDK
-    uses: android-actions/setup-android@v3
-    with:
-      packages: |
-        platform-tools
-        platforms;android-35
-        build-tools;35.0.0
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
 
-  - name: Verify Android SDK
-    shell: bash
-    run: |
-      set -e
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
 
-      test -d "$ANDROID_HOME/platforms/android-35"
-      test -d "$ANDROID_HOME/build-tools/35.0.0"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      test -x \
-        "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      - name: Install Android SDK
+        shell: bash
+        run: |
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
 
-      test -x \
-        "$ANDROID_HOME/build-tools/35.0.0/aapt"
+      - name: Build APK
+        shell: bash
+        run: |
+          gradle :app:assembleDebug \
+            --no-daemon \
+            --stacktrace
 
-  - name: Set Version
-    shell: bash
-    run: |
-      set -e
+      - name: Verify APK
+        shell: bash
+        run: |
+          test -f app/build/outputs/apk/debug/app-debug.apk
 
-      echo \
-        "VERSION_CODE=${{ github.run_number }}" \
-        >> "$GITHUB_ENV"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify \
+            --verbose \
+            app/build/outputs/apk/debug/app-debug.apk
 
-      echo \
-        "VERSION_NAME=1.0.${{ github.run_number }}" \
-        >> "$GITHUB_ENV"
+      - name: Copy APK
+        shell: bash
+        run: |
+          cp \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/debug/ElectricalCalculationsPro.apk
 
-  - name: Build Debug APK
-    env:
-      VERSION_CODE: ${{ env.VERSION_CODE }}
-      VERSION_NAME: ${{ env.VERSION_NAME }}
-    shell: bash
-    run: |
-      set -e
-
-      chmod +x ./gradlew
-
-      ./gradlew \
-        :app:assembleDebug \
-        -PversionCode="$VERSION_CODE" \
-        -PversionName="$VERSION_NAME" \
-        --no-daemon \
-        --stacktrace
-
-  - name: Verify APK
-    shell: bash
-    run: |
-      set -e
-
-      APK="app/build/outputs/apk/debug/app-debug.apk"
-
-      test -f "$APK"
-
-  - name: Verify APK Signature
-    shell: bash
-    run: |
-      set -e
-
-      APK="app/build/outputs/apk/debug/app-debug.apk"
-
-      "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-        verify \
-        --verbose \
-        "$APK"
-
-  - name: Verify Application ID
-    shell: bash
-    run: |
-      set -e
-
-      APK="app/build/outputs/apk/debug/app-debug.apk"
-
-      BADGING=$(
-        "$ANDROID_HOME/build-tools/35.0.0/aapt" \
-          dump badging \
-          "$APK"
-      )
-
-      echo "$BADGING" |
-        grep \
-          "package: name='com.electrical.calculationspro'"
-
-  - name: Verify Version
-    shell: bash
-    run: |
-      set -e
-
-      APK="app/build/outputs/apk/debug/app-debug.apk"
-
-      BADGING=$(
-        "$ANDROID_HOME/build-tools/35.0.0/aapt" \
-          dump badging \
-          "$APK"
-      )
-
-      echo "$BADGING" |
-        grep \
-          "versionCode='${{ github.run_number }}'"
-
-      echo "$BADGING" |
-        grep \
-          "versionName='1.0.${{ github.run_number }}'"
-
-  - name: Rename APK
-    shell: bash
-    run: |
-      set -e
-
-      SOURCE="app/build/outputs/apk/debug/app-debug.apk"
-
-      TARGET="app/build/outputs/apk/debug/ElectricalCalculationsPro.apk"
-
-      cp "$SOURCE" "$TARGET"
-
-      test -f "$TARGET"
-
-  - name: Calculate SHA256
-    shell: bash
-    run: |
-      set -e
-
-      APK="app/build/outputs/apk/debug/ElectricalCalculationsPro.apk"
-
-      sha256sum "$APK" > apk-sha256.txt
-
-      cat apk-sha256.txt
-
-  - name: Create Release Notes
-    shell: bash
-    run: |
-      set -e
-
-      cat > release-notes.md <<EOF
-      # Electrical Calculations Pro
-
-      Version: 1.0.${{ github.run_number }}
-
-      Version Code: ${{ github.run_number }}
-
-      Commit: ${{ github.sha }}
-
-      Application ID: com.electrical.calculationspro
-
-      Debug-signed APK for fresh installation.
-
-      IMPORTANT:
-      This APK is not intended for in-place updates
-      over an installation signed with another key.
-
-      If an older differently-signed version is installed:
-
-      1. Uninstall the old version.
-      2. Install this APK.
-
-      ## SHA-256
-
-      $(cat apk-sha256.txt)
-      EOF
-
-  - name: Publish GitHub Release
-    env:
-      GH_TOKEN: ${{ github.token }}
-    shell: bash
-    run: |
-      set -e
-
-      TAG="v1.0.${{ github.run_number }}"
-
-      APK="app/build/outputs/apk/debug/ElectricalCalculationsPro.apk"
-
-      if gh release view \
-          "$TAG" \
-          --repo "${{ github.repository }}" \
-          >/dev/null 2>&1
-      then
-
-        gh release upload \
-          "$TAG" \
-          "$APK" \
-          apk-sha256.txt \
-          --repo "${{ github.repository }}" \
-          --clobber
-
-      else
-
-        gh release create \
-          "$TAG" \
-          "$APK" \
-          apk-sha256.txt \
-          --repo "${{ github.repository }}" \
-          --title "Electrical Calculations Pro $TAG" \
-          --notes-file release-notes.md
-
-      fi
-
-  - name: Verify GitHub Release
-    env:
-      GH_TOKEN: ${{ github.token }}
-    shell: bash
-    run: |
-      set -e
-
-      TAG="v1.0.${{ github.run_number }}"
-
-      gh release view \
-        "$TAG" \
-        --repo "${{ github.repository }}"
-
-  - name: Cleanup
-    if: always()
-    shell: bash
-    run: |
-      rm -f release.keystore
-      rm -f ci-signing.properties
-      rm -f /tmp/test-request.csr
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ElectricalCalculationsPro
+          path: app/build/outputs/apk/debug/ElectricalCalculationsPro.apk
+          if-no-files-found: error
