@@ -18,18 +18,13 @@ data class SldNode(
     val type: SldNodeType,
     val x: Float,
     val y: Float,
-
     val voltage: Double = 400.0,
-
     val loadKw: Double = 0.0,
     val powerFactor: Double = 0.90,
     val demandFactor: Double = 1.0,
-
     val ratedKva: Double = 0.0,
     val transformerPercentZ: Double = 0.0,
-
     val generatorXdSubtransient: Double = 0.0,
-
     val sourceShortCircuitMva: Double = 0.0
 )
 
@@ -50,22 +45,15 @@ data class SldNetwork(
 data class UpstreamResult(
     val nodeId: String,
     val nodeName: String,
-
     val connectedLoadKw: Double,
     val demandLoadKw: Double,
-
     val apparentPowerKva: Double,
     val currentA: Double,
-
     val voltage: Double,
-
     val requiredBreakerA: Double,
     val requiredTransformerKva: Double,
-
     val diversityFactor: Double,
-
     val childrenCount: Int,
-
     val notes: List<String> = emptyList()
 )
 
@@ -147,24 +135,30 @@ object SldEngineeringEngine {
 
         validateNetwork(network)
 
-        val children = mutableMapOf<String, MutableList<SldNode>>()
+        val nodeMap =
+            network.nodes.associateBy {
+                it.id
+            }
+
+        val children =
+            mutableMapOf<String, MutableList<SldNode>>()
 
         network.nodes.forEach { node ->
             children[node.id] = mutableListOf()
         }
 
         network.connections.forEach { connection ->
+            val child =
+                nodeMap[connection.toNodeId]
+                    ?: return@forEach
 
-            val child = network.nodes.firstOrNull {
-                it.id == connection.toNodeId
-            }
-
-            if (child != null) {
-                children[connection.fromNodeId]?.add(child)
-            }
+            children[
+                connection.fromNodeId
+            ]?.add(child)
         }
 
-        val resultMap = mutableMapOf<String, UpstreamResult>()
+        val resultMap =
+            mutableMapOf<String, UpstreamResult>()
 
         fun calculateNode(
             node: SldNode,
@@ -173,7 +167,7 @@ object SldEngineeringEngine {
 
             if (!visiting.add(node.id)) {
                 throw IllegalArgumentException(
-                    "SLD contains a circular connection around ${node.name}."
+                    "Circular SLD connection at ${node.name}."
                 )
             }
 
@@ -192,29 +186,19 @@ object SldEngineeringEngine {
                             1.0
                         )
 
+                val pf =
+                    node.powerFactor.coerceIn(
+                        0.01,
+                        1.0
+                    )
+
                 val kva =
-                    if (
-                        node.powerFactor >
-                        EPSILON
-                    ) {
-                        demandKw /
-                            node.powerFactor.coerceIn(
-                                0.01,
-                                1.0
-                            )
-                    } else {
-                        demandKw
-                    }
+                    demandKw / pf
 
                 val current =
                     threePhaseCurrent(
-                        kva = kva,
-                        voltage = node.voltage
-                    )
-
-                val breaker =
-                    nextStandardBreaker(
-                        current
+                        kva,
+                        node.voltage
                     )
 
                 resultMap[node.id] =
@@ -226,12 +210,13 @@ object SldEngineeringEngine {
                         apparentPowerKva = kva,
                         currentA = current,
                         voltage = node.voltage,
-                        requiredBreakerA = breaker,
+                        requiredBreakerA =
+                            nextBreaker(current),
                         requiredTransformerKva = 0.0,
                         diversityFactor = 1.0,
                         childrenCount = 0,
                         notes = listOf(
-                            "Load node",
+                            "Load",
                             "Demand factor = %.3f"
                                 .format(
                                     node.demandFactor
@@ -248,154 +233,70 @@ object SldEngineeringEngine {
             var demandKw = 0.0
 
             nodeChildren.forEach { child ->
-
-                val childResult =
+                val result =
                     calculateNode(
                         child,
                         visiting
                     )
 
-                connectedKw += childResult.first
-                demandKw += childResult.second
+                connectedKw += result.first
+                demandKw += result.second
             }
 
-            val localLoad =
-                node.loadKw.coerceAtLeast(0.0)
+            if (node.loadKw > 0.0) {
+                connectedKw +=
+                    node.loadKw
 
-            val localDemand =
-                localLoad *
-                    node.demandFactor.coerceIn(
-                        0.0,
-                        1.0
-                    )
+                demandKw +=
+                    node.loadKw *
+                        node.demandFactor.coerceIn(
+                            0.0,
+                            1.0
+                        )
+            }
 
-            connectedKw += localLoad
-            demandKw += localDemand
-
-            val diversityFactor =
-                if (
-                    demandKw > EPSILON &&
-                    connectedKw > demandKw
-                ) {
-                    (
-                        connectedKw /
-                            demandKw
-                        ).coerceAtLeast(1.0)
-                } else {
+            val pf =
+                node.powerFactor.coerceIn(
+                    0.01,
                     1.0
-                }
+                )
 
-            val effectivePf =
-                nodeChildren
-                    .mapNotNull {
-                        resultMap[it.id]
-                    }
-                    .map {
-                        it.apparentPowerKva
-                    }
-                    .sum()
-                    .let { totalKva ->
-
-                        if (
-                            demandKw >
-                            EPSILON &&
-                            totalKva >
-                            EPSILON
-                        ) {
-                            (
-                                demandKw /
-                                    totalKva
-                            ).coerceIn(
-                                0.01,
-                                1.0
-                            )
-                        } else {
-                            node.powerFactor
-                                .coerceIn(
-                                    0.01,
-                                    1.0
-                                )
-                        }
-                    }
-
-            val apparentPowerKva =
-                if (
-                    effectivePf >
-                    EPSILON
-                ) {
-                    demandKw /
-                        effectivePf
-                } else {
-                    demandKw
-                }
+            val apparentKva =
+                demandKw / pf
 
             val current =
                 threePhaseCurrent(
-                    kva = apparentPowerKva,
-                    voltage = node.voltage
+                    apparentKva,
+                    node.voltage
                 )
 
             val breaker =
-                nextStandardBreaker(
-                    current
-                )
+                nextBreaker(current)
 
-            val requiredTransformer =
+            val transformer =
                 if (
                     node.type ==
                     SldNodeType.TRANSFORMER
                 ) {
-                    nextStandardTransformer(
-                        apparentPowerKva
+                    nextTransformer(
+                        apparentKva
                     )
                 } else {
                     0.0
                 }
 
-            val notes =
-                mutableListOf<String>()
-
-            notes +=
-                "Connected load = %.2f kW"
-                    .format(connectedKw)
-
-            notes +=
-                "Demand load = %.2f kW"
-                    .format(demandKw)
-
-            notes +=
-                "Required apparent power = %.2f kVA"
-                    .format(apparentPowerKva)
-
-            notes +=
-                "Current = %.2f A"
-                    .format(current)
-
-            notes +=
-                "Breaker = %.0f A"
-                    .format(breaker)
-
-            if (
-                diversityFactor >
-                1.0 + EPSILON
-            ) {
-                notes +=
-                    "Diversity factor = %.3f"
-                        .format(
-                            diversityFactor
-                        )
-            }
-
-            if (
-                requiredTransformer >
-                0.0
-            ) {
-                notes +=
-                    "Required transformer = %.0f kVA"
-                        .format(
-                            requiredTransformer
-                        )
-            }
+            val diversity =
+                if (
+                    demandKw > EPSILON &&
+                    connectedKw > demandKw
+                ) {
+                    max(
+                        1.0,
+                        connectedKw / demandKw
+                    )
+                } else {
+                    1.0
+                }
 
             resultMap[node.id] =
                 UpstreamResult(
@@ -403,17 +304,37 @@ object SldEngineeringEngine {
                     nodeName = node.name,
                     connectedLoadKw = connectedKw,
                     demandLoadKw = demandKw,
-                    apparentPowerKva = apparentPowerKva,
+                    apparentPowerKva = apparentKva,
                     currentA = current,
                     voltage = node.voltage,
                     requiredBreakerA = breaker,
                     requiredTransformerKva =
-                        requiredTransformer,
-                    diversityFactor =
-                        diversityFactor,
+                        transformer,
+                    diversityFactor = diversity,
                     childrenCount =
                         nodeChildren.size,
-                    notes = notes
+                    notes = listOf(
+                        "Connected = %.2f kW"
+                            .format(
+                                connectedKw
+                            ),
+                        "Demand = %.2f kW"
+                            .format(
+                                demandKw
+                            ),
+                        "Required = %.2f kVA"
+                            .format(
+                                apparentKva
+                            ),
+                        "Current = %.2f A"
+                            .format(
+                                current
+                            ),
+                        "Breaker = %.0f A"
+                            .format(
+                                breaker
+                            )
+                    )
                 )
 
             visiting.remove(node.id)
@@ -421,26 +342,23 @@ object SldEngineeringEngine {
             return connectedKw to demandKw
         }
 
-        val sourceNodes =
+        val roots =
             network.nodes.filter {
-                it.type == SldNodeType.SOURCE ||
-                    it.type == SldNodeType.TRANSFORMER ||
-                    it.type == SldNodeType.GENERATOR
+                it.type == SldNodeType.SOURCE
             }
 
-        val roots =
-            if (sourceNodes.isNotEmpty()) {
-                sourceNodes
+        val calculationRoots =
+            if (roots.isNotEmpty()) {
+                roots
             } else {
                 network.nodes.filter { node ->
                     network.connections.none {
-                        it.toNodeId ==
-                            node.id
+                        it.toNodeId == node.id
                     }
                 }
             }
 
-        roots.forEach { root ->
+        calculationRoots.forEach { root ->
             calculateNode(
                 root,
                 mutableSetOf()
@@ -458,91 +376,60 @@ object SldEngineeringEngine {
                 )
             }
 
-        val mainResult =
-            roots
+        val main =
+            calculationRoots
                 .firstOrNull()
                 ?.let {
                     resultMap[it.id]
                 }
                 ?: resultMap.values.first()
 
-        val totalConnected =
-            mainResult.connectedLoadKw
-
-        val totalDemand =
-            mainResult.demandLoadKw
-
-        val totalKva =
-            mainResult.apparentPowerKva
-
-        val mainCurrent =
-            mainResult.currentA
-
-        val mainBreaker =
-            mainResult.requiredBreakerA
-
         val transformerKva =
-            nextStandardTransformer(
-                totalKva
+            nextTransformer(
+                main.apparentPowerKva
             )
-
-        val notes =
-            mutableListOf<String>()
-
-        notes +=
-            "Upstream calculation completed."
-
-        notes +=
-            "Connected load = %.2f kW"
-                .format(
-                    totalConnected
-                )
-
-        notes +=
-            "Maximum demand = %.2f kW"
-                .format(
-                    totalDemand
-                )
-
-        notes +=
-            "Required apparent power = %.2f kVA"
-                .format(
-                    totalKva
-                )
-
-        notes +=
-            "Main current = %.2f A"
-                .format(
-                    mainCurrent
-                )
-
-        notes +=
-            "Main breaker = %.0f A"
-                .format(
-                    mainBreaker
-                )
-
-        notes +=
-            "Recommended transformer = %.0f kVA"
-                .format(
-                    transformerKva
-                )
 
         return SldCalculationResult(
             nodeResults = resultMap,
             totalConnectedLoadKw =
-                totalConnected,
+                main.connectedLoadKw,
             totalDemandLoadKw =
-                totalDemand,
+                main.demandLoadKw,
             totalRequiredKva =
-                totalKva,
+                main.apparentPowerKva,
             mainCurrentA =
-                mainCurrent,
+                main.currentA,
             mainBreakerA =
-                mainBreaker,
+                main.requiredBreakerA,
             requiredTransformerKva =
                 transformerKva,
-            notes = notes
+            notes = listOf(
+                "SLD upstream calculation completed.",
+                "Connected load = %.2f kW"
+                    .format(
+                        main.connectedLoadKw
+                    ),
+                "Demand load = %.2f kW"
+                    .format(
+                        main.demandLoadKw
+                    ),
+                "Required apparent power = %.2f kVA"
+                    .format(
+                        main.apparentPowerKva
+                    ),
+                "Main current = %.2f A"
+                    .format(
+                        main.currentA
+                    ),
+                "Main breaker = %.0f A"
+                    .format(
+                        main.requiredBreakerA
+                    ),
+                "Recommended transformer = %.0f kVA"
+                    .format(
+                        transformerKva
+                    )
+            )
         )
     }
 
@@ -550,7 +437,6 @@ object SldEngineeringEngine {
         kva: Double,
         voltage: Double
     ): Double {
-
         if (
             kva <= EPSILON ||
             voltage <= EPSILON
@@ -560,17 +446,14 @@ object SldEngineeringEngine {
 
         return (
             kva * 1000.0
-        ) /
-            (
-                sqrt(3.0) *
-                    voltage
+            ) / (
+            sqrt(3.0) * voltage
             )
     }
 
-    private fun nextStandardBreaker(
+    private fun nextBreaker(
         current: Double
     ): Double {
-
         if (current <= 0.0) {
             return 0.0
         }
@@ -580,33 +463,28 @@ object SldEngineeringEngine {
         } ?: standardBreakers.last()
     }
 
-    private fun nextStandardTransformer(
+    private fun nextTransformer(
         kva: Double
     ): Double {
-
         if (kva <= 0.0) {
             return 0.0
         }
 
-        return standardTransformersKva
-            .firstOrNull {
-                it >= kva
-            }
-            ?: standardTransformersKva.last()
+        return standardTransformersKva.firstOrNull {
+            it >= kva
+        } ?: standardTransformersKva.last()
     }
 
     private fun validateNetwork(
         network: SldNetwork
     ) {
-
         val ids =
             network.nodes.map {
                 it.id
             }
 
         require(
-            ids.size ==
-                ids.toSet().size
+            ids.size == ids.toSet().size
         ) {
             "Duplicate SLD node IDs."
         }
@@ -617,13 +495,13 @@ object SldEngineeringEngine {
             require(
                 connection.fromNodeId in ids
             ) {
-                "Connection source not found: ${connection.fromNodeId}"
+                "Connection source not found."
             }
 
             require(
                 connection.toNodeId in ids
             ) {
-                "Connection destination not found: ${connection.toNodeId}"
+                "Connection destination not found."
             }
 
             require(
@@ -656,15 +534,10 @@ object SldEngineeringEngine {
                 "Invalid demand factor at ${node.name}."
             }
 
-            if (
-                node.type ==
-                SldNodeType.LOAD
+            require(
+                node.loadKw >= 0.0
             ) {
-                require(
-                    node.loadKw >= 0.0
-                ) {
-                    "Invalid load at ${node.name}."
-                }
+                "Invalid load at ${node.name}."
             }
         }
     }
