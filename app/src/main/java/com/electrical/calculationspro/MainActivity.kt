@@ -21,26 +21,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Cable
-import androidx.compose.material.icons.filled.Calculate
-import androidx.compose.material.icons.filled.ElectricBolt
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Power
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,10 +40,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
@@ -88,11 +77,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-data class MenuItem(
+private data class CalculationMenuItem(
     val id: String,
     val titleKey: String,
-    val icon: ImageVector,
-    val iconBackground: Color
+    val symbol: String
 )
 
 @Composable
@@ -137,84 +125,64 @@ fun MainScreen() {
         AppUpdateManager(context)
     }
 
+    fun text(key: String): String {
+        return Strings.get(key, language)
+    }
+
     val menuItems = remember {
 
         listOf(
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "conductor_sizing_protection",
                 titleKey = "conductor_sizing_protection",
-                icon = Icons.Default.Security,
-                iconBackground = Color(0xFF607D8B)
+                symbol = "⚡"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "voltage_drop",
                 titleKey = "voltage_drop",
-                icon = Icons.Default.Bolt,
-                iconBackground = Color(0xFFE53935)
+                symbol = "↘"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "current",
                 titleKey = "current",
-                icon = Icons.Default.ElectricBolt,
-                iconBackground = Color(0xFF4CAF50)
+                symbol = "I"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "voltage",
                 titleKey = "voltage",
-                icon = Icons.Default.Bolt,
-                iconBackground = Color(0xFFE91E63)
+                symbol = "V"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "active_power",
                 titleKey = "active_power",
-                icon = Icons.Default.Power,
-                iconBackground = Color(0xFF9C27B0)
+                symbol = "P"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "apparent_power",
                 titleKey = "apparent_power",
-                icon = Icons.Default.ElectricBolt,
-                iconBackground = Color(0xFF3F51B5)
+                symbol = "S"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "reactive_power",
                 titleKey = "reactive_power",
-                icon = Icons.Default.Power,
-                iconBackground = Color(0xFF00BCD4)
+                symbol = "Q"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "power_factor",
                 titleKey = "power_factor",
-                icon = Icons.Default.Calculate,
-                iconBackground = Color(0xFFFF9800)
+                symbol = "cosφ"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "resistance",
                 titleKey = "resistance",
-                icon = Icons.Default.Settings,
-                iconBackground = Color(0xFFFFEB3B)
+                symbol = "R"
             ),
-
-            MenuItem(
+            CalculationMenuItem(
                 id = "impedance",
                 titleKey = "impedance",
-                icon = Icons.Default.Settings,
-                iconBackground = Color(0xFFFFEB3B)
+                symbol = "Z"
             )
         )
-    }
-
-    fun text(key: String): String {
-        return Strings.get(key, language)
     }
 
     fun checkForUpdate() {
@@ -227,8 +195,7 @@ fun MainScreen() {
 
         coroutineScope.launch {
 
-            val release =
-                updateManager.checkForUpdate()
+            val release = updateManager.checkForUpdate()
 
             checkingUpdate = false
 
@@ -251,20 +218,22 @@ fun MainScreen() {
         }
     }
 
-    /*
-     * ============================================================
-     * UPDATE CHECK DIALOG
-     * ============================================================
-     */
+    if (showAbout) {
+
+        AboutScreen(
+            language = language,
+            onClose = {
+                showAbout = false
+            }
+        )
+
+        return
+    }
 
     if (checkingUpdate) {
 
         AlertDialog(
-
-            onDismissRequest = {
-                // Prevent closing while checking
-            },
-
+            onDismissRequest = {},
             title = {
                 Text(
                     if (language == AppLanguage.ARABIC) {
@@ -274,12 +243,10 @@ fun MainScreen() {
                     }
                 )
             },
-
             text = {
 
                 Row(
-                    verticalAlignment =
-                        Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
 
                     CircularProgressIndicator(
@@ -300,21 +267,13 @@ fun MainScreen() {
                     )
                 }
             },
-
             confirmButton = {}
         )
     }
 
-    /*
-     * ============================================================
-     * NEW UPDATE AVAILABLE
-     * ============================================================
-     */
-
     updateRelease?.let { release ->
 
         AlertDialog(
-
             onDismissRequest = {
                 updateRelease = null
             },
@@ -340,8 +299,8 @@ fun MainScreen() {
                             } else {
                                 "New version: ${release.versionName}"
                             },
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryTeal
+                        color = PrimaryTeal,
+                        fontWeight = FontWeight.Bold
                     )
 
                     if (release.releaseNotes.isNotBlank()) {
@@ -381,8 +340,7 @@ fun MainScreen() {
                 TextButton(
                     onClick = {
 
-                        val releaseToInstall =
-                            updateRelease
+                        val releaseToInstall = updateRelease
 
                         updateRelease = null
 
@@ -390,9 +348,7 @@ fun MainScreen() {
                             return@TextButton
                         }
 
-                        if (
-                            updateManager.canInstallPackages()
-                        ) {
+                        if (updateManager.canInstallPackages()) {
 
                             updateManager.downloadAndInstall(
                                 releaseToInstall
@@ -400,10 +356,7 @@ fun MainScreen() {
 
                             Toast.makeText(
                                 context,
-                                if (
-                                    language ==
-                                    AppLanguage.ARABIC
-                                ) {
+                                if (language == AppLanguage.ARABIC) {
                                     "جاري تحميل التحديث..."
                                 } else {
                                     "Downloading update..."
@@ -413,15 +366,11 @@ fun MainScreen() {
 
                         } else {
 
-                            updateManager
-                                .openInstallPermissionSettings()
+                            updateManager.openInstallPermissionSettings()
 
                             Toast.makeText(
                                 context,
-                                if (
-                                    language ==
-                                    AppLanguage.ARABIC
-                                ) {
+                                if (language == AppLanguage.ARABIC) {
                                     "اسمح للبرنامج بتثبيت التطبيقات من هذا المصدر ثم اضغط تحديث مرة أخرى"
                                 } else {
                                     "Allow this app to install unknown apps, then press Update again"
@@ -446,12 +395,6 @@ fun MainScreen() {
             }
         )
     }
-
-    /*
-     * ============================================================
-     * FUNCTIONS DIALOG
-     * ============================================================
-     */
 
     if (showFunctions) {
 
@@ -489,33 +432,6 @@ fun MainScreen() {
         )
     }
 
-    /*
-     * ============================================================
-     * ABOUT SCREEN
-     *
-     * الصفحة أصبحت شاشة كاملة فعلية
-     * وليست AlertDialog.
-     * ============================================================
-     */
-
-    if (showAbout) {
-
-        AboutScreen(
-            language = language,
-            onClose = {
-                showAbout = false
-            }
-        )
-
-        return
-    }
-
-    /*
-     * ============================================================
-     * MAIN SCAFFOLD
-     * ============================================================
-     */
-
     Scaffold(
         containerColor = DarkBackground
     ) { paddingValues ->
@@ -527,187 +443,33 @@ fun MainScreen() {
                 .background(DarkBackground)
         ) {
 
-            /*
-             * ========================================================
-             * TOP BAR
-             * ========================================================
-             */
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(58.dp)
-                    .background(
-                        Color(0xFF1E2A3A)
-                    )
-                    .padding(horizontal = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                IconButton(
-                    onClick = {
-                        selectedMenu = "home"
-                    }
-                ) {
-
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription =
-                            text("app_name"),
-                        tint = TextPrimary
-                    )
+            TopBar(
+                language = language,
+                languageExpanded = languageExpanded,
+                onLanguageClick = {
+                    languageExpanded = true
+                },
+                onLanguageDismiss = {
+                    languageExpanded = false
+                },
+                onArabic = {
+                    language = AppLanguage.ARABIC
+                    languageExpanded = false
+                },
+                onEnglish = {
+                    language = AppLanguage.ENGLISH
+                    languageExpanded = false
+                },
+                onUpdate = {
+                    checkForUpdate()
+                },
+                onFunctions = {
+                    showFunctions = true
+                },
+                onAbout = {
+                    showAbout = true
                 }
-
-                Text(
-                    text =
-                        if (selectedMenu == "home") {
-                            text("app_name")
-                        } else {
-                            text(selectedMenu)
-                        },
-                    color = TextPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
-
-                /*
-                 * ====================================================
-                 * LANGUAGE
-                 * ====================================================
-                 */
-
-                Box {
-
-                    IconButton(
-                        onClick = {
-                            languageExpanded = true
-                        }
-                    ) {
-
-                        Icon(
-                            imageVector =
-                                Icons.Default.Language,
-                            contentDescription =
-                                text("language"),
-                            tint = TextPrimary
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded =
-                            languageExpanded,
-                        onDismissRequest = {
-                            languageExpanded = false
-                        }
-                    ) {
-
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text("arabic")
-                                )
-                            },
-                            onClick = {
-
-                                language =
-                                    AppLanguage.ARABIC
-
-                                languageExpanded =
-                                    false
-                            }
-                        )
-
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    text("english")
-                                )
-                            },
-                            onClick = {
-
-                                language =
-                                    AppLanguage.ENGLISH
-
-                                languageExpanded =
-                                    false
-                            }
-                        )
-                    }
-                }
-
-                /*
-                 * ====================================================
-                 * UPDATE BUTTON
-                 * ====================================================
-                 */
-
-                IconButton(
-                    onClick = {
-                        checkForUpdate()
-                    }
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Default.SystemUpdate,
-                        contentDescription =
-                            text("update_program"),
-                        tint = TextPrimary
-                    )
-                }
-
-                /*
-                 * ====================================================
-                 * FUNCTIONS BUTTON
-                 * ====================================================
-                 */
-
-                IconButton(
-                    onClick = {
-                        showFunctions = true
-                    }
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Default.Calculate,
-                        contentDescription =
-                            text("functions"),
-                        tint = TextPrimary
-                    )
-                }
-
-                /*
-                 * ====================================================
-                 * ABOUT BUTTON
-                 * ====================================================
-                 */
-
-                IconButton(
-                    onClick = {
-                        showAbout = true
-                    }
-                ) {
-
-                    Icon(
-                        imageVector =
-                            Icons.Default.Info,
-                        contentDescription =
-                            text("about"),
-                        tint = TextPrimary
-                    )
-                }
-            }
-
-            /*
-             * ============================================================
-             * MAIN SPLIT SCREEN
-             *
-             * LEFT  = calculation/design list
-             * RIGHT = input/data/calculation screen
-             * ============================================================
-             */
+            )
 
             Row(
                 modifier = Modifier
@@ -715,58 +477,41 @@ fun MainScreen() {
                     .background(DarkBackground)
             ) {
 
-                /*
-                 * ========================================================
-                 * LEFT MENU
-                 * ========================================================
-                 */
-
-                LeftCalculationMenu(
+                CalculationMenu(
                     modifier = Modifier
-                        .width(250.dp)
+                        .width(300.dp)
                         .fillMaxHeight(),
 
                     items = menuItems,
 
                     selectedId = selectedMenu,
 
-                    selectedStandard =
-                        selectedStandard,
-
                     language = language,
-
-                    onStandardSelected = {
-                        selectedStandard = it
-                    },
 
                     onSelect = {
                         selectedMenu = it
                     }
                 )
 
-                /*
-                 * ========================================================
-                 * RIGHT DATA AREA
-                 * ========================================================
-                 */
-
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .background(DarkBackground)
                 ) {
 
                     when (selectedMenu) {
 
                         "home" -> {
 
-                            WelcomeScreen(
+                            HomeScreen(
                                 language = language,
-                                standard =
-                                    selectedStandard,
-                                onUpdate = {
-                                    checkForUpdate()
+                                standard = selectedStandard,
+                                onStandardChanged = {
+                                    selectedStandard = it
+                                },
+                                onOpenConductorSizing = {
+                                    selectedMenu =
+                                        "conductor_sizing_protection"
                                 }
                             )
                         }
@@ -775,24 +520,14 @@ fun MainScreen() {
 
                             ConductorSizingScreen(
                                 language = language,
-                                standard =
-                                    selectedStandard
+                                standard = selectedStandard
                             )
                         }
 
-                        "voltage_drop",
-                        "current",
-                        "voltage",
-                        "active_power",
-                        "apparent_power",
-                        "reactive_power",
-                        "power_factor",
-                        "resistance",
-                        "impedance" -> {
+                        else -> {
 
                             EngineeringCalculatorScreen(
-                                calculation =
-                                    selectedMenu,
+                                calculation = selectedMenu,
                                 language = language
                             )
                         }
@@ -803,107 +538,211 @@ fun MainScreen() {
     }
 }
 
-/*
- * ============================================================================
- * LEFT CALCULATION MENU
- * ============================================================================
- */
+@Composable
+private fun TopBar(
+    language: AppLanguage,
+    languageExpanded: Boolean,
+    onLanguageClick: () -> Unit,
+    onLanguageDismiss: () -> Unit,
+    onArabic: () -> Unit,
+    onEnglish: () -> Unit,
+    onUpdate: () -> Unit,
+    onFunctions: () -> Unit,
+    onAbout: () -> Unit
+) {
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(64.dp)
+            .background(Color(0xFF182536))
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(PrimaryTeal),
+            contentAlignment = Alignment.Center
+        ) {
+
+            Text(
+                text = "⚡",
+                fontSize = 25.sp,
+                color = Color.White
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.width(12.dp)
+        )
+
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
+
+            Text(
+                text = Strings.get(
+                    "app_name",
+                    language
+                ),
+                color = TextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                text =
+                    if (language == AppLanguage.ARABIC) {
+                        "الهندسة الكهربائية والحسابات"
+                    } else {
+                        "Electrical Engineering Calculations"
+                    },
+                color = TextSecondary,
+                fontSize = 11.sp
+            )
+        }
+
+        Box {
+
+            TextButton(
+                onClick = onLanguageClick
+            ) {
+
+                Text(
+                    text =
+                        if (language == AppLanguage.ARABIC) {
+                            "العربية"
+                        } else {
+                            "EN"
+                        },
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            DropdownMenu(
+                expanded = languageExpanded,
+                onDismissRequest = onLanguageDismiss
+            ) {
+
+                DropdownMenuItem(
+                    text = {
+                        Text("العربية")
+                    },
+                    onClick = onArabic
+                )
+
+                DropdownMenuItem(
+                    text = {
+                        Text("English")
+                    },
+                    onClick = onEnglish
+                )
+            }
+        }
+
+        TextButton(
+            onClick = onUpdate
+        ) {
+
+            Text(
+                text =
+                    if (language == AppLanguage.ARABIC) {
+                        "تحديث"
+                    } else {
+                        "Update"
+                    },
+                color = TextPrimary
+            )
+        }
+
+        TextButton(
+            onClick = onFunctions
+        ) {
+
+            Text(
+                text =
+                    if (language == AppLanguage.ARABIC) {
+                        "الحسابات"
+                    } else {
+                        "Calculations"
+                    },
+                color = TextPrimary
+            )
+        }
+
+        TextButton(
+            onClick = onAbout
+        ) {
+
+            Text(
+                text =
+                    if (language == AppLanguage.ARABIC) {
+                        "حول"
+                    } else {
+                        "About"
+                    },
+                color = TextPrimary
+            )
+        }
+    }
+}
 
 @Composable
-private fun LeftCalculationMenu(
+private fun CalculationMenu(
     modifier: Modifier,
-    items: List<MenuItem>,
+    items: List<CalculationMenuItem>,
     selectedId: String,
-    selectedStandard: Standard,
     language: AppLanguage,
-    onStandardSelected: (Standard) -> Unit,
     onSelect: (String) -> Unit
 ) {
 
     Column(
-
         modifier = modifier
-            .background(
-                Color(0xFF182331)
-            )
-            .padding(
-                horizontal = 8.dp,
-                vertical = 10.dp
-            )
+            .background(Color(0xFF111C29))
+            .padding(10.dp)
     ) {
 
         Text(
-            text = Strings.get(
-                "engineering_tools",
-                language
-            ),
-            color = TextPrimary,
+            text =
+                if (language == AppLanguage.ARABIC) {
+                    "الحسابات الكهربائية"
+                } else {
+                    "Electrical Calculations"
+                },
+            color = PrimaryTeal,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(
                 horizontal = 10.dp,
-                vertical = 10.dp
+                vertical = 14.dp
             )
         )
 
-        StandardSelector(
-            language = language,
-            selectedStandard =
-                selectedStandard,
-            onSelected =
-                onStandardSelected
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement =
-                Arrangement.spacedBy(5.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
 
             item {
 
-                LeftMenuItem(
-                    title = Strings.get(
-                        "conductor_sizing",
-                        language
-                    ),
-                    icon =
-                        Icons.Default.Cable,
-                    iconBackground =
-                        Color(0xFF4CAF50),
-                    selected =
-                        selectedId ==
-                            "conductor_sizing_protection",
+                MenuHomeItem(
+                    selected = selectedId == "home",
+                    language = language,
                     onClick = {
-
-                        onSelect(
-                            "conductor_sizing_protection"
-                        )
+                        onSelect("home")
                     }
                 )
             }
 
-            items(
-                items = items,
-                key = {
-                    it.id
-                }
-            ) { item ->
+            items(items) { item ->
 
-                LeftMenuItem(
-                    title = Strings.get(
-                        item.titleKey,
-                        language
-                    ),
-                    icon = item.icon,
-                    iconBackground =
-                        item.iconBackground,
-                    selected =
-                        selectedId == item.id,
+                MenuCalculationItem(
+                    item = item,
+                    selected = selectedId == item.id,
+                    language = language,
                     onClick = {
                         onSelect(item.id)
                     }
@@ -913,292 +752,158 @@ private fun LeftCalculationMenu(
     }
 }
 
-/*
- * ============================================================================
- * STANDARD SELECTOR
- * ============================================================================
- */
-
 @Composable
-private fun StandardSelector(
-    language: AppLanguage,
-    selectedStandard: Standard,
-    onSelected: (Standard) -> Unit
-) {
-
-    var expanded by remember {
-        mutableStateOf(false)
-    }
-
-    Box(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    expanded = true
-                },
-            colors = CardDefaults.cardColors(
-                containerColor =
-                    Color(0xFF263445)
-            )
-        ) {
-
-            Column(
-                modifier = Modifier.padding(
-                    horizontal = 12.dp,
-                    vertical = 9.dp
-                )
-            ) {
-
-                Text(
-                    text = Strings.get(
-                        "standard",
-                        language
-                    ),
-                    color = TextSecondary,
-                    fontSize = 11.sp
-                )
-
-                Spacer(
-                    modifier = Modifier.height(2.dp)
-                )
-
-                Text(
-                    text = standardName(
-                        selectedStandard,
-                        language
-                    ),
-                    color = PrimaryTeal,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-            }
-        ) {
-
-            Standard.values().forEach { standard ->
-
-                DropdownMenuItem(
-                    text = {
-
-                        Text(
-                            standardName(
-                                standard,
-                                language
-                            )
-                        )
-                    },
-                    onClick = {
-
-                        onSelected(standard)
-
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-/*
- * ============================================================================
- * STANDARD NAME
- * ============================================================================
- */
-
-private fun standardName(
-    standard: Standard,
-    language: AppLanguage
-): String {
-
-    return when (standard) {
-
-        Standard.IEC ->
-            "IEC"
-
-        Standard.EGYPTIAN ->
-            Strings.get(
-                "egyptian_code",
-                language
-            )
-
-        Standard.CEI ->
-            "CEI"
-
-        Standard.NEC ->
-            "NEC"
-
-        Standard.CEC ->
-            "CEC"
-    }
-}
-
-/*
- * ============================================================================
- * LEFT MENU ITEM
- * ============================================================================
- */
-
-@Composable
-private fun LeftMenuItem(
-    title: String,
-    icon: ImageVector,
-    iconBackground: Color,
+private fun MenuHomeItem(
     selected: Boolean,
+    language: AppLanguage,
     onClick: () -> Unit
 ) {
 
-    Card(
+    val background =
+        if (selected) {
+            Color(0xFF164E55)
+        } else {
+            Color.Transparent
+        }
+
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onClick()
-            },
-        colors = CardDefaults.cardColors(
-            containerColor =
-                if (selected) {
-                    Color(0xFF294B55)
-                } else {
-                    Color(0xFF202D3D)
-                }
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 1.dp
-        )
+            .clip(RoundedCornerShape(12.dp))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(
+                horizontal = 12.dp,
+                vertical = 12.dp
+            ),
+        verticalAlignment = Alignment.CenterVertically
     ) {
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = 8.dp,
-                    vertical = 8.dp
-                ),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
+        Text(
+            text = "⌂",
+            color = PrimaryTeal,
+            fontSize = 24.sp,
+            modifier = Modifier.width(38.dp)
+        )
 
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(
-                        color = iconBackground,
-                        shape =
-                            androidx.compose.foundation
-                                .shape
-                                .RoundedCornerShape(
-                                    8.dp
-                                )
-                    ),
-                contentAlignment =
-                    Alignment.Center
-            ) {
-
-                Icon(
-                    imageVector = icon,
-                    contentDescription = title,
-                    tint =
-                        if (
-                            iconBackground ==
-                            Color(0xFFFFEB3B)
-                        ) {
-                            Color.Black
-                        } else {
-                            Color.White
-                        }
-                )
-            }
-
-            Spacer(
-                modifier = Modifier.width(10.dp)
-            )
-
-            Text(
-                text = title,
-                color =
-                    if (selected) {
-                        PrimaryTeal
-                    } else {
-                        TextPrimary
-                    },
-                fontSize = 13.sp,
-                fontWeight =
-                    if (selected) {
-                        FontWeight.Bold
-                    } else {
-                        FontWeight.Normal
-                    }
-            )
-        }
+        Text(
+            text =
+                if (language == AppLanguage.ARABIC) {
+                    "الرئيسية"
+                } else {
+                    "Home"
+                },
+            color = TextPrimary,
+            fontSize = 15.sp,
+            fontWeight =
+                if (selected) {
+                    FontWeight.Bold
+                } else {
+                    FontWeight.Normal
+                }
+        )
     }
 }
 
-/*
- * ============================================================================
- * WELCOME SCREEN
- * ============================================================================
- */
+@Composable
+private fun MenuCalculationItem(
+    item: CalculationMenuItem,
+    selected: Boolean,
+    language: AppLanguage,
+    onClick: () -> Unit
+) {
+
+    val background =
+        if (selected) {
+            Color(0xFF164E55)
+        } else {
+            Color.Transparent
+        }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(
+                horizontal = 12.dp,
+                vertical = 10.dp
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    if (selected) {
+                        PrimaryTeal
+                    } else {
+                        Color(0xFF26384B)
+                    }
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+
+            Text(
+                text = item.symbol,
+                color = Color.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.width(12.dp)
+        )
+
+        Text(
+            text = Strings.get(
+                item.titleKey,
+                language
+            ),
+            color = TextPrimary,
+            fontSize = 14.sp,
+            fontWeight =
+                if (selected) {
+                    FontWeight.Bold
+                } else {
+                    FontWeight.Normal
+                }
+        )
+    }
+}
 
 @Composable
-private fun WelcomeScreen(
+private fun HomeScreen(
     language: AppLanguage,
     standard: Standard,
-    onUpdate: () -> Unit
+    onStandardChanged: (Standard) -> Unit,
+    onOpenConductorSizing: () -> Unit
 ) {
+
+    val arabic = language == AppLanguage.ARABIC
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp)
-            .background(DarkBackground),
-        horizontalAlignment =
-            Alignment.CenterHorizontally,
-        verticalArrangement =
-            Arrangement.Center
+            .background(DarkBackground)
+            .padding(28.dp)
     ) {
 
-        Icon(
-            imageVector =
-                Icons.Default.ElectricBolt,
-            contentDescription = null,
-            tint = PrimaryTeal,
-            modifier = Modifier.size(72.dp)
-        )
-
-        Spacer(
-            modifier = Modifier.height(18.dp)
-        )
-
         Text(
-            text = Strings.get(
-                "app_name",
-                language
-            ),
+            text =
+                if (arabic) {
+                    "Electrical Calculations Pro"
+                } else {
+                    "Electrical Calculations Pro"
+                },
             color = TextPrimary,
-            fontSize = 25.sp,
+            fontSize = 30.sp,
             fontWeight = FontWeight.Bold
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        Text(
-            text = Strings.get(
-                "engineering_tools",
-                language
-            ),
-            color = TextSecondary,
-            fontSize = 16.sp
         )
 
         Spacer(
@@ -1206,41 +911,105 @@ private fun WelcomeScreen(
         )
 
         Text(
-            text = standardName(
-                standard,
-                language
-            ),
-            color = PrimaryTeal,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold
+            text =
+                if (arabic) {
+                    "منصة احترافية للحسابات والتصميمات الكهربائية"
+                } else {
+                    "Professional platform for electrical calculations and design"
+                },
+            color = TextSecondary,
+            fontSize = 16.sp
         )
+
+        Spacer(
+            modifier = Modifier.height(28.dp)
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF1C2A3A)
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = 3.dp
+            )
+        ) {
+
+            Column(
+                modifier = Modifier.padding(24.dp)
+            ) {
+
+                Text(
+                    text =
+                        if (arabic) {
+                            "المعيار الهندسي"
+                        } else {
+                            "Engineering Standard"
+                        },
+                    color = PrimaryTeal,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(
+                    modifier = Modifier.height(10.dp)
+                )
+
+                Text(
+                    text = standard.name,
+                    color = TextPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(
+                    modifier = Modifier.height(18.dp)
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+
+                    Button(
+                        onClick = {
+                            onStandardChanged(Standard.IEC)
+                        }
+                    ) {
+
+                        Text("IEC")
+                    }
+
+                    Button(
+                        onClick = {
+                            onOpenConductorSizing()
+                        }
+                    ) {
+
+                        Text(
+                            if (arabic) {
+                                "ابدأ التصميم"
+                            } else {
+                                "Start Design"
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(
             modifier = Modifier.height(24.dp)
         )
 
-        TextButton(
-            onClick = onUpdate
-        ) {
-
-            Icon(
-                imageVector =
-                    Icons.Default.SystemUpdate,
-                contentDescription = null,
-                tint = PrimaryTeal
-            )
-
-            Spacer(
-                modifier = Modifier.width(8.dp)
-            )
-
-            Text(
-                text = Strings.get(
-                    "update_program",
-                    language
-                ),
-                color = PrimaryTeal
-            )
-        }
+        Text(
+            text =
+                if (arabic) {
+                    "اختر عملية الحساب من القائمة الجانبية للبدء."
+                } else {
+                    "Choose a calculation from the menu to begin."
+                },
+            color = TextSecondary,
+            fontSize = 15.sp
+        )
     }
 }
