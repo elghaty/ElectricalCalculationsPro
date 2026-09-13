@@ -10,9 +10,25 @@ object ElectricalCalculations {
     private const val EPSILON = 1.0e-9
 
     private val standardBreakers = listOf(
-        6.0, 10.0, 16.0, 20.0, 25.0, 32.0, 40.0,
-        50.0, 63.0, 80.0, 100.0, 125.0, 160.0,
-        200.0, 250.0, 315.0, 400.0, 500.0, 630.0
+        6.0,
+        10.0,
+        16.0,
+        20.0,
+        25.0,
+        32.0,
+        40.0,
+        50.0,
+        63.0,
+        80.0,
+        100.0,
+        125.0,
+        160.0,
+        200.0,
+        250.0,
+        315.0,
+        400.0,
+        500.0,
+        630.0
     )
 
     fun calculateDesignCurrent(
@@ -21,23 +37,32 @@ object ElectricalCalculations {
         powerFactor: Double,
         currentType: CurrentType
     ): Double {
+
         require(loadWatts >= 0.0)
         require(voltage > EPSILON)
-        require(powerFactor > 0.0 && powerFactor <= 1.0)
+        require(powerFactor > 0.0)
+        require(powerFactor <= 1.0)
 
         return when (currentType) {
+
             CurrentType.DirectCurrent ->
                 loadWatts / voltage
 
             CurrentType.AlternatingSinglePhase ->
-                loadWatts / (voltage * powerFactor)
+                loadWatts /
+                    (voltage * powerFactor)
 
             CurrentType.AlternatingTwoPhase ->
-                loadWatts / (2.0 * voltage * powerFactor)
+                loadWatts /
+                    (2.0 * voltage * powerFactor)
 
             CurrentType.AlternatingThreePhase ->
                 loadWatts /
-                    (sqrt(3.0) * voltage * powerFactor)
+                    (
+                        sqrt(3.0) *
+                            voltage *
+                            powerFactor
+                        )
         }
     }
 
@@ -46,11 +71,14 @@ object ElectricalCalculations {
         demandFactor: Double = 1.0,
         diversityFactor: Double = 1.0
     ): Double {
+
         require(ib >= 0.0)
         require(demandFactor in 0.0..1.0)
         require(diversityFactor in 0.0..1.0)
 
-        return ib * demandFactor * diversityFactor
+        return ib *
+            demandFactor *
+            diversityFactor
     }
 
     fun calculateVoltageDrop(
@@ -67,11 +95,15 @@ object ElectricalCalculations {
         require(length >= 0.0)
         require(sectionMm2 > EPSILON)
         require(voltage > EPSILON)
-        require(powerFactor > 0.0 && powerFactor <= 1.0)
+        require(powerFactor > 0.0)
+        require(powerFactor <= 1.0)
 
         val resistivity = when (material) {
-            ConductorMaterial.Copper -> 0.0225
-            ConductorMaterial.Aluminum -> 0.0360
+            ConductorMaterial.Copper ->
+                0.0225
+
+            ConductorMaterial.Aluminum ->
+                0.0360
         }
 
         val resistancePerMeter =
@@ -80,31 +112,58 @@ object ElectricalCalculations {
         val reactancePerMeter =
             0.08 / 1000.0
 
-        val cosPhi = powerFactor
+        val cosPhi =
+            powerFactor
 
-        val sinPhi = sqrt(
-            (1.0 - cosPhi * cosPhi)
-                .coerceAtLeast(0.0)
-        )
+        val sinPhi =
+            sqrt(
+                (
+                    1.0 -
+                        cosPhi * cosPhi
+                    ).coerceAtLeast(0.0)
+            )
 
-        val factor = when (currentType) {
-            CurrentType.DirectCurrent -> 2.0
-            CurrentType.AlternatingSinglePhase -> 2.0
-            CurrentType.AlternatingTwoPhase -> 2.0
-            CurrentType.AlternatingThreePhase -> sqrt(3.0)
-        }
+        val loopFactor =
+            when (currentType) {
+
+                CurrentType.DirectCurrent ->
+                    2.0
+
+                CurrentType.AlternatingSinglePhase ->
+                    2.0
+
+                CurrentType.AlternatingTwoPhase ->
+                    2.0
+
+                CurrentType.AlternatingThreePhase ->
+                    sqrt(3.0)
+            }
+
+        val effectiveReactance =
+            if (
+                currentType ==
+                CurrentType.DirectCurrent
+            ) {
+                0.0
+            } else {
+                reactancePerMeter
+            }
 
         val dropVolts =
-            factor *
+            loopFactor *
                 current *
                 length *
                 (
-                    resistancePerMeter * cosPhi +
-                        reactancePerMeter * sinPhi
+                    resistancePerMeter *
+                        cosPhi +
+                        effectiveReactance *
+                        sinPhi
                     )
 
         val dropPercent =
-            dropVolts / voltage * 100.0
+            dropVolts /
+                voltage *
+                100.0
 
         return dropPercent to dropVolts
     }
@@ -124,52 +183,89 @@ object ElectricalCalculations {
         require(sourceIkKA > EPSILON)
 
         val resistivity = when (material) {
-            ConductorMaterial.Copper -> 0.018
-            ConductorMaterial.Aluminum -> 0.029
+
+            ConductorMaterial.Copper ->
+                0.018
+
+            ConductorMaterial.Aluminum ->
+                0.029
         }
 
-        val cableResistance =
-            resistivity *
-                length *
-                2.0 /
+        val resistancePerMeter =
+            resistivity /
                 sectionMm2
 
+        val reactancePerMeter =
+            0.08 / 1000.0
+
+        val cableLoopFactor =
+            when (currentType) {
+
+                CurrentType.DirectCurrent ->
+                    2.0
+
+                CurrentType.AlternatingSinglePhase ->
+                    2.0
+
+                CurrentType.AlternatingTwoPhase ->
+                    2.0
+
+                CurrentType.AlternatingThreePhase ->
+                    1.0
+            }
+
+        val cableResistance =
+            resistancePerMeter *
+                length *
+                cableLoopFactor
+
         val cableReactance =
-            0.08 *
-                length /
-                1000.0 *
-                2.0
+            if (
+                currentType ==
+                CurrentType.DirectCurrent
+            ) {
+                0.0
+            } else {
+                reactancePerMeter *
+                    length *
+                    cableLoopFactor
+            }
+
+        val faultVoltage =
+            when (currentType) {
+
+                CurrentType.AlternatingThreePhase ->
+                    voltage / sqrt(3.0)
+
+                CurrentType.DirectCurrent,
+                CurrentType.AlternatingSinglePhase,
+                CurrentType.AlternatingTwoPhase ->
+                    voltage
+            }
 
         val sourceImpedance =
-            (
-                voltage / sqrt(3.0)
-                ) /
+            faultVoltage /
                 (sourceIkKA * 1000.0)
 
         val totalResistance =
-            sourceImpedance + cableResistance
+            sourceImpedance +
+                cableResistance
 
         val totalImpedance =
             sqrt(
-                totalResistance * totalResistance +
-                    cableReactance * cableReactance
+                totalResistance *
+                    totalResistance +
+                    cableReactance *
+                    cableReactance
             ).coerceAtLeast(EPSILON)
 
-        val faultVoltage = when (currentType) {
-            CurrentType.AlternatingThreePhase ->
-                voltage / sqrt(3.0)
-
-            CurrentType.AlternatingSinglePhase,
-            CurrentType.AlternatingTwoPhase,
-            CurrentType.DirectCurrent ->
-                voltage
-        }
-
         val faultCurrent =
-            faultVoltage / totalImpedance
+            faultVoltage /
+                totalImpedance
 
         val faultCurrentKA =
-            faultCurrent / 1000.0
+            faultCurrent /
+                1000.0
 
         val i2t =
             faultCurrent *
@@ -183,11 +279,21 @@ object ElectricalCalculations {
             sourceImpedance = sourceImpedance,
             i2t = i2t,
             notes = listOf(
-                "Ik = %.2f kA".format(faultCurrentKA),
-                "Cable/source impedance = %.4f Ω"
+                "Ik = %.2f kA"
+                    .format(faultCurrentKA),
+
+                "Total impedance = %.6f Ω"
                     .format(totalImpedance),
-                "Source impedance = %.4f Ω"
+
+                "Source impedance = %.6f Ω"
                     .format(sourceImpedance),
+
+                "Cable resistance = %.6f Ω"
+                    .format(cableResistance),
+
+                "Cable reactance = %.6f Ω"
+                    .format(cableReactance),
+
                 "I²t at 0.10 s = %.0f A²s"
                     .format(i2t)
             )
@@ -224,7 +330,9 @@ object ElectricalCalculations {
             )
 
         val loadedConductors =
-            loadedConductorCount(input.currentType)
+            loadedConductorCount(
+                input.currentType
+            )
 
         val temperatureFactor =
             temperatureCorrection(
@@ -233,15 +341,18 @@ object ElectricalCalculations {
             )
 
         val groupingFactor =
-            IecTables.groupingFactor(
-                input.circuitsInConduit
-            ).coerceAtLeast(EPSILON)
+            IecTables
+                .groupingFactor(
+                    input.circuitsInConduit
+                )
+                .coerceAtLeast(EPSILON)
 
-        val requiredIz =
+        val requiredBaseIz =
             designCurrent /
-                (temperatureFactor * groupingFactor)
-
-        var ampacityCandidate: Double? = null
+                (
+                    temperatureFactor *
+                        groupingFactor
+                    )
 
         for (section in standardSections) {
 
@@ -249,9 +360,12 @@ object ElectricalCalculations {
                 IecTables.getBaseAmpacity(
                     section = section,
                     method = methodKey,
-                    loadedConductors = loadedConductors,
-                    material = input.conductor,
-                    insulation = input.insulation
+                    loadedConductors =
+                        loadedConductors,
+                    material =
+                        input.conductor,
+                    insulation =
+                        input.insulation
                 )
 
             val correctedAmpacity =
@@ -259,14 +373,19 @@ object ElectricalCalculations {
                     temperatureFactor *
                     groupingFactor
 
-            if (
-                correctedAmpacity >= requiredIz &&
-                ampacityCandidate == null
-            ) {
-                ampacityCandidate = section
-            }
+            /*
+             * CORRECT COORDINATION:
+             *
+             * Ib <= Iz
+             *
+             * Do not compare corrected Iz
+             * against already derated required Iz.
+             */
 
-            if (correctedAmpacity < requiredIz) {
+            if (
+                correctedAmpacity <
+                designCurrent
+            ) {
                 continue
             }
 
@@ -275,38 +394,46 @@ object ElectricalCalculations {
                     current = designCurrent,
                     length = input.lineLength,
                     sectionMm2 = section,
-                    powerFactor = input.powerFactor,
-                    currentType = input.currentType,
-                    material = input.conductor,
-                    voltage = input.voltage
+                    powerFactor =
+                        input.powerFactor,
+                    currentType =
+                        input.currentType,
+                    material =
+                        input.conductor,
+                    voltage =
+                        input.voltage
                 )
 
             if (
                 voltageDrop.first <=
                 input.maxVoltageDrop
             ) {
+
                 return evaluateSection(
                     input = input,
                     section = section,
-                    designCurrent = designCurrent,
-                    rawDesignCurrent = rawCurrent,
-                    standard = standard
+                    designCurrent =
+                        designCurrent,
+                    rawDesignCurrent =
+                        rawCurrent,
+                    standard = standard,
+                    requiredBaseIz =
+                        requiredBaseIz
                 )
             }
         }
 
-        val fallback =
-            ampacityCandidate
-                ?: standardSections.last()
+        val largestSection =
+            standardSections.last()
 
         return evaluateSection(
             input = input,
-            section = fallback,
+            section = largestSection,
             designCurrent = designCurrent,
             rawDesignCurrent = rawCurrent,
             standard = standard,
             forceVoltageDropWarning = true,
-            requiredIzOverride = requiredIz
+            requiredBaseIz = requiredBaseIz
         )
     }
 
@@ -320,29 +447,56 @@ object ElectricalCalculations {
 
         validateInput(input)
 
-        require(selectedSection in standardSections)
+        require(
+            standardSections.any {
+                kotlin.math.abs(
+                    it - selectedSection
+                ) < EPSILON
+            }
+        )
 
         val rawCurrent =
             calculateDesignCurrent(
                 loadWatts = input.load,
                 voltage = input.voltage,
-                powerFactor = input.powerFactor,
-                currentType = input.currentType
+                powerFactor =
+                    input.powerFactor,
+                currentType =
+                    input.currentType
             )
 
         val designCurrent =
             applyDemandAndDiversity(
                 ib = rawCurrent,
-                demandFactor = demandFactor,
-                diversityFactor = diversityFactor
+                demandFactor =
+                    demandFactor,
+                diversityFactor =
+                    diversityFactor
             )
+
+        val requiredBaseIz =
+            designCurrent /
+                (
+                    temperatureCorrection(
+                        input.insulation,
+                        input.ambientTemp
+                    ) *
+                        IecTables
+                            .groupingFactor(
+                                input.circuitsInConduit
+                            )
+                            .coerceAtLeast(
+                                EPSILON
+                            )
+                    )
 
         return evaluateSection(
             input = input,
             section = selectedSection,
             designCurrent = designCurrent,
             rawDesignCurrent = rawCurrent,
-            standard = standard
+            standard = standard,
+            requiredBaseIz = requiredBaseIz
         )
     }
 
@@ -353,7 +507,7 @@ object ElectricalCalculations {
         rawDesignCurrent: Double,
         standard: Standard,
         forceVoltageDropWarning: Boolean = false,
-        requiredIzOverride: Double? = null
+        requiredBaseIz: Double
     ): ConductorSizingResult {
 
         val methodKey =
@@ -362,7 +516,9 @@ object ElectricalCalculations {
             )
 
         val loadedConductors =
-            loadedConductorCount(input.currentType)
+            loadedConductorCount(
+                input.currentType
+            )
 
         val temperatureFactor =
             temperatureCorrection(
@@ -371,27 +527,22 @@ object ElectricalCalculations {
             )
 
         val groupingFactor =
-            IecTables.groupingFactor(
-                input.circuitsInConduit
-            ).coerceAtLeast(EPSILON)
-
-        val requiredIz =
-            requiredIzOverride
-                ?: (
-                    designCurrent /
-                        (
-                            temperatureFactor *
-                                groupingFactor
-                            )
-                    )
+            IecTables
+                .groupingFactor(
+                    input.circuitsInConduit
+                )
+                .coerceAtLeast(EPSILON)
 
         val baseAmpacity =
             IecTables.getBaseAmpacity(
                 section = section,
                 method = methodKey,
-                loadedConductors = loadedConductors,
-                material = input.conductor,
-                insulation = input.insulation
+                loadedConductors =
+                    loadedConductors,
+                material =
+                    input.conductor,
+                insulation =
+                    input.insulation
             )
 
         val correctedAmpacity =
@@ -404,27 +555,40 @@ object ElectricalCalculations {
                 current = designCurrent,
                 length = input.lineLength,
                 sectionMm2 = section,
-                powerFactor = input.powerFactor,
-                currentType = input.currentType,
-                material = input.conductor,
-                voltage = input.voltage
+                powerFactor =
+                    input.powerFactor,
+                currentType =
+                    input.currentType,
+                material =
+                    input.conductor,
+                voltage =
+                    input.voltage
             )
 
         val voltageDropOk =
             voltageDrop.first <=
                 input.maxVoltageDrop
 
+        /*
+         * Protective device coordination:
+         *
+         * Ib <= In <= Iz
+         */
+
         val breaker =
             standardBreakers.firstOrNull {
-                it >= designCurrent &&
-                    it <= correctedAmpacity + EPSILON
+                it + EPSILON >=
+                    designCurrent &&
+                    it <=
+                    correctedAmpacity + EPSILON
             } ?: 0.0
 
         val breakerOk =
             breaker > 0.0 &&
-                breaker >= designCurrent &&
+                breaker + EPSILON >=
+                designCurrent &&
                 breaker <=
-                    correctedAmpacity + EPSILON
+                correctedAmpacity + EPSILON
 
         val shortCircuit =
             calculateShortCircuitCurrent(
@@ -435,7 +599,8 @@ object ElectricalCalculations {
                 currentType = input.currentType
             )
 
-        val notes = mutableListOf<String>()
+        val notes =
+            mutableListOf<String>()
 
         notes +=
             "Ib raw = %.2f A"
@@ -446,8 +611,8 @@ object ElectricalCalculations {
                 .format(designCurrent)
 
         notes +=
-            "Required Iz = %.1f A"
-                .format(requiredIz)
+            "Required base Iz = %.1f A"
+                .format(requiredBaseIz)
 
         notes +=
             "Base Iz = %.1f A"
@@ -472,7 +637,8 @@ object ElectricalCalculations {
                 )
 
         notes +=
-            "Installation = ${input.installationMethod.code}"
+            "Installation = " +
+                input.installationMethod.code
 
         notes +=
             "Voltage drop = %.2f %% (%.2f V)"
@@ -489,11 +655,20 @@ object ElectricalCalculations {
                 "WARNING: voltage drop exceeds the configured limit."
         }
 
+        if (correctedAmpacity < designCurrent) {
+
+            notes +=
+                "WARNING: cable ampacity is below design current."
+        }
+
         if (breakerOk) {
+
             notes +=
                 "Protective device = %.0f A"
                     .format(breaker)
+
         } else {
+
             notes +=
                 "WARNING: no breaker satisfies Ib ≤ In ≤ Iz."
         }
@@ -503,6 +678,7 @@ object ElectricalCalculations {
                 .format(shortCircuit.ikKA)
 
         when (standard) {
+
             Standard.IEC ->
                 notes +=
                     "Reference: IEC 60364-5-52"
@@ -529,12 +705,17 @@ object ElectricalCalculations {
             recommendedSection = section,
             selectedSection = section,
             ampacity = correctedAmpacity,
-            voltageDropPercent = voltageDrop.first,
-            voltageDropVolts = voltageDrop.second,
+            voltageDropPercent =
+                voltageDrop.first,
+            voltageDropVolts =
+                voltageDrop.second,
             protectiveDevice = breaker,
-            shortCircuitCurrentKA = shortCircuit.ikKA,
-            breakerWithinCableCapacity = breakerOk,
-            voltageDropWithinLimit = voltageDropOk,
+            shortCircuitCurrentKA =
+                shortCircuit.ikKA,
+            breakerWithinCableCapacity =
+                breakerOk,
+            voltageDropWithinLimit =
+                voltageDropOk,
             notes = notes
         )
     }
@@ -542,25 +723,49 @@ object ElectricalCalculations {
     private fun validateInput(
         input: ConductorSizingInput
     ) {
+
         require(input.voltage > EPSILON)
+
         require(input.load >= 0.0)
+
         require(input.lineLength >= 0.0)
+
         require(
             input.powerFactor > 0.0 &&
                 input.powerFactor <= 1.0
         )
-        require(input.circuitsInConduit > 0)
-        require(input.maxVoltageDrop > 0.0)
+
+        require(
+            input.circuitsInConduit > 0
+        )
+
+        require(
+            input.maxVoltageDrop > 0.0
+        )
+
+        require(
+            input.ambientTemp >= -50.0 &&
+                input.ambientTemp <= 100.0
+        )
     }
 
     private fun loadedConductorCount(
         currentType: CurrentType
     ): Int {
+
         return when (currentType) {
-            CurrentType.DirectCurrent -> 2
-            CurrentType.AlternatingSinglePhase -> 2
-            CurrentType.AlternatingTwoPhase -> 2
-            CurrentType.AlternatingThreePhase -> 3
+
+            CurrentType.DirectCurrent ->
+                2
+
+            CurrentType.AlternatingSinglePhase ->
+                2
+
+            CurrentType.AlternatingTwoPhase ->
+                2
+
+            CurrentType.AlternatingThreePhase ->
+                3
         }
     }
 
@@ -568,7 +773,9 @@ object ElectricalCalculations {
         insulation: InsulationType,
         ambientTemperature: Double
     ): Double {
+
         return when (insulation) {
+
             InsulationType.XLPE,
             InsulationType.EPR ->
                 IecTables.ambientCorrectionXlpe(
@@ -595,8 +802,11 @@ object ElectricalCalculations {
         require(pf in 0.0..1.0)
 
         return when (phases) {
+
             1 ->
-                voltage * current * pf
+                voltage *
+                    current *
+                    pf
 
             3 ->
                 sqrt(3.0) *
@@ -605,7 +815,9 @@ object ElectricalCalculations {
                     pf
 
             else ->
-                voltage * current * pf
+                throw IllegalArgumentException(
+                    "Supported phases are 1 or 3"
+                )
         }
     }
 
@@ -619,6 +831,7 @@ object ElectricalCalculations {
         require(current >= 0.0)
 
         return when (phases) {
+
             1 ->
                 voltage * current
 
@@ -628,7 +841,9 @@ object ElectricalCalculations {
                     current
 
             else ->
-                voltage * current
+                throw IllegalArgumentException(
+                    "Supported phases are 1 or 3"
+                )
         }
     }
 
@@ -639,6 +854,10 @@ object ElectricalCalculations {
 
         require(active >= 0.0)
         require(apparent >= 0.0)
+        require(
+            active <=
+                apparent + EPSILON
+        )
 
         return sqrt(
             (
@@ -656,12 +875,18 @@ object ElectricalCalculations {
         require(active >= 0.0)
         require(apparent >= 0.0)
 
-        return if (apparent > EPSILON) {
-            (active / apparent)
-                .coerceIn(0.0, 1.0)
-        } else {
-            0.0
+        if (apparent <= EPSILON) {
+            return 0.0
         }
+
+        require(
+            active <=
+                apparent + EPSILON
+        )
+
+        return (
+            active / apparent
+            ).coerceIn(0.0, 1.0)
     }
 }
 
@@ -673,15 +898,6 @@ data class ShortCircuitResult(
     val i2t: Double,
     val notes: List<String>
 )
-
-/*
- * ============================================================
- * SAVED CALCULATIONS
- * ============================================================
- *
- * Storage is intentionally kept in this file so the project
- * does not need a separate CalculationStorage.kt file.
- */
 
 data class SavedCalculation(
     val id: Long,
@@ -732,18 +948,25 @@ object CalculationStorage {
             val result =
                 mutableListOf<SavedCalculation>()
 
-            for (index in 0 until array.length()) {
+            for (
+                index in
+                0 until array.length()
+            ) {
 
                 val item =
                     array.getJSONObject(index)
 
                 result +=
                     SavedCalculation(
-                        id = item.optLong("id"),
-                        name = item.optString(
-                            "name",
-                            "Calculation"
-                        ),
+                        id =
+                            item.optLong("id"),
+
+                        name =
+                            item.optString(
+                                "name",
+                                "Calculation"
+                            ),
+
                         standard =
                             enumValueOrDefault(
                                 item.optString(
@@ -751,48 +974,58 @@ object CalculationStorage {
                                 ),
                                 Standard.IEC
                             ),
+
                         currentType =
                             enumValueOrDefault(
                                 item.optString(
                                     "currentType"
                                 ),
-                                CurrentType.AlternatingSinglePhase
+                                CurrentType
+                                    .AlternatingSinglePhase
                             ),
+
                         voltage =
                             item.optDouble(
                                 "voltage",
                                 230.0
                             ),
+
                         load =
                             item.optDouble(
                                 "load",
                                 5000.0
                             ),
+
                         powerFactor =
                             item.optDouble(
                                 "powerFactor",
                                 0.90
                             ),
+
                         lineLength =
                             item.optDouble(
                                 "lineLength",
                                 60.0
                             ),
+
                         ambientTemp =
                             item.optDouble(
                                 "ambientTemp",
                                 30.0
                             ),
+
                         circuits =
                             item.optInt(
                                 "circuits",
                                 1
                             ),
+
                         maxDrop =
                             item.optDouble(
                                 "maxDrop",
                                 4.0
                             ),
+
                         conductor =
                             enumValueOrDefault(
                                 item.optString(
@@ -800,6 +1033,7 @@ object CalculationStorage {
                                 ),
                                 ConductorMaterial.Copper
                             ),
+
                         insulation =
                             enumValueOrDefault(
                                 item.optString(
@@ -807,6 +1041,7 @@ object CalculationStorage {
                                 ),
                                 InsulationType.PVC
                             ),
+
                         installationMethodCode =
                             item.optString(
                                 "installationMethodCode"
@@ -819,6 +1054,7 @@ object CalculationStorage {
             }
 
         } catch (_: Exception) {
+
             emptyList()
         }
     }
@@ -959,15 +1195,19 @@ object CalculationStorage {
             .apply()
     }
 
-    private inline fun <reified T : Enum<T>>
-        enumValueOrDefault(
-            value: String,
-            default: T
-        ): T {
+    private inline fun <
+        reified T : Enum<T>
+        > enumValueOrDefault(
+        value: String,
+        default: T
+    ): T {
 
         return try {
+
             enumValueOf<T>(value)
+
         } catch (_: Exception) {
+
             default
         }
     }
