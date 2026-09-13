@@ -36,15 +36,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK
-        shell: bash
-        run: |
-          set -e
-
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;35.0.0"
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
       - name: Verify Android SDK
         shell: bash
@@ -53,8 +49,12 @@ jobs:
 
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
-          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
-          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+
+          test -x \
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+
+          test -x \
+            "$ANDROID_HOME/build-tools/35.0.0/aapt"
 
       - name: Verify Signing Secrets
         env:
@@ -93,14 +93,20 @@ jobs:
               (4 - len(value) % 4) % 4
           )
 
-          data = base64.b64decode(
-              value,
-              validate=True
-          )
+          try:
+              data = base64.b64decode(
+                  value,
+                  validate=True
+              )
+          except Exception as exc:
+              raise SystemExit(
+                  "Invalid KEYSTORE_BASE64: "
+                  + str(exc)
+              )
 
           if not data:
               raise SystemExit(
-                  "Empty keystore"
+                  "KEYSTORE_BASE64 is empty"
               )
 
           with open(
@@ -125,29 +131,29 @@ jobs:
               )
 
               output.write(
-                  "storePasswordB64=" +
-                  encode(
+                  "storePasswordB64="
+                  + encode(
                       os.environ[
                           "KEYSTORE_PASSWORD"
                       ]
-                  ) +
-                  "\n"
+                  )
+                  + "\n"
               )
 
               output.write(
-                  "keyAliasB64=" +
-                  encode(
+                  "keyAliasB64="
+                  + encode(
                       os.environ["KEY_ALIAS"]
-                  ) +
-                  "\n"
+                  )
+                  + "\n"
               )
 
               output.write(
-                  "keyPasswordB64=" +
-                  encode(
+                  "keyPasswordB64="
+                  + encode(
                       os.environ["KEY_PASSWORD"]
-                  ) +
-                  "\n"
+                  )
+                  + "\n"
               )
           PY
 
@@ -207,8 +213,13 @@ jobs:
         run: |
           set -e
 
-          echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
-          echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo \
+            "VERSION_CODE=${{ github.run_number }}" \
+            >> "$GITHUB_ENV"
+
+          echo \
+            "VERSION_NAME=1.0.${{ github.run_number }}" \
+            >> "$GITHUB_ENV"
 
       - name: Build Release
         env:
@@ -217,6 +228,8 @@ jobs:
         shell: bash
         run: |
           set -e
+
+          chmod +x ./gradlew
 
           ./gradlew \
             :app:assembleRelease \
@@ -324,7 +337,11 @@ jobs:
 
           Application ID: com.electrical.calculationspro
 
-          Automatically built and permanently signed.
+          Signed release APK.
+
+          Existing installations can be updated
+          without uninstalling when the same
+          release signing key is used.
 
           ## SHA-256
 
@@ -342,13 +359,30 @@ jobs:
 
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
-          gh release create \
-            "$TAG" \
-            "$APK" \
-            apk-sha256.txt \
-            --repo "${{ github.repository }}" \
-            --title "Electrical Calculations Pro $TAG" \
-            --notes-file release-notes.md
+          if gh release view \
+              "$TAG" \
+              --repo "${{ github.repository }}" \
+              >/dev/null 2>&1
+          then
+
+            gh release upload \
+              "$TAG" \
+              "$APK" \
+              apk-sha256.txt \
+              --repo "${{ github.repository }}" \
+              --clobber
+
+          else
+
+            gh release create \
+              "$TAG" \
+              "$APK" \
+              apk-sha256.txt \
+              --repo "${{ github.repository }}" \
+              --title "Electrical Calculations Pro $TAG" \
+              --notes-file release-notes.md
+
+          fi
 
       - name: Verify GitHub Release
         env:
