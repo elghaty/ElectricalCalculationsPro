@@ -69,6 +69,12 @@ object Strings {
         "impedance" to
             "Calculation of impedance",
 
+        "sld_editor" to
+            "SLD System Designer",
+
+        "sld_editor_short" to
+            "SLD",
+
         "current_type" to
             "Current type:",
 
@@ -242,6 +248,12 @@ object Strings {
 
         "impedance" to
             "حساب المعاوقة",
+
+        "sld_editor" to
+            "مصمم مخطط SLD",
+
+        "sld_editor_short" to
+            "SLD",
 
         "current_type" to
             "نوع التيار:",
