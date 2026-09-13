@@ -9,23 +9,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ElectricBolt
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
@@ -40,6 +39,7 @@ fun AboutScreen(
     language: AppLanguage,
     onClose: () -> Unit
 ) {
+
     val arabic = language == AppLanguage.ARABIC
 
     Column(
@@ -51,15 +51,14 @@ fun AboutScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
 
-        Icon(
-            imageVector = Icons.Default.ElectricBolt,
-            contentDescription = null,
-            tint = PrimaryTeal,
-            modifier = Modifier.height(72.dp)
+        Spacer(
+            modifier = Modifier.height(18.dp)
         )
 
+        AppLogoMark()
+
         Spacer(
-            modifier = Modifier.height(12.dp)
+            modifier = Modifier.height(16.dp)
         )
 
         Text(
@@ -68,8 +67,9 @@ fun AboutScreen(
                 language
             ),
             color = TextPrimary,
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
         )
 
         Spacer(
@@ -84,11 +84,12 @@ fun AboutScreen(
                     "Version 1.0"
                 },
             color = PrimaryTeal,
-            fontSize = 14.sp
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
         )
 
         Spacer(
-            modifier = Modifier.height(22.dp)
+            modifier = Modifier.height(24.dp)
         )
 
         AboutCard(
@@ -98,7 +99,7 @@ fun AboutScreen(
                 } else {
                     "Designed and Developed by"
                 },
-            icon = Icons.Default.Verified
+            symbol = "✓"
         ) {
 
             Text(
@@ -125,7 +126,7 @@ fun AboutScreen(
                 } else {
                     "Intellectual Property"
                 },
-            icon = Icons.Default.Security
+            symbol = "©"
         ) {
 
             Text(
@@ -168,7 +169,7 @@ fun AboutScreen(
                 } else {
                     "Usage Notice"
                 },
-            icon = Icons.Default.Security
+            symbol = "!"
         ) {
 
             Text(
@@ -195,7 +196,7 @@ fun AboutScreen(
                 } else {
                     "Engineering Disclaimer"
                 },
-            icon = Icons.Default.Security
+            symbol = "⚠"
         ) {
 
             Text(
@@ -222,7 +223,7 @@ fun AboutScreen(
                 } else {
                     "Standards & References"
                 },
-            icon = Icons.Default.Verified
+            symbol = "IEC"
         ) {
 
             Text(
@@ -239,27 +240,22 @@ fun AboutScreen(
         }
 
         Spacer(
-            modifier = Modifier.height(20.dp)
+            modifier = Modifier.height(24.dp)
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+        TextButton(
+            onClick = onClose
         ) {
 
-            TextButton(
-                onClick = onClose
-            ) {
-
-                Text(
-                    text = Strings.get(
-                        "close",
-                        language
-                    ),
-                    color = PrimaryTeal,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Text(
+                text = Strings.get(
+                    "close",
+                    language
+                ),
+                color = PrimaryTeal,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp
+            )
         }
 
         Spacer(
@@ -269,9 +265,46 @@ fun AboutScreen(
 }
 
 @Composable
+private fun AppLogoMark() {
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .size(100.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(PrimaryTeal),
+            contentAlignment = Alignment.Center
+        ) {
+
+            Text(
+                text = "⚡",
+                color = Color.White,
+                fontSize = 54.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Text(
+            text = "ECP",
+            color = PrimaryTeal,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 3.sp
+        )
+    }
+}
+
+@Composable
 private fun AboutCard(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    symbol: String,
     content: @Composable () -> Unit
 ) {
 
@@ -293,11 +326,23 @@ private fun AboutCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
 
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = PrimaryTeal
-                )
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            Color(0xFF164E55)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+
+                    Text(
+                        text = symbol,
+                        color = PrimaryTeal,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
                 Spacer(
                     modifier = Modifier.width(10.dp)
