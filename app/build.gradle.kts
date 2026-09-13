@@ -1,230 +1,92 @@
-import java.util.Base64
-import java.util.Properties
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("com.google.devtools.ksp")
 }
 
-val versionCodeValue =
-    System.getenv("VERSION_CODE")
-        ?.toIntOrNull()
-        ?: 1
-
-val versionNameValue =
-    System.getenv("VERSION_NAME")
-        ?: "1.0.0"
-
-val signingPropertiesFile =
-    rootProject.file("ci-signing.properties")
-
-val signingProperties = Properties()
-
-if (signingPropertiesFile.exists()) {
-    signingPropertiesFile.inputStream().use {
-        signingProperties.load(it)
-    }
+kotlin {
+    jvmToolchain(17)
 }
-
-fun decodeProperty(name: String): String? {
-    val value = signingProperties.getProperty(name)
-        ?: return null
-
-    return try {
-        String(
-            Base64.getDecoder().decode(value),
-            Charsets.UTF_8
-        )
-    } catch (_: Exception) {
-        null
-    }
-}
-
-val ciStorePassword =
-    decodeProperty("storePasswordB64")
-
-val ciKeyAlias =
-    decodeProperty("keyAliasB64")
-
-val ciKeyPassword =
-    decodeProperty("keyPasswordB64")
-
-val ciKeystorePath =
-    signingProperties.getProperty("storeFile")
-
-val ciKeystoreFile =
-    if (!ciKeystorePath.isNullOrBlank()) {
-        rootProject.file(ciKeystorePath)
-    } else {
-        rootProject.file("release.keystore")
-    }
-
-val hasCiSigning =
-    !ciStorePassword.isNullOrEmpty() &&
-    !ciKeyAlias.isNullOrEmpty() &&
-    !ciKeyPassword.isNullOrEmpty() &&
-    ciKeystoreFile.exists()
 
 android {
-
-    namespace = "com.electrical.calculationspro"
+    namespace = "com.electricaldesignengineer.app"
 
     compileSdk = 35
 
     defaultConfig {
+        applicationId = "com.electricaldesignengineer.app"
 
-        applicationId =
-            "com.electrical.calculationspro"
-
-        minSdk = 26
+        minSdk = 24
 
         targetSdk = 35
 
         versionCode =
-            versionCodeValue
+            project.findProperty("versionCode")
+                ?.toString()
+                ?.toIntOrNull()
+                ?: 1
 
         versionName =
-            versionNameValue
-    }
-
-    signingConfigs {
-
-        create("ciRelease") {
-
-            check(hasCiSigning) {
-                """
-                CI RELEASE SIGNING IS NOT CONFIGURED.
-
-                Required:
-                - release.keystore
-                - store password
-                - key alias
-                - key password
-                """.trimIndent()
-            }
-
-            storeFile =
-                ciKeystoreFile
-
-            storePassword =
-                ciStorePassword!!
-
-            keyAlias =
-                ciKeyAlias!!
-
-            keyPassword =
-                ciKeyPassword!!
-        }
-    }
-
-    buildTypes {
-
-        debug {
-
-            isMinifyEnabled = false
-        }
-
-        release {
-
-            isMinifyEnabled = false
-
-            signingConfig =
-                signingConfigs.getByName(
-                    "ciRelease"
-                )
-
-            proguardFiles(
-                getDefaultProguardFile(
-                    "proguard-android-optimize.txt"
-                ),
-                "proguard-rules.pro"
-            )
-        }
+            project.findProperty("versionName")
+                ?.toString()
+                ?: "1.0"
     }
 
     compileOptions {
-
-        sourceCompatibility =
-            JavaVersion.VERSION_17
-
-        targetCompatibility =
-            JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-
         jvmTarget = "17"
     }
 
     buildFeatures {
-
         compose = true
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
 }
 
 dependencies {
 
-    val composeBom =
-        platform(
-            "androidx.compose:compose-bom:2024.10.01"
-        )
+    // Android Core
+    implementation("androidx.core:core-ktx:1.15.0")
 
-    implementation(composeBom)
+    // Jetpack Compose
+    implementation("androidx.activity:activity-compose:1.10.0")
 
-    implementation(
-        "androidx.core:core-ktx:1.15.0"
+    implementation("androidx.compose.ui:ui:1.7.6")
+
+    implementation("androidx.compose.material3:material3:1.3.1")
+
+    implementation("androidx.compose.ui:ui-tooling-preview:1.7.6")
+
+    debugImplementation(
+        "androidx.compose.ui:ui-tooling:1.7.6"
     )
 
-    implementation(
-        "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
-    )
-
-    implementation(
-        "androidx.compose.ui:ui"
-    )
-
-    implementation(
-        "androidx.compose.ui:ui-graphics"
-    )
-
-    implementation(
-        "androidx.compose.ui:ui-tooling-preview"
-    )
-
-    implementation(
-        "androidx.compose.material3:material3"
-    )
-
-    implementation(
-        "androidx.compose.material:material-icons-extended"
-    )
-
-    implementation(
-        "androidx.compose.foundation:foundation"
-    )
-
-    implementation(
-        "androidx.activity:activity-compose:1.9.3"
-    )
-
-    implementation(
-        "androidx.navigation:navigation-compose:2.8.3"
-    )
-
-    implementation(
-        "androidx.lifecycle:lifecycle-runtime-ktx:2.8.7"
-    )
-
+    // ViewModel
     implementation(
         "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7"
     )
 
-    debugImplementation(
-        "androidx.compose.ui:ui-tooling"
+    // Room
+    implementation(
+        "androidx.room:room-runtime:2.6.1"
     )
 
-    debugImplementation(
-        "androidx.compose.ui:ui-test-manifest"
+    implementation(
+        "androidx.room:room-ktx:2.6.1"
+    )
+
+    ksp(
+        "androidx.room:room-compiler:2.6.1"
     )
 }
