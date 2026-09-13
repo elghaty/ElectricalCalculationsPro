@@ -83,6 +83,7 @@ private data class CalculationMenuItem(
 
 @Composable
 fun MainScreen() {
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
@@ -190,16 +191,21 @@ fun MainScreen() {
     }
 
     fun checkForUpdate() {
-        if (checkingUpdate) return
+
+        if (checkingUpdate) {
+            return
+        }
 
         checkingUpdate = true
 
         coroutineScope.launch {
+
             val release = updateManager.checkForUpdate()
 
             checkingUpdate = false
 
             if (release == null) {
+
                 Toast.makeText(
                     context,
                     if (
@@ -211,13 +217,16 @@ fun MainScreen() {
                     },
                     Toast.LENGTH_LONG
                 ).show()
+
             } else {
+
                 updateRelease = release
             }
         }
     }
 
     if (showAbout) {
+
         AboutScreen(
             language = language,
             onClose = {
@@ -229,6 +238,7 @@ fun MainScreen() {
     }
 
     if (checkingUpdate) {
+
         AlertDialog(
             onDismissRequest = {},
             title = {
@@ -243,9 +253,11 @@ fun MainScreen() {
                 )
             },
             text = {
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+
                     CircularProgressIndicator(
                         modifier = Modifier.size(30.dp),
                         color = PrimaryTeal
@@ -271,6 +283,7 @@ fun MainScreen() {
     }
 
     updateRelease?.let { release ->
+
         AlertDialog(
             onDismissRequest = {
                 updateRelease = null
@@ -287,7 +300,9 @@ fun MainScreen() {
                 )
             },
             text = {
+
                 Column {
+
                     Text(
                         text =
                             if (
@@ -302,6 +317,7 @@ fun MainScreen() {
                     )
 
                     if (release.releaseNotes.isNotBlank()) {
+
                         Spacer(
                             modifier = Modifier.height(12.dp)
                         )
@@ -314,11 +330,13 @@ fun MainScreen() {
                 }
             },
             dismissButton = {
+
                 TextButton(
                     onClick = {
                         updateRelease = null
                     }
                 ) {
+
                     Text(
                         if (
                             language == AppLanguage.ARABIC
@@ -331,9 +349,13 @@ fun MainScreen() {
                 }
             },
             confirmButton = {
+
                 TextButton(
                     onClick = {
-                        val releaseToInstall = updateRelease
+
+                        val releaseToInstall =
+                            updateRelease
+
                         updateRelease = null
 
                         if (releaseToInstall == null) {
@@ -343,6 +365,7 @@ fun MainScreen() {
                         if (
                             updateManager.canInstallPackages()
                         ) {
+
                             updateManager.downloadAndInstall(
                                 releaseToInstall
                             )
@@ -358,7 +381,9 @@ fun MainScreen() {
                                 },
                                 Toast.LENGTH_LONG
                             ).show()
+
                         } else {
+
                             updateManager.openInstallPermissionSettings()
 
                             Toast.makeText(
@@ -375,6 +400,7 @@ fun MainScreen() {
                         }
                     }
                 ) {
+
                     Text(
                         text =
                             if (
@@ -393,6 +419,7 @@ fun MainScreen() {
     }
 
     if (showFunctions) {
+
         AlertDialog(
             onDismissRequest = {
                 showFunctions = false
@@ -408,11 +435,13 @@ fun MainScreen() {
                 )
             },
             confirmButton = {
+
                 TextButton(
                     onClick = {
                         showFunctions = false
                     }
                 ) {
+
                     Text(
                         text("close")
                     )
@@ -483,9 +512,11 @@ fun MainScreen() {
                         .weight(1f)
                         .fillMaxHeight()
                 ) {
+
                     when (selectedMenu) {
 
                         "home" -> {
+
                             HomeScreen(
                                 language = language,
                                 standard = selectedStandard,
@@ -500,12 +531,14 @@ fun MainScreen() {
                         }
 
                         "sld_editor" -> {
+
                             SldEditorScreen(
                                 language = language
                             )
                         }
 
                         "conductor_sizing_protection" -> {
+
                             ConductorSizingScreen(
                                 language = language,
                                 standard = selectedStandard
@@ -513,6 +546,7 @@ fun MainScreen() {
                         }
 
                         else -> {
+
                             EngineeringCalculatorScreen(
                                 calculation = selectedMenu,
                                 language = language
@@ -523,6 +557,289 @@ fun MainScreen() {
             }
         }
     }
+}
+
+@Composable
+private fun HomeScreen(
+    language: AppLanguage,
+    standard: Standard,
+    onStandardChanged: (Standard) -> Unit,
+    onOpenConductorSizing: () -> Unit
+) {
+
+    val isArabic =
+        language == AppLanguage.ARABIC
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkBackground)
+            .padding(32.dp),
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.Start
+    ) {
+
+        Text(
+            text =
+                if (isArabic) {
+                    "Electrical Calculations Pro"
+                } else {
+                    "Electrical Calculations Pro"
+                },
+            color = TextPrimary,
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Text(
+            text =
+                if (isArabic) {
+                    "منصة الحسابات والتصميمات الكهربائية الاحترافية"
+                } else {
+                    "Professional electrical calculations and design platform"
+                },
+            color = TextSecondary,
+            fontSize = 16.sp
+        )
+
+        Spacer(
+            modifier = Modifier.height(28.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+
+            HomeCard(
+                modifier = Modifier.weight(1f),
+                title =
+                    if (isArabic) {
+                        "Single Line Diagram"
+                    } else {
+                        "Single Line Diagram"
+                    },
+                description =
+                    if (isArabic) {
+                        "إنشاء المخطط الأحادي وإدخال الأحمال ثم إجراء الحسابات upstream"
+                    } else {
+                        "Create the SLD, enter loads, then perform upstream calculations"
+                    },
+                symbol = "SLD",
+                onClick = {
+                    // Navigation is handled by the main menu.
+                }
+            )
+
+            HomeCard(
+                modifier = Modifier.weight(1f),
+                title =
+                    if (isArabic) {
+                        "تحديد الكابلات والحماية"
+                    } else {
+                        "Cable & Protection Sizing"
+                    },
+                description =
+                    if (isArabic) {
+                        "اختيار مقطع الموصل وأجهزة الحماية وفق المعايير"
+                    } else {
+                        "Select conductor sizes and protective devices"
+                    },
+                symbol = "⚡",
+                onClick = onOpenConductorSizing
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
+
+        StandardCard(
+            language = language,
+            standard = standard,
+            onStandardChanged = onStandardChanged
+        )
+    }
+}
+
+@Composable
+private fun HomeCard(
+    modifier: Modifier,
+    title: String,
+    description: String,
+    symbol: String,
+    onClick: () -> Unit
+) {
+
+    Column(
+        modifier = modifier
+            .clip(
+                RoundedCornerShape(14.dp)
+            )
+            .background(
+                Color(0xFF13232D)
+            )
+            .clickable {
+                onClick()
+            }
+            .padding(20.dp)
+    ) {
+
+        Text(
+            text = symbol,
+            color = PrimaryTeal,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(
+            modifier = Modifier.height(10.dp)
+        )
+
+        Text(
+            text = title,
+            color = TextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Text(
+            text = description,
+            color = TextSecondary,
+            fontSize = 14.sp
+        )
+    }
+}
+
+@Composable
+private fun StandardCard(
+    language: AppLanguage,
+    standard: Standard,
+    onStandardChanged: (Standard) -> Unit
+) {
+
+    val isArabic =
+        language == AppLanguage.ARABIC
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(
+                RoundedCornerShape(14.dp)
+            )
+            .background(
+                Color(0xFF13232D)
+            )
+            .padding(20.dp)
+    ) {
+
+        Text(
+            text =
+                if (isArabic) {
+                    "المعيار الهندسي"
+                } else {
+                    "Engineering Standard"
+                },
+            color = TextPrimary,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Text(
+            text =
+                if (isArabic) {
+                    "المعيار الحالي: ${standard.name}"
+                } else {
+                    "Current standard: ${standard.name}"
+                },
+            color = TextSecondary,
+            fontSize = 14.sp
+        )
+
+        Spacer(
+            modifier = Modifier.height(14.dp)
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+
+            StandardButton(
+                title = "IEC",
+                selected = standard == Standard.IEC,
+                onClick = {
+                    onStandardChanged(
+                        Standard.IEC
+                    )
+                }
+            )
+
+            StandardButton(
+                title = "NEC",
+                selected = standard.name == "NEC",
+                onClick = {
+
+                    val nec =
+                        Standard.entries.firstOrNull {
+                            it.name == "NEC"
+                        }
+
+                    if (nec != null) {
+                        onStandardChanged(nec)
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun StandardButton(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+
+    Text(
+        text = title,
+        color =
+            if (selected) {
+                TextPrimary
+            } else {
+                TextSecondary
+            },
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .clip(
+                RoundedCornerShape(8.dp)
+            )
+            .background(
+                if (selected) {
+                    Color(0xFF174C57)
+                } else {
+                    Color(0xFF0E171F)
+                }
+            )
+            .clickable {
+                onClick()
+            }
+            .padding(
+                horizontal = 18.dp,
+                vertical = 10.dp
+            )
+    )
 }
 
 @Composable
@@ -537,11 +854,14 @@ private fun TopBar(
     onFunctions: () -> Unit,
     onAbout: () -> Unit
 ) {
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
-            .background(Color(0xFF101B24))
+            .background(
+                Color(0xFF101B24)
+            )
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -555,6 +875,7 @@ private fun TopBar(
         )
 
         Box {
+
             Text(
                 text =
                     if (
@@ -582,6 +903,7 @@ private fun TopBar(
                 expanded = languageExpanded,
                 onDismissRequest = onLanguageDismiss
             ) {
+
                 DropdownMenuItem(
                     text = {
                         Text("العربية")
@@ -601,6 +923,7 @@ private fun TopBar(
         TextButton(
             onClick = onUpdate
         ) {
+
             Text(
                 if (
                     language == AppLanguage.ARABIC
@@ -615,6 +938,7 @@ private fun TopBar(
         TextButton(
             onClick = onFunctions
         ) {
+
             Text(
                 if (
                     language == AppLanguage.ARABIC
@@ -629,6 +953,7 @@ private fun TopBar(
         TextButton(
             onClick = onAbout
         ) {
+
             Text(
                 if (
                     language == AppLanguage.ARABIC
@@ -650,13 +975,18 @@ private fun CalculationMenu(
     language: AppLanguage,
     onSelect: (String) -> Unit
 ) {
+
     LazyColumn(
         modifier = modifier
-            .background(Color(0xFF0E171F))
+            .background(
+                Color(0xFF0E171F)
+            )
             .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
+
         item {
+
             Text(
                 text =
                     if (
@@ -677,6 +1007,7 @@ private fun CalculationMenu(
         }
 
         item {
+
             MenuItem(
                 title =
                     if (
@@ -700,6 +1031,7 @@ private fun CalculationMenu(
                 it.id
             }
         ) { item ->
+
             MenuItem(
                 title = Strings.get(
                     item.titleKey,
@@ -722,6 +1054,7 @@ private fun MenuItem(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -744,6 +1077,7 @@ private fun MenuItem(
             ),
         verticalAlignment = Alignment.CenterVertically
     ) {
+
         Text(
             text = symbol,
             color =
