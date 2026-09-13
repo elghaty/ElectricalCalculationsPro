@@ -42,6 +42,7 @@ jobs:
         shell: bash
         run: |
           set -e
+
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
@@ -102,7 +103,7 @@ jobs:
 
           echo "Preparing permanent release signing..."
 
-          printf '%s' "$KEYSTORE_BASE64" > keystore.base64
+          echo "$KEYSTORE_BASE64" > keystore.base64
 
           test -s keystore.base64
 
@@ -112,14 +113,14 @@ jobs:
 
           rm -f keystore.base64
 
-          STORE_PASSWORD_B64="$(printf '%s' "$KEYSTORE_PASSWORD" | base64 -w 0)"
-          KEY_ALIAS_B64="$(printf '%s' "$KEY_ALIAS" | base64 -w 0)"
-          KEY_PASSWORD_B64="$(printf '%s' "$KEY_PASSWORD" | base64 -w 0)"
+          STORE_PASSWORD_B64="$(echo -n "$KEYSTORE_PASSWORD" | base64 -w 0)"
+          KEY_ALIAS_B64="$(echo -n "$KEY_ALIAS" | base64 -w 0)"
+          KEY_PASSWORD_B64="$(echo -n "$KEY_PASSWORD" | base64 -w 0)"
 
-          printf '%s\n' "storeFile=release.keystore" > ci-signing.properties
-          printf '%s\n' "storePasswordB64=$STORE_PASSWORD_B64" >> ci-signing.properties
-          printf '%s\n' "keyAliasB64=$KEY_ALIAS_B64" >> ci-signing.properties
-          printf '%s\n' "keyPasswordB64=$KEY_PASSWORD_B64" >> ci-signing.properties
+          echo "storeFile=release.keystore" > ci-signing.properties
+          echo "storePasswordB64=$STORE_PASSWORD_B64" >> ci-signing.properties
+          echo "keyAliasB64=$KEY_ALIAS_B64" >> ci-signing.properties
+          echo "keyPasswordB64=$KEY_PASSWORD_B64" >> ci-signing.properties
 
           test -s ci-signing.properties
 
@@ -150,8 +151,8 @@ jobs:
           echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
 
-          echo "VERSION_CODE=${{ github.run_number }}"
-          echo "VERSION_NAME=1.0.${{ github.run_number }}"
+          echo "Version Code: ${{ github.run_number }}"
+          echo "Version Name: 1.0.${{ github.run_number }}"
 
       - name: Build Release
         env:
@@ -263,23 +264,21 @@ jobs:
         run: |
           set -e
 
-          printf '%s\n' \
-            "# Electrical Calculations Pro" \
-            "" \
-            "Version: 1.0.${{ github.run_number }}" \
-            "" \
-            "Version Code: ${{ github.run_number }}" \
-            "" \
-            "Commit: ${{ github.sha }}" \
-            "" \
-            "Application ID: com.electrical.calculationspro" \
-            "" \
-            "Automatically built and permanently signed." \
-            "" \
-            "## SHA-256" \
-            "" \
-            "$(cat apk-sha256.txt)" \
-            > release-notes.md
+          echo "# Electrical Calculations Pro" > release-notes.md
+          echo "" >> release-notes.md
+          echo "Version: 1.0.${{ github.run_number }}" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Version Code: ${{ github.run_number }}" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Commit: ${{ github.sha }}" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Application ID: com.electrical.calculationspro" >> release-notes.md
+          echo "" >> release-notes.md
+          echo "Automatically built and permanently signed." >> release-notes.md
+          echo "" >> release-notes.md
+          echo "## SHA-256" >> release-notes.md
+          echo "" >> release-notes.md
+          cat apk-sha256.txt >> release-notes.md
 
           cat release-notes.md
 
@@ -293,7 +292,7 @@ jobs:
           TAG="v1.0.${{ github.run_number }}"
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
-          echo "Publishing release $TAG"
+          echo "Publishing release: $TAG"
 
           if gh release view "$TAG" \
             --repo "${{ github.repository }}" \
