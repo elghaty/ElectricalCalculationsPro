@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+
   workflow_dispatch:
 
 permissions:
@@ -14,8 +15,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+
   release:
+
     name: Build Signed Release APK
+
     runs-on: ubuntu-latest
 
     steps:
@@ -29,11 +33,6 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: gradle
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.9"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -57,8 +56,6 @@ jobs:
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
 
-          echo "Android SDK verified."
-
       - name: Verify Signing Secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -69,27 +66,10 @@ jobs:
         run: |
           set -e
 
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::KEYSTORE_BASE64 is missing"
-            exit 1
-          fi
-
-          if [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "::error::KEYSTORE_PASSWORD is missing"
-            exit 1
-          fi
-
-          if [ -z "$KEY_ALIAS" ]; then
-            echo "::error::KEY_ALIAS is missing"
-            exit 1
-          fi
-
-          if [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::KEY_PASSWORD is missing"
-            exit 1
-          fi
-
-          echo "All signing secrets are present."
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
 
       - name: Prepare Release Signing
         env:
@@ -101,31 +81,26 @@ jobs:
         run: |
           set -e
 
-          echo "Preparing permanent release signing..."
-
           python3 <<'PY'
           import base64
           import os
 
-          value = os.environ["KEYSTORE_BASE64"]
+          value = "".join(
+              os.environ["KEYSTORE_BASE64"].split()
+          )
 
-          value = "".join(value.split())
+          value += "=" * (
+              (4 - len(value) % 4) % 4
+          )
 
-          value += "=" * ((4 - len(value) % 4) % 4)
-
-          try:
-              data = base64.b64decode(
-                  value,
-                  validate=True
-              )
-          except Exception as exc:
-              raise SystemExit(
-                  f"Invalid KEYSTORE_BASE64 secret: {exc}"
-              )
+          data = base64.b64decode(
+              value,
+              validate=True
+          )
 
           if not data:
               raise SystemExit(
-                  "KEYSTORE_BASE64 decoded to an empty file"
+                  "Empty keystore"
               )
 
           with open(
@@ -133,17 +108,6 @@ jobs:
               "wb"
           ) as output:
               output.write(data)
-
-          print(
-              f"Keystore decoded successfully: {len(data)} bytes"
-          )
-          PY
-
-          test -s release.keystore
-
-          python3 <<'PY'
-          import base64
-          import os
 
           def encode(value):
               return base64.b64encode(
@@ -161,71 +125,47 @@ jobs:
               )
 
               output.write(
-                  "storePasswordB64="
-                  + encode(
-                      os.environ["KEYSTORE_PASSWORD"]
-                  )
-                  + "\n"
+                  "storePasswordB64=" +
+                  encode(
+                      os.environ[
+                          "KEYSTORE_PASSWORD"
+                      ]
+                  ) +
+                  "\n"
               )
 
               output.write(
-                  "keyAliasB64="
-                  + encode(
+                  "keyAliasB64=" +
+                  encode(
                       os.environ["KEY_ALIAS"]
-                  )
-                  + "\n"
+                  ) +
+                  "\n"
               )
 
               output.write(
-                  "keyPasswordB64="
-                  + encode(
+                  "keyPasswordB64=" +
+                  encode(
                       os.environ["KEY_PASSWORD"]
-                  )
-                  + "\n"
+                  ) +
+                  "\n"
               )
           PY
 
+          test -s release.keystore
           test -s ci-signing.properties
 
-          echo "Release signing files prepared successfully."
-
-      - name: Inspect Keystore
+      - name: Verify Keystore
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         shell: bash
         run: |
           set -e
 
-          echo "Checking keystore format..."
-
-          file release.keystore
-
-          echo ""
-          echo "Checking keystore structure..."
-
-          if keytool \
+          keytool \
             -list \
             -keystore release.keystore \
             -storepass "$KEYSTORE_PASSWORD" \
-            2>keystore-error.log
-          then
-            echo "Keystore password is VALID."
-          else
-            echo ""
-            echo "=========================================="
-            echo "KEYSTORE VALIDATION FAILED"
-            echo "=========================================="
-
-            cat keystore-error.log
-
-            echo ""
-            echo "The failure is in:"
-            echo "- KEYSTORE_PASSWORD"
-            echo "or"
-            echo "- keystore format"
-
-            exit 1
-          fi
+            >/dev/null
 
       - name: Verify Key Alias
         env:
@@ -235,39 +175,12 @@ jobs:
         run: |
           set -e
 
-          echo "Checking release key alias..."
-
-          echo "Expected alias: $KEY_ALIAS"
-
-          if keytool \
+          keytool \
             -list \
             -keystore release.keystore \
             -storepass "$KEYSTORE_PASSWORD" \
             -alias "$KEY_ALIAS" \
-            2>alias-error.log
-          then
-
-            echo "Release key alias is VALID."
-
-          else
-
-            echo ""
-            echo "=========================================="
-            echo "KEY ALIAS VALIDATION FAILED"
-            echo "=========================================="
-
-            cat alias-error.log
-
-            echo ""
-            echo "Available aliases:"
-
-            keytool \
-              -list \
-              -keystore release.keystore \
-              -storepass "$KEYSTORE_PASSWORD"
-
-            exit 1
-          fi
+            >/dev/null
 
       - name: Verify Key Password
         env:
@@ -278,32 +191,14 @@ jobs:
         run: |
           set -e
 
-          echo "Checking release key password..."
-
-          if keytool \
+          keytool \
             -certreq \
             -alias "$KEY_ALIAS" \
             -keystore release.keystore \
             -storepass "$KEYSTORE_PASSWORD" \
             -keypass "$KEY_PASSWORD" \
             -file /tmp/test-request.csr \
-            >/dev/null \
-            2>key-password-error.log
-          then
-
-            echo "Release key password is VALID."
-
-          else
-
-            echo ""
-            echo "=========================================="
-            echo "KEY PASSWORD VALIDATION FAILED"
-            echo "=========================================="
-
-            cat key-password-error.log
-
-            exit 1
-          fi
+            >/dev/null
 
           rm -f /tmp/test-request.csr
 
@@ -315,9 +210,6 @@ jobs:
           echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
 
-          echo "Version Code: ${{ github.run_number }}"
-          echo "Version Name: 1.0.${{ github.run_number }}"
-
       - name: Build Release
         env:
           VERSION_CODE: ${{ env.VERSION_CODE }}
@@ -326,8 +218,10 @@ jobs:
         run: |
           set -e
 
-          gradle \
+          ./gradlew \
             :app:assembleRelease \
+            -PversionCode="$VERSION_CODE" \
+            -PversionName="$VERSION_NAME" \
             --no-daemon \
             --stacktrace
 
@@ -340,10 +234,6 @@ jobs:
 
           test -f "$APK"
 
-          echo "APK generated successfully."
-
-          ls -lh "$APK"
-
       - name: Verify APK Signature
         shell: bash
         run: |
@@ -355,8 +245,6 @@ jobs:
             verify \
             --verbose \
             "$APK"
-
-          echo "APK signature verified."
 
       - name: Verify Application ID
         shell: bash
@@ -371,13 +259,9 @@ jobs:
               "$APK"
           )
 
-          echo "$BADGING"
-
-          echo "$BADGING" \
-            | grep \
+          echo "$BADGING" |
+            grep \
               "package: name='com.electrical.calculationspro'"
-
-          echo "Application ID verified."
 
       - name: Verify Version
         shell: bash
@@ -392,15 +276,13 @@ jobs:
               "$APK"
           )
 
-          echo "$BADGING" \
-            | grep \
+          echo "$BADGING" |
+            grep \
               "versionCode='${{ github.run_number }}'"
 
-          echo "$BADGING" \
-            | grep \
+          echo "$BADGING" |
+            grep \
               "versionName='1.0.${{ github.run_number }}'"
-
-          echo "APK version verified."
 
       - name: Rename APK
         shell: bash
@@ -414,9 +296,6 @@ jobs:
           cp "$SOURCE" "$TARGET"
 
           test -f "$TARGET"
-
-          echo "Final APK:"
-          ls -lh "$TARGET"
 
       - name: Calculate SHA256
         shell: bash
@@ -452,8 +331,6 @@ jobs:
           $(cat apk-sha256.txt)
           EOF
 
-          cat release-notes.md
-
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -464,8 +341,6 @@ jobs:
           TAG="v1.0.${{ github.run_number }}"
 
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
-
-          echo "Publishing release: $TAG"
 
           gh release create \
             "$TAG" \
@@ -488,39 +363,10 @@ jobs:
             "$TAG" \
             --repo "${{ github.repository }}"
 
-          echo "GitHub Release verified."
-
-      - name: Final Verification
-        shell: bash
-        run: |
-          set -e
-
-          APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
-
-          test -f "$APK"
-
-          echo ""
-          echo "=========================================="
-          echo " ELECTRICAL CALCULATIONS PRO"
-          echo " RELEASE SUCCESSFUL"
-          echo "=========================================="
-          echo "Version  : 1.0.${{ github.run_number }}"
-          echo "Code     : ${{ github.run_number }}"
-          echo "Tag      : v1.0.${{ github.run_number }}"
-          echo "Package  : com.electrical.calculationspro"
-          echo "APK      : ElectricalCalculationsPro-release.apk"
-          echo "=========================================="
-
-      - name: Cleanup Signing Files
+      - name: Cleanup
         if: always()
         shell: bash
         run: |
           rm -f release.keystore
-          rm -f keystore.base64
           rm -f ci-signing.properties
-          rm -f keystore-error.log
-          rm -f alias-error.log
-          rm -f key-password-error.log
           rm -f /tmp/test-request.csr
-
-          echo "Signing files cleaned up."
