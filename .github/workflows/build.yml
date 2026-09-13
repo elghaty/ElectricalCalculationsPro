@@ -109,14 +109,15 @@ jobs:
 
           value = os.environ["KEYSTORE_BASE64"]
 
-          # Remove accidental spaces, line breaks and other whitespace
           value = "".join(value.split())
 
-          # Restore Base64 padding if it was removed
           value += "=" * ((4 - len(value) % 4) % 4)
 
           try:
-              data = base64.b64decode(value, validate=True)
+              data = base64.b64decode(
+                  value,
+                  validate=True
+              )
           except Exception as exc:
               raise SystemExit(
                   f"Invalid KEYSTORE_BASE64 secret: {exc}"
@@ -127,7 +128,10 @@ jobs:
                   "KEYSTORE_BASE64 decoded to an empty file"
               )
 
-          with open("release.keystore", "wb") as output:
+          with open(
+              "release.keystore",
+              "wb"
+          ) as output:
               output.write(data)
 
           print(
@@ -146,31 +150,37 @@ jobs:
                   value.encode("utf-8")
               ).decode("ascii")
 
-          store_password = os.environ["KEYSTORE_PASSWORD"]
-          key_alias = os.environ["KEY_ALIAS"]
-          key_password = os.environ["KEY_PASSWORD"]
-
           with open(
               "ci-signing.properties",
               "w",
               encoding="utf-8"
           ) as output:
+
               output.write(
                   "storeFile=release.keystore\n"
               )
+
               output.write(
                   "storePasswordB64="
-                  + encode(store_password)
+                  + encode(
+                      os.environ["KEYSTORE_PASSWORD"]
+                  )
                   + "\n"
               )
+
               output.write(
                   "keyAliasB64="
-                  + encode(key_alias)
+                  + encode(
+                      os.environ["KEY_ALIAS"]
+                  )
                   + "\n"
               )
+
               output.write(
                   "keyPasswordB64="
-                  + encode(key_password)
+                  + encode(
+                      os.environ["KEY_PASSWORD"]
+                  )
                   + "\n"
               )
           PY
@@ -179,7 +189,45 @@ jobs:
 
           echo "Release signing files prepared successfully."
 
-      - name: Verify Keystore
+      - name: Inspect Keystore
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -e
+
+          echo "Checking keystore format..."
+
+          file release.keystore
+
+          echo ""
+          echo "Checking keystore structure..."
+
+          if keytool \
+            -list \
+            -keystore release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" \
+            2>keystore-error.log
+          then
+            echo "Keystore password is VALID."
+          else
+            echo ""
+            echo "=========================================="
+            echo "KEYSTORE VALIDATION FAILED"
+            echo "=========================================="
+
+            cat keystore-error.log
+
+            echo ""
+            echo "The failure is in:"
+            echo "- KEYSTORE_PASSWORD"
+            echo "or"
+            echo "- keystore format"
+
+            exit 1
+          fi
+
+      - name: Verify Key Alias
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -187,14 +235,77 @@ jobs:
         run: |
           set -e
 
-          keytool \
+          echo "Checking release key alias..."
+
+          echo "Expected alias: $KEY_ALIAS"
+
+          if keytool \
             -list \
             -keystore release.keystore \
             -storepass "$KEYSTORE_PASSWORD" \
             -alias "$KEY_ALIAS" \
-            >/dev/null
+            2>alias-error.log
+          then
 
-          echo "Keystore verified successfully."
+            echo "Release key alias is VALID."
+
+          else
+
+            echo ""
+            echo "=========================================="
+            echo "KEY ALIAS VALIDATION FAILED"
+            echo "=========================================="
+
+            cat alias-error.log
+
+            echo ""
+            echo "Available aliases:"
+
+            keytool \
+              -list \
+              -keystore release.keystore \
+              -storepass "$KEYSTORE_PASSWORD"
+
+            exit 1
+          fi
+
+      - name: Verify Key Password
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -e
+
+          echo "Checking release key password..."
+
+          if keytool \
+            -certreq \
+            -alias "$KEY_ALIAS" \
+            -keystore release.keystore \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -file /tmp/test-request.csr \
+            >/dev/null \
+            2>key-password-error.log
+          then
+
+            echo "Release key password is VALID."
+
+          else
+
+            echo ""
+            echo "=========================================="
+            echo "KEY PASSWORD VALIDATION FAILED"
+            echo "=========================================="
+
+            cat key-password-error.log
+
+            exit 1
+          fi
+
+          rm -f /tmp/test-request.csr
 
       - name: Set Version
         shell: bash
@@ -230,6 +341,7 @@ jobs:
           test -f "$APK"
 
           echo "APK generated successfully."
+
           ls -lh "$APK"
 
       - name: Verify APK Signature
@@ -262,7 +374,8 @@ jobs:
           echo "$BADGING"
 
           echo "$BADGING" \
-            | grep "package: name='com.electrical.calculationspro'"
+            | grep \
+              "package: name='com.electrical.calculationspro'"
 
           echo "Application ID verified."
 
@@ -280,10 +393,12 @@ jobs:
           )
 
           echo "$BADGING" \
-            | grep "versionCode='${{ github.run_number }}'"
+            | grep \
+              "versionCode='${{ github.run_number }}'"
 
           echo "$BADGING" \
-            | grep "versionName='1.0.${{ github.run_number }}'"
+            | grep \
+              "versionName='1.0.${{ github.run_number }}'"
 
           echo "APK version verified."
 
@@ -293,6 +408,7 @@ jobs:
           set -e
 
           SOURCE="app/build/outputs/apk/release/app-release.apk"
+
           TARGET="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
           cp "$SOURCE" "$TARGET"
@@ -346,6 +462,7 @@ jobs:
           set -e
 
           TAG="v1.0.${{ github.run_number }}"
+
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
           echo "Publishing release: $TAG"
@@ -401,5 +518,9 @@ jobs:
           rm -f release.keystore
           rm -f keystore.base64
           rm -f ci-signing.properties
+          rm -f keystore-error.log
+          rm -f alias-error.log
+          rm -f key-password-error.log
+          rm -f /tmp/test-request.csr
 
           echo "Signing files cleaned up."
