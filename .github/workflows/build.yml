@@ -103,26 +103,77 @@ jobs:
 
           echo "Preparing permanent release signing..."
 
-          printf '%s' "$KEYSTORE_BASE64" > keystore.base64
+          python3 <<'PY'
+          import base64
+          import os
 
-          test -s keystore.base64
+          value = os.environ["KEYSTORE_BASE64"]
 
-          base64 --decode keystore.base64 > release.keystore
+          # Remove accidental spaces, line breaks and other whitespace
+          value = "".join(value.split())
+
+          # Restore Base64 padding if it was removed
+          value += "=" * ((4 - len(value) % 4) % 4)
+
+          try:
+              data = base64.b64decode(value, validate=True)
+          except Exception as exc:
+              raise SystemExit(
+                  f"Invalid KEYSTORE_BASE64 secret: {exc}"
+              )
+
+          if not data:
+              raise SystemExit(
+                  "KEYSTORE_BASE64 decoded to an empty file"
+              )
+
+          with open("release.keystore", "wb") as output:
+              output.write(data)
+
+          print(
+              f"Keystore decoded successfully: {len(data)} bytes"
+          )
+          PY
 
           test -s release.keystore
 
-          rm -f keystore.base64
+          python3 <<'PY'
+          import base64
+          import os
 
-          STORE_PASSWORD_B64="$(printf '%s' "$KEYSTORE_PASSWORD" | base64 -w 0)"
-          KEY_ALIAS_B64="$(printf '%s' "$KEY_ALIAS" | base64 -w 0)"
-          KEY_PASSWORD_B64="$(printf '%s' "$KEY_PASSWORD" | base64 -w 0)"
+          def encode(value):
+              return base64.b64encode(
+                  value.encode("utf-8")
+              ).decode("ascii")
 
-          {
-            printf '%s\n' "storeFile=release.keystore"
-            printf '%s\n' "storePasswordB64=$STORE_PASSWORD_B64"
-            printf '%s\n' "keyAliasB64=$KEY_ALIAS_B64"
-            printf '%s\n' "keyPasswordB64=$KEY_PASSWORD_B64"
-          } > ci-signing.properties
+          store_password = os.environ["KEYSTORE_PASSWORD"]
+          key_alias = os.environ["KEY_ALIAS"]
+          key_password = os.environ["KEY_PASSWORD"]
+
+          with open(
+              "ci-signing.properties",
+              "w",
+              encoding="utf-8"
+          ) as output:
+              output.write(
+                  "storeFile=release.keystore\n"
+              )
+              output.write(
+                  "storePasswordB64="
+                  + encode(store_password)
+                  + "\n"
+              )
+              output.write(
+                  "keyAliasB64="
+                  + encode(key_alias)
+                  + "\n"
+              )
+              output.write(
+                  "keyPasswordB64="
+                  + encode(key_password)
+                  + "\n"
+              )
+          PY
 
           test -s ci-signing.properties
 
