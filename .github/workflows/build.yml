@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   workflow_dispatch:
 
 permissions:
@@ -15,15 +14,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-
   release:
-
     name: Build Signed Release APK
-
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -46,7 +41,6 @@ jobs:
         shell: bash
         run: |
           set -e
-
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
@@ -96,7 +90,6 @@ jobs:
           fi
 
           if [ "$failed" -ne 0 ]; then
-            echo "::error::Android release signing configuration is incomplete."
             exit 1
           fi
 
@@ -114,25 +107,13 @@ jobs:
 
           echo "Preparing permanent release signing..."
 
-          printf '%s' "$KEYSTORE_BASE64" |
-            base64 --decode > release.keystore
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > release.keystore
 
           test -s release.keystore
 
-          STORE_PASSWORD_B64=$(
-            printf '%s' "$KEYSTORE_PASSWORD" |
-            base64 -w 0
-          )
-
-          KEY_ALIAS_B64=$(
-            printf '%s' "$KEY_ALIAS" |
-            base64 -w 0
-          )
-
-          KEY_PASSWORD_B64=$(
-            printf '%s' "$KEY_PASSWORD" |
-            base64 -w 0
-          )
+          STORE_PASSWORD_B64=$(printf '%s' "$KEYSTORE_PASSWORD" | base64 -w 0)
+          KEY_ALIAS_B64=$(printf '%s' "$KEY_ALIAS" | base64 -w 0)
+          KEY_PASSWORD_B64=$(printf '%s' "$KEY_PASSWORD" | base64 -w 0)
 
           printf '%s\n' \
             "storeFile=release.keystore" \
@@ -153,8 +134,6 @@ jobs:
         run: |
           set -e
 
-          echo "Verifying permanent keystore..."
-
           keytool \
             -list \
             -keystore release.keystore \
@@ -169,14 +148,11 @@ jobs:
         run: |
           set -e
 
-          VERSION_CODE="${{ github.run_number }}"
-          VERSION_NAME="1.0.${{ github.run_number }}"
+          echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
 
-          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
-          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
-
-          echo "Version Code : $VERSION_CODE"
-          echo "Version Name : $VERSION_NAME"
+          echo "Version Code: ${{ github.run_number }}"
+          echo "Version Name: 1.0.${{ github.run_number }}"
 
       - name: Build Release
         env:
@@ -185,8 +161,6 @@ jobs:
         shell: bash
         run: |
           set -e
-
-          echo "Building signed release APK..."
 
           gradle \
             :app:assembleRelease \
@@ -215,8 +189,6 @@ jobs:
 
           APK="app/build/outputs/apk/release/app-release.apk"
 
-          echo "Verifying APK signature..."
-
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify \
             --verbose \
@@ -231,13 +203,10 @@ jobs:
 
           APK="app/build/outputs/apk/release/app-release.apk"
 
-          echo "Verifying application ID..."
-
           "$ANDROID_HOME/build-tools/35.0.0/aapt" \
             dump badging \
             "$APK" |
-            grep \
-            "package: name='com.electrical.calculationspro'"
+            grep "package: name='com.electrical.calculationspro'"
 
           echo "Application ID verified."
 
@@ -257,12 +226,10 @@ jobs:
           echo "$BADGING"
 
           echo "$BADGING" |
-            grep \
-            "versionCode='${{ github.run_number }}'"
+            grep "versionCode='${{ github.run_number }}'"
 
           echo "$BADGING" |
-            grep \
-            "versionName='1.0.${{ github.run_number }}'"
+            grep "versionName='1.0.${{ github.run_number }}'"
 
           echo "APK version verified."
 
@@ -272,14 +239,12 @@ jobs:
           set -e
 
           SOURCE="app/build/outputs/apk/release/app-release.apk"
-
           TARGET="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
           cp "$SOURCE" "$TARGET"
 
           test -f "$TARGET"
 
-          echo "Release APK:"
           ls -lh "$TARGET"
 
       - name: Calculate SHA256
@@ -291,7 +256,6 @@ jobs:
 
           sha256sum "$APK" > apk-sha256.txt
 
-          echo "SHA-256:"
           cat apk-sha256.txt
 
       - name: Create Release Notes
@@ -332,17 +296,14 @@ jobs:
           set -e
 
           TAG="v1.0.${{ github.run_number }}"
-
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
           echo "Publishing release: $TAG"
 
-          if gh release view \
-            "$TAG" \
+          if gh release view "$TAG" \
             --repo "${{ github.repository }}" \
             >/dev/null 2>&1
           then
-
             echo "Release already exists. Uploading APK..."
 
             gh release upload \
@@ -351,9 +312,7 @@ jobs:
               apk-sha256.txt \
               --repo "${{ github.repository }}" \
               --clobber
-
           else
-
             echo "Creating new GitHub Release..."
 
             gh release create \
@@ -363,7 +322,6 @@ jobs:
               --repo "${{ github.repository }}" \
               --title "Electrical Calculations Pro $TAG" \
               --notes-file release-notes.md
-
           fi
 
       - name: Verify GitHub Release
@@ -375,13 +333,10 @@ jobs:
 
           TAG="v1.0.${{ github.run_number }}"
 
-          echo "Verifying GitHub Release..."
-
           gh release view \
             "$TAG" \
             --repo "${{ github.repository }}"
 
-          echo ""
           echo "Release verification completed."
 
       - name: Final Verification
