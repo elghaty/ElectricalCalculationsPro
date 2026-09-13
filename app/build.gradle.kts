@@ -1,4 +1,5 @@
 import java.util.Base64
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -15,23 +16,55 @@ val versionNameValue =
     System.getenv("VERSION_NAME")
         ?: "1.0.0"
 
-val ciKeystoreBase64 =
-    System.getenv("KEYSTORE_BASE64")
+val signingPropertiesFile =
+    rootProject.file("ci-signing.properties")
+
+val signingProperties = Properties()
+
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.inputStream().use {
+        signingProperties.load(it)
+    }
+}
+
+fun decodeProperty(name: String): String? {
+    val value = signingProperties.getProperty(name)
+        ?: return null
+
+    return try {
+        String(
+            Base64.getDecoder().decode(value),
+            Charsets.UTF_8
+        )
+    } catch (_: Exception) {
+        null
+    }
+}
 
 val ciStorePassword =
-    System.getenv("KEYSTORE_PASSWORD")
+    decodeProperty("storePasswordB64")
 
 val ciKeyAlias =
-    System.getenv("KEY_ALIAS")
+    decodeProperty("keyAliasB64")
 
 val ciKeyPassword =
-    System.getenv("KEY_PASSWORD")
+    decodeProperty("keyPasswordB64")
+
+val ciKeystorePath =
+    signingProperties.getProperty("storeFile")
+
+val ciKeystoreFile =
+    if (!ciKeystorePath.isNullOrBlank()) {
+        rootProject.file(ciKeystorePath)
+    } else {
+        rootProject.file("release.keystore")
+    }
 
 val hasCiSigning =
-    !ciKeystoreBase64.isNullOrBlank() &&
-    !ciStorePassword.isNullOrBlank() &&
-    !ciKeyAlias.isNullOrBlank() &&
-    !ciKeyPassword.isNullOrBlank()
+    !ciStorePassword.isNullOrEmpty() &&
+    !ciKeyAlias.isNullOrEmpty() &&
+    !ciKeyPassword.isNullOrEmpty() &&
+    ciKeystoreFile.exists()
 
 android {
 
@@ -57,38 +90,31 @@ android {
 
     signingConfigs {
 
-        if (hasCiSigning) {
+        create("ciRelease") {
 
-            create("ciRelease") {
+            check(hasCiSigning) {
+                """
+                CI RELEASE SIGNING IS NOT CONFIGURED.
 
-                val keystoreFile =
-                    rootProject.file(
-                        "release.keystore"
-                    )
-
-                if (!keystoreFile.exists()) {
-
-                    keystoreFile.writeBytes(
-                        Base64
-                            .getDecoder()
-                            .decode(
-                                ciKeystoreBase64!!
-                            )
-                    )
-                }
-
-                storeFile =
-                    keystoreFile
-
-                storePassword =
-                    ciStorePassword!!
-
-                keyAlias =
-                    ciKeyAlias!!
-
-                keyPassword =
-                    ciKeyPassword!!
+                Required:
+                - release.keystore
+                - store password
+                - key alias
+                - key password
+                """.trimIndent()
             }
+
+            storeFile =
+                ciKeystoreFile
+
+            storePassword =
+                ciStorePassword!!
+
+            keyAlias =
+                ciKeyAlias!!
+
+            keyPassword =
+                ciKeyPassword!!
         }
     }
 
@@ -102,22 +128,6 @@ android {
         release {
 
             isMinifyEnabled = false
-
-            check(hasCiSigning) {
-                """
-                RELEASE SIGNING IS NOT CONFIGURED.
-
-                Required GitHub Actions Secrets:
-
-                KEYSTORE_BASE64
-                KEYSTORE_PASSWORD
-                KEY_ALIAS
-                KEY_PASSWORD
-
-                A permanent signing key is required
-                for application updates.
-                """.trimIndent()
-            }
 
             signingConfig =
                 signingConfigs.getByName(
@@ -160,9 +170,7 @@ dependencies {
             "androidx.compose:compose-bom:2024.10.01"
         )
 
-    implementation(
-        composeBom
-    )
+    implementation(composeBom)
 
     implementation(
         "androidx.core:core-ktx:1.15.0"
