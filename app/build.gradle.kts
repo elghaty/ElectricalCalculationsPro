@@ -15,44 +15,23 @@ val versionNameValue =
     System.getenv("VERSION_NAME")
         ?: "1.0.0"
 
-val keystoreBase64 =
+val ciKeystoreBase64 =
     System.getenv("KEYSTORE_BASE64")
 
-val keystorePassword =
+val ciStorePassword =
     System.getenv("KEYSTORE_PASSWORD")
 
-val keyAlias =
+val ciKeyAlias =
     System.getenv("KEY_ALIAS")
 
-val keyPassword =
+val ciKeyPassword =
     System.getenv("KEY_PASSWORD")
 
 val hasCiSigning =
-    !keystoreBase64.isNullOrBlank() &&
-    !keystorePassword.isNullOrBlank() &&
-    !keyAlias.isNullOrBlank() &&
-    !keyPassword.isNullOrBlank()
-
-if (hasCiSigning) {
-
-    val keystoreFile =
-        rootProject.file("release.keystore")
-
-    if (!keystoreFile.exists()) {
-        keystoreFile.writeBytes(
-            Base64
-                .getDecoder()
-                .decode(keystoreBase64)
-        )
-    }
-
-    android.signingConfigs.create("ciRelease") {
-        storeFile = keystoreFile
-        storePassword = keystorePassword
-        this.keyAlias = keyAlias
-        this.keyPassword = keyPassword
-    }
-}
+    !ciKeystoreBase64.isNullOrBlank() &&
+    !ciStorePassword.isNullOrBlank() &&
+    !ciKeyAlias.isNullOrBlank() &&
+    !ciKeyPassword.isNullOrBlank()
 
 android {
 
@@ -76,9 +55,47 @@ android {
             versionNameValue
     }
 
+    signingConfigs {
+
+        if (hasCiSigning) {
+
+            create("ciRelease") {
+
+                val keystoreFile =
+                    rootProject.file(
+                        "release.keystore"
+                    )
+
+                if (!keystoreFile.exists()) {
+
+                    keystoreFile.writeBytes(
+                        Base64
+                            .getDecoder()
+                            .decode(
+                                ciKeystoreBase64!!
+                            )
+                    )
+                }
+
+                storeFile =
+                    keystoreFile
+
+                storePassword =
+                    ciStorePassword!!
+
+                keyAlias =
+                    ciKeyAlias!!
+
+                keyPassword =
+                    ciKeyPassword!!
+            }
+        }
+    }
+
     buildTypes {
 
         debug {
+
             isMinifyEnabled = false
         }
 
@@ -97,9 +114,8 @@ android {
                 KEY_ALIAS
                 KEY_PASSWORD
 
-                A permanent signing key is required so that
-                future APK versions can update the existing
-                application installation.
+                A permanent signing key is required
+                for application updates.
                 """.trimIndent()
             }
 
@@ -127,10 +143,12 @@ android {
     }
 
     kotlinOptions {
+
         jvmTarget = "17"
     }
 
     buildFeatures {
+
         compose = true
     }
 }
@@ -142,7 +160,9 @@ dependencies {
             "androidx.compose:compose-bom:2024.10.01"
         )
 
-    implementation(composeBom)
+    implementation(
+        composeBom
+    )
 
     implementation(
         "androidx.core:core-ktx:1.15.0"
