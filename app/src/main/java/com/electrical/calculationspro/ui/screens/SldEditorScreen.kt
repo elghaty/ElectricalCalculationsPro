@@ -1,3 +1,4 @@
+import androidx.compose.foundation.layout.offset
 package com.electrical.calculationspro.ui.screens
 
 import androidx.compose.foundation.Canvas
