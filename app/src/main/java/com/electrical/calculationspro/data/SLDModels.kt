@@ -1,5 +1,6 @@
 package com.electrical.calculationspro.data
 
+import kotlin.math.max
 import kotlin.math.sqrt
 
 enum class SldNodeType {
@@ -135,30 +136,22 @@ object SldEngineeringEngine {
 
         validateNetwork(network)
 
-        val nodeMap =
-            network.nodes.associateBy {
-                it.id
-            }
+        val nodeMap = network.nodes.associateBy { it.id }
 
-        val children =
-            mutableMapOf<String, MutableList<SldNode>>()
+        val children = mutableMapOf<String, MutableList<SldNode>>()
 
         network.nodes.forEach { node ->
             children[node.id] = mutableListOf()
         }
 
         network.connections.forEach { connection ->
-            val child =
-                nodeMap[connection.toNodeId]
-                    ?: return@forEach
+            val child = nodeMap[connection.toNodeId]
+                ?: return@forEach
 
-            children[
-                connection.fromNodeId
-            ]?.add(child)
+            children[connection.fromNodeId]?.add(child)
         }
 
-        val resultMap =
-            mutableMapOf<String, UpstreamResult>()
+        val resultMap = mutableMapOf<String, UpstreamResult>()
 
         fun calculateNode(
             node: SldNode,
@@ -171,8 +164,7 @@ object SldEngineeringEngine {
                 )
             }
 
-            val nodeChildren =
-                children[node.id].orEmpty()
+            val nodeChildren = children[node.id].orEmpty()
 
             if (node.type == SldNodeType.LOAD) {
 
@@ -233,6 +225,7 @@ object SldEngineeringEngine {
             var demandKw = 0.0
 
             nodeChildren.forEach { child ->
+
                 val result =
                     calculateNode(
                         child,
@@ -244,8 +237,8 @@ object SldEngineeringEngine {
             }
 
             if (node.loadKw > 0.0) {
-                connectedKw +=
-                    node.loadKw
+
+                connectedKw += node.loadKw
 
                 demandKw +=
                     node.loadKw *
@@ -308,11 +301,9 @@ object SldEngineeringEngine {
                     currentA = current,
                     voltage = node.voltage,
                     requiredBreakerA = breaker,
-                    requiredTransformerKva =
-                        transformer,
+                    requiredTransformerKva = transformer,
                     diversityFactor = diversity,
-                    childrenCount =
-                        nodeChildren.size,
+                    childrenCount = nodeChildren.size,
                     notes = listOf(
                         "Connected = %.2f kW"
                             .format(
@@ -437,6 +428,7 @@ object SldEngineeringEngine {
         kva: Double,
         voltage: Double
     ): Double {
+
         if (
             kva <= EPSILON ||
             voltage <= EPSILON
@@ -446,14 +438,15 @@ object SldEngineeringEngine {
 
         return (
             kva * 1000.0
-            ) / (
+        ) / (
             sqrt(3.0) * voltage
-            )
+        )
     }
 
     private fun nextBreaker(
         current: Double
     ): Double {
+
         if (current <= 0.0) {
             return 0.0
         }
@@ -466,6 +459,7 @@ object SldEngineeringEngine {
     private fun nextTransformer(
         kva: Double
     ): Double {
+
         if (kva <= 0.0) {
             return 0.0
         }
@@ -478,6 +472,7 @@ object SldEngineeringEngine {
     private fun validateNetwork(
         network: SldNetwork
     ) {
+
         val ids =
             network.nodes.map {
                 it.id
@@ -489,8 +484,7 @@ object SldEngineeringEngine {
             "Duplicate SLD node IDs."
         }
 
-        network.connections.forEach {
-            connection ->
+        network.connections.forEach { connection ->
 
             require(
                 connection.fromNodeId in ids
@@ -542,3 +536,4 @@ object SldEngineeringEngine {
         }
     }
 }
+```0
