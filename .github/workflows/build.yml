@@ -45,6 +45,8 @@ jobs:
       - name: Install Android SDK
         shell: bash
         run: |
+          set -e
+
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-35"
           sdkmanager "build-tools;35.0.0"
@@ -52,10 +54,14 @@ jobs:
       - name: Verify Android SDK
         shell: bash
         run: |
+          set -e
+
           test -d "$ANDROID_HOME/platforms/android-35"
           test -d "$ANDROID_HOME/build-tools/35.0.0"
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
           test -x "$ANDROID_HOME/build-tools/35.0.0/aapt"
+
+          echo "Android SDK verified."
 
       - name: Verify Signing Secrets
         env:
@@ -65,6 +71,8 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         shell: bash
         run: |
+          set -e
+
           failed=0
 
           if [ -z "$KEYSTORE_BASE64" ]; then
@@ -88,6 +96,7 @@ jobs:
           fi
 
           if [ "$failed" -ne 0 ]; then
+            echo "::error::Android release signing configuration is incomplete."
             exit 1
           fi
 
@@ -103,9 +112,10 @@ jobs:
         run: |
           set -e
 
-          echo "$KEYSTORE_BASE64" |
-            base64 --decode >
-            release.keystore
+          echo "Preparing permanent release signing..."
+
+          printf '%s' "$KEYSTORE_BASE64" |
+            base64 --decode > release.keystore
 
           test -s release.keystore
 
@@ -124,16 +134,16 @@ jobs:
             base64 -w 0
           )
 
-          cat > ci-signing.properties <<EOF
-          storeFile=release.keystore
-          storePasswordB64=$STORE_PASSWORD_B64
-          keyAliasB64=$KEY_ALIAS_B64
-          keyPasswordB64=$KEY_PASSWORD_B64
-          EOF
+          printf '%s\n' \
+            "storeFile=release.keystore" \
+            "storePasswordB64=$STORE_PASSWORD_B64" \
+            "keyAliasB64=$KEY_ALIAS_B64" \
+            "keyPasswordB64=$KEY_PASSWORD_B64" \
+            > ci-signing.properties
 
           test -s ci-signing.properties
 
-          echo "Release signing files prepared."
+          echo "Release signing files prepared successfully."
 
       - name: Verify Keystore
         env:
@@ -143,6 +153,8 @@ jobs:
         run: |
           set -e
 
+          echo "Verifying permanent keystore..."
+
           keytool \
             -list \
             -keystore release.keystore \
@@ -150,13 +162,21 @@ jobs:
             -alias "$KEY_ALIAS" \
             >/dev/null
 
-          echo "Keystore and alias verified."
+          echo "Keystore verified successfully."
 
       - name: Set Version
         shell: bash
         run: |
-          echo "VERSION_CODE=${{ github.run_number }}" >> "$GITHUB_ENV"
-          echo "VERSION_NAME=1.0.${{ github.run_number }}" >> "$GITHUB_ENV"
+          set -e
+
+          VERSION_CODE="${{ github.run_number }}"
+          VERSION_NAME="1.0.${{ github.run_number }}"
+
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
+          echo "Version Code : $VERSION_CODE"
+          echo "Version Name : $VERSION_NAME"
 
       - name: Build Release
         env:
@@ -164,6 +184,10 @@ jobs:
           VERSION_NAME: ${{ env.VERSION_NAME }}
         shell: bash
         run: |
+          set -e
+
+          echo "Building signed release APK..."
+
           gradle \
             :app:assembleRelease \
             --no-daemon \
@@ -172,6 +196,8 @@ jobs:
       - name: Verify APK
         shell: bash
         run: |
+          set -e
+
           APK="app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -f "$APK" ]; then
@@ -185,17 +211,27 @@ jobs:
       - name: Verify APK Signature
         shell: bash
         run: |
+          set -e
+
           APK="app/build/outputs/apk/release/app-release.apk"
+
+          echo "Verifying APK signature..."
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify \
             --verbose \
             "$APK"
 
+          echo "APK signature verified."
+
       - name: Verify Application ID
         shell: bash
         run: |
+          set -e
+
           APK="app/build/outputs/apk/release/app-release.apk"
+
+          echo "Verifying application ID..."
 
           "$ANDROID_HOME/build-tools/35.0.0/aapt" \
             dump badging \
@@ -203,25 +239,66 @@ jobs:
             grep \
             "package: name='com.electrical.calculationspro'"
 
+          echo "Application ID verified."
+
+      - name: Verify Version
+        shell: bash
+        run: |
+          set -e
+
+          APK="app/build/outputs/apk/release/app-release.apk"
+
+          BADGING=$(
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+              dump badging \
+              "$APK"
+          )
+
+          echo "$BADGING"
+
+          echo "$BADGING" |
+            grep \
+            "versionCode='${{ github.run_number }}'"
+
+          echo "$BADGING" |
+            grep \
+            "versionName='1.0.${{ github.run_number }}'"
+
+          echo "APK version verified."
+
       - name: Rename APK
         shell: bash
         run: |
-          cp \
-            app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk
+          set -e
+
+          SOURCE="app/build/outputs/apk/release/app-release.apk"
+
+          TARGET="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
+
+          cp "$SOURCE" "$TARGET"
+
+          test -f "$TARGET"
+
+          echo "Release APK:"
+          ls -lh "$TARGET"
 
       - name: Calculate SHA256
         shell: bash
         run: |
-          sha256sum \
-            app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk \
-            > apk-sha256.txt
+          set -e
 
+          APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
+
+          sha256sum "$APK" > apk-sha256.txt
+
+          echo "SHA-256:"
           cat apk-sha256.txt
 
       - name: Create Release Notes
         shell: bash
         run: |
+          set -e
+
           cat > release-notes.md <<EOF
           # Electrical Calculations Pro
 
@@ -232,45 +309,89 @@ jobs:
           Commit:
           ${{ github.sha }}
 
-          This APK was automatically built and permanently signed.
-
           Application ID:
           com.electrical.calculationspro
 
-          The APK can update an existing installation
-          without uninstalling the application.
+          This APK was automatically built and permanently signed.
+
+          The same permanent release signing key is used
+          to allow installation as an update over the existing application.
 
           ## SHA-256
 
           $(cat apk-sha256.txt)
           EOF
 
+          cat release-notes.md
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          set -e
+
           TAG="v1.0.${{ github.run_number }}"
+
           APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
 
-          gh release create \
-            "$TAG" \
-            "$APK" \
-            apk-sha256.txt \
-            --repo "${{ github.repository }}" \
-            --title "Electrical Calculations Pro $TAG" \
-            --notes-file release-notes.md
+          echo "Publishing release: $TAG"
 
-      - name: Final Verification
+          if gh release view \
+            "$TAG" \
+            --repo "${{ github.repository }}" \
+            >/dev/null 2>&1
+          then
+
+            echo "Release already exists. Uploading APK..."
+
+            gh release upload \
+              "$TAG" \
+              "$APK" \
+              apk-sha256.txt \
+              --repo "${{ github.repository }}" \
+              --clobber
+
+          else
+
+            echo "Creating new GitHub Release..."
+
+            gh release create \
+              "$TAG" \
+              "$APK" \
+              apk-sha256.txt \
+              --repo "${{ github.repository }}" \
+              --title "Electrical Calculations Pro $TAG" \
+              --notes-file release-notes.md
+
+          fi
+
+      - name: Verify GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          set -e
+
           TAG="v1.0.${{ github.run_number }}"
+
+          echo "Verifying GitHub Release..."
 
           gh release view \
             "$TAG" \
             --repo "${{ github.repository }}"
+
+          echo ""
+          echo "Release verification completed."
+
+      - name: Final Verification
+        shell: bash
+        run: |
+          set -e
+
+          APK="app/build/outputs/apk/release/ElectricalCalculationsPro-release.apk"
+
+          test -f "$APK"
 
           echo ""
           echo "========================================"
@@ -279,7 +400,8 @@ jobs:
           echo "========================================"
           echo "Version : 1.0.${{ github.run_number }}"
           echo "Code    : ${{ github.run_number }}"
-          echo "Tag     : $TAG"
+          echo "Tag     : v1.0.${{ github.run_number }}"
+          echo "Package : com.electrical.calculationspro"
           echo "APK     : ElectricalCalculationsPro-release.apk"
           echo "========================================"
 
@@ -289,3 +411,5 @@ jobs:
         run: |
           rm -f release.keystore
           rm -f ci-signing.properties
+
+          echo "Signing files cleaned up."
