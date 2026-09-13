@@ -10,12 +10,12 @@ kotlin {
 }
 
 android {
-    namespace = "com.electricaldesignengineer.app"
+    namespace = "com.electrical.calculationspro"
 
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.electricaldesignengineer.app"
+        applicationId = "com.electrical.calculationspro"
 
         minSdk = 24
 
@@ -25,11 +25,14 @@ android {
             project.findProperty("versionCode")
                 ?.toString()
                 ?.toIntOrNull()
+                ?: System.getenv("VERSION_CODE")
+                    ?.toIntOrNull()
                 ?: 1
 
         versionName =
             project.findProperty("versionName")
                 ?.toString()
+                ?: System.getenv("VERSION_NAME")
                 ?: "1.0"
     }
 
@@ -56,28 +59,26 @@ android {
 
 dependencies {
 
-    // Android Core
     implementation("androidx.core:core-ktx:1.15.0")
 
-    // Jetpack Compose
     implementation("androidx.activity:activity-compose:1.10.0")
 
     implementation("androidx.compose.ui:ui:1.7.6")
 
     implementation("androidx.compose.material3:material3:1.3.1")
 
-    implementation("androidx.compose.ui:ui-tooling-preview:1.7.6")
+    implementation(
+        "androidx.compose.ui:ui-tooling-preview:1.7.6"
+    )
 
     debugImplementation(
         "androidx.compose.ui:ui-tooling:1.7.6"
     )
 
-    // ViewModel
     implementation(
         "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7"
     )
 
-    // Room
     implementation(
         "androidx.room:room-runtime:2.6.1"
     )
