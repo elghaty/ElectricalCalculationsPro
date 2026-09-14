@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -52,65 +53,30 @@ fun ConductorSizingScreen(
     language: AppLanguage,
     standard: Standard
 ) {
-
-    fun t(
-        key: String
-    ): String =
-        Strings.get(
-            key,
-            language
-        )
+    fun t(key: String): String = Strings.get(key, language)
 
     var currentType by remember {
-        mutableStateOf(
-            CurrentType.AlternatingSinglePhase
-        )
+        mutableStateOf(CurrentType.AlternatingSinglePhase)
     }
 
-    var voltage by remember {
-        mutableStateOf("230")
-    }
-
-    var loadKw by remember {
-        mutableStateOf("5")
-    }
-
-    var powerFactor by remember {
-        mutableStateOf("0.90")
-    }
-
-    var lineLength by remember {
-        mutableStateOf("60")
-    }
-
-    var ambientTemp by remember {
-        mutableStateOf("30")
-    }
-
-    var circuits by remember {
-        mutableStateOf("1")
-    }
-
-    var maxDrop by remember {
-        mutableStateOf("4")
-    }
+    var voltage by remember { mutableStateOf("230") }
+    var loadKw by remember { mutableStateOf("5") }
+    var powerFactor by remember { mutableStateOf("0.90") }
+    var lineLength by remember { mutableStateOf("60") }
+    var ambientTemp by remember { mutableStateOf("30") }
+    var circuits by remember { mutableStateOf("1") }
+    var maxDrop by remember { mutableStateOf("4") }
 
     var conductor by remember {
-        mutableStateOf(
-            ConductorMaterial.Copper
-        )
+        mutableStateOf(ConductorMaterial.Copper)
     }
 
     var insulation by remember {
-        mutableStateOf(
-            InsulationType.PVC
-        )
+        mutableStateOf(InsulationType.PVC)
     }
 
     var method by remember {
-        mutableStateOf(
-            iecInstallationMethods.first()
-        )
+        mutableStateOf(iecInstallationMethods.first())
     }
 
     var result by remember {
@@ -125,218 +91,97 @@ fun ConductorSizingScreen(
         mutableStateOf<String?>(null)
     }
 
-    fun buildInput():
-        ConductorSizingInput {
-
+    fun buildInput(): ConductorSizingInput {
         return ConductorSizingInput(
-
-            currentType =
-                currentType,
-
-            voltage =
-                voltage
-                    .toDoubleOrNull()
-                    ?: 0.0,
-
-            /*
-             * UI uses kW.
-             * Core receives W.
-             */
-            load =
-                (
-                    loadKw
-                        .toDoubleOrNull()
-                        ?: 0.0
-                    ) * 1000.0,
-
-            powerFactor =
-                powerFactor
-                    .toDoubleOrNull()
-                    ?: 0.0,
-
-            lineLength =
-                lineLength
-                    .toDoubleOrNull()
-                    ?: 0.0,
-
-            installationMethod =
-                method,
-
-            ambientTemp =
-                ambientTemp
-                    .toDoubleOrNull()
-                    ?: 0.0,
-
-            conductor =
-                conductor,
-
-            insulation =
-                insulation,
-
-            circuitsInConduit =
-                circuits
-                    .toIntOrNull()
-                    ?: 0,
-
-            maxVoltageDrop =
-                maxDrop
-                    .toDoubleOrNull()
-                    ?: 0.0
+            currentType = currentType,
+            voltage = voltage.toDoubleOrNull() ?: 0.0,
+            load = (loadKw.toDoubleOrNull() ?: 0.0) * 1000.0,
+            powerFactor = powerFactor.toDoubleOrNull() ?: 0.0,
+            lineLength = lineLength.toDoubleOrNull() ?: 0.0,
+            installationMethod = method,
+            ambientTemp = ambientTemp.toDoubleOrNull() ?: 0.0,
+            conductor = conductor,
+            insulation = insulation,
+            circuitsInConduit = circuits.toIntOrNull() ?: 0,
+            maxVoltageDrop = maxDrop.toDoubleOrNull() ?: 0.0
         )
     }
 
     fun calculate() {
-
         try {
+            val calculated = ElectricalCalculations.sizeConductor(
+                input = buildInput(),
+                standard = standard
+            )
 
-            val input =
-                buildInput()
-
-            val calculated =
-                ElectricalCalculations
-                    .sizeConductor(
-                        input = input,
-                        standard = standard
-                    )
-
-            result =
-                calculated
-
-            selectedSection =
-                calculated.selectedSection
-
+            result = calculated
+            selectedSection = calculated.selectedSection
             error = null
-
-        } catch (
-            exception: Exception
-        ) {
-
+        } catch (exception: Exception) {
             result = null
-
-            error =
-                exception.message
-                    ?: "Invalid engineering input."
+            error = exception.message ?: "Invalid engineering input."
         }
     }
 
-    fun selectSection(
-        section: Double
-    ) {
-
+    fun selectSection(section: Double) {
         try {
+            val calculated = ElectricalCalculations.evaluateSelectedSection(
+                input = buildInput(),
+                selectedSection = section,
+                standard = standard
+            )
 
-            val calculated =
-                ElectricalCalculations
-                    .evaluateSelectedSection(
-                        input = buildInput(),
-                        selectedSection = section,
-                        standard = standard
-                    )
-
-            result =
-                calculated
-
-            selectedSection =
-                section
-
+            result = calculated
+            selectedSection = section
             error = null
-
-        } catch (
-            exception: Exception
-        ) {
-
-            error =
-                exception.message
-                    ?: "Unable to evaluate selected section."
+        } catch (exception: Exception) {
+            error = exception.message ?: "Unable to evaluate selected section."
         }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                DarkBackground
-            )
-            .verticalScroll(
-                rememberScrollState()
-            )
+            .background(DarkBackground)
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
-
-        verticalArrangement =
-            Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-
         Text(
-            text =
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "اختيار مقطع الموصل"
-                } else {
-                    "Conductor Sizing"
-                },
-
-            color =
-                TextPrimary,
-
-            fontSize =
-                21.sp,
-
-            fontWeight =
-                FontWeight.Bold
+            text = if (language == AppLanguage.ARABIC) {
+                "اختيار مقطع الموصل"
+            } else {
+                "Conductor Sizing"
+            },
+            color = TextPrimary,
+            fontSize = 21.sp,
+            fontWeight = FontWeight.Bold
         )
 
         Text(
-            text =
-                standard.name,
-
-            color =
-                PrimaryTeal,
-
-            fontSize =
-                13.sp,
-
-            fontWeight =
-                FontWeight.SemiBold
+            text = standard.name,
+            color = PrimaryTeal,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
         )
 
         Card(
-            modifier =
-                Modifier.fillMaxWidth(),
-
-            colors =
-                CardDefaults.cardColors(
-                    containerColor =
-                        DarkSurface
-                )
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = DarkSurface
+            )
         ) {
-
             Column(
-                modifier =
-                    Modifier.padding(14.dp),
-
-                verticalArrangement =
-                    Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-
-                FieldLabel(
-                    t("current_type")
-                )
+                FieldLabel(t("current_type"))
 
                 SelectionDropdown(
-                    value =
-                        currentType,
-
-                    values =
-                        CurrentType
-                            .values()
-                            .toList(),
-
+                    value = currentType,
+                    values = CurrentType.values().toList(),
                     text = { item ->
-
                         when (item) {
-
                             CurrentType.DirectCurrent ->
                                 t("direct_current")
 
@@ -350,283 +195,181 @@ fun ConductorSizingScreen(
                                 t("alternating_three")
                         }
                     },
-
                     onSelected = {
                         currentType = it
                     }
                 )
 
                 TwoColumnRow {
-
                     NumberField(
-                        modifier =
-                            Modifier.weight(1f),
-
-                        label =
-                            "${t("voltage")} (V)",
-
-                        value =
-                            voltage,
-
-                        onValueChange = {
-                            voltage = it
-                        }
+                        modifier = Modifier.weight(1f),
+                        label = "${t("voltage")} (V)",
+                        value = voltage,
+                        onValueChange = { voltage = it }
                     )
 
                     NumberField(
-                        modifier =
-                            Modifier.weight(1f),
-
-                        label =
-                            if (
-                                language ==
-                                AppLanguage.ARABIC
-                            ) {
-                                "الحمل (kW)"
-                            } else {
-                                "Load (kW)"
-                            },
-
-                        value =
-                            loadKw,
-
-                        onValueChange = {
-                            loadKw = it
-                        }
+                        modifier = Modifier.weight(1f),
+                        label = if (language == AppLanguage.ARABIC) {
+                            "الحمل (kW)"
+                        } else {
+                            "Load (kW)"
+                        },
+                        value = loadKw,
+                        onValueChange = { loadKw = it }
                     )
                 }
 
                 TwoColumnRow {
-
                     NumberField(
-                        modifier =
-                            Modifier.weight(1f),
-
-                        label =
-                            t(
-                                "power_factor_label"
-                            ),
-
-                        value =
-                            powerFactor,
-
-                        onValueChange = {
-                            powerFactor = it
-                        }
+                        modifier = Modifier.weight(1f),
+                        label = t("power_factor_label"),
+                        value = powerFactor,
+                        onValueChange = { powerFactor = it }
                     )
 
                     NumberField(
-                        modifier =
-                            Modifier.weight(1f),
-
-                        label =
-                            "${t("line_length")} (m)",
-
-                        value =
-                            lineLength,
-
-                        onValueChange = {
-                            lineLength = it
-                        }
+                        modifier = Modifier.weight(1f),
+                        label = "${t("line_length")} (m)",
+                        value = lineLength,
+                        onValueChange = { lineLength = it }
                     )
                 }
 
                 TwoColumnRow {
-
                     NumberField(
-                        modifier =
-                            Modifier.weight(1f),
-
-                        label =
-                            t("ambient_temp"),
-
-                        value =
-                            ambientTemp,
-
-                        onValueChange = {
-                            ambientTemp = it
-                        }
+                        modifier = Modifier.weight(1f),
+                        label = t("ambient_temp"),
+                        value = ambientTemp,
+                        onValueChange = { ambientTemp = it }
                     )
 
                     NumberField(
-                        modifier =
-                            Modifier.weight(1f),
-
-                        label =
-                            t("circuits_conduit"),
-
-                        value =
-                            circuits,
-
-                        onValueChange = {
-                            circuits = it
-                        }
+                        modifier = Modifier.weight(1f),
+                        label = t("circuits_conduit"),
+                        value = circuits,
+                        onValueChange = { circuits = it }
                     )
                 }
 
                 NumberField(
-                    label =
-                        "${t("max_voltage_drop")} (%)",
+                    label = "${t("max_voltage_drop")} (%)",
+                    value = maxDrop,
+                    onValueChange = { maxDrop = it }
+                )
 
-                    value =
-                        maxDrop,
+                /*
+                 * =========================================================
+                 * THREE COLUMNS
+                 * Conductor Type | Installation Method | Insulation
+                 * =========================================================
+                 */
+                ThreeColumnRow {
 
-                    onValueChange = {
-                        maxDrop = it
+                    DropdownColumn(
+                        modifier = Modifier.weight(1f),
+                        label = t("conductor")
+                    ) {
+                        SelectionDropdown(
+                            value = conductor,
+                            values = ConductorMaterial.values().toList(),
+                            text = { item ->
+                                when (item) {
+                                    ConductorMaterial.Copper ->
+                                        t("copper")
+
+                                    ConductorMaterial.Aluminum ->
+                                        t("aluminum")
+                                }
+                            },
+                            onSelected = {
+                                conductor = it
+                            }
+                        )
                     }
-                )
 
-                FieldLabel(
-                    t("conductor")
-                )
-
-                SelectionDropdown(
-                    value =
-                        conductor,
-
-                    values =
-                        ConductorMaterial
-                            .values()
-                            .toList(),
-
-                    text = { item ->
-
-                        when (item) {
-
-                            ConductorMaterial.Copper ->
-                                t("copper")
-
-                            ConductorMaterial.Aluminum ->
-                                t("aluminum")
-                        }
-                    },
-
-                    onSelected = {
-                        conductor = it
+                    DropdownColumn(
+                        modifier = Modifier.weight(1f),
+                        label = t("method_installation")
+                    ) {
+                        SelectionDropdown(
+                            value = method,
+                            values = iecInstallationMethods,
+                            text = { item ->
+                                "${item.code} — ${item.description}"
+                            },
+                            onSelected = {
+                                method = it
+                            }
+                        )
                     }
-                )
 
-                FieldLabel(
-                    t("insulation")
-                )
+                    DropdownColumn(
+                        modifier = Modifier.weight(1f),
+                        label = t("insulation")
+                    ) {
+                        SelectionDropdown(
+                            value = insulation,
+                            values = InsulationType.values().toList(),
+                            text = { item ->
+                                when (item) {
+                                    InsulationType.PVC ->
+                                        t("pvc")
 
-                SelectionDropdown(
-                    value =
-                        insulation,
+                                    InsulationType.XLPE ->
+                                        t("xlpe")
 
-                    values =
-                        InsulationType
-                            .values()
-                            .toList(),
+                                    InsulationType.EPR ->
+                                        t("epr")
 
-                    text = { item ->
-
-                        when (item) {
-
-                            InsulationType.PVC ->
-                                t("pvc")
-
-                            InsulationType.XLPE ->
-                                t("xlpe")
-
-                            InsulationType.EPR ->
-                                t("epr")
-
-                            InsulationType.Rubber ->
-                                t("rubber")
-                        }
-                    },
-
-                    onSelected = {
-                        insulation = it
+                                    InsulationType.Rubber ->
+                                        t("rubber")
+                                }
+                            },
+                            onSelected = {
+                                insulation = it
+                            }
+                        )
                     }
-                )
-
-                FieldLabel(
-                    t("method_installation")
-                )
-
-                SelectionDropdown(
-                    value =
-                        method,
-
-                    values =
-                        iecInstallationMethods,
-
-                    text = { item ->
-                        "${item.code} — ${item.description}"
-                    },
-
-                    onSelected = {
-                        method = it
-                    }
-                )
+                }
 
                 Button(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-
+                    modifier = Modifier.fillMaxWidth(),
                     onClick = {
                         calculate()
                     }
                 ) {
-
                     Text(
-                        text =
-                            t("calculate"),
-
-                        fontWeight =
-                            FontWeight.Bold
+                        text = t("calculate"),
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
 
         error?.let { message ->
-
             Card(
-                modifier =
-                    Modifier.fillMaxWidth(),
-
-                colors =
-                    CardDefaults.cardColors(
-                        containerColor =
-                            MaterialTheme
-                                .colorScheme
-                                .errorContainer
-                    )
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor =
+                        MaterialTheme.colorScheme.errorContainer
+                )
             ) {
-
                 Text(
-                    text =
-                        message,
-
-                    modifier =
-                        Modifier.padding(
-                            16.dp
-                        ),
-
+                    text = message,
+                    modifier = Modifier.padding(16.dp),
                     color =
-                        MaterialTheme
-                            .colorScheme
-                            .onErrorContainer
+                        MaterialTheme.colorScheme.onErrorContainer
                 )
             }
         }
 
         result?.let { calculation ->
-
             ResultCard(
-                language =
-                    language,
-
-                result =
-                    calculation,
-
+                language = language,
+                result = calculation,
                 selectedSection =
-                    selectedSection
-                        ?: calculation.selectedSection,
-
+                    selectedSection ?: calculation.selectedSection,
                 onSectionSelected = {
                     selectSection(it)
                 }
@@ -639,63 +382,37 @@ fun ConductorSizingScreen(
 private fun FieldLabel(
     text: String
 ) {
-
     Text(
-        text =
-            text,
-
-        color =
-            TextSecondary,
-
-        fontSize =
-            12.sp,
-
-        fontWeight =
-            FontWeight.SemiBold
+        text = text,
+        color = TextSecondary,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold
     )
 }
 
 @Composable
 private fun NumberField(
-    modifier: Modifier =
-        Modifier.fillMaxWidth(),
-
+    modifier: Modifier = Modifier.fillMaxWidth(),
     label: String,
-
     value: String,
-
-    onValueChange:
-        (String) -> Unit
+    onValueChange: (String) -> Unit
 ) {
-
     OutlinedTextField(
-        modifier =
-            modifier.fillMaxWidth(),
-
-        value =
-            value,
-
-        onValueChange = {
-            newValue ->
-
+        modifier = modifier.fillMaxWidth(),
+        value = value,
+        onValueChange = { newValue ->
             if (
                 newValue.isEmpty() ||
                 newValue.matches(
-                    Regex(
-                        """^-?\d*(\.\d*)?$"""
-                    )
+                    Regex("""^-?\d*(\.\d*)?$""")
                 )
             ) {
-                onValueChange(
-                    newValue
-                )
+                onValueChange(newValue)
             }
         },
-
         label = {
             Text(label)
         },
-
         singleLine = true
     )
 }
@@ -707,71 +424,59 @@ private fun <T> SelectionDropdown(
     text: (T) -> String,
     onSelected: (T) -> Unit
 ) {
-
     var expanded by remember {
         mutableStateOf(false)
     }
 
     Box(
-        modifier =
-            Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
-
+        /*
+         * The transparent clickable layer is deliberately placed
+         * over the read-only TextField.
+         *
+         * This fixes the old problem where TextField consumed the
+         * touch event and the DropdownMenu did not open.
+         */
         OutlinedTextField(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        expanded = true
-                    },
-
-            value =
-                text(value),
-
+            modifier = Modifier.fillMaxWidth(),
+            value = text(value),
             onValueChange = {},
-
             readOnly = true,
-
             singleLine = true,
-
             trailingIcon = {
-
                 Text(
-                    text =
-                        if (expanded) {
-                            "▲"
-                        } else {
-                            "▼"
-                        },
-
-                    color =
-                        PrimaryTeal
+                    text = if (expanded) "▲" else "▼",
+                    color = PrimaryTeal,
+                    fontSize = 12.sp
                 )
             }
         )
 
-        DropdownMenu(
-            expanded =
-                expanded,
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable {
+                    expanded = true
+                }
+        )
 
+        DropdownMenu(
+            expanded = expanded,
             onDismissRequest = {
                 expanded = false
             }
         ) {
-
             values.forEach { item ->
-
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text(item)
+                            text = text(item),
+                            maxLines = 2
                         )
                     },
-
                     onClick = {
-
                         onSelected(item)
-
                         expanded = false
                     }
                 )
@@ -781,24 +486,41 @@ private fun <T> SelectionDropdown(
 }
 
 @Composable
-private fun TwoColumnRow(
-    content:
-        @Composable
-        RowScope.() -> Unit
+private fun DropdownColumn(
+    modifier: Modifier,
+    label: String,
+    content: @Composable () -> Unit
 ) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        FieldLabel(label)
+        content()
+    }
+}
 
+@Composable
+private fun ThreeColumnRow(
+    content: @Composable RowScope.() -> Unit
+) {
     Row(
-        modifier =
-            Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.Top,
+        content = content
+    )
+}
 
-        horizontalArrangement =
-            Arrangement.spacedBy(10.dp),
-
-        verticalAlignment =
-            Alignment.CenterVertically,
-
-        content =
-            content
+@Composable
+private fun TwoColumnRow(
+    content: @Composable RowScope.() -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
     )
 }
 
@@ -807,203 +529,120 @@ private fun ResultCard(
     language: AppLanguage,
     result: ConductorSizingResult,
     selectedSection: Double,
-    onSectionSelected:
-        (Double) -> Unit
+    onSectionSelected: (Double) -> Unit
 ) {
-
     Card(
-        modifier =
-            Modifier.fillMaxWidth(),
-
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    DarkSurface
-            )
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = DarkSurface
+        )
     ) {
-
         Column(
-            modifier =
-                Modifier.padding(16.dp),
-
-            verticalArrangement =
-                Arrangement.spacedBy(8.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
             Text(
-                text =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "نتائج اختيار الموصل"
-                    } else {
-                        "Conductor Sizing Results"
-                    },
-
-                color =
-                    PrimaryTeal,
-
-                fontSize =
-                    18.sp,
-
-                fontWeight =
-                    FontWeight.Bold
+                text = if (language == AppLanguage.ARABIC) {
+                    "نتائج اختيار الموصل"
+                } else {
+                    "Conductor Sizing Results"
+                },
+                color = PrimaryTeal,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "تيار التصميم"
-                    } else {
-                        "Design Current"
-                    },
-
-                value =
-                    "%.2f A".format(
-                        result.designCurrent
-                    )
+                title = if (language == AppLanguage.ARABIC) {
+                    "تيار التصميم"
+                } else {
+                    "Design Current"
+                },
+                value = "%.2f A".format(result.designCurrent)
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "المقطع المقترح"
-                    } else {
-                        "Recommended Section"
-                    },
-
-                value =
-                    "%.1f mm²".format(
-                        result.recommendedSection
-                    )
+                title = if (language == AppLanguage.ARABIC) {
+                    "المقطع المقترح"
+                } else {
+                    "Recommended Section"
+                },
+                value = "%.1f mm²".format(
+                    result.recommendedSection
+                )
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "المقطع المختار"
-                    } else {
-                        "Selected Section"
-                    },
-
-                value =
-                    "%.1f mm²".format(
-                        result.selectedSection
-                    )
+                title = if (language == AppLanguage.ARABIC) {
+                    "المقطع المختار"
+                } else {
+                    "Selected Section"
+                },
+                value = "%.1f mm²".format(
+                    result.selectedSection
+                )
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "سعة تحمل الكابل"
-                    } else {
-                        "Cable Ampacity"
-                    },
-
-                value =
-                    "%.1f A".format(
-                        result.ampacity
-                    )
+                title = if (language == AppLanguage.ARABIC) {
+                    "سعة تحمل الكابل"
+                } else {
+                    "Cable Ampacity"
+                },
+                value = "%.1f A".format(result.ampacity)
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "هبوط الجهد"
-                    } else {
-                        "Voltage Drop"
-                    },
-
-                value =
-                    "%.2f %% / %.2f V"
-                        .format(
-                            result.voltageDropPercent,
-                            result.voltageDropVolts
-                        )
+                title = if (language == AppLanguage.ARABIC) {
+                    "هبوط الجهد"
+                } else {
+                    "Voltage Drop"
+                },
+                value = "%.2f %% / %.2f V".format(
+                    result.voltageDropPercent,
+                    result.voltageDropVolts
+                )
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "القاطع المقترح"
-                    } else {
-                        "Protective Device"
-                    },
-
-                value =
-                    if (
-                        result.protectiveDevice > 0.0
-                    ) {
-                        "%.0f A".format(
-                            result.protectiveDevice
-                        )
-                    } else {
-                        "NOT VALID"
-                    }
+                title = if (language == AppLanguage.ARABIC) {
+                    "القاطع المقترح"
+                } else {
+                    "Protective Device"
+                },
+                value = if (result.protectiveDevice > 0.0) {
+                    "%.0f A".format(result.protectiveDevice)
+                } else {
+                    "NOT VALID"
+                }
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "تيار القصر"
-                    } else {
-                        "Short Circuit Current"
-                    },
-
-                value =
-                    "%.2f kA".format(
-                        result.shortCircuitCurrentKA
-                    )
+                title = if (language == AppLanguage.ARABIC) {
+                    "تيار القصر"
+                } else {
+                    "Short Circuit Current"
+                },
+                value = "%.2f kA".format(
+                    result.shortCircuitCurrentKA
+                )
             )
 
             ResultRow(
-                title =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "هبوط الجهد ضمن الحد"
-                    } else {
-                        "Voltage Drop Limit"
-                    },
-
-                value =
-                    if (
-                        result.voltageDropWithinLimit
-                    ) {
-                        "PASS"
-                    } else {
-                        "CHECK"
-                    }
+                title = if (language == AppLanguage.ARABIC) {
+                    "هبوط الجهد ضمن الحد"
+                } else {
+                    "Voltage Drop Limit"
+                },
+                value = if (result.voltageDropWithinLimit) {
+                    "PASS"
+                } else {
+                    "CHECK"
+                }
             )
 
             FieldLabel(
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
+                if (language == AppLanguage.ARABIC) {
                     "اختيار مقطع بديل"
                 } else {
                     "Select Alternative Section"
@@ -1011,36 +650,20 @@ private fun ResultCard(
             )
 
             SectionSelector(
-                selectedSection =
-                    selectedSection,
-
-                onSelected =
-                    onSectionSelected
+                selectedSection = selectedSection,
+                onSelected = onSectionSelected
             )
 
-            if (
-                result.notes.isNotEmpty()
-            ) {
-
+            if (result.notes.isNotEmpty()) {
                 Column(
                     verticalArrangement =
-                        Arrangement.spacedBy(
-                            4.dp
-                        )
+                        Arrangement.spacedBy(4.dp)
                 ) {
-
-                    result.notes.forEach {
-                        note ->
-
+                    result.notes.forEach { note ->
                         Text(
-                            text =
-                                "• $note",
-
-                            color =
-                                TextSecondary,
-
-                            fontSize =
-                                12.sp
+                            text = "• $note",
+                            color = TextSecondary,
+                            fontSize = 12.sp
                         )
                     }
                 }
@@ -1052,84 +675,54 @@ private fun ResultCard(
 @Composable
 private fun SectionSelector(
     selectedSection: Double,
-    onSelected:
-        (Double) -> Unit
+    onSelected: (Double) -> Unit
 ) {
-
     var expanded by remember {
         mutableStateOf(false)
     }
 
     Box(
-        modifier =
-            Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
-
         OutlinedTextField(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        expanded = true
-                    },
-
-            value =
-                "%.1f mm²".format(
-                    selectedSection
-                ),
-
+            modifier = Modifier.fillMaxWidth(),
+            value = "%.1f mm²".format(selectedSection),
             onValueChange = {},
-
             readOnly = true,
-
             singleLine = true,
-
             trailingIcon = {
-
                 Text(
-                    text =
-                        if (expanded) {
-                            "▲"
-                        } else {
-                            "▼"
-                        },
-
-                    color =
-                        PrimaryTeal
+                    text = if (expanded) "▲" else "▼",
+                    color = PrimaryTeal,
+                    fontSize = 12.sp
                 )
             }
         )
 
-        DropdownMenu(
-            expanded =
-                expanded,
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable {
+                    expanded = true
+                }
+        )
 
+        DropdownMenu(
+            expanded = expanded,
             onDismissRequest = {
                 expanded = false
             }
         ) {
-
-            standardSections.forEach {
-                section ->
-
+            standardSections.forEach { section ->
                 DropdownMenuItem(
                     text = {
-
                         Text(
-                            "%.1f mm²"
-                                .format(
-                                    section
-                                )
+                            "%.1f mm²".format(section)
                         )
                     },
-
                     onClick = {
-
                         expanded = false
-
-                        onSelected(
-                            section
-                        )
+                        onSelected(section)
                     }
                 )
             }
@@ -1142,41 +735,24 @@ private fun ResultRow(
     title: String,
     value: String
 ) {
-
     Row(
-        modifier =
-            Modifier.fillMaxWidth(),
-
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement =
             Arrangement.SpaceBetween,
-
         verticalAlignment =
             Alignment.CenterVertically
     ) {
-
         Text(
-            text =
-                title,
-
-            color =
-                TextSecondary,
-
-            fontSize =
-                12.sp
+            text = title,
+            color = TextSecondary,
+            fontSize = 13.sp
         )
 
         Text(
-            text =
-                value,
-
-            color =
-                TextPrimary,
-
-            fontSize =
-                12.sp,
-
-            fontWeight =
-                FontWeight.SemiBold
+            text = value,
+            color = TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
