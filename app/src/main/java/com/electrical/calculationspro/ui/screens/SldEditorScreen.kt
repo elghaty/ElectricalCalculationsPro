@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -1447,6 +1446,21 @@ private fun SldCanvas(
     val textMeasurer =
         rememberTextMeasurer()
 
+    /*
+     * Real node dimensions.
+     */
+    val nodeWidth = 120f
+    val nodeHeight = 64f
+
+    /*
+     * Expanded invisible touch area.
+     *
+     * The visible node remains 120 x 64,
+     * but the user can grab it from a larger
+     * area around it.
+     */
+    val touchPadding = 24f
+
     Box(
         modifier = modifier
             .fillMaxHeight()
@@ -1459,76 +1473,135 @@ private fun SldCanvas(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(
-                    nodes,
-                    connections
-                ) {
+
+                /*
+                 * TAP GESTURE
+                 *
+                 * Used only for selecting nodes
+                 * and connections.
+                 */
+                .pointerInput(nodes) {
+
                     detectTapGestures(
                         onTap = { position ->
 
                             val node =
                                 nodes
                                     .asReversed()
-                                    .firstOrNull {
-                                        position.x >= it.x &&
-                                            position.x <=
-                                            it.x + 120f &&
-                                            position.y >= it.y &&
-                                            position.y <=
-                                            it.y + 64f
+                                    .firstOrNull { node ->
+
+                                        position.x >=
+                                            node.x -
+                                                touchPadding &&
+
+                                        position.x <=
+                                            node.x +
+                                                nodeWidth +
+                                                touchPadding &&
+
+                                        position.y >=
+                                            node.y -
+                                                touchPadding &&
+
+                                        position.y <=
+                                            node.y +
+                                                nodeHeight +
+                                                touchPadding
                                     }
 
                             if (node != null) {
+
                                 onNodeSelected(
                                     node.id
                                 )
+
                                 return@detectTapGestures
                             }
 
                             val connection =
                                 findConnectionAtPoint(
-                                    position,
-                                    nodes,
-                                    connections
+                                    point = position,
+                                    nodes = nodes,
+                                    connections = connections
                                 )
 
                             if (connection != null) {
+
                                 onConnectionSelected(
                                     connection.id
                                 )
+
                             } else {
+
                                 onEmptySelected()
                             }
                         }
                     )
                 }
+
+                /*
+                 * DRAG GESTURE
+                 *
+                 * The node being dragged is captured
+                 * at the beginning of the gesture.
+                 *
+                 * It does not depend on selectedNodeId.
+                 */
                 .pointerInput(nodes) {
 
+                    var draggedNodeId: String? = null
+
                     detectDragGestures(
+
                         onDragStart = { position ->
 
-                            val node =
+                            draggedNodeId =
                                 nodes
                                     .asReversed()
-                                    .firstOrNull {
-                                        position.x >= it.x &&
-                                            position.x <=
-                                            it.x + 120f &&
-                                            position.y >= it.y &&
-                                            position.y <=
-                                            it.y + 64f
-                                    }
+                                    .firstOrNull { node ->
 
-                            if (node != null) {
+                                        position.x >=
+                                            node.x -
+                                                touchPadding &&
+
+                                        position.x <=
+                                            node.x +
+                                                nodeWidth +
+                                                touchPadding &&
+
+                                        position.y >=
+                                            node.y -
+                                                touchPadding &&
+
+                                        position.y <=
+                                            node.y +
+                                                nodeHeight +
+                                                touchPadding
+                                    }
+                                    ?.id
+
+                            draggedNodeId?.let { id ->
+
                                 onNodeSelected(
-                                    node.id
+                                    id
                                 )
                             }
                         },
+
+                        onDragEnd = {
+
+                            draggedNodeId = null
+                        },
+
+                        onDragCancel = {
+
+                            draggedNodeId = null
+                        },
+
                         onDrag = { change, amount ->
 
                             val id =
-                                selectedNodeId
+                                draggedNodeId
                                     ?: return@detectDragGestures
 
                             val node =
@@ -1539,20 +1612,48 @@ private fun SldCanvas(
 
                             change.consume()
 
-                            onNodeMoved(
-                                id,
+                            /*
+                             * Keep the complete node
+                             * inside the SLD canvas.
+                             */
+                            val maxX =
+                                (
+                                    size.width -
+                                        nodeWidth
+                                    )
+                                    .coerceAtLeast(0f)
+
+                            val maxY =
+                                (
+                                    size.height -
+                                        nodeHeight
+                                    )
+                                    .coerceAtLeast(0f)
+
+                            val newX =
                                 (
                                     node.x +
                                         amount.x
-                                    ).coerceAtLeast(
-                                        0f
-                                    ),
+                                    )
+                                    .coerceIn(
+                                        0f,
+                                        maxX
+                                    )
+
+                            val newY =
                                 (
                                     node.y +
                                         amount.y
-                                    ).coerceAtLeast(
-                                        0f
                                     )
+                                    .coerceIn(
+                                        0f,
+                                        maxY
+                                    )
+
+                            onNodeMoved(
+                                id,
+                                newX,
+                                newY
                             )
                         }
                     )
@@ -1561,6 +1662,9 @@ private fun SldCanvas(
 
             drawGrid()
 
+            /*
+             * CONNECTIONS
+             */
             connections.forEach { connection ->
 
                 val from =
@@ -1575,18 +1679,23 @@ private fun SldCanvas(
                             connection.toNodeId
                     }
 
-                if (from != null && to != null) {
+                if (
+                    from != null &&
+                    to != null
+                ) {
 
                     val start =
                         Offset(
-                            from.x + 120f,
-                            from.y + 32f
+                            from.x + nodeWidth,
+                            from.y +
+                                nodeHeight / 2f
                         )
 
                     val end =
                         Offset(
                             to.x,
-                            to.y + 32f
+                            to.y +
+                                nodeHeight / 2f
                         )
 
                     val selected =
@@ -1620,6 +1729,9 @@ private fun SldCanvas(
                 }
             }
 
+            /*
+             * NODES
+             */
             nodes.forEach { node ->
 
                 drawNode(
@@ -1936,7 +2048,10 @@ private fun findConnectionAtPoint(
                     connection.toNodeId
             }
 
-        if (from == null || to == null) {
+        if (
+            from == null ||
+            to == null
+        ) {
             false
         } else {
 
