@@ -34,11 +34,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -58,12 +61,15 @@ import kotlin.math.hypot
 import kotlin.math.max
 
 private val Background = Color(0xFF0B1116)
+private val CanvasBackground = Color(0xFF081016)
 private val CardColor = Color(0xFF151D24)
 private val PrimaryText = Color(0xFFF2F5F7)
 private val SecondaryText = Color(0xFF9BA8B2)
 private val Accent = Color(0xFF00BCD4)
 private val Danger = Color(0xFFE53935)
 private val Success = Color(0xFF43A047)
+private val LineColor = Color(0xFF90A4AE)
+private val BusbarColor = Color(0xFFE0E0E0)
 
 private const val NODE_WIDTH = 120f
 private const val NODE_HEIGHT = 64f
@@ -422,7 +428,9 @@ fun SldEditorScreen(
     fun showCalculation(title: String, block: () -> Any) {
         try {
             resultTitle = title
-            resultText = block().toString()
+            resultText = formatEngineeringResult(
+                block().toString()
+            )
         } catch (e: Exception) {
             resultTitle = if (arabic) "خطأ" else "Error"
             resultText = e.message ?: "Calculation error"
@@ -454,9 +462,9 @@ fun SldEditorScreen(
             Text(
                 modifier = Modifier.weight(1f),
                 text = if (arabic) {
-                    "المخطط الأحادي SLD"
+                    "المخطط الأحادي SLD الاحترافي"
                 } else {
-                    "Single Line Diagram"
+                    "Professional Single Line Diagram"
                 },
                 color = PrimaryText,
                 fontSize = 20.sp,
@@ -475,6 +483,12 @@ fun SldEditorScreen(
                 text = if (arabic) "مصدر" else "Source"
             ) {
                 openAdd(SldNodeType.SOURCE)
+            }
+
+            ToolButton(
+                text = if (arabic) "باسبار" else "Busbar"
+            ) {
+                openAdd(SldNodeType.BUS)
             }
 
             ToolButton(
@@ -587,12 +601,14 @@ fun SldEditorScreen(
             }
 
             ToolButton(
-                text = if (arabic) "Panel Schedule" else "Panel Schedule"
+                text = if (arabic) "جدول اللوحة" else "Panel Schedule"
             ) {
                 val panel = selectedNodeId
 
                 if (panel != null) {
-                    showCalculation("Panel Schedule") {
+                    showCalculation(
+                        if (arabic) "جدول اللوحة" else "Panel Schedule"
+                    ) {
                         val sc =
                             SldShortCircuitEngine.calculate(network())
 
@@ -714,7 +730,10 @@ fun SldEditorScreen(
                 showResultDialog = false
             },
             title = {
-                Text(resultTitle)
+                Text(
+                    text = resultTitle,
+                    fontWeight = FontWeight.Bold
+                )
             },
             text = {
                 Column(
@@ -726,7 +745,9 @@ fun SldEditorScreen(
                 ) {
                     Text(
                         text = resultText,
-                        fontSize = 12.sp
+                        color = PrimaryText,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
                     )
                 }
             },
@@ -737,12 +758,121 @@ fun SldEditorScreen(
                     }
                 ) {
                     Text(
-                        if (arabic) "إغلاق" else "Close"
+                        if (arabic) "إغلاق" else "Close",
+                        color = Accent
                     )
                 }
             }
         )
     }
+}
+
+private fun formatEngineeringResult(raw: String): String {
+    return raw
+        .replace(
+            "SldShortCircuitStudy(",
+            "SHORT-CIRCUIT STUDY\n\n"
+        )
+        .replace(
+            "SldShortCircuitResult(",
+            "\n━━━━━━━━━━━━━━━━━━━━━━━━━━\nBUS / NODE RESULT\n"
+        )
+        .replace(
+            "nodeId=",
+            "\nNode ID       : "
+        )
+        .replace(
+            "nodeName=",
+            "\nNode Name     : "
+        )
+        .replace(
+            "voltageV=",
+            "\nVoltage        : "
+        )
+        .replace(
+            "resistanceOhm=",
+            "\nResistance     : "
+        )
+        .replace(
+            "reactanceOhm=",
+            "\nReactance      : "
+        )
+        .replace(
+            "impedanceOhm=",
+            "\nImpedance      : "
+        )
+        .replace(
+            "xrRatio=",
+            "\nX/R Ratio      : "
+        )
+        .replace(
+            "shortCircuitMva=",
+            "\nFault Level    : "
+        )
+        .replace(
+            "initialSymmetricalCurrentKa=",
+            "\nIk''           : "
+        )
+        .replace(
+            "peakCurrentKa=",
+            "\nIp Peak        : "
+        )
+        .replace(
+            "thermalCurrentKa=",
+            "\nIth Thermal    : "
+        )
+        .replace(
+            "breakerRatedCurrentKa=",
+            "\nBreaker Rating : "
+        )
+        .replace(
+            "maximumFaultCurrentKa=",
+            "\nMaximum Ik''   : "
+        )
+        .replace(
+            "maximumPeakCurrentKa=",
+            "\nMaximum Ip     : "
+        )
+        .replace(
+            "maximumFaultMva=",
+            "\nMaximum Fault  : "
+        )
+        .replace(
+            "nodes=",
+            "\nNodes          : "
+        )
+        .replace(
+            "style=",
+            "\nCalculation    : "
+        )
+        .replace(
+            "Voltage factor",
+            "\nVoltage factor"
+        )
+        .replace(
+            "Maximum Ik''",
+            "\nMaximum Ik''"
+        )
+        .replace(
+            "Maximum peak current",
+            "\nMaximum peak current"
+        )
+        .replace(
+            "Maximum fault level",
+            "\nMaximum fault level"
+        )
+        .replace(
+            "method=",
+            "\nMethod         : "
+        )
+        .replace(
+            "results={",
+            "\n"
+        )
+        .replace(
+            "})",
+            ""
+        )
 }
 
 @Composable
@@ -785,7 +915,7 @@ private fun SldCanvas(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF081016))
+            .background(CanvasBackground)
     ) {
         Canvas(
             modifier = Modifier
@@ -793,10 +923,11 @@ private fun SldCanvas(
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = { position ->
-                            val node = findNode(
-                                position,
-                                currentNodes
-                            )
+                            val node =
+                                findNode(
+                                    position,
+                                    currentNodes
+                                )
 
                             if (node != null) {
                                 currentOnEditNode(node)
@@ -815,10 +946,11 @@ private fun SldCanvas(
                             }
                         },
                         onTap = { position ->
-                            val node = findNode(
-                                position,
-                                currentNodes
-                            )
+                            val node =
+                                findNode(
+                                    position,
+                                    currentNodes
+                                )
 
                             if (node != null) {
                                 currentOnSelectNode(node.id)
@@ -845,10 +977,11 @@ private fun SldCanvas(
 
                     detectDragGestures(
                         onDragStart = { position ->
-                            val node = findNode(
-                                position,
-                                currentNodes
-                            )
+                            val node =
+                                findNode(
+                                    position,
+                                    currentNodes
+                                )
 
                             draggedNodeId = node?.id
 
@@ -885,6 +1018,8 @@ private fun SldCanvas(
                     )
                 }
         ) {
+            drawGrid()
+
             currentConnections.forEach { connection ->
                 val from =
                     currentNodes.firstOrNull {
@@ -917,6 +1052,32 @@ private fun SldCanvas(
                 )
             }
         }
+    }
+}
+
+private fun DrawScope.drawGrid() {
+    val spacing = 40f
+
+    var x = 0f
+    while (x < size.width) {
+        drawLine(
+            color = Color(0xFF101A21),
+            start = Offset(x, 0f),
+            end = Offset(x, size.height),
+            strokeWidth = 1f
+        )
+        x += spacing
+    }
+
+    var y = 0f
+    while (y < size.height) {
+        drawLine(
+            color = Color(0xFF101A21),
+            start = Offset(0f, y),
+            end = Offset(size.width, y),
+            strokeWidth = 1f
+        )
+        y += spacing
     }
 }
 
@@ -1011,7 +1172,7 @@ private fun distanceToSegment(
     )
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawConnection(
+private fun DrawScope.drawConnection(
     from: SldNode,
     to: SldNode,
     selected: Boolean
@@ -1029,90 +1190,173 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawConnection(
         )
 
     val color =
-        if (selected) Accent else Color(0xFF90A4AE)
+        if (selected) Accent else LineColor
 
-    val path = Path().apply {
-        moveTo(start.x, start.y)
+    val path =
+        Path().apply {
+            moveTo(start.x, start.y)
 
-        val middleX =
-            (start.x + end.x) / 2f
+            val middleX =
+                (start.x + end.x) / 2f
 
-        lineTo(middleX, start.y)
-        lineTo(middleX, end.y)
-        lineTo(end.x, end.y)
-    }
+            lineTo(
+                middleX,
+                start.y
+            )
+
+            lineTo(
+                middleX,
+                end.y
+            )
+
+            lineTo(
+                end.x,
+                end.y
+            )
+        }
 
     drawPath(
         path = path,
         color = color,
         style = Stroke(
-            width = if (selected) 5f else 3f
+            width =
+                if (selected) {
+                    5f
+                } else {
+                    3f
+                }
         )
     )
 
-    val arrowDx = end.x - start.x
-    val arrowDy = end.y - start.y
-    val arrowLength = hypot(arrowDx, arrowDy)
+    drawConnectionLabel(
+        from = from,
+        to = to,
+        connection = null
+    )
+}
 
-    if (arrowLength > 0f) {
-        val ux = arrowDx / arrowLength
-        val uy = arrowDy / arrowLength
-        val arrowSize = 10f
+private fun DrawScope.drawConnectionLabel(
+    from: SldNode,
+    to: SldNode,
+    connection: SldConnection?
+) {
+    val centerX =
+        (from.x + to.x + NODE_WIDTH) / 2f
 
-        val p1 =
-            Offset(
-                end.x - ux * arrowSize -
-                    uy * arrowSize * 0.55f,
-                end.y - uy * arrowSize +
-                    ux * arrowSize * 0.55f
+    val centerY =
+        (from.y + to.y + NODE_HEIGHT) / 2f
+
+    if (connection == null) {
+        return
+    }
+
+    drawIntoCanvas { canvas ->
+        val paint =
+            android.graphics.Paint(
+                android.graphics.Paint.ANTI_ALIAS_FLAG
+            ).apply {
+                color =
+                    android.graphics.Color.LTGRAY
+                textSize = 10f
+                typeface =
+                    android.graphics.Typeface.DEFAULT
+            }
+
+        val label =
+            buildString {
+                if (connection.cableSizeMm2 > 0.0) {
+                    append(
+                        "${connection.cableSizeMm2} mm²"
+                    )
+                }
+
+                if (connection.parallelRuns > 1) {
+                    append(
+                        " × ${connection.parallelRuns}"
+                    )
+                }
+            }
+
+        if (label.isNotBlank()) {
+            canvas.nativeCanvas.drawText(
+                label,
+                centerX,
+                centerY,
+                paint
             )
-
-        val p2 =
-            Offset(
-                end.x - ux * arrowSize +
-                    uy * arrowSize * 0.55f,
-                end.y - uy * arrowSize -
-                    ux * arrowSize * 0.55f
-            )
-
-        drawLine(
-            color = color,
-            start = p1,
-            end = end,
-            strokeWidth = 3f
-        )
-
-        drawLine(
-            color = color,
-            start = p2,
-            end = end,
-            strokeWidth = 3f
-        )
+        }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNode(
+private fun DrawScope.drawNode(
     node: SldNode,
     selected: Boolean,
     connectionStart: Boolean
 ) {
-    val nodeColor =
-        when (node.type) {
-            SldNodeType.SOURCE -> Color(0xFF1565C0)
-            SldNodeType.BUS -> Color(0xFF6A1B9A)
-            SldNodeType.TRANSFORMER -> Color(0xFFEF6C00)
-            SldNodeType.GENERATOR -> Color(0xFF2E7D32)
-            SldNodeType.BREAKER -> Color(0xFF455A64)
-            SldNodeType.PANEL -> Color(0xFF00838F)
-            SldNodeType.LOAD -> Color(0xFF37474F)
-        }
+    when (node.type) {
+        SldNodeType.SOURCE ->
+            drawSourceSymbol(
+                node,
+                selected,
+                connectionStart
+            )
 
+        SldNodeType.BUS ->
+            drawBusbarSymbol(
+                node,
+                selected,
+                connectionStart
+            )
+
+        SldNodeType.TRANSFORMER ->
+            drawTransformerSymbol(
+                node,
+                selected,
+                connectionStart
+            )
+
+        SldNodeType.GENERATOR ->
+            drawGeneratorSymbol(
+                node,
+                selected,
+                connectionStart
+            )
+
+        SldNodeType.BREAKER ->
+            drawBreakerSymbol(
+                node,
+                selected,
+                connectionStart
+            )
+
+        SldNodeType.PANEL ->
+            drawPanelSymbol(
+                node,
+                selected,
+                connectionStart
+            )
+
+        SldNodeType.LOAD ->
+            drawLoadSymbol(
+                node,
+                selected,
+                connectionStart
+            )
+    }
+}
+
+private fun DrawScope.drawSymbolFrame(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean,
+    fill: Color
+) {
     drawRoundRect(
         color =
             if (connectionStart) {
                 Accent
             } else {
-                nodeColor
+                fill
             },
         topLeft =
             Offset(
@@ -1120,12 +1364,12 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNode(
                 node.y
             ),
         size =
-            androidx.compose.ui.geometry.Size(
+            Size(
                 NODE_WIDTH,
                 NODE_HEIGHT
             ),
         cornerRadius =
-            androidx.compose.ui.geometry.CornerRadius(
+            CornerRadius(
                 8f,
                 8f
             )
@@ -1140,45 +1384,500 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNode(
                     node.y - 3f
                 ),
             size =
-                androidx.compose.ui.geometry.Size(
+                Size(
                     NODE_WIDTH + 6f,
                     NODE_HEIGHT + 6f
                 ),
             cornerRadius =
-                androidx.compose.ui.geometry.CornerRadius(
+                CornerRadius(
                     10f,
                     10f
                 ),
             style = Stroke(3f)
         )
     }
+}
+
+private fun DrawScope.drawSourceSymbol(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+    drawSymbolFrame(
+        node,
+        selected,
+        connectionStart,
+        Color(0xFF1565C0)
+    )
+
+    val center =
+        Offset(
+            node.x + NODE_WIDTH / 2f,
+            node.y + 29f
+        )
+
+    drawCircle(
+        color = Color.White,
+        radius = 17f,
+        center = center,
+        style = Stroke(2.5f)
+    )
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                center.x - 10f,
+                center.y
+            ),
+        end =
+            Offset(
+                center.x + 10f,
+                center.y
+            ),
+        strokeWidth = 2f
+    )
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                center.x,
+                center.y - 10f
+            ),
+        end =
+            Offset(
+                center.x,
+                center.y + 10f
+            ),
+        strokeWidth = 2f
+    )
+
+    drawNodeText(
+        node,
+        subtitle = "SOURCE"
+    )
+}
+
+private fun DrawScope.drawBusbarSymbol(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+    drawSymbolFrame(
+        node,
+        selected,
+        connectionStart,
+        Color(0xFF6A1B9A)
+    )
+
+    val left = node.x + 12f
+    val right = node.x + NODE_WIDTH - 12f
+    val y = node.y + 28f
+
+    drawLine(
+        color =
+            if (connectionStart) {
+                Color.White
+            } else {
+                BusbarColor
+            },
+        start = Offset(left, y),
+        end = Offset(right, y),
+        strokeWidth = 9f
+    )
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                node.x + 25f,
+                y - 8f
+            ),
+        end =
+            Offset(
+                node.x + 25f,
+                y + 8f
+            ),
+        strokeWidth = 2f
+    )
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                node.x + 60f,
+                y - 8f
+            ),
+        end =
+            Offset(
+                node.x + 60f,
+                y + 8f
+            ),
+        strokeWidth = 2f
+    )
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                node.x + 95f,
+                y - 8f
+            ),
+        end =
+            Offset(
+                node.x + 95f,
+                y + 8f
+            ),
+        strokeWidth = 2f
+    )
+
+    drawNodeText(
+        node,
+        subtitle = "BUSBAR"
+    )
+}
+
+private fun DrawScope.drawTransformerSymbol(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+    drawSymbolFrame(
+        node,
+        selected,
+        connectionStart,
+        Color(0xFFEF6C00)
+    )
+
+    val center =
+        Offset(
+            node.x + NODE_WIDTH / 2f,
+            node.y + 29f
+        )
+
+    drawCircle(
+        color = Color.White,
+        radius = 16f,
+        center =
+            Offset(
+                center.x - 11f,
+                center.y
+            ),
+        style = Stroke(2.5f)
+    )
+
+    drawCircle(
+        color = Color.White,
+        radius = 16f,
+        center =
+            Offset(
+                center.x + 11f,
+                center.y
+            ),
+        style = Stroke(2.5f)
+    )
+
+    drawNodeText(
+        node,
+        subtitle = "TRANSFORMER"
+    )
+}
+
+private fun DrawScope.drawGeneratorSymbol(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+    drawSymbolFrame(
+        node,
+        selected,
+        connectionStart,
+        Color(0xFF2E7D32)
+    )
+
+    val center =
+        Offset(
+            node.x + NODE_WIDTH / 2f,
+            node.y + 29f
+        )
+
+    drawCircle(
+        color = Color.White,
+        radius = 19f,
+        center = center,
+        style = Stroke(2.5f)
+    )
 
     drawIntoCanvas { canvas ->
         val paint =
             android.graphics.Paint(
                 android.graphics.Paint.ANTI_ALIAS_FLAG
             ).apply {
-                color = android.graphics.Color.WHITE
-                textSize = 14f
+                color =
+                    android.graphics.Color.WHITE
+                textSize = 17f
                 typeface =
                     android.graphics.Typeface.DEFAULT_BOLD
+                textAlign =
+                    android.graphics.Paint.Align.CENTER
+            }
+
+        canvas.nativeCanvas.drawText(
+            "G",
+            center.x,
+            center.y + 6f,
+            paint
+        )
+    }
+
+    drawNodeText(
+        node,
+        subtitle = "GENERATOR"
+    )
+}
+
+private fun DrawScope.drawBreakerSymbol(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+    drawSymbolFrame(
+        node,
+        selected,
+        connectionStart,
+        Color(0xFF455A64)
+    )
+
+    val cx = node.x + NODE_WIDTH / 2f
+    val cy = node.y + 29f
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                cx - 30f,
+                cy
+            ),
+        end =
+            Offset(
+                cx - 10f,
+                cy
+            ),
+        strokeWidth = 3f
+    )
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                cx + 10f,
+                cy
+            ),
+        end =
+            Offset(
+                cx + 30f,
+                cy
+            ),
+        strokeWidth = 3f
+    )
+
+    drawLine(
+        color = Color.White,
+        start =
+            Offset(
+                cx - 10f,
+                cy
+            ),
+        end =
+            Offset(
+                cx + 8f,
+                cy - 16f
+            ),
+        strokeWidth = 3f
+    )
+
+    drawCircle(
+        color = Color.White,
+        radius = 3f,
+        center =
+            Offset(
+                cx - 10f,
+                cy
+            )
+    )
+
+    drawCircle(
+        color = Color.White,
+        radius = 3f,
+        center =
+            Offset(
+                cx + 10f,
+                cy
+            )
+    )
+
+    drawNodeText(
+        node,
+        subtitle = "BREAKER"
+    )
+}
+
+private fun DrawScope.drawPanelSymbol(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+    drawSymbolFrame(
+        node,
+        selected,
+        connectionStart,
+        Color(0xFF00838F)
+    )
+
+    val left = node.x + 18f
+    val top = node.y + 10f
+
+    drawRect(
+        color = Color.White,
+        topLeft =
+            Offset(
+                left,
+                top
+            ),
+        size =
+            Size(
+                84f,
+                38f
+            ),
+        style = Stroke(2.5f)
+    )
+
+    for (i in 0..2) {
+        val yy =
+            top + 10f + i * 9f
+
+        drawLine(
+            color = Color.White,
+            start =
+                Offset(
+                    left + 12f,
+                    yy
+                ),
+            end =
+                Offset(
+                    left + 72f,
+                    yy
+                ),
+            strokeWidth = 2f
+        )
+    }
+
+    drawNodeText(
+        node,
+        subtitle = "PANEL"
+    )
+}
+
+private fun DrawScope.drawLoadSymbol(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+    drawSymbolFrame(
+        node,
+        selected,
+        connectionStart,
+        Color(0xFF37474F)
+    )
+
+    val center =
+        Offset(
+            node.x + NODE_WIDTH / 2f,
+            node.y + 29f
+        )
+
+    drawCircle(
+        color = Color.White,
+        radius = 17f,
+        center = center,
+        style = Stroke(2.5f)
+    )
+
+    val path =
+        Path().apply {
+            moveTo(
+                center.x - 9f,
+                center.y + 2f
+            )
+            lineTo(
+                center.x - 2f,
+                center.y - 9f
+            )
+            lineTo(
+                center.x + 1f,
+                center.y - 1f
+            )
+            lineTo(
+                center.x + 9f,
+                center.y - 1f
+            )
+            lineTo(
+                center.x + 2f,
+                center.y + 10f
+            )
+            lineTo(
+                center.x - 1f,
+                center.y + 2f
+            )
+            close()
+        }
+
+    drawPath(
+        path = path,
+        color = Color.White,
+        style = Stroke(2f)
+    )
+
+    drawNodeText(
+        node,
+        subtitle = "LOAD"
+    )
+}
+
+private fun DrawScope.drawNodeText(
+    node: SldNode,
+    subtitle: String
+) {
+    drawIntoCanvas { canvas ->
+        val paint =
+            android.graphics.Paint(
+                android.graphics.Paint.ANTI_ALIAS_FLAG
+            ).apply {
+                color =
+                    android.graphics.Color.WHITE
+                textSize = 12f
+                typeface =
+                    android.graphics.Typeface.DEFAULT_BOLD
+                textAlign =
+                    android.graphics.Paint.Align.CENTER
             }
 
         canvas.nativeCanvas.drawText(
             node.name.take(18),
-            node.x + 8f,
-            node.y + 25f,
+            node.x + NODE_WIDTH / 2f,
+            node.y + 58f,
             paint
         )
 
-        paint.textSize = 11f
+        paint.textSize = 8f
         paint.typeface =
             android.graphics.Typeface.DEFAULT
 
         canvas.nativeCanvas.drawText(
-            node.type.name,
-            node.x + 8f,
-            node.y + 45f,
+            subtitle,
+            node.x + NODE_WIDTH / 2f,
+            node.y + 8f,
             paint
         )
     }
@@ -1216,9 +1915,17 @@ private fun NodeEditorDialog(
         title = {
             Text(
                 if (editing) {
-                    if (arabic) "تعديل العنصر" else "Edit Element"
+                    if (arabic) {
+                        "تعديل العنصر"
+                    } else {
+                        "Edit Element"
+                    }
                 } else {
-                    if (arabic) "إضافة عنصر" else "Add Element"
+                    if (arabic) {
+                        "إضافة عنصر"
+                    } else {
+                        "Add Element"
+                    }
                 }
             )
         },
@@ -1240,37 +1947,67 @@ private fun NodeEditorDialog(
 
                 EditorField(
                     value = name,
-                    label = if (arabic) "الاسم" else "Name",
+                    label =
+                        if (arabic) {
+                            "الاسم"
+                        } else {
+                            "Name"
+                        },
                     onValueChange = onName
                 )
 
                 EditorField(
                     value = voltage,
-                    label = if (arabic) "الجهد V" else "Voltage V",
+                    label =
+                        if (arabic) {
+                            "الجهد V"
+                        } else {
+                            "Voltage V"
+                        },
                     onValueChange = onVoltage
                 )
 
                 EditorField(
                     value = kw,
-                    label = if (arabic) "الحمل kW" else "Load kW",
+                    label =
+                        if (arabic) {
+                            "الحمل kW"
+                        } else {
+                            "Load kW"
+                        },
                     onValueChange = onKw
                 )
 
                 EditorField(
                     value = pf,
-                    label = if (arabic) "معامل القدرة" else "Power Factor",
+                    label =
+                        if (arabic) {
+                            "معامل القدرة"
+                        } else {
+                            "Power Factor"
+                        },
                     onValueChange = onPf
                 )
 
                 EditorField(
                     value = demand,
-                    label = if (arabic) "معامل الطلب" else "Demand Factor",
+                    label =
+                        if (arabic) {
+                            "معامل الطلب"
+                        } else {
+                            "Demand Factor"
+                        },
                     onValueChange = onDemand
                 )
 
                 EditorField(
                     value = kva,
-                    label = if (arabic) "القدرة kVA" else "Rated kVA",
+                    label =
+                        if (arabic) {
+                            "القدرة kVA"
+                        } else {
+                            "Rated kVA"
+                        },
                     onValueChange = onKva
                 )
 
@@ -1283,7 +2020,8 @@ private fun NodeEditorDialog(
                             } else {
                                 "Transformer %Z"
                             },
-                        onValueChange = onTransformerZ
+                        onValueChange =
+                            onTransformerZ
                     )
                 }
 
@@ -1291,7 +2029,8 @@ private fun NodeEditorDialog(
                     EditorField(
                         value = generatorXd,
                         label = "Xd'' %",
-                        onValueChange = onGeneratorXd
+                        onValueChange =
+                            onGeneratorXd
                     )
                 }
 
@@ -1304,22 +2043,35 @@ private fun NodeEditorDialog(
                             } else {
                                 "Source Short Circuit MVA"
                             },
-                        onValueChange = onSourceMva
+                        onValueChange =
+                            onSourceMva
                     )
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onSave) {
+            TextButton(
+                onClick = onSave
+            ) {
                 Text(
-                    if (arabic) "حفظ" else "Save"
+                    if (arabic) {
+                        "حفظ"
+                    } else {
+                        "Save"
+                    }
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss
+            ) {
                 Text(
-                    if (arabic) "إلغاء" else "Cancel"
+                    if (arabic) {
+                        "إلغاء"
+                    } else {
+                        "Cancel"
+                    }
                 )
             }
         }
@@ -1433,16 +2185,28 @@ private fun ConnectionEditorDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onSave) {
+            TextButton(
+                onClick = onSave
+            ) {
                 Text(
-                    if (arabic) "حفظ" else "Save"
+                    if (arabic) {
+                        "حفظ"
+                    } else {
+                        "Save"
+                    }
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss
+            ) {
                 Text(
-                    if (arabic) "إلغاء" else "Cancel"
+                    if (arabic) {
+                        "إلغاء"
+                    } else {
+                        "Cancel"
+                    }
                 )
             }
         }
@@ -1485,7 +2249,11 @@ private fun TypeSelector(
             onValueChange = {},
             label = {
                 Text(
-                    if (arabic) "نوع العنصر" else "Element Type"
+                    if (arabic) {
+                        "نوع العنصر"
+                    } else {
+                        "Element Type"
+                    }
                 )
             },
             readOnly = true
@@ -1494,7 +2262,9 @@ private fun TypeSelector(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(Color.Transparent)
+                .background(
+                    Color.Transparent
+                )
                 .pointerInput(Unit) {
                     detectTapGestures {
                         expanded = true
