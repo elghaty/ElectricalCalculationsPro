@@ -53,8 +53,13 @@ fun ConductorSizingScreen(
     standard: Standard
 ) {
 
-    fun t(key: String): String =
-        Strings.get(key, language)
+    fun t(
+        key: String
+    ): String =
+        Strings.get(
+            key,
+            language
+        )
 
     var currentType by remember {
         mutableStateOf(
@@ -120,35 +125,46 @@ fun ConductorSizingScreen(
         mutableStateOf<String?>(null)
     }
 
-    fun buildInput(): ConductorSizingInput {
+    fun buildInput():
+        ConductorSizingInput {
 
         return ConductorSizingInput(
 
-            currentType = currentType,
+            currentType =
+                currentType,
 
             voltage =
-                voltage.toDoubleOrNull()
+                voltage
+                    .toDoubleOrNull()
                     ?: 0.0,
 
+            /*
+             * UI uses kW.
+             * Core receives W.
+             */
             load =
                 (
-                    loadKw.toDoubleOrNull()
+                    loadKw
+                        .toDoubleOrNull()
                         ?: 0.0
                     ) * 1000.0,
 
             powerFactor =
-                powerFactor.toDoubleOrNull()
+                powerFactor
+                    .toDoubleOrNull()
                     ?: 0.0,
 
             lineLength =
-                lineLength.toDoubleOrNull()
+                lineLength
+                    .toDoubleOrNull()
                     ?: 0.0,
 
             installationMethod =
                 method,
 
             ambientTemp =
-                ambientTemp.toDoubleOrNull()
+                ambientTemp
+                    .toDoubleOrNull()
                     ?: 0.0,
 
             conductor =
@@ -158,11 +174,13 @@ fun ConductorSizingScreen(
                 insulation,
 
             circuitsInConduit =
-                circuits.toIntOrNull()
+                circuits
+                    .toIntOrNull()
                     ?: 0,
 
             maxVoltageDrop =
-                maxDrop.toDoubleOrNull()
+                maxDrop
+                    .toDoubleOrNull()
                     ?: 0.0
         )
     }
@@ -171,22 +189,27 @@ fun ConductorSizingScreen(
 
         try {
 
-            val input = buildInput()
+            val input =
+                buildInput()
 
             val calculated =
-                ElectricalCalculations.sizeConductor(
-                    input = input,
-                    standard = standard
-                )
+                ElectricalCalculations
+                    .sizeConductor(
+                        input = input,
+                        standard = standard
+                    )
 
-            result = calculated
+            result =
+                calculated
 
             selectedSection =
                 calculated.selectedSection
 
             error = null
 
-        } catch (exception: Exception) {
+        } catch (
+            exception: Exception
+        ) {
 
             result = null
 
@@ -210,11 +233,17 @@ fun ConductorSizingScreen(
                         standard = standard
                     )
 
-            result = calculated
-            selectedSection = section
+            result =
+                calculated
+
+            selectedSection =
+                section
+
             error = null
 
-        } catch (exception: Exception) {
+        } catch (
+            exception: Exception
+        ) {
 
             error =
                 exception.message
@@ -225,73 +254,85 @@ fun ConductorSizingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(
+                DarkBackground
+            )
             .verticalScroll(
                 rememberScrollState()
             )
             .padding(16.dp),
+
         verticalArrangement =
             Arrangement.spacedBy(12.dp)
     ) {
 
         Text(
             text =
-                if (language == AppLanguage.ARABIC) {
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
                     "اختيار مقطع الموصل"
                 } else {
                     "Conductor Sizing"
                 },
-            color = TextPrimary,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Bold
+
+            color =
+                TextPrimary,
+
+            fontSize =
+                21.sp,
+
+            fontWeight =
+                FontWeight.Bold
         )
 
         Text(
             text =
-                when (standard) {
+                standard.name,
 
-                    Standard.IEC ->
-                        "IEC 60364-5-52"
+            color =
+                PrimaryTeal,
 
-                    Standard.EGYPTIAN ->
-                        "Egyptian Code"
+            fontSize =
+                13.sp,
 
-                    Standard.CEI ->
-                        "CEI 64-8"
-
-                    Standard.NEC ->
-                        "NEC / NFPA 70"
-
-                    Standard.CEC ->
-                        "Canadian Electrical Code"
-                },
-            color = PrimaryTeal,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold
+            fontWeight =
+                FontWeight.SemiBold
         )
 
         Card(
             modifier =
                 Modifier.fillMaxWidth(),
+
             colors =
                 CardDefaults.cardColors(
-                    containerColor = DarkSurface
+                    containerColor =
+                        DarkSurface
                 )
         ) {
 
             Column(
                 modifier =
                     Modifier.padding(14.dp),
+
                 verticalArrangement =
                     Arrangement.spacedBy(10.dp)
             ) {
 
-                FieldLabel(t("current_type"))
+                FieldLabel(
+                    t("current_type")
+                )
 
                 SelectionDropdown(
-                    value = currentType,
+                    value =
+                        currentType,
+
                     values =
-                        CurrentType.values().toList(),
+                        CurrentType
+                            .values()
+                            .toList(),
+
                     text = { item ->
 
                         when (item) {
@@ -309,6 +350,7 @@ fun ConductorSizingScreen(
                                 t("alternating_three")
                         }
                     },
+
                     onSelected = {
                         currentType = it
                     }
@@ -319,9 +361,13 @@ fun ConductorSizingScreen(
                     NumberField(
                         modifier =
                             Modifier.weight(1f),
+
                         label =
                             "${t("voltage")} (V)",
-                        value = voltage,
+
+                        value =
+                            voltage,
+
                         onValueChange = {
                             voltage = it
                         }
@@ -330,13 +376,20 @@ fun ConductorSizingScreen(
                     NumberField(
                         modifier =
                             Modifier.weight(1f),
+
                         label =
-                            if (language == AppLanguage.ARABIC) {
+                            if (
+                                language ==
+                                AppLanguage.ARABIC
+                            ) {
                                 "الحمل (kW)"
                             } else {
                                 "Load (kW)"
                             },
-                        value = loadKw,
+
+                        value =
+                            loadKw,
+
                         onValueChange = {
                             loadKw = it
                         }
@@ -348,9 +401,15 @@ fun ConductorSizingScreen(
                     NumberField(
                         modifier =
                             Modifier.weight(1f),
+
                         label =
-                            t("power_factor_label"),
-                        value = powerFactor,
+                            t(
+                                "power_factor_label"
+                            ),
+
+                        value =
+                            powerFactor,
+
                         onValueChange = {
                             powerFactor = it
                         }
@@ -359,9 +418,13 @@ fun ConductorSizingScreen(
                     NumberField(
                         modifier =
                             Modifier.weight(1f),
+
                         label =
                             "${t("line_length")} (m)",
-                        value = lineLength,
+
+                        value =
+                            lineLength,
+
                         onValueChange = {
                             lineLength = it
                         }
@@ -373,9 +436,13 @@ fun ConductorSizingScreen(
                     NumberField(
                         modifier =
                             Modifier.weight(1f),
+
                         label =
                             t("ambient_temp"),
-                        value = ambientTemp,
+
+                        value =
+                            ambientTemp,
+
                         onValueChange = {
                             ambientTemp = it
                         }
@@ -384,71 +451,74 @@ fun ConductorSizingScreen(
                     NumberField(
                         modifier =
                             Modifier.weight(1f),
+
                         label =
                             t("circuits_conduit"),
-                        value = circuits,
+
+                        value =
+                            circuits,
+
                         onValueChange = {
                             circuits = it
                         }
                     )
                 }
 
-                TwoColumnRow {
+                NumberField(
+                    label =
+                        "${t("max_voltage_drop")} (%)",
 
-                    NumberField(
-                        modifier =
-                            Modifier.weight(1f),
-                        label =
-                            "${t("max_voltage_drop")} (%)",
-                        value = maxDrop,
-                        onValueChange = {
-                            maxDrop = it
-                        }
-                    )
+                    value =
+                        maxDrop,
 
-                    Column(
-                        modifier =
-                            Modifier.weight(1f),
-                        verticalArrangement =
-                            Arrangement.spacedBy(4.dp)
-                    ) {
-
-                        FieldLabel(
-                            t("conductor")
-                        )
-
-                        SelectionDropdown(
-                            value = conductor,
-                            values =
-                                ConductorMaterial
-                                    .values()
-                                    .toList(),
-                            text = { item ->
-
-                                when (item) {
-
-                                    ConductorMaterial.Copper ->
-                                        t("copper")
-
-                                    ConductorMaterial.Aluminum ->
-                                        t("aluminum")
-                                }
-                            },
-                            onSelected = {
-                                conductor = it
-                            }
-                        )
+                    onValueChange = {
+                        maxDrop = it
                     }
-                }
+                )
 
-                FieldLabel(t("insulation"))
+                FieldLabel(
+                    t("conductor")
+                )
 
                 SelectionDropdown(
-                    value = insulation,
+                    value =
+                        conductor,
+
+                    values =
+                        ConductorMaterial
+                            .values()
+                            .toList(),
+
+                    text = { item ->
+
+                        when (item) {
+
+                            ConductorMaterial.Copper ->
+                                t("copper")
+
+                            ConductorMaterial.Aluminum ->
+                                t("aluminum")
+                        }
+                    },
+
+                    onSelected = {
+                        conductor = it
+                    }
+                )
+
+                FieldLabel(
+                    t("insulation")
+                )
+
+                SelectionDropdown(
+                    value =
+                        insulation,
+
                     values =
                         InsulationType
                             .values()
                             .toList(),
+
                     text = { item ->
 
                         when (item) {
@@ -466,6 +536,7 @@ fun ConductorSizingScreen(
                                 t("rubber")
                         }
                     },
+
                     onSelected = {
                         insulation = it
                     }
@@ -476,11 +547,16 @@ fun ConductorSizingScreen(
                 )
 
                 SelectionDropdown(
-                    value = method,
-                    values = iecInstallationMethods,
+                    value =
+                        method,
+
+                    values =
+                        iecInstallationMethods,
+
                     text = { item ->
                         "${item.code} — ${item.description}"
                     },
+
                     onSelected = {
                         method = it
                     }
@@ -489,13 +565,16 @@ fun ConductorSizingScreen(
                 Button(
                     modifier =
                         Modifier.fillMaxWidth(),
+
                     onClick = {
                         calculate()
                     }
                 ) {
 
                     Text(
-                        text = t("calculate"),
+                        text =
+                            t("calculate"),
+
                         fontWeight =
                             FontWeight.Bold
                     )
@@ -508,6 +587,7 @@ fun ConductorSizingScreen(
             Card(
                 modifier =
                     Modifier.fillMaxWidth(),
+
                 colors =
                     CardDefaults.cardColors(
                         containerColor =
@@ -518,9 +598,14 @@ fun ConductorSizingScreen(
             ) {
 
                 Text(
-                    text = message,
+                    text =
+                        message,
+
                     modifier =
-                        Modifier.padding(16.dp),
+                        Modifier.padding(
+                            16.dp
+                        ),
+
                     color =
                         MaterialTheme
                             .colorScheme
@@ -532,11 +617,16 @@ fun ConductorSizingScreen(
         result?.let { calculation ->
 
             ResultCard(
-                language = language,
-                result = calculation,
+                language =
+                    language,
+
+                result =
+                    calculation,
+
                 selectedSection =
                     selectedSection
                         ?: calculation.selectedSection,
+
                 onSectionSelected = {
                     selectSection(it)
                 }
@@ -551,10 +641,17 @@ private fun FieldLabel(
 ) {
 
     Text(
-        text = text,
-        color = TextSecondary,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.SemiBold
+        text =
+            text,
+
+        color =
+            TextSecondary,
+
+        fontSize =
+            12.sp,
+
+        fontWeight =
+            FontWeight.SemiBold
     )
 }
 
@@ -562,16 +659,24 @@ private fun FieldLabel(
 private fun NumberField(
     modifier: Modifier =
         Modifier.fillMaxWidth(),
+
     label: String,
+
     value: String,
-    onValueChange: (String) -> Unit
+
+    onValueChange:
+        (String) -> Unit
 ) {
 
     OutlinedTextField(
         modifier =
             modifier.fillMaxWidth(),
-        value = value,
-        onValueChange = { newValue ->
+
+        value =
+            value,
+
+        onValueChange = {
+            newValue ->
 
             if (
                 newValue.isEmpty() ||
@@ -581,12 +686,16 @@ private fun NumberField(
                     )
                 )
             ) {
-                onValueChange(newValue)
+                onValueChange(
+                    newValue
+                )
             }
         },
+
         label = {
             Text(label)
         },
+
         singleLine = true
     )
 }
@@ -615,10 +724,16 @@ private fun <T> SelectionDropdown(
                     .clickable {
                         expanded = true
                     },
-            value = text(value),
+
+            value =
+                text(value),
+
             onValueChange = {},
+
             readOnly = true,
+
             singleLine = true,
+
             trailingIcon = {
 
                 Text(
@@ -628,13 +743,17 @@ private fun <T> SelectionDropdown(
                         } else {
                             "▼"
                         },
-                    color = PrimaryTeal
+
+                    color =
+                        PrimaryTeal
                 )
             }
         )
 
         DropdownMenu(
-            expanded = expanded,
+            expanded =
+                expanded,
+
             onDismissRequest = {
                 expanded = false
             }
@@ -644,11 +763,15 @@ private fun <T> SelectionDropdown(
 
                 DropdownMenuItem(
                     text = {
-                        Text(text(item))
+                        Text(
+                            text(item)
+                        )
                     },
+
                     onClick = {
 
                         onSelected(item)
+
                         expanded = false
                     }
                 )
@@ -660,17 +783,22 @@ private fun <T> SelectionDropdown(
 @Composable
 private fun TwoColumnRow(
     content:
-        @Composable RowScope.() -> Unit
+        @Composable
+        RowScope.() -> Unit
 ) {
 
     Row(
         modifier =
             Modifier.fillMaxWidth(),
+
         horizontalArrangement =
             Arrangement.spacedBy(10.dp),
+
         verticalAlignment =
             Alignment.CenterVertically,
-        content = content
+
+        content =
+            content
     )
 }
 
@@ -679,44 +807,61 @@ private fun ResultCard(
     language: AppLanguage,
     result: ConductorSizingResult,
     selectedSection: Double,
-    onSectionSelected: (Double) -> Unit
+    onSectionSelected:
+        (Double) -> Unit
 ) {
 
     Card(
         modifier =
             Modifier.fillMaxWidth(),
+
         colors =
             CardDefaults.cardColors(
-                containerColor = DarkSurface
+                containerColor =
+                    DarkSurface
             )
     ) {
 
         Column(
             modifier =
                 Modifier.padding(16.dp),
+
             verticalArrangement =
                 Arrangement.spacedBy(8.dp)
         ) {
 
             Text(
                 text =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "نتائج اختيار الموصل"
                     } else {
                         "Conductor Sizing Results"
                     },
-                color = PrimaryTeal,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
+
+                color =
+                    PrimaryTeal,
+
+                fontSize =
+                    18.sp,
+
+                fontWeight =
+                    FontWeight.Bold
             )
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "تيار التصميم"
                     } else {
                         "Design Current"
                     },
+
                 value =
                     "%.2f A".format(
                         result.designCurrent
@@ -725,11 +870,15 @@ private fun ResultCard(
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "المقطع المقترح"
                     } else {
                         "Recommended Section"
                     },
+
                 value =
                     "%.1f mm²".format(
                         result.recommendedSection
@@ -738,11 +887,15 @@ private fun ResultCard(
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "المقطع المختار"
                     } else {
                         "Selected Section"
                     },
+
                 value =
                     "%.1f mm²".format(
                         result.selectedSection
@@ -751,11 +904,15 @@ private fun ResultCard(
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
-                        "سعة تحمل التيار"
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
+                        "سعة تحمل الكابل"
                     } else {
                         "Cable Ampacity"
                     },
+
                 value =
                     "%.1f A".format(
                         result.ampacity
@@ -764,27 +921,38 @@ private fun ResultCard(
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "هبوط الجهد"
                     } else {
                         "Voltage Drop"
                     },
+
                 value =
-                    "%.2f %% / %.2f V".format(
-                        result.voltageDropPercent,
-                        result.voltageDropVolts
-                    )
+                    "%.2f %% / %.2f V"
+                        .format(
+                            result.voltageDropPercent,
+                            result.voltageDropVolts
+                        )
             )
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "القاطع المقترح"
                     } else {
                         "Protective Device"
                     },
+
                 value =
-                    if (result.protectiveDevice > 0.0) {
+                    if (
+                        result.protectiveDevice > 0.0
+                    ) {
                         "%.0f A".format(
                             result.protectiveDevice
                         )
@@ -795,11 +963,15 @@ private fun ResultCard(
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "تيار القصر"
                     } else {
                         "Short Circuit Current"
                     },
+
                 value =
                     "%.2f kA".format(
                         result.shortCircuitCurrentKA
@@ -808,29 +980,30 @@ private fun ResultCard(
 
             ResultRow(
                 title =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "هبوط الجهد ضمن الحد"
                     } else {
                         "Voltage Drop Limit"
                     },
+
                 value =
-                    if (result.voltageDropWithinLimit) {
-                        if (language == AppLanguage.ARABIC) {
-                            "ناجح"
-                        } else {
-                            "PASS"
-                        }
+                    if (
+                        result.voltageDropWithinLimit
+                    ) {
+                        "PASS"
                     } else {
-                        if (language == AppLanguage.ARABIC) {
-                            "تحقق"
-                        } else {
-                            "CHECK"
-                        }
+                        "CHECK"
                     }
             )
 
             FieldLabel(
-                if (language == AppLanguage.ARABIC) {
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
                     "اختيار مقطع بديل"
                 } else {
                     "Select Alternative Section"
@@ -838,23 +1011,36 @@ private fun ResultCard(
             )
 
             SectionSelector(
-                selectedSection = selectedSection,
-                onSelected = onSectionSelected
+                selectedSection =
+                    selectedSection,
+
+                onSelected =
+                    onSectionSelected
             )
 
-            if (result.notes.isNotEmpty()) {
+            if (
+                result.notes.isNotEmpty()
+            ) {
 
                 Column(
                     verticalArrangement =
-                        Arrangement.spacedBy(4.dp)
+                        Arrangement.spacedBy(
+                            4.dp
+                        )
                 ) {
 
-                    result.notes.forEach { note ->
+                    result.notes.forEach {
+                        note ->
 
                         Text(
-                            text = "• $note",
-                            color = TextSecondary,
-                            fontSize = 12.sp
+                            text =
+                                "• $note",
+
+                            color =
+                                TextSecondary,
+
+                            fontSize =
+                                12.sp
                         )
                     }
                 }
@@ -866,7 +1052,8 @@ private fun ResultCard(
 @Composable
 private fun SectionSelector(
     selectedSection: Double,
-    onSelected: (Double) -> Unit
+    onSelected:
+        (Double) -> Unit
 ) {
 
     var expanded by remember {
@@ -885,13 +1072,18 @@ private fun SectionSelector(
                     .clickable {
                         expanded = true
                     },
+
             value =
                 "%.1f mm²".format(
                     selectedSection
                 ),
+
             onValueChange = {},
+
             readOnly = true,
+
             singleLine = true,
+
             trailingIcon = {
 
                 Text(
@@ -901,33 +1093,43 @@ private fun SectionSelector(
                         } else {
                             "▼"
                         },
-                    color = PrimaryTeal
+
+                    color =
+                        PrimaryTeal
                 )
             }
         )
 
         DropdownMenu(
-            expanded = expanded,
+            expanded =
+                expanded,
+
             onDismissRequest = {
                 expanded = false
             }
         ) {
 
-            standardSections.forEach { section ->
+            standardSections.forEach {
+                section ->
 
                 DropdownMenuItem(
                     text = {
 
                         Text(
-                            "%.1f mm²".format(
-                                section
-                            )
+                            "%.1f mm²"
+                                .format(
+                                    section
+                                )
                         )
                     },
+
                     onClick = {
 
                         expanded = false
-                        onSelected(section)
+
+                        onSelected(
+                            section
+                        )
                     }
                 )
             }
@@ -944,23 +1146,37 @@ private fun ResultRow(
     Row(
         modifier =
             Modifier.fillMaxWidth(),
+
         horizontalArrangement =
             Arrangement.SpaceBetween,
+
         verticalAlignment =
             Alignment.CenterVertically
     ) {
 
         Text(
-            text = title,
-            color = TextSecondary,
-            fontSize = 12.sp
+            text =
+                title,
+
+            color =
+                TextSecondary,
+
+            fontSize =
+                12.sp
         )
 
         Text(
-            text = value,
-            color = TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold
+            text =
+                value,
+
+            color =
+                TextPrimary,
+
+            fontSize =
+                12.sp,
+
+            fontWeight =
+                FontWeight.SemiBold
         )
     }
 }
