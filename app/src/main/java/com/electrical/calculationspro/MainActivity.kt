@@ -83,8 +83,13 @@ private data class CalculationMenuItem(
 
 @Composable
 private fun MainScreen() {
+
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    val updateManager = remember {
+        AppUpdateManager(context)
+    }
 
     var language by remember {
         mutableStateOf(AppLanguage.ARABIC)
@@ -337,7 +342,8 @@ private fun MainScreen() {
                         .fillMaxWidth()
                         .weight(1f)
                         .padding(horizontal = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement =
+                        Arrangement.spacedBy(4.dp)
                 ) {
 
                     items(
@@ -372,7 +378,8 @@ private fun MainScreen() {
                                     horizontal = 14.dp,
                                     vertical = 12.dp
                                 ),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment =
+                                Alignment.CenterVertically
                         ) {
 
                             Text(
@@ -413,7 +420,8 @@ private fun MainScreen() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement =
+                        Arrangement.spacedBy(4.dp)
                 ) {
 
                     TextButton(
@@ -434,17 +442,19 @@ private fun MainScreen() {
 
                     TextButton(
                         onClick = {
+
                             updateChecking = true
 
                             coroutineScope.launch {
-                                try {
-                                    val result =
-                                        AppUpdateManager.checkForUpdate(
-                                            context
-                                        )
 
-                                    availableRelease = result
+                                try {
+
+                                    availableRelease =
+                                        updateManager
+                                            .checkForUpdate()
+
                                 } catch (_: Exception) {
+
                                     Toast.makeText(
                                         context,
                                         if (isArabic) {
@@ -454,7 +464,9 @@ private fun MainScreen() {
                                         },
                                         Toast.LENGTH_SHORT
                                     ).show()
+
                                 } finally {
+
                                     updateChecking = false
                                 }
                             }
@@ -589,25 +601,26 @@ private fun MainScreen() {
 
                 TextButton(
                     onClick = {
+
                         availableRelease = null
 
-                        coroutineScope.launch {
-                            try {
-                                AppUpdateManager.startUpdate(
-                                    context,
-                                    release
-                                )
-                            } catch (_: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    if (isArabic) {
-                                        "تعذر بدء التحديث"
-                                    } else {
-                                        "Unable to start update"
-                                    },
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                        try {
+
+                            updateManager.downloadAndInstall(
+                                release
+                            )
+
+                        } catch (_: Exception) {
+
+                            Toast.makeText(
+                                context,
+                                if (isArabic) {
+                                    "تعذر بدء التحديث"
+                                } else {
+                                    "Unable to start update"
+                                },
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 ) {
