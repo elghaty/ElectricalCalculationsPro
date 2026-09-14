@@ -29,502 +29,990 @@ import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.Strings
 import kotlin.math.sqrt
 
+private const val WATTS_PER_KW = 1000.0
+private const val VA_PER_KVA = 1000.0
+
 @Composable
 fun EngineeringCalculatorScreen(
     calculation: String,
     language: AppLanguage
 ) {
+
     when (calculation) {
-        "voltage_drop" -> VoltageDropCalculator(language)
-        "current" -> CurrentCalculator(language)
-        "voltage" -> VoltageCalculator(language)
-        "active_power" -> ActivePowerCalculator(language)
-        "apparent_power" -> ApparentPowerCalculator(language)
-        "reactive_power" -> ReactivePowerCalculator(language)
-        "power_factor" -> PowerFactorCalculator(language)
-        "resistance" -> ResistanceCalculator(language)
-        "impedance" -> ImpedanceCalculator(language)
+
+        "voltage_drop" ->
+            VoltageDropCalculator(language)
+
+        "current" ->
+            CurrentCalculator(language)
+
+        "voltage" ->
+            VoltageCalculator(language)
+
+        "active_power" ->
+            ActivePowerCalculator(language)
+
+        "apparent_power" ->
+            ApparentPowerCalculator(language)
+
+        "reactive_power" ->
+            ReactivePowerCalculator(language)
+
+        "power_factor" ->
+            PowerFactorCalculator(language)
+
+        "resistance" ->
+            ResistanceCalculator(language)
+
+        "impedance" ->
+            ImpedanceCalculator(language)
     }
 }
 
 @Composable
-private fun CurrentCalculator(language: AppLanguage) {
-    var load by remember { mutableStateOf("5000") }
-    var voltage by remember { mutableStateOf("230") }
-    var pf by remember { mutableStateOf("0.90") }
-    var type by remember {
-        mutableStateOf(CurrentType.AlternatingSinglePhase)
+private fun CurrentCalculator(
+    language: AppLanguage
+) {
+
+    var loadKw by remember {
+        mutableStateOf("5")
     }
-    var result by remember { mutableStateOf<Double?>(null) }
+
+    var voltage by remember {
+        mutableStateOf("230")
+    }
+
+    var pf by remember {
+        mutableStateOf("0.90")
+    }
+
+    var type by remember {
+        mutableStateOf(
+            CurrentType.AlternatingSinglePhase
+        )
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("current", language)
+        title = Strings.get(
+            "current",
+            language
+        )
     ) {
+
         NumberField(
-            label = Strings.get("load", language) + " W",
-            value = load,
-            onValueChange = { load = it }
+            label =
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "الحمل (kW)"
+                } else {
+                    "Load (kW)"
+                },
+            value = loadKw,
+            onValueChange = {
+                loadKw = it
+            }
         )
 
         NumberField(
-            label = Strings.get("voltage", language) + " V",
+            label =
+                Strings.get(
+                    "voltage",
+                    language
+                ) + " V",
             value = voltage,
-            onValueChange = { voltage = it }
+            onValueChange = {
+                voltage = it
+            }
         )
 
         NumberField(
-            label = Strings.get("power_factor_label", language),
+            label =
+                Strings.get(
+                    "power_factor_label",
+                    language
+                ),
             value = pf,
-            onValueChange = { pf = it }
+            onValueChange = {
+                pf = it
+            }
         )
 
         CurrentTypeDropdown(
             value = type,
             language = language,
-            onSelect = { type = it }
+            onSelect = {
+                type = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                ElectricalCalculations.calculateDesignCurrent(
-                    loadWatts = load.toDouble(),
-                    voltage = voltage.toDouble(),
-                    powerFactor = pf.toDouble(),
-                    currentType = type
-                )
+
+                val powerWatts =
+                    loadKw.toDouble() *
+                        WATTS_PER_KW
+
+                ElectricalCalculations
+                    .calculateDesignCurrent(
+                        loadWatts =
+                            powerWatts,
+                        voltage =
+                            voltage.toDouble(),
+                        powerFactor =
+                            pf.toDouble(),
+                        currentType =
+                            type
+                    )
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.3f A".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.3f A".format(it)
             )
         }
     }
 }
 
 @Composable
-private fun VoltageCalculator(language: AppLanguage) {
-    var load by remember { mutableStateOf("5000") }
-    var current by remember { mutableStateOf("25") }
-    var pf by remember { mutableStateOf("0.90") }
-    var type by remember {
-        mutableStateOf(CurrentType.AlternatingSinglePhase)
+private fun VoltageCalculator(
+    language: AppLanguage
+) {
+
+    var loadKw by remember {
+        mutableStateOf("5")
     }
-    var result by remember { mutableStateOf<Double?>(null) }
+
+    var current by remember {
+        mutableStateOf("25")
+    }
+
+    var pf by remember {
+        mutableStateOf("0.90")
+    }
+
+    var type by remember {
+        mutableStateOf(
+            CurrentType.AlternatingSinglePhase
+        )
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("voltage", language)
+        title = Strings.get(
+            "voltage",
+            language
+        )
     ) {
+
         NumberField(
-            label = Strings.get("load", language) + " W",
-            value = load,
-            onValueChange = { load = it }
+            label =
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "الحمل (kW)"
+                } else {
+                    "Load (kW)"
+                },
+            value = loadKw,
+            onValueChange = {
+                loadKw = it
+            }
         )
 
         NumberField(
-            label = "Current / التيار (A)",
+            label =
+                "Current / التيار (A)",
             value = current,
-            onValueChange = { current = it }
+            onValueChange = {
+                current = it
+            }
         )
 
         NumberField(
-            label = Strings.get("power_factor_label", language),
+            label =
+                Strings.get(
+                    "power_factor_label",
+                    language
+                ),
             value = pf,
-            onValueChange = { pf = it }
+            onValueChange = {
+                pf = it
+            }
         )
 
         CurrentTypeDropdown(
             value = type,
             language = language,
-            onSelect = { type = it }
+            onSelect = {
+                type = it
+            }
         )
 
         CalculateButton(language) {
-            result = runCatching {
-                val p = load.toDouble()
-                val i = current.toDouble()
-                val factor = pf.toDouble()
 
-                require(p >= 0.0)
+            result = runCatching {
+
+                val powerWatts =
+                    loadKw.toDouble() *
+                        WATTS_PER_KW
+
+                val i =
+                    current.toDouble()
+
+                val factor =
+                    pf.toDouble()
+
+                require(
+                    powerWatts >= 0.0
+                )
+
                 require(i > 0.0)
-                require(factor > 0.0 && factor <= 1.0)
+
+                require(
+                    factor > 0.0 &&
+                        factor <= 1.0
+                )
 
                 when (type) {
+
                     CurrentType.DirectCurrent ->
-                        p / i
+                        powerWatts / i
 
                     CurrentType.AlternatingSinglePhase ->
-                        p / (i * factor)
+                        powerWatts /
+                            (i * factor)
 
                     CurrentType.AlternatingTwoPhase ->
-                        p / (2.0 * i * factor)
+                        powerWatts /
+                            (2.0 * i * factor)
 
                     CurrentType.AlternatingThreePhase ->
-                        p / (sqrt(3.0) * i * factor)
+                        powerWatts /
+                            (
+                                sqrt(3.0) *
+                                    i *
+                                    factor
+                            )
                 }
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.3f V".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.3f V".format(it)
             )
         }
     }
 }
 
 @Composable
-private fun ActivePowerCalculator(language: AppLanguage) {
-    var voltage by remember { mutableStateOf("230") }
-    var current by remember { mutableStateOf("20") }
-    var pf by remember { mutableStateOf("0.90") }
-    var phases by remember { mutableStateOf(1) }
-    var result by remember { mutableStateOf<Double?>(null) }
+private fun ActivePowerCalculator(
+    language: AppLanguage
+) {
+
+    var voltage by remember {
+        mutableStateOf("230")
+    }
+
+    var current by remember {
+        mutableStateOf("20")
+    }
+
+    var pf by remember {
+        mutableStateOf("0.90")
+    }
+
+    var phases by remember {
+        mutableStateOf(1)
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("active_power", language)
+        title = Strings.get(
+            "active_power",
+            language
+        )
     ) {
+
         NumberField(
-            label = "Voltage / الجهد (V)",
+            label =
+                "Voltage / الجهد (V)",
             value = voltage,
-            onValueChange = { voltage = it }
+            onValueChange = {
+                voltage = it
+            }
         )
 
         NumberField(
-            label = "Current / التيار (A)",
+            label =
+                "Current / التيار (A)",
             value = current,
-            onValueChange = { current = it }
+            onValueChange = {
+                current = it
+            }
         )
 
         NumberField(
-            label = Strings.get("power_factor_label", language),
+            label =
+                Strings.get(
+                    "power_factor_label",
+                    language
+                ),
             value = pf,
-            onValueChange = { pf = it }
+            onValueChange = {
+                pf = it
+            }
         )
 
         PhaseDropdown(
             phases = phases,
             language = language,
-            onSelect = { phases = it }
+            onSelect = {
+                phases = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                ElectricalCalculations.calculateActivePower(
-                    voltage = voltage.toDouble(),
-                    current = current.toDouble(),
-                    pf = pf.toDouble(),
-                    phases = phases
-                )
+
+                ElectricalCalculations
+                    .calculateActivePower(
+                        voltage =
+                            voltage.toDouble(),
+                        current =
+                            current.toDouble(),
+                        pf =
+                            pf.toDouble(),
+                        phases =
+                            phases
+                    )
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.3f W".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.3f kW".format(
+                        it / WATTS_PER_KW
+                    )
             )
         }
     }
 }
 
 @Composable
-private fun ApparentPowerCalculator(language: AppLanguage) {
-    var voltage by remember { mutableStateOf("230") }
-    var current by remember { mutableStateOf("20") }
-    var phases by remember { mutableStateOf(1) }
-    var result by remember { mutableStateOf<Double?>(null) }
+private fun ApparentPowerCalculator(
+    language: AppLanguage
+) {
+
+    var voltage by remember {
+        mutableStateOf("230")
+    }
+
+    var current by remember {
+        mutableStateOf("20")
+    }
+
+    var phases by remember {
+        mutableStateOf(1)
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("apparent_power", language)
+        title = Strings.get(
+            "apparent_power",
+            language
+        )
     ) {
+
         NumberField(
-            label = "Voltage / الجهد (V)",
+            label =
+                "Voltage / الجهد (V)",
             value = voltage,
-            onValueChange = { voltage = it }
+            onValueChange = {
+                voltage = it
+            }
         )
 
         NumberField(
-            label = "Current / التيار (A)",
+            label =
+                "Current / التيار (A)",
             value = current,
-            onValueChange = { current = it }
+            onValueChange = {
+                current = it
+            }
         )
 
         PhaseDropdown(
             phases = phases,
             language = language,
-            onSelect = { phases = it }
+            onSelect = {
+                phases = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                ElectricalCalculations.calculateApparentPower(
-                    voltage = voltage.toDouble(),
-                    current = current.toDouble(),
-                    phases = phases
-                )
+
+                ElectricalCalculations
+                    .calculateApparentPower(
+                        voltage =
+                            voltage.toDouble(),
+                        current =
+                            current.toDouble(),
+                        phases =
+                            phases
+                    )
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.3f VA".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.3f kVA".format(
+                        it / VA_PER_KVA
+                    )
             )
         }
     }
 }
 
 @Composable
-private fun ReactivePowerCalculator(language: AppLanguage) {
-    var active by remember { mutableStateOf("5000") }
-    var apparent by remember { mutableStateOf("6000") }
-    var result by remember { mutableStateOf<Double?>(null) }
+private fun ReactivePowerCalculator(
+    language: AppLanguage
+) {
+
+    var activeKw by remember {
+        mutableStateOf("5")
+    }
+
+    var apparentKva by remember {
+        mutableStateOf("6")
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("reactive_power", language)
+        title = Strings.get(
+            "reactive_power",
+            language
+        )
     ) {
+
         NumberField(
-            label = "Active Power / القدرة الفعالة (W)",
-            value = active,
-            onValueChange = { active = it }
+            label =
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "القدرة الفعالة (kW)"
+                } else {
+                    "Active Power (kW)"
+                },
+            value = activeKw,
+            onValueChange = {
+                activeKw = it
+            }
         )
 
         NumberField(
-            label = "Apparent Power / القدرة الظاهرية (VA)",
-            value = apparent,
-            onValueChange = { apparent = it }
+            label =
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "القدرة الظاهرية (kVA)"
+                } else {
+                    "Apparent Power (kVA)"
+                },
+            value = apparentKva,
+            onValueChange = {
+                apparentKva = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                ElectricalCalculations.calculateReactivePower(
-                    active = active.toDouble(),
-                    apparent = apparent.toDouble()
-                )
+
+                ElectricalCalculations
+                    .calculateReactivePower(
+                        active =
+                            activeKw.toDouble() *
+                                WATTS_PER_KW,
+                        apparent =
+                            apparentKva.toDouble() *
+                                VA_PER_KVA
+                    )
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.3f VAR".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.3f kvar".format(
+                        it / VA_PER_KVA
+                    )
             )
         }
     }
 }
 
 @Composable
-private fun PowerFactorCalculator(language: AppLanguage) {
-    var active by remember { mutableStateOf("5000") }
-    var apparent by remember { mutableStateOf("6000") }
-    var result by remember { mutableStateOf<Double?>(null) }
+private fun PowerFactorCalculator(
+    language: AppLanguage
+) {
+
+    var activeKw by remember {
+        mutableStateOf("5")
+    }
+
+    var apparentKva by remember {
+        mutableStateOf("6")
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("power_factor", language)
+        title = Strings.get(
+            "power_factor",
+            language
+        )
     ) {
+
         NumberField(
-            label = "Active Power / القدرة الفعالة (W)",
-            value = active,
-            onValueChange = { active = it }
+            label =
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "القدرة الفعالة (kW)"
+                } else {
+                    "Active Power (kW)"
+                },
+            value = activeKw,
+            onValueChange = {
+                activeKw = it
+            }
         )
 
         NumberField(
-            label = "Apparent Power / القدرة الظاهرية (VA)",
-            value = apparent,
-            onValueChange = { apparent = it }
+            label =
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "القدرة الظاهرية (kVA)"
+                } else {
+                    "Apparent Power (kVA)"
+                },
+            value = apparentKva,
+            onValueChange = {
+                apparentKva = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                ElectricalCalculations.calculatePowerFactor(
-                    active = active.toDouble(),
-                    apparent = apparent.toDouble()
-                )
+
+                ElectricalCalculations
+                    .calculatePowerFactor(
+                        active =
+                            activeKw.toDouble() *
+                                WATTS_PER_KW,
+                        apparent =
+                            apparentKva.toDouble() *
+                                VA_PER_KVA
+                    )
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.4f".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.4f".format(it)
             )
         }
     }
 }
 
 @Composable
-private fun ResistanceCalculator(language: AppLanguage) {
-    var voltage by remember { mutableStateOf("230") }
-    var current by remember { mutableStateOf("10") }
-    var result by remember { mutableStateOf<Double?>(null) }
+private fun ResistanceCalculator(
+    language: AppLanguage
+) {
+
+    var voltage by remember {
+        mutableStateOf("230")
+    }
+
+    var current by remember {
+        mutableStateOf("10")
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("resistance", language)
+        title = Strings.get(
+            "resistance",
+            language
+        )
     ) {
+
         NumberField(
-            label = "Voltage / الجهد (V)",
+            label =
+                "Voltage / الجهد (V)",
             value = voltage,
-            onValueChange = { voltage = it }
+            onValueChange = {
+                voltage = it
+            }
         )
 
         NumberField(
-            label = "Current / التيار (A)",
+            label =
+                "Current / التيار (A)",
             value = current,
-            onValueChange = { current = it }
+            onValueChange = {
+                current = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                val v = voltage.toDouble()
-                val i = current.toDouble()
+
+                val v =
+                    voltage.toDouble()
+
+                val i =
+                    current.toDouble()
 
                 require(i > 0.0)
 
                 v / i
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.6f Ω".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.6f Ω".format(it)
             )
         }
     }
 }
 
 @Composable
-private fun ImpedanceCalculator(language: AppLanguage) {
-    var resistance by remember { mutableStateOf("5") }
-    var reactance by remember { mutableStateOf("3") }
-    var result by remember { mutableStateOf<Double?>(null) }
+private fun ImpedanceCalculator(
+    language: AppLanguage
+) {
+
+    var resistance by remember {
+        mutableStateOf("5")
+    }
+
+    var reactance by remember {
+        mutableStateOf("3")
+    }
+
+    var result by remember {
+        mutableStateOf<Double?>(null)
+    }
 
     CalculatorLayout(
-        title = Strings.get("impedance", language)
+        title = Strings.get(
+            "impedance",
+            language
+        )
     ) {
+
         NumberField(
-            label = "Resistance / المقاومة (Ω)",
+            label =
+                "Resistance / المقاومة (Ω)",
             value = resistance,
-            onValueChange = { resistance = it }
+            onValueChange = {
+                resistance = it
+            }
         )
 
         NumberField(
-            label = "Reactance / المفاعلة (Ω)",
+            label =
+                "Reactance / المفاعلة (Ω)",
             value = reactance,
-            onValueChange = { reactance = it }
+            onValueChange = {
+                reactance = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                val r = resistance.toDouble()
-                val x = reactance.toDouble()
+
+                val r =
+                    resistance.toDouble()
+
+                val x =
+                    reactance.toDouble()
 
                 require(r >= 0.0)
                 require(x >= 0.0)
 
-                sqrt(r * r + x * x)
+                sqrt(
+                    r * r +
+                        x * x
+                )
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.6f Ω".format(it)
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.6f Ω".format(it)
             )
         }
     }
 }
 
 @Composable
-private fun VoltageDropCalculator(language: AppLanguage) {
-    var current by remember { mutableStateOf("20") }
-    var length by remember { mutableStateOf("60") }
-    var section by remember { mutableStateOf("6") }
-    var voltage by remember { mutableStateOf("230") }
-    var pf by remember { mutableStateOf("0.90") }
+private fun VoltageDropCalculator(
+    language: AppLanguage
+) {
+
+    var current by remember {
+        mutableStateOf("20")
+    }
+
+    var length by remember {
+        mutableStateOf("60")
+    }
+
+    var section by remember {
+        mutableStateOf("6")
+    }
+
+    var voltage by remember {
+        mutableStateOf("230")
+    }
+
+    var pf by remember {
+        mutableStateOf("0.90")
+    }
 
     var currentType by remember {
-        mutableStateOf(CurrentType.AlternatingSinglePhase)
+        mutableStateOf(
+            CurrentType.AlternatingSinglePhase
+        )
     }
 
     var material by remember {
-        mutableStateOf(ConductorMaterial.Copper)
+        mutableStateOf(
+            ConductorMaterial.Copper
+        )
     }
 
     var result by remember {
-        mutableStateOf<Pair<Double, Double>?>(null)
+        mutableStateOf<Pair<Double, Double>?>(
+            null
+        )
     }
 
     CalculatorLayout(
-        title = Strings.get("voltage_drop", language)
+        title = Strings.get(
+            "voltage_drop",
+            language
+        )
     ) {
+
         NumberField(
-            label = "Current / التيار (A)",
+            label =
+                "Current / التيار (A)",
             value = current,
-            onValueChange = { current = it }
+            onValueChange = {
+                current = it
+            }
         )
 
         NumberField(
-            label = Strings.get("line_length", language) + " m",
+            label =
+                Strings.get(
+                    "line_length",
+                    language
+                ) + " m",
             value = length,
-            onValueChange = { length = it }
+            onValueChange = {
+                length = it
+            }
         )
 
         NumberField(
-            label = "Section / المقطع (mm²)",
+            label =
+                "Section / المقطع (mm²)",
             value = section,
-            onValueChange = { section = it }
+            onValueChange = {
+                section = it
+            }
         )
 
         NumberField(
-            label = "Voltage / الجهد (V)",
+            label =
+                "Voltage / الجهد (V)",
             value = voltage,
-            onValueChange = { voltage = it }
+            onValueChange = {
+                voltage = it
+            }
         )
 
         NumberField(
-            label = Strings.get("power_factor_label", language),
+            label =
+                Strings.get(
+                    "power_factor_label",
+                    language
+                ),
             value = pf,
-            onValueChange = { pf = it }
+            onValueChange = {
+                pf = it
+            }
         )
 
         CurrentTypeDropdown(
             value = currentType,
             language = language,
-            onSelect = { currentType = it }
+            onSelect = {
+                currentType = it
+            }
         )
 
         MaterialDropdown(
             value = material,
             language = language,
-            onSelect = { material = it }
+            onSelect = {
+                material = it
+            }
         )
 
         CalculateButton(language) {
+
             result = runCatching {
-                ElectricalCalculations.calculateVoltageDrop(
-                    current = current.toDouble(),
-                    length = length.toDouble(),
-                    sectionMm2 = section.toDouble(),
-                    powerFactor = pf.toDouble(),
-                    currentType = currentType,
-                    material = material,
-                    voltage = voltage.toDouble()
-                )
+
+                ElectricalCalculations
+                    .calculateVoltageDrop(
+                        current =
+                            current.toDouble(),
+                        length =
+                            length.toDouble(),
+                        sectionMm2 =
+                            section.toDouble(),
+                        powerFactor =
+                            pf.toDouble(),
+                        currentType =
+                            currentType,
+                        material =
+                            material,
+                        voltage =
+                            voltage.toDouble()
+                    )
+
             }.getOrNull()
         }
 
         result?.let {
+
             ResultCard(
-                title = Strings.get("results", language),
-                value = "%.3f V\n%.3f %%".format(
-                    it.second,
-                    it.first
-                )
+                title =
+                    Strings.get(
+                        "results",
+                        language
+                    ),
+                value =
+                    "%.3f V\n%.3f %%"
+                        .format(
+                            it.second,
+                            it.first
+                        )
             )
         }
     }
@@ -533,18 +1021,27 @@ private fun VoltageDropCalculator(language: AppLanguage) {
 @Composable
 private fun CalculatorLayout(
     title: String,
-    content: @Composable ColumnScope.() -> Unit
+    content:
+        @Composable ColumnScope.() -> Unit
 ) {
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement =
+            Arrangement.spacedBy(12.dp)
     ) {
+
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineSmall
+            style =
+                MaterialTheme
+                    .typography
+                    .headlineSmall
         )
 
         content()
@@ -557,9 +1054,11 @@ private fun NumberField(
     value: String,
     onValueChange: (String) -> Unit
 ) {
+
     OutlinedTextField(
         value = value,
         onValueChange = {
+
             onValueChange(
                 it.filter { char ->
                     char.isDigit() ||
@@ -571,7 +1070,8 @@ private fun NumberField(
         label = {
             Text(label)
         },
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier.fillMaxWidth(),
         singleLine = true
     )
 }
@@ -581,12 +1081,18 @@ private fun CalculateButton(
     language: AppLanguage,
     onClick: () -> Unit
 ) {
+
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier =
+            Modifier.fillMaxWidth()
     ) {
+
         Text(
-            Strings.get("calculate", language)
+            Strings.get(
+                "calculate",
+                language
+            )
         )
     }
 }
@@ -596,21 +1102,33 @@ private fun ResultCard(
     title: String,
     value: String
 ) {
+
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier =
+            Modifier.fillMaxWidth()
     ) {
+
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier =
+                Modifier.padding(16.dp),
+            verticalArrangement =
+                Arrangement.spacedBy(8.dp)
         ) {
+
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium
+                style =
+                    MaterialTheme
+                        .typography
+                        .titleMedium
             )
 
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall
+                style =
+                    MaterialTheme
+                        .typography
+                        .headlineSmall
             )
         }
     }
@@ -622,26 +1140,47 @@ private fun CurrentTypeDropdown(
     language: AppLanguage,
     onSelect: (CurrentType) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
 
     Column {
+
         Button(
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth()
+            onClick = {
+                expanded = true
+            },
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
+
             Text(
                 when (value) {
+
                     CurrentType.DirectCurrent ->
-                        Strings.get("direct_current", language)
+                        Strings.get(
+                            "direct_current",
+                            language
+                        )
 
                     CurrentType.AlternatingSinglePhase ->
-                        Strings.get("alternating_single", language)
+                        Strings.get(
+                            "alternating_single",
+                            language
+                        )
 
                     CurrentType.AlternatingTwoPhase ->
-                        Strings.get("alternating_two", language)
+                        Strings.get(
+                            "alternating_two",
+                            language
+                        )
 
                     CurrentType.AlternatingThreePhase ->
-                        Strings.get("alternating_three", language)
+                        Strings.get(
+                            "alternating_three",
+                            language
+                        )
                 }
             )
         }
@@ -652,43 +1191,48 @@ private fun CurrentTypeDropdown(
                 expanded = false
             }
         ) {
-            CurrentType.values().forEach { item ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            when (item) {
-                                CurrentType.DirectCurrent ->
-                                    Strings.get(
-                                        "direct_current",
-                                        language
-                                    )
 
-                                CurrentType.AlternatingSinglePhase ->
-                                    Strings.get(
-                                        "alternating_single",
-                                        language
-                                    )
+            CurrentType.values()
+                .forEach { item ->
 
-                                CurrentType.AlternatingTwoPhase ->
-                                    Strings.get(
-                                        "alternating_two",
-                                        language
-                                    )
+                    DropdownMenuItem(
+                        text = {
 
-                                CurrentType.AlternatingThreePhase ->
-                                    Strings.get(
-                                        "alternating_three",
-                                        language
-                                    )
-                            }
-                        )
-                    },
-                    onClick = {
-                        onSelect(item)
-                        expanded = false
-                    }
-                )
-            }
+                            Text(
+                                when (item) {
+
+                                    CurrentType.DirectCurrent ->
+                                        Strings.get(
+                                            "direct_current",
+                                            language
+                                        )
+
+                                    CurrentType.AlternatingSinglePhase ->
+                                        Strings.get(
+                                            "alternating_single",
+                                            language
+                                        )
+
+                                    CurrentType.AlternatingTwoPhase ->
+                                        Strings.get(
+                                            "alternating_two",
+                                            language
+                                        )
+
+                                    CurrentType.AlternatingThreePhase ->
+                                        Strings.get(
+                                            "alternating_three",
+                                            language
+                                        )
+                                }
+                            )
+                        },
+                        onClick = {
+                            onSelect(item)
+                            expanded = false
+                        }
+                    )
+                }
         }
     }
 }
@@ -699,13 +1243,21 @@ private fun PhaseDropdown(
     language: AppLanguage,
     onSelect: (Int) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
 
     Column {
+
         Button(
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth()
+            onClick = {
+                expanded = true
+            },
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
+
             Text(
                 if (phases == 1) {
                     "1 Phase / أحادي الطور"
@@ -721,9 +1273,12 @@ private fun PhaseDropdown(
                 expanded = false
             }
         ) {
+
             DropdownMenuItem(
                 text = {
-                    Text("1 Phase / أحادي الطور")
+                    Text(
+                        "1 Phase / أحادي الطور"
+                    )
                 },
                 onClick = {
                     onSelect(1)
@@ -733,7 +1288,9 @@ private fun PhaseDropdown(
 
             DropdownMenuItem(
                 text = {
-                    Text("3 Phase / ثلاثي الطور")
+                    Text(
+                        "3 Phase / ثلاثي الطور"
+                    )
                 },
                 onClick = {
                     onSelect(3)
@@ -748,22 +1305,38 @@ private fun PhaseDropdown(
 private fun MaterialDropdown(
     value: ConductorMaterial,
     language: AppLanguage,
-    onSelect: (ConductorMaterial) -> Unit
+    onSelect:
+        (ConductorMaterial) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
 
     Column {
+
         Button(
-            onClick = { expanded = true },
-            modifier = Modifier.fillMaxWidth()
+            onClick = {
+                expanded = true
+            },
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
+
             Text(
                 when (value) {
+
                     ConductorMaterial.Copper ->
-                        Strings.get("copper", language)
+                        Strings.get(
+                            "copper",
+                            language
+                        )
 
                     ConductorMaterial.Aluminum ->
-                        Strings.get("aluminum", language)
+                        Strings.get(
+                            "aluminum",
+                            language
+                        )
                 }
             )
         }
@@ -774,31 +1347,36 @@ private fun MaterialDropdown(
                 expanded = false
             }
         ) {
-            ConductorMaterial.values().forEach { material ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            when (material) {
-                                ConductorMaterial.Copper ->
-                                    Strings.get(
-                                        "copper",
-                                        language
-                                    )
 
-                                ConductorMaterial.Aluminum ->
-                                    Strings.get(
-                                        "aluminum",
-                                        language
-                                    )
-                            }
-                        )
-                    },
-                    onClick = {
-                        onSelect(material)
-                        expanded = false
-                    }
-                )
-            }
+            ConductorMaterial.values()
+                .forEach { material ->
+
+                    DropdownMenuItem(
+                        text = {
+
+                            Text(
+                                when (material) {
+
+                                    ConductorMaterial.Copper ->
+                                        Strings.get(
+                                            "copper",
+                                            language
+                                        )
+
+                                    ConductorMaterial.Aluminum ->
+                                        Strings.get(
+                                            "aluminum",
+                                            language
+                                        )
+                                }
+                            )
+                        },
+                        onClick = {
+                            onSelect(material)
+                            expanded = false
+                        }
+                    )
+                }
         }
     }
 }
