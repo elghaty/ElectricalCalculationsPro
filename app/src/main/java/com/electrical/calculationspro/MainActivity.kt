@@ -23,6 +23,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -123,6 +125,8 @@ private fun MainScreen() {
         mutableStateOf<AppReleaseInfo?>(null)
     }
 
+    val isArabic = language == AppLanguage.ARABIC
+
     val menuItems = listOf(
         CalculationMenuItem(
             id = "home",
@@ -165,8 +169,6 @@ private fun MainScreen() {
             icon = "PF"
         )
     )
-
-    val isArabic = language == AppLanguage.ARABIC
 
     Scaffold(
         containerColor = DarkBackground
@@ -495,15 +497,15 @@ private fun MainScreen() {
 
                     "home" -> {
 
-                        HomeScreen(
+                        MainHomeScreen(
                             language = language,
                             standard = selectedStandard,
-                            onStandardChanged = {
-                                selectedStandard = it
-                            },
                             onOpenConductorSizing = {
                                 selectedMenu =
                                     "conductor_sizing_protection"
+                            },
+                            onOpenSld = {
+                                selectedMenu = "sld_editor"
                             }
                         )
                     }
@@ -651,4 +653,249 @@ private fun MainScreen() {
             }
         )
     }
+}
+
+@Composable
+private fun MainHomeScreen(
+    language: AppLanguage,
+    standard: Standard,
+    onOpenConductorSizing: () -> Unit,
+    onOpenSld: () -> Unit
+) {
+
+    val arabic = language == AppLanguage.ARABIC
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkBackground)
+            .padding(28.dp)
+            .verticalScrollCompat(),
+        verticalArrangement =
+            Arrangement.spacedBy(18.dp)
+    ) {
+
+        Text(
+            text = if (arabic) {
+                "Electrical Calculations Pro"
+            } else {
+                "Electrical Calculations Pro"
+            },
+            color = TextPrimary,
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Text(
+            text = if (arabic) {
+                "منصة الحسابات والتصميمات الكهربائية الاحترافية"
+            } else {
+                "Professional electrical calculation and design platform"
+            },
+            color = TextSecondary,
+            fontSize = 16.sp
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF202D3D)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+
+            Column(
+                modifier = Modifier.padding(22.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(10.dp)
+            ) {
+
+                Text(
+                    text = if (arabic) {
+                        "المعيار الحالي"
+                    } else {
+                        "Current Standard"
+                    },
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+
+                Text(
+                    text = standard.name,
+                    color = PrimaryTeal,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = if (arabic) {
+                        "يمكن تغيير المعيار من القائمة الجانبية."
+                    } else {
+                        "You can change the standard from the side menu."
+                    },
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement =
+                Arrangement.spacedBy(14.dp)
+        ) {
+
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        onOpenSld()
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF202D3D)
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+
+                    Text(
+                        text = "⌁",
+                        color = PrimaryTeal,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = if (arabic) {
+                            "SLD احترافي"
+                        } else {
+                            "Professional SLD"
+                        },
+                        color = TextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = if (arabic) {
+                            "رسم المخطط الأحادي والخروج بالحسابات Upstream"
+                        } else {
+                            "Draw the single-line diagram and perform upstream calculations"
+                        },
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable {
+                        onOpenConductorSizing()
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF202D3D)
+                ),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement =
+                        Arrangement.spacedBy(8.dp)
+                ) {
+
+                    Text(
+                        text = "⚡",
+                        color = PrimaryTeal,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = if (arabic) {
+                            "اختيار الكابلات والحماية"
+                        } else {
+                            "Cable & Protection Sizing"
+                        },
+                        color = TextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Text(
+                        text = if (arabic) {
+                            "حساب واختيار الكابل ووسائل الحماية"
+                        } else {
+                            "Calculate and select cables and protection"
+                        },
+                        color = TextSecondary,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF151D24)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
+
+                Text(
+                    text = if (arabic) {
+                        "الحسابات المتاحة"
+                    } else {
+                        "Available Calculations"
+                    },
+                    color = PrimaryTeal,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Text(
+                    text = if (arabic) {
+                        "• هبوط الجهد\n" +
+                            "• تيار الحمل\n" +
+                            "• القدرة الفعالة والظاهرية والمتفاعلة\n" +
+                            "• معامل القدرة\n" +
+                            "• المقاومة والممانعة\n" +
+                            "• القصر الكهربائي\n" +
+                            "• المحولات والمحركات"
+                    } else {
+                        "• Voltage drop\n" +
+                            "• Load current\n" +
+                            "• Active, apparent and reactive power\n" +
+                            "• Power factor\n" +
+                            "• Resistance and impedance\n" +
+                            "• Short circuit\n" +
+                            "• Transformers and motors"
+                    },
+                    color = TextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 23.sp
+                )
+            }
+        }
+    }
+}
+
+private fun Modifier.verticalScrollCompat(): Modifier {
+    return this.then(
+        Modifier
+    )
 }
