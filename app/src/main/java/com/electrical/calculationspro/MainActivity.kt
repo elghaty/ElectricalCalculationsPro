@@ -537,12 +537,10 @@ private fun MainScreen() {
 
     if (showAbout) {
 
-        AboutScreen(
-            language = language,
-            onDismiss = {
-                showAbout = false
-            }
-        )
+    AboutScreen(
+    language = language,
+    onClose = {
+        showAbout = false
     }
 
     if (updateChecking) {
