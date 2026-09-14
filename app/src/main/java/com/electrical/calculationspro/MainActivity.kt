@@ -1,8 +1,5 @@
 package com.electrical.calculationspro
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,13 +19,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,7 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.Standard
-import com.electrical.calculationspro.data.Strings
 import com.electrical.calculationspro.ui.screens.AboutScreen
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
 import com.electrical.calculationspro.ui.screens.EngineeringCalculatorScreen
@@ -53,8 +48,6 @@ import com.electrical.calculationspro.ui.screens.SldEditorScreen
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
 import com.electrical.calculationspro.update.AppReleaseInfo
 import com.electrical.calculationspro.update.AppUpdateManager
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
 
 class MainActivity : ComponentActivity() {
 
@@ -73,7 +66,6 @@ class MainActivity : ComponentActivity() {
 private fun ElectricalCalculationsApp() {
 
     val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = rememberCoroutineScope()
 
     var language by remember {
         mutableStateOf(AppLanguage.ENGLISH)
@@ -104,10 +96,12 @@ private fun ElectricalCalculationsApp() {
     }
 
     LaunchedEffect(Unit) {
+
         updateChecking = true
 
         try {
-            availableRelease = updateManager.checkForUpdate()
+            availableRelease =
+                updateManager.checkForUpdate()
         } catch (_: Exception) {
             availableRelease = null
         }
@@ -116,6 +110,7 @@ private fun ElectricalCalculationsApp() {
     }
 
     if (showAbout) {
+
         AboutScreen(
             language = language,
             onClose = {
@@ -145,14 +140,21 @@ private fun ElectricalCalculationsApp() {
                 showAbout = true
             },
             onUpdate = {
-                val release = availableRelease ?: return@TopBar
-                updateManager.downloadAndInstall(release)
+
+                val release =
+                    availableRelease
+                        ?: return@TopBar
+
+                updateManager
+                    .downloadAndInstall(release)
             },
-            hasUpdate = availableRelease != null
+            hasUpdate =
+                availableRelease != null
         )
 
         Row(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
         ) {
 
             SideMenu(
@@ -165,19 +167,22 @@ private fun ElectricalCalculationsApp() {
 
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxHeight()
                     .padding(12.dp)
             ) {
 
                 when (selectedScreen) {
 
                     "sld" -> {
+
                         SldEditorScreen(
                             language = language
                         )
                     }
 
                     "conductor_sizing" -> {
+
                         ConductorSizingScreen(
                             language = language,
                             standard = standard
@@ -193,6 +198,7 @@ private fun ElectricalCalculationsApp() {
                     "power_factor",
                     "resistance",
                     "impedance" -> {
+
                         EngineeringCalculatorScreen(
                             calculation = selectedScreen,
                             language = language
@@ -200,10 +206,12 @@ private fun ElectricalCalculationsApp() {
                     }
 
                     else -> {
+
                         HomeContent(
                             language = language,
                             updateChecking = updateChecking,
-                            hasUpdate = availableRelease != null
+                            hasUpdate =
+                                availableRelease != null
                         )
                     }
                 }
@@ -257,8 +265,12 @@ private fun TopBar(
                     languageExpanded = true
                 }
             ) {
+
                 Text(
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "العربية"
                     } else {
                         "English"
@@ -279,7 +291,9 @@ private fun TopBar(
                     },
                     onClick = {
                         languageExpanded = false
-                        onLanguageChanged(AppLanguage.ENGLISH)
+                        onLanguageChanged(
+                            AppLanguage.ENGLISH
+                        )
                     }
                 )
 
@@ -289,7 +303,9 @@ private fun TopBar(
                     },
                     onClick = {
                         languageExpanded = false
-                        onLanguageChanged(AppLanguage.ARABIC)
+                        onLanguageChanged(
+                            AppLanguage.ARABIC
+                        )
                     }
                 )
             }
@@ -306,6 +322,7 @@ private fun TopBar(
                     standardExpanded = true
                 }
             ) {
+
                 Text(
                     standard.name
                 )
@@ -318,18 +335,19 @@ private fun TopBar(
                 }
             ) {
 
-                Standard.values().forEach { item ->
+                Standard.values()
+                    .forEach { item ->
 
-                    DropdownMenuItem(
-                        text = {
-                            Text(item.name)
-                        },
-                        onClick = {
-                            standardExpanded = false
-                            onStandardChanged(item)
-                        }
-                    )
-                }
+                        DropdownMenuItem(
+                            text = {
+                                Text(item.name)
+                            },
+                            onClick = {
+                                standardExpanded = false
+                                onStandardChanged(item)
+                            }
+                        )
+                    }
             }
         }
 
@@ -338,11 +356,16 @@ private fun TopBar(
         )
 
         if (hasUpdate) {
+
             Button(
                 onClick = onUpdate
             ) {
+
                 Text(
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "تحديث"
                     } else {
                         "Update"
@@ -358,8 +381,12 @@ private fun TopBar(
         TextButton(
             onClick = onAbout
         ) {
+
             Text(
-                if (language == AppLanguage.ARABIC) {
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
                     "حول"
                 } else {
                     "About"
@@ -376,51 +403,169 @@ private fun SideMenu(
     onSelect: (String) -> Unit
 ) {
 
-    val items = listOf(
-        "home" to if (language == AppLanguage.ARABIC) "الرئيسية" else "Home",
-        "sld" to if (language == AppLanguage.ARABIC) "SLD الاحترافي" else "Professional SLD",
-        "conductor_sizing" to if (language == AppLanguage.ARABIC) "اختيار الموصل" else "Conductor Sizing",
-        "voltage_drop" to if (language == AppLanguage.ARABIC) "هبوط الجهد" else "Voltage Drop",
-        "current" to if (language == AppLanguage.ARABIC) "التيار" else "Current",
-        "voltage" to if (language == AppLanguage.ARABIC) "الجهد" else "Voltage",
-        "active_power" to if (language == AppLanguage.ARABIC) "القدرة الفعالة" else "Active Power",
-        "apparent_power" to if (language == AppLanguage.ARABIC) "القدرة الظاهرية" else "Apparent Power",
-        "reactive_power" to if (language == AppLanguage.ARABIC) "القدرة غير الفعالة" else "Reactive Power",
-        "power_factor" to if (language == AppLanguage.ARABIC) "معامل القدرة" else "Power Factor",
-        "resistance" to if (language == AppLanguage.ARABIC) "المقاومة" else "Resistance",
-        "impedance" to if (language == AppLanguage.ARABIC) "الممانعة" else "Impedance"
-    )
+    val items =
+        listOf(
+
+            "home" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "الرئيسية"
+                } else {
+                    "Home"
+                },
+
+            "sld" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "SLD الاحترافي"
+                } else {
+                    "Professional SLD"
+                },
+
+            "conductor_sizing" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "اختيار الموصل"
+                } else {
+                    "Conductor Sizing"
+                },
+
+            "voltage_drop" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "هبوط الجهد"
+                } else {
+                    "Voltage Drop"
+                },
+
+            "current" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "التيار"
+                } else {
+                    "Current"
+                },
+
+            "voltage" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "الجهد"
+                } else {
+                    "Voltage"
+                },
+
+            "active_power" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "القدرة الفعالة"
+                } else {
+                    "Active Power"
+                },
+
+            "apparent_power" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "القدرة الظاهرية"
+                } else {
+                    "Apparent Power"
+                },
+
+            "reactive_power" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "القدرة غير الفعالة"
+                } else {
+                    "Reactive Power"
+                },
+
+            "power_factor" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "معامل القدرة"
+                } else {
+                    "Power Factor"
+                },
+
+            "resistance" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "المقاومة"
+                } else {
+                    "Resistance"
+                },
+
+            "impedance" to
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "الممانعة"
+                } else {
+                    "Impedance"
+                }
+        )
 
     Column(
         modifier = Modifier
             .width(230.dp)
-            .fillMaxSize()
-            .background(Color(0xFF111920))
-            .verticalScroll(rememberScrollState())
+            .fillMaxHeight()
+            .background(
+                Color(0xFF111920)
+            )
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement =
+            Arrangement.spacedBy(6.dp)
     ) {
 
         items.forEach { item ->
 
             val selected =
-                selectedScreen == item.first
+                selectedScreen ==
+                    item.first
 
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(
+                        RoundedCornerShape(8.dp)
+                    )
                     .clickable {
                         onSelect(item.first)
                     },
-                colors = CardDefaults.cardColors(
-                    containerColor =
-                        if (selected) {
-                            Color(0xFF263A43)
-                        } else {
-                            Color(0xFF182129)
-                        }
-                )
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor =
+                            if (selected) {
+                                Color(0xFF263A43)
+                            } else {
+                                Color(0xFF182129)
+                            }
+                    )
             ) {
 
                 Text(
@@ -447,25 +592,27 @@ private fun HomeContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(
+                rememberScrollState()
+            )
             .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement =
+            Arrangement.spacedBy(14.dp)
     ) {
 
         Text(
             text =
-                if (language == AppLanguage.ARABIC) {
-                    "Electrical Calculations Pro"
-                } else {
-                    "Electrical Calculations Pro"
-                },
+                "Electrical Calculations Pro",
             color = Color.White,
             fontSize = 28.sp
         )
 
         Text(
             text =
-                if (language == AppLanguage.ARABIC) {
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
                     "منصة هندسية متكاملة للحسابات الكهربائية وتصميم الأنظمة."
                 } else {
                     "Professional engineering platform for electrical calculations and system design."
@@ -475,18 +622,24 @@ private fun HomeContent(
         )
 
         Card(
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF151D24)
-            )
+            colors =
+                CardDefaults.cardColors(
+                    containerColor =
+                        Color(0xFF151D24)
+                )
         ) {
 
             Column(
-                modifier = Modifier.padding(18.dp)
+                modifier =
+                    Modifier.padding(18.dp)
             ) {
 
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC) {
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
                             "المخطط الأحادي الاحترافي"
                         } else {
                             "Professional Single Line Diagram"
@@ -501,8 +654,11 @@ private fun HomeContent(
 
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC) {
-                            "ارسم الأحمال والمصادر والمحولات واللوحات، ثم نفذ Upstream و Short Circuit و Cable Sizing و Protection Coordination و Panel Schedule."
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
+                            "ارسم الأحمال والمصادر والمحولات واللوحات، ثم نفذ حسابات Upstream و Short Circuit و Cable Sizing و Protection Coordination و Panel Schedule."
                         } else {
                             "Build your electrical SLD and perform Upstream, Short Circuit, Cable Sizing, Protection Coordination and Panel Schedule studies."
                         },
@@ -513,9 +669,13 @@ private fun HomeContent(
         }
 
         if (updateChecking) {
+
             Text(
                 text =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "جاري البحث عن تحديث..."
                     } else {
                         "Checking for updates..."
@@ -525,9 +685,13 @@ private fun HomeContent(
         }
 
         if (hasUpdate) {
+
             Text(
                 text =
-                    if (language == AppLanguage.ARABIC) {
+                    if (
+                        language ==
+                        AppLanguage.ARABIC
+                    ) {
                         "يتوفر إصدار جديد."
                     } else {
                         "A new version is available."
