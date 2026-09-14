@@ -17,22 +17,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -131,44 +130,44 @@ private fun MainScreen() {
 
     val menu = listOf(
         CalculationMenuItem(
-            "home",
-            "home",
-            "⌂"
+            id = "home",
+            titleKey = "home",
+            icon = "⌂"
         ),
         CalculationMenuItem(
-            "sld_editor",
-            "sld",
-            "⌁"
+            id = "sld_editor",
+            titleKey = "sld",
+            icon = "⌁"
         ),
         CalculationMenuItem(
-            "conductor_sizing_protection",
-            "conductor_sizing",
-            "⚡"
+            id = "conductor_sizing_protection",
+            titleKey = "conductor_sizing",
+            icon = "⚡"
         ),
         CalculationMenuItem(
-            "voltage_drop",
-            "voltage_drop",
-            "↕"
+            id = "voltage_drop",
+            titleKey = "voltage_drop",
+            icon = "↕"
         ),
         CalculationMenuItem(
-            "short_circuit",
-            "short_circuit",
-            "⚠"
+            id = "short_circuit",
+            titleKey = "short_circuit",
+            icon = "⚠"
         ),
         CalculationMenuItem(
-            "transformer",
-            "transformer",
-            "T"
+            id = "transformer",
+            titleKey = "transformer",
+            icon = "T"
         ),
         CalculationMenuItem(
-            "motor",
-            "motor",
-            "M"
+            id = "motor",
+            titleKey = "motor",
+            icon = "M"
         ),
         CalculationMenuItem(
-            "power_factor",
-            "power_factor",
-            "PF"
+            id = "power_factor",
+            titleKey = "power_factor",
+            icon = "PF"
         )
     )
 
@@ -346,8 +345,7 @@ private fun MainScreen() {
                         .fillMaxWidth()
                         .weight(1f)
                         .padding(horizontal = 8.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
 
                     items(
@@ -456,6 +454,18 @@ private fun MainScreen() {
                                         updateManager
                                             .checkForUpdate()
 
+                                    if (release == null) {
+                                        Toast.makeText(
+                                            context,
+                                            if (arabic) {
+                                                "البرنامج محدث بالفعل"
+                                            } else {
+                                                "The app is already up to date"
+                                            },
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+
                                 } catch (_: Exception) {
 
                                     Toast.makeText(
@@ -496,14 +506,12 @@ private fun MainScreen() {
                 when (selectedScreen) {
 
                     "home" -> {
-
                         HomeContent(
                             language = language,
-                            standard = standard,
-                            onSld = {
+                            onOpenSld = {
                                 selectedScreen = "sld_editor"
                             },
-                            onConductorSizing = {
+                            onOpenConductorSizing = {
                                 selectedScreen =
                                     "conductor_sizing_protection"
                             }
@@ -511,14 +519,12 @@ private fun MainScreen() {
                     }
 
                     "sld_editor" -> {
-
                         SldEditorScreen(
                             language = language
                         )
                     }
 
                     "conductor_sizing_protection" -> {
-
                         ConductorSizingScreen(
                             language = language,
                             standard = standard
@@ -526,7 +532,6 @@ private fun MainScreen() {
                     }
 
                     else -> {
-
                         EngineeringCalculatorScreen(
                             calculation = selectedScreen,
                             language = language
@@ -553,7 +558,7 @@ private fun MainScreen() {
             onDismissRequest = {},
             title = {
                 Text(
-                    if (arabic) {
+                    text = if (arabic) {
                         "التحقق من التحديث"
                     } else {
                         "Checking for update"
@@ -561,15 +566,26 @@ private fun MainScreen() {
                 )
             },
             text = {
-
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement =
-                        Arrangement.Center
+                    verticalAlignment =
+                        Alignment.CenterVertically
                 ) {
 
                     CircularProgressIndicator(
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(24.dp),
+                        color = PrimaryTeal
+                    )
+
+                    Spacer(
+                        modifier = Modifier.width(16.dp)
+                    )
+
+                    Text(
+                        text = if (arabic) {
+                            "جارٍ التحقق..."
+                        } else {
+                            "Checking..."
+                        }
                     )
                 }
             },
@@ -577,7 +593,7 @@ private fun MainScreen() {
         )
     }
 
-    release?.let { appRelease ->
+    release?.let { currentRelease ->
 
         AlertDialog(
             onDismissRequest = {
@@ -585,7 +601,7 @@ private fun MainScreen() {
             },
             title = {
                 Text(
-                    if (arabic) {
+                    text = if (arabic) {
                         "تحديث جديد متاح"
                     } else {
                         "New update available"
@@ -593,27 +609,39 @@ private fun MainScreen() {
                 )
             },
             text = {
-                Text(
-                    if (arabic) {
-                        "الإصدار ${appRelease.versionName} متاح."
-                    } else {
-                        "Version ${appRelease.versionName} is available."
-                    }
-                )
+                Column {
+
+                    Text(
+                        text = currentRelease.versionName,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Text(
+                        text = currentRelease.releaseNotes
+                            .ifBlank {
+                                if (arabic) {
+                                    "يتوفر إصدار جديد من البرنامج."
+                                } else {
+                                    "A new version is available."
+                                }
+                            }
+                    )
+                }
             },
             confirmButton = {
 
                 TextButton(
                     onClick = {
 
-                        release = null
-
                         try {
-
-                            updateManager.downloadAndInstall(
-                                appRelease
-                            )
-
+                            updateManager
+                                .downloadAndInstall(
+                                    currentRelease
+                                )
                         } catch (_: Exception) {
 
                             Toast.makeText(
@@ -626,14 +654,17 @@ private fun MainScreen() {
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
+
+                        release = null
                     }
                 ) {
                     Text(
-                        if (arabic) {
+                        text = if (arabic) {
                             "تحديث"
                         } else {
                             "Update"
-                        }
+                        },
+                        color = PrimaryTeal
                     )
                 }
             },
@@ -645,7 +676,7 @@ private fun MainScreen() {
                     }
                 ) {
                     Text(
-                        if (arabic) {
+                        text = if (arabic) {
                             "إلغاء"
                         } else {
                             "Cancel"
@@ -660,9 +691,8 @@ private fun MainScreen() {
 @Composable
 private fun HomeContent(
     language: AppLanguage,
-    standard: Standard,
-    onSld: () -> Unit,
-    onConductorSizing: () -> Unit
+    onOpenSld: () -> Unit,
+    onOpenConductorSizing: () -> Unit
 ) {
 
     val arabic = language == AppLanguage.ARABIC
@@ -673,15 +703,19 @@ private fun HomeContent(
             .verticalScroll(
                 rememberScrollState()
             )
-            .padding(28.dp),
+            .padding(24.dp),
         verticalArrangement =
-            Arrangement.spacedBy(18.dp)
+            Arrangement.spacedBy(16.dp)
     ) {
 
         Text(
-            text = "Electrical Calculations Pro",
+            text = if (arabic) {
+                "Electrical Calculations Pro"
+            } else {
+                "Electrical Calculations Pro"
+            },
             color = TextPrimary,
-            fontSize = 30.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
 
@@ -692,161 +726,15 @@ private fun HomeContent(
                 "Professional electrical calculation and design platform"
             },
             color = TextSecondary,
-            fontSize = 16.sp
+            fontSize = 15.sp
         )
 
         Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF202D3D)
-            ),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-
-                Text(
-                    text = if (arabic) {
-                        "المعيار المستخدم"
-                    } else {
-                        "Selected Standard"
-                    },
-                    color = TextSecondary,
-                    fontSize = 13.sp
-                )
-
-                Spacer(
-                    modifier = Modifier.height(6.dp)
-                )
-
-                Text(
-                    text = standard.name,
-                    color = PrimaryTeal,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(14.dp)
-        ) {
-
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        onSld()
-                    },
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF202D3D)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-
-                    Text(
-                        text = "⌁",
-                        color = PrimaryTeal,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(8.dp)
-                    )
-
-                    Text(
-                        text = if (arabic) {
-                            "SLD احترافي"
-                        } else {
-                            "Professional SLD"
-                        },
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(6.dp)
-                    )
-
-                    Text(
-                        text = if (arabic) {
-                            "رسم المخطط الأحادي وإجراء الحسابات Upstream"
-                        } else {
-                            "Draw the single-line diagram and perform upstream calculations"
-                        },
-                        color = TextSecondary,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable {
-                        onConductorSizing()
-                    },
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF202D3D)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-
-                Column(
-                    modifier = Modifier.padding(20.dp)
-                ) {
-
-                    Text(
-                        text = "⚡",
-                        color = PrimaryTeal,
-                        fontSize = 32.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(8.dp)
-                    )
-
-                    Text(
-                        text = if (arabic) {
-                            "اختيار الكابلات والحماية"
-                        } else {
-                            "Cable & Protection Sizing"
-                        },
-                        color = TextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(6.dp)
-                    )
-
-                    Text(
-                        text = if (arabic) {
-                            "حساب واختيار الكابلات والحماية"
-                        } else {
-                            "Calculate cables and protection"
-                        },
-                        color = TextSecondary,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onOpenSld()
+                },
             colors = CardDefaults.cardColors(
                 containerColor = Color(0xFF151D24)
             ),
@@ -859,40 +747,98 @@ private fun HomeContent(
 
                 Text(
                     text = if (arabic) {
-                        "الحسابات المتاحة"
+                        "SLD — Single Line Diagram"
                     } else {
-                        "Available Calculations"
+                        "SLD — Single Line Diagram"
                     },
                     color = PrimaryTeal,
-                    fontSize = 18.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
                 )
 
                 Spacer(
-                    modifier = Modifier.height(10.dp)
+                    modifier = Modifier.height(8.dp)
                 )
 
                 Text(
                     text = if (arabic) {
-                        "• هبوط الجهد\n" +
-                            "• تيار الحمل\n" +
-                            "• القدرة الفعالة والظاهرية والمتفاعلة\n" +
-                            "• معامل القدرة\n" +
-                            "• المقاومة والممانعة\n" +
-                            "• القصر الكهربائي\n" +
-                            "• المحولات والمحركات"
+                        "ارسم المخطط الأحادي بالأحمال والمعدات ثم نفذ حسابات Upstream وقصر الدائرة والكابلات والحماية وجدول اللوحات."
                     } else {
-                        "• Voltage drop\n" +
-                            "• Load current\n" +
-                            "• Active, apparent and reactive power\n" +
-                            "• Power factor\n" +
-                            "• Resistance and impedance\n" +
-                            "• Short circuit\n" +
-                            "• Transformers and motors"
+                        "Draw the single-line diagram with loads and equipment, then perform upstream, short-circuit, cable sizing, protection and panel-schedule calculations."
                     },
                     color = TextSecondary,
-                    fontSize = 14.sp,
-                    lineHeight = 23.sp
+                    fontSize = 14.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                Text(
+                    text = if (arabic) {
+                        "فتح محرر SLD →"
+                    } else {
+                        "Open SLD Editor →"
+                    },
+                    color = PrimaryTeal,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onOpenConductorSizing()
+                },
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF151D24)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+
+                Text(
+                    text = if (arabic) {
+                        "اختيار الكابلات والحماية"
+                    } else {
+                        "Conductor Sizing & Protection"
+                    },
+                    color = PrimaryTeal,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Text(
+                    text = if (arabic) {
+                        "حساب التيار واختيار مقطع الموصل والحماية طبقًا للمعيار المختار."
+                    } else {
+                        "Calculate current and select conductor size and protection according to the selected standard."
+                    },
+                    color = TextSecondary,
+                    fontSize = 14.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
+
+                Text(
+                    text = if (arabic) {
+                        "فتح الحسابات →"
+                    } else {
+                        "Open calculations →"
+                    },
+                    color = PrimaryTeal,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
