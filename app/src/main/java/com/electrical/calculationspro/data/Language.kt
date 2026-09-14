@@ -22,9 +22,6 @@ object Strings {
             "conductor_sizing" to
                 "Conductor Sizing",
 
-            "conductor_sizing_protection" to
-                "Conductor Sizing",
-
             "protection_coordination" to
                 "Protection Coordination",
 
@@ -149,7 +146,10 @@ object Strings {
                 "Voltage Drop",
 
             "current" to
-                "Current"
+                "Current",
+
+            "results" to
+                "Results"
         )
 
     private val arabic =
@@ -165,9 +165,6 @@ object Strings {
                 "SLD الاحترافي",
 
             "conductor_sizing" to
-                "اختيار مقطع الموصل",
-
-            "conductor_sizing_protection" to
                 "اختيار مقطع الموصل",
 
             "protection_coordination" to
@@ -294,7 +291,10 @@ object Strings {
                 "هبوط الجهد",
 
             "current" to
-                "التيار"
+                "التيار",
+
+            "results" to
+                "النتائج"
         )
 
     fun get(
@@ -303,10 +303,7 @@ object Strings {
     ): String {
 
         val map =
-            if (
-                language ==
-                AppLanguage.ARABIC
-            ) {
+            if (language == AppLanguage.ARABIC) {
                 arabic
             } else {
                 english
