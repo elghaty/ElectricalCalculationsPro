@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -28,14 +27,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.clip
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,8 +44,6 @@ import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
 import com.electrical.calculationspro.ui.screens.EngineeringCalculatorScreen
 import com.electrical.calculationspro.ui.screens.SldEditorScreen
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
-import com.electrical.calculationspro.update.AppReleaseInfo
-import com.electrical.calculationspro.update.AppUpdateManager
 
 class MainActivity : ComponentActivity() {
 
@@ -65,9 +61,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ElectricalCalculationsApp() {
 
-    val context =
-        androidx.compose.ui.platform.LocalContext.current
-
     var language by remember {
         mutableStateOf(AppLanguage.ENGLISH)
     }
@@ -82,32 +75,6 @@ private fun ElectricalCalculationsApp() {
 
     var showAbout by remember {
         mutableStateOf(false)
-    }
-
-    var updateChecking by remember {
-        mutableStateOf(false)
-    }
-
-    var availableRelease by remember {
-        mutableStateOf<AppReleaseInfo?>(null)
-    }
-
-    val updateManager = remember {
-        AppUpdateManager(context)
-    }
-
-    LaunchedEffect(Unit) {
-
-        updateChecking = true
-
-        availableRelease =
-            try {
-                updateManager.checkForUpdate()
-            } catch (_: Exception) {
-                null
-            }
-
-        updateChecking = false
     }
 
     if (showAbout) {
@@ -141,18 +108,7 @@ private fun ElectricalCalculationsApp() {
             },
             onAbout = {
                 showAbout = true
-            },
-            onUpdate = {
-
-                val release =
-                    availableRelease
-                        ?: return@TopBar
-
-                updateManager
-                    .downloadAndInstall(release)
-            },
-            hasUpdate =
-                availableRelease != null
+            }
         )
 
         Row(
@@ -180,7 +136,10 @@ private fun ElectricalCalculationsApp() {
                     "sld" -> {
 
                         SldEditorScreen(
-                            language = language
+                            language = language,
+                            onBack = {
+                                selectedScreen = "home"
+                            }
                         )
                     }
 
@@ -210,11 +169,15 @@ private fun ElectricalCalculationsApp() {
 
                     else -> {
 
-                        HomeContent(
+                        HomeScreen(
                             language = language,
-                            updateChecking = updateChecking,
-                            hasUpdate =
-                                availableRelease != null
+                            onSld = {
+                                selectedScreen = "sld"
+                            },
+                            onConductor = {
+                                selectedScreen =
+                                    "conductor_sizing"
+                            }
                         )
                     }
                 }
@@ -229,9 +192,7 @@ private fun TopBar(
     standard: Standard,
     onLanguageChanged: (AppLanguage) -> Unit,
     onStandardChanged: (Standard) -> Unit,
-    onAbout: () -> Unit,
-    onUpdate: () -> Unit,
-    hasUpdate: Boolean
+    onAbout: () -> Unit
 ) {
 
     var languageExpanded by remember {
@@ -245,25 +206,30 @@ private fun TopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(64.dp)
+            .height(62.dp)
             .background(
                 Color(0xFF151D24)
             )
-            .padding(horizontal = 14.dp),
+            .padding(
+                horizontal = 12.dp
+            ),
         verticalAlignment =
             Alignment.CenterVertically
     ) {
 
         Text(
             text =
-                "Electrical Calculations Pro",
+                if (language == AppLanguage.ARABIC) {
+                    "الحسابات الكهربائية الاحترافية"
+                } else {
+                    "Electrical Calculations Pro"
+                },
             color = Color.White,
             fontSize = 18.sp
         )
 
         Spacer(
-            modifier =
-                Modifier.weight(1f)
+            modifier = Modifier.weight(1f)
         )
 
         Box {
@@ -287,8 +253,7 @@ private fun TopBar(
             }
 
             DropdownMenu(
-                expanded =
-                    languageExpanded,
+                expanded = languageExpanded,
                 onDismissRequest = {
                     languageExpanded = false
                 }
@@ -325,8 +290,7 @@ private fun TopBar(
         }
 
         Spacer(
-            modifier =
-                Modifier.width(8.dp)
+            modifier = Modifier.width(8.dp)
         )
 
         Box {
@@ -343,8 +307,7 @@ private fun TopBar(
             }
 
             DropdownMenu(
-                expanded =
-                    standardExpanded,
+                expanded = standardExpanded,
                 onDismissRequest = {
                     standardExpanded = false
                 }
@@ -355,11 +318,14 @@ private fun TopBar(
 
                         DropdownMenuItem(
                             text = {
-                                Text(item.name)
+                                Text(
+                                    item.name
+                                )
                             },
                             onClick = {
 
-                                standardExpanded = false
+                                standardExpanded =
+                                    false
 
                                 onStandardChanged(
                                     item
@@ -371,33 +337,8 @@ private fun TopBar(
         }
 
         Spacer(
-            modifier =
-                Modifier.width(8.dp)
+            modifier = Modifier.width(8.dp)
         )
-
-        if (hasUpdate) {
-
-            Button(
-                onClick = onUpdate
-            ) {
-
-                Text(
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "تحديث"
-                    } else {
-                        "Update"
-                    }
-                )
-            }
-
-            Spacer(
-                modifier =
-                    Modifier.width(8.dp)
-            )
-        }
 
         TextButton(
             onClick = onAbout
@@ -442,7 +383,7 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "SLD الاحترافي"
+                    "المخطط الأحادي SLD"
                 } else {
                     "Professional SLD"
                 },
@@ -452,7 +393,7 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "اختيار الموصل"
+                    "اختيار مقطع الموصل"
                 } else {
                     "Conductor Sizing"
                 },
@@ -492,9 +433,9 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "القدرة الفعالة (kW)"
+                    "القدرة الفعالة kW"
                 } else {
-                    "Active Power (kW)"
+                    "Active Power kW"
                 },
 
             "apparent_power" to
@@ -502,9 +443,9 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "القدرة الظاهرية (kVA)"
+                    "القدرة الظاهرية kVA"
                 } else {
-                    "Apparent Power (kVA)"
+                    "Apparent Power kVA"
                 },
 
             "reactive_power" to
@@ -512,9 +453,9 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "القدرة غير الفعالة (kvar)"
+                    "القدرة غير الفعالة kvar"
                 } else {
-                    "Reactive Power (kvar)"
+                    "Reactive Power kvar"
                 },
 
             "power_factor" to
@@ -550,6 +491,12 @@ private fun SideMenu(
 
     Column(
         modifier = Modifier
+            /*
+             * مهم جدًا:
+             * لا تستخدم fillMaxSize هنا.
+             * القائمة يجب أن تأخذ عرضها فقط
+             * وتترك باقي الشاشة لـ SLD.
+             */
             .width(230.dp)
             .fillMaxHeight()
             .background(
@@ -559,6 +506,7 @@ private fun SideMenu(
                 rememberScrollState()
             )
             .padding(10.dp),
+
         verticalArrangement =
             Arrangement.spacedBy(6.dp)
     ) {
@@ -576,8 +524,11 @@ private fun SideMenu(
                         RoundedCornerShape(8.dp)
                     )
                     .clickable {
-                        onSelect(item.first)
+                        onSelect(
+                            item.first
+                        )
                     },
+
                 colors =
                     CardDefaults.cardColors(
                         containerColor =
@@ -591,12 +542,15 @@ private fun SideMenu(
 
                 Text(
                     text = item.second,
+
                     modifier =
                         Modifier.padding(
                             horizontal = 12.dp,
                             vertical = 11.dp
                         ),
+
                     color = Color.White,
+
                     fontSize = 14.sp
                 )
             }
@@ -605,10 +559,10 @@ private fun SideMenu(
 }
 
 @Composable
-private fun HomeContent(
+private fun HomeScreen(
     language: AppLanguage,
-    updateChecking: Boolean,
-    hasUpdate: Boolean
+    onSld: () -> Unit,
+    onConductor: () -> Unit
 ) {
 
     Column(
@@ -618,14 +572,24 @@ private fun HomeContent(
                 rememberScrollState()
             )
             .padding(20.dp),
+
         verticalArrangement =
             Arrangement.spacedBy(14.dp)
     ) {
 
         Text(
             text =
-                "Electrical Calculations Pro",
+                if (
+                    language ==
+                    AppLanguage.ARABIC
+                ) {
+                    "الحسابات الكهربائية الاحترافية"
+                } else {
+                    "Electrical Calculations Pro"
+                },
+
             color = Color.White,
+
             fontSize = 28.sp
         )
 
@@ -635,18 +599,24 @@ private fun HomeContent(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "منصة هندسية متكاملة للحسابات الكهربائية وتصميم الأنظمة."
+                    "برنامج هندسي متكامل للحسابات والتصميم الكهربائي."
                 } else {
-                    "Professional engineering platform for electrical calculations and system design."
+                    "Professional electrical calculation and design platform."
                 },
+
             color =
                 Color(0xFFAAB7C0),
+
             fontSize = 15.sp
         )
 
         Card(
-            modifier =
-                Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onSld()
+                },
+
             colors =
                 CardDefaults.cardColors(
                     containerColor =
@@ -656,7 +626,10 @@ private fun HomeContent(
 
             Column(
                 modifier =
-                    Modifier.padding(18.dp)
+                    Modifier.padding(18.dp),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
             ) {
 
                 Text(
@@ -665,17 +638,14 @@ private fun HomeContent(
                             language ==
                             AppLanguage.ARABIC
                         ) {
-                            "المخطط الأحادي الاحترافي"
+                            "المخطط الأحادي الاحترافي SLD"
                         } else {
                             "Professional Single Line Diagram"
                         },
-                    color = Color.White,
-                    fontSize = 19.sp
-                )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
+                    color = Color.White,
+
+                    fontSize = 20.sp
                 )
 
                 Text(
@@ -684,49 +654,74 @@ private fun HomeContent(
                             language ==
                             AppLanguage.ARABIC
                         ) {
-                            "ارسم الأحمال والمصادر والمحولات واللوحات، ثم نفذ Upstream و Short Circuit و Cable Sizing و Protection Coordination و Panel Schedule."
+                            "إنشاء شبكة SLD وإضافة المصادر والمحولات والمولدات واللوحات والأحمال مع الحسابات الهندسية."
                         } else {
-                            "Build your electrical SLD and perform Upstream, Short Circuit, Cable Sizing, Protection Coordination and Panel Schedule studies."
+                            "Create an SLD network with sources, transformers, generators, panels and loads with engineering calculations."
                         },
+
                     color =
                         Color(0xFFAAB7C0),
+
                     fontSize = 14.sp
                 )
             }
         }
 
-        if (updateChecking) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    onConductor()
+                },
 
-            Text(
-                text =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "جاري البحث عن تحديث..."
-                    } else {
-                        "Checking for updates..."
-                    },
-                color =
-                    Color(0xFF00BCD4)
-            )
-        }
+            colors =
+                CardDefaults.cardColors(
+                    containerColor =
+                        Color(0xFF151D24)
+                )
+        ) {
 
-        if (hasUpdate) {
+            Column(
+                modifier =
+                    Modifier.padding(18.dp),
 
-            Text(
-                text =
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "يتوفر إصدار جديد."
-                    } else {
-                        "A new version is available."
-                    },
-                color =
-                    Color(0xFF4CAF50)
-            )
+                verticalArrangement =
+                    Arrangement.spacedBy(8.dp)
+            ) {
+
+                Text(
+                    text =
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
+                            "اختيار مقطع الموصل"
+                        } else {
+                            "Conductor Sizing"
+                        },
+
+                    color = Color.White,
+
+                    fontSize = 20.sp
+                )
+
+                Text(
+                    text =
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
+                            "حساب تيار التصميم واختيار المقطع والتحقق من هبوط الجهد."
+                        } else {
+                            "Calculate design current, select conductor section and verify voltage drop."
+                        },
+
+                    color =
+                        Color(0xFFAAB7C0),
+
+                    fontSize = 14.sp
+                )
+            }
         }
     }
 }
