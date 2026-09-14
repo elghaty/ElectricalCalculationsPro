@@ -35,7 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -65,7 +65,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun ElectricalCalculationsApp() {
 
-    val context = androidx.compose.ui.platform.LocalContext.current
+    val context =
+        androidx.compose.ui.platform.LocalContext.current
 
     var language by remember {
         mutableStateOf(AppLanguage.ENGLISH)
@@ -99,12 +100,12 @@ private fun ElectricalCalculationsApp() {
 
         updateChecking = true
 
-        try {
-            availableRelease =
+        availableRelease =
+            try {
                 updateManager.checkForUpdate()
-        } catch (_: Exception) {
-            availableRelease = null
-        }
+            } catch (_: Exception) {
+                null
+            }
 
         updateChecking = false
     }
@@ -124,7 +125,9 @@ private fun ElectricalCalculationsApp() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0B1116))
+            .background(
+                Color(0xFF0B1116)
+            )
     ) {
 
         TopBar(
@@ -243,19 +246,24 @@ private fun TopBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(64.dp)
-            .background(Color(0xFF151D24))
+            .background(
+                Color(0xFF151D24)
+            )
             .padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment =
+            Alignment.CenterVertically
     ) {
 
         Text(
-            text = "Electrical Calculations Pro",
+            text =
+                "Electrical Calculations Pro",
             color = Color.White,
             fontSize = 18.sp
         )
 
         Spacer(
-            modifier = Modifier.weight(1f)
+            modifier =
+                Modifier.weight(1f)
         )
 
         Box {
@@ -279,7 +287,8 @@ private fun TopBar(
             }
 
             DropdownMenu(
-                expanded = languageExpanded,
+                expanded =
+                    languageExpanded,
                 onDismissRequest = {
                     languageExpanded = false
                 }
@@ -290,7 +299,9 @@ private fun TopBar(
                         Text("English")
                     },
                     onClick = {
+
                         languageExpanded = false
+
                         onLanguageChanged(
                             AppLanguage.ENGLISH
                         )
@@ -302,7 +313,9 @@ private fun TopBar(
                         Text("العربية")
                     },
                     onClick = {
+
                         languageExpanded = false
+
                         onLanguageChanged(
                             AppLanguage.ARABIC
                         )
@@ -312,7 +325,8 @@ private fun TopBar(
         }
 
         Spacer(
-            modifier = Modifier.width(8.dp)
+            modifier =
+                Modifier.width(8.dp)
         )
 
         Box {
@@ -329,7 +343,8 @@ private fun TopBar(
             }
 
             DropdownMenu(
-                expanded = standardExpanded,
+                expanded =
+                    standardExpanded,
                 onDismissRequest = {
                     standardExpanded = false
                 }
@@ -343,8 +358,12 @@ private fun TopBar(
                                 Text(item.name)
                             },
                             onClick = {
+
                                 standardExpanded = false
-                                onStandardChanged(item)
+
+                                onStandardChanged(
+                                    item
+                                )
                             }
                         )
                     }
@@ -352,7 +371,8 @@ private fun TopBar(
         }
 
         Spacer(
-            modifier = Modifier.width(8.dp)
+            modifier =
+                Modifier.width(8.dp)
         )
 
         if (hasUpdate) {
@@ -374,7 +394,8 @@ private fun TopBar(
             }
 
             Spacer(
-                modifier = Modifier.width(8.dp)
+                modifier =
+                    Modifier.width(8.dp)
             )
         }
 
@@ -471,9 +492,9 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "القدرة الفعالة"
+                    "القدرة الفعالة (kW)"
                 } else {
-                    "Active Power"
+                    "Active Power (kW)"
                 },
 
             "apparent_power" to
@@ -481,9 +502,9 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "القدرة الظاهرية"
+                    "القدرة الظاهرية (kVA)"
                 } else {
-                    "Apparent Power"
+                    "Apparent Power (kVA)"
                 },
 
             "reactive_power" to
@@ -491,9 +512,9 @@ private fun SideMenu(
                     language ==
                     AppLanguage.ARABIC
                 ) {
-                    "القدرة غير الفعالة"
+                    "القدرة غير الفعالة (kvar)"
                 } else {
-                    "Reactive Power"
+                    "Reactive Power (kvar)"
                 },
 
             "power_factor" to
@@ -570,10 +591,11 @@ private fun SideMenu(
 
                 Text(
                     text = item.second,
-                    modifier = Modifier.padding(
-                        horizontal = 12.dp,
-                        vertical = 11.dp
-                    ),
+                    modifier =
+                        Modifier.padding(
+                            horizontal = 12.dp,
+                            vertical = 11.dp
+                        ),
                     color = Color.White,
                     fontSize = 14.sp
                 )
@@ -617,11 +639,14 @@ private fun HomeContent(
                 } else {
                     "Professional engineering platform for electrical calculations and system design."
                 },
-            color = Color(0xFFAAB7C0),
+            color =
+                Color(0xFFAAB7C0),
             fontSize = 15.sp
         )
 
         Card(
+            modifier =
+                Modifier.fillMaxWidth(),
             colors =
                 CardDefaults.cardColors(
                     containerColor =
@@ -649,7 +674,8 @@ private fun HomeContent(
                 )
 
                 Spacer(
-                    modifier = Modifier.height(8.dp)
+                    modifier =
+                        Modifier.height(8.dp)
                 )
 
                 Text(
@@ -658,11 +684,12 @@ private fun HomeContent(
                             language ==
                             AppLanguage.ARABIC
                         ) {
-                            "ارسم الأحمال والمصادر والمحولات واللوحات، ثم نفذ حسابات Upstream و Short Circuit و Cable Sizing و Protection Coordination و Panel Schedule."
+                            "ارسم الأحمال والمصادر والمحولات واللوحات، ثم نفذ Upstream و Short Circuit و Cable Sizing و Protection Coordination و Panel Schedule."
                         } else {
                             "Build your electrical SLD and perform Upstream, Short Circuit, Cable Sizing, Protection Coordination and Panel Schedule studies."
                         },
-                    color = Color(0xFFAAB7C0),
+                    color =
+                        Color(0xFFAAB7C0),
                     fontSize = 14.sp
                 )
             }
@@ -680,7 +707,8 @@ private fun HomeContent(
                     } else {
                         "Checking for updates..."
                     },
-                color = Color(0xFF00BCD4)
+                color =
+                    Color(0xFF00BCD4)
             )
         }
 
@@ -696,7 +724,8 @@ private fun HomeContent(
                     } else {
                         "A new version is available."
                     },
-                color = Color(0xFF4CAF50)
+                color =
+                    Color(0xFF4CAF50)
             )
         }
     }
