@@ -21,7 +21,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -87,7 +89,7 @@ private data class CalculationMenuItem(
 private fun MainScreen() {
 
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
     val updateManager = remember {
         AppUpdateManager(context)
@@ -97,19 +99,19 @@ private fun MainScreen() {
         mutableStateOf(AppLanguage.ARABIC)
     }
 
-    var selectedStandard by remember {
+    var standard by remember {
         mutableStateOf(Standard.IEC)
     }
 
-    var selectedMenu by remember {
+    var selectedScreen by remember {
         mutableStateOf("home")
     }
 
-    var showLanguageMenu by remember {
+    var languageMenuExpanded by remember {
         mutableStateOf(false)
     }
 
-    var showStandardMenu by remember {
+    var standardMenuExpanded by remember {
         mutableStateOf(false)
     }
 
@@ -117,67 +119,67 @@ private fun MainScreen() {
         mutableStateOf(false)
     }
 
-    var updateChecking by remember {
+    var checkingUpdate by remember {
         mutableStateOf(false)
     }
 
-    var availableRelease by remember {
+    var release by remember {
         mutableStateOf<AppReleaseInfo?>(null)
     }
 
-    val isArabic = language == AppLanguage.ARABIC
+    val arabic = language == AppLanguage.ARABIC
 
-    val menuItems = listOf(
+    val menu = listOf(
         CalculationMenuItem(
-            id = "home",
-            titleKey = "home",
-            icon = "⌂"
+            "home",
+            "home",
+            "⌂"
         ),
         CalculationMenuItem(
-            id = "sld_editor",
-            titleKey = "sld",
-            icon = "⌁"
+            "sld_editor",
+            "sld",
+            "⌁"
         ),
         CalculationMenuItem(
-            id = "conductor_sizing_protection",
-            titleKey = "conductor_sizing",
-            icon = "⚡"
+            "conductor_sizing_protection",
+            "conductor_sizing",
+            "⚡"
         ),
         CalculationMenuItem(
-            id = "voltage_drop",
-            titleKey = "voltage_drop",
-            icon = "↕"
+            "voltage_drop",
+            "voltage_drop",
+            "↕"
         ),
         CalculationMenuItem(
-            id = "short_circuit",
-            titleKey = "short_circuit",
-            icon = "⚠"
+            "short_circuit",
+            "short_circuit",
+            "⚠"
         ),
         CalculationMenuItem(
-            id = "transformer",
-            titleKey = "transformer",
-            icon = "T"
+            "transformer",
+            "transformer",
+            "T"
         ),
         CalculationMenuItem(
-            id = "motor",
-            titleKey = "motor",
-            icon = "M"
+            "motor",
+            "motor",
+            "M"
         ),
         CalculationMenuItem(
-            id = "power_factor",
-            titleKey = "power_factor",
-            icon = "PF"
+            "power_factor",
+            "power_factor",
+            "PF"
         )
     )
 
     Scaffold(
         containerColor = DarkBackground
-    ) { paddingValues ->
+    ) { padding ->
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(padding)
                 .background(DarkBackground)
         ) {
 
@@ -220,11 +222,11 @@ private fun MainScreen() {
 
                         TextButton(
                             onClick = {
-                                showLanguageMenu = true
+                                languageMenuExpanded = true
                             }
                         ) {
                             Text(
-                                text = if (isArabic) {
+                                text = if (arabic) {
                                     "العربية"
                                 } else {
                                     "EN"
@@ -234,9 +236,9 @@ private fun MainScreen() {
                         }
 
                         DropdownMenu(
-                            expanded = showLanguageMenu,
+                            expanded = languageMenuExpanded,
                             onDismissRequest = {
-                                showLanguageMenu = false
+                                languageMenuExpanded = false
                             }
                         ) {
 
@@ -246,7 +248,7 @@ private fun MainScreen() {
                                 },
                                 onClick = {
                                     language = AppLanguage.ARABIC
-                                    showLanguageMenu = false
+                                    languageMenuExpanded = false
                                 }
                             )
 
@@ -256,7 +258,7 @@ private fun MainScreen() {
                                 },
                                 onClick = {
                                     language = AppLanguage.ENGLISH
-                                    showLanguageMenu = false
+                                    languageMenuExpanded = false
                                 }
                             )
                         }
@@ -279,7 +281,7 @@ private fun MainScreen() {
                                 Color(0xFF151D24)
                             )
                             .clickable {
-                                showStandardMenu = true
+                                standardMenuExpanded = true
                             }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -290,7 +292,7 @@ private fun MainScreen() {
                         ) {
 
                             Text(
-                                text = if (isArabic) {
+                                text = if (arabic) {
                                     "المعيار"
                                 } else {
                                     "Standard"
@@ -300,7 +302,7 @@ private fun MainScreen() {
                             )
 
                             Text(
-                                text = selectedStandard.name,
+                                text = standard.name,
                                 color = TextPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -314,21 +316,21 @@ private fun MainScreen() {
                     }
 
                     DropdownMenu(
-                        expanded = showStandardMenu,
+                        expanded = standardMenuExpanded,
                         onDismissRequest = {
-                            showStandardMenu = false
+                            standardMenuExpanded = false
                         }
                     ) {
 
-                        Standard.values().forEach { standard ->
+                        Standard.values().forEach { item ->
 
                             DropdownMenuItem(
                                 text = {
-                                    Text(standard.name)
+                                    Text(item.name)
                                 },
                                 onClick = {
-                                    selectedStandard = standard
-                                    showStandardMenu = false
+                                    standard = item
+                                    standardMenuExpanded = false
                                 }
                             )
                         }
@@ -349,14 +351,14 @@ private fun MainScreen() {
                 ) {
 
                     items(
-                        items = menuItems,
+                        items = menu,
                         key = {
                             it.id
                         }
                     ) { item ->
 
                         val selected =
-                            selectedMenu == item.id
+                            selectedScreen == item.id
 
                         Row(
                             modifier = Modifier
@@ -374,7 +376,7 @@ private fun MainScreen() {
                                     }
                                 )
                                 .clickable {
-                                    selectedMenu = item.id
+                                    selectedScreen = item.id
                                 }
                                 .padding(
                                     horizontal = 14.dp,
@@ -421,19 +423,17 @@ private fun MainScreen() {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(4.dp)
+                        .padding(12.dp)
                 ) {
 
                     TextButton(
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = {
                             showAbout = true
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                        }
                     ) {
                         Text(
-                            text = if (isArabic) {
+                            text = if (arabic) {
                                 "عن البرنامج"
                             } else {
                                 "About"
@@ -443,15 +443,16 @@ private fun MainScreen() {
                     }
 
                     TextButton(
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = {
 
-                            updateChecking = true
+                            checkingUpdate = true
 
-                            coroutineScope.launch {
+                            scope.launch {
 
                                 try {
 
-                                    availableRelease =
+                                    release =
                                         updateManager
                                             .checkForUpdate()
 
@@ -459,7 +460,7 @@ private fun MainScreen() {
 
                                     Toast.makeText(
                                         context,
-                                        if (isArabic) {
+                                        if (arabic) {
                                             "تعذر التحقق من التحديثات"
                                         } else {
                                             "Unable to check for updates"
@@ -469,14 +470,13 @@ private fun MainScreen() {
 
                                 } finally {
 
-                                    updateChecking = false
+                                    checkingUpdate = false
                                 }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                        }
                     ) {
                         Text(
-                            text = if (isArabic) {
+                            text = if (arabic) {
                                 "التحقق من التحديث"
                             } else {
                                 "Check for update"
@@ -489,23 +489,23 @@ private fun MainScreen() {
 
             Box(
                 modifier = Modifier
-                    .weight(1f)
                     .fillMaxHeight()
+                    .weight(1f)
             ) {
 
-                when (selectedMenu) {
+                when (selectedScreen) {
 
                     "home" -> {
 
-                        MainHomeScreen(
+                        HomeContent(
                             language = language,
-                            standard = selectedStandard,
-                            onOpenConductorSizing = {
-                                selectedMenu =
-                                    "conductor_sizing_protection"
+                            standard = standard,
+                            onSld = {
+                                selectedScreen = "sld_editor"
                             },
-                            onOpenSld = {
-                                selectedMenu = "sld_editor"
+                            onConductorSizing = {
+                                selectedScreen =
+                                    "conductor_sizing_protection"
                             }
                         )
                     }
@@ -521,14 +521,14 @@ private fun MainScreen() {
 
                         ConductorSizingScreen(
                             language = language,
-                            standard = selectedStandard
+                            standard = standard
                         )
                     }
 
                     else -> {
 
                         EngineeringCalculatorScreen(
-                            calculation = selectedMenu,
+                            calculation = selectedScreen,
                             language = language
                         )
                     }
@@ -547,13 +547,13 @@ private fun MainScreen() {
         )
     }
 
-    if (updateChecking) {
+    if (checkingUpdate) {
 
         AlertDialog(
             onDismissRequest = {},
             title = {
                 Text(
-                    if (isArabic) {
+                    if (arabic) {
                         "التحقق من التحديث"
                     } else {
                         "Checking for update"
@@ -561,11 +561,13 @@ private fun MainScreen() {
                 )
             },
             text = {
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement =
                         Arrangement.Center
                 ) {
+
                     CircularProgressIndicator(
                         modifier = Modifier.size(32.dp)
                     )
@@ -575,15 +577,15 @@ private fun MainScreen() {
         )
     }
 
-    availableRelease?.let { release ->
+    release?.let { appRelease ->
 
         AlertDialog(
             onDismissRequest = {
-                availableRelease = null
+                release = null
             },
             title = {
                 Text(
-                    if (isArabic) {
+                    if (arabic) {
                         "تحديث جديد متاح"
                     } else {
                         "New update available"
@@ -592,10 +594,10 @@ private fun MainScreen() {
             },
             text = {
                 Text(
-                    if (isArabic) {
-                        "الإصدار ${release.versionName} متاح."
+                    if (arabic) {
+                        "الإصدار ${appRelease.versionName} متاح."
                     } else {
-                        "Version ${release.versionName} is available."
+                        "Version ${appRelease.versionName} is available."
                     }
                 )
             },
@@ -604,19 +606,19 @@ private fun MainScreen() {
                 TextButton(
                     onClick = {
 
-                        availableRelease = null
+                        release = null
 
                         try {
 
                             updateManager.downloadAndInstall(
-                                release
+                                appRelease
                             )
 
                         } catch (_: Exception) {
 
                             Toast.makeText(
                                 context,
-                                if (isArabic) {
+                                if (arabic) {
                                     "تعذر بدء التحديث"
                                 } else {
                                     "Unable to start update"
@@ -627,7 +629,7 @@ private fun MainScreen() {
                     }
                 ) {
                     Text(
-                        if (isArabic) {
+                        if (arabic) {
                             "تحديث"
                         } else {
                             "Update"
@@ -639,11 +641,11 @@ private fun MainScreen() {
 
                 TextButton(
                     onClick = {
-                        availableRelease = null
+                        release = null
                     }
                 ) {
                     Text(
-                        if (isArabic) {
+                        if (arabic) {
                             "إلغاء"
                         } else {
                             "Cancel"
@@ -656,11 +658,11 @@ private fun MainScreen() {
 }
 
 @Composable
-private fun MainHomeScreen(
+private fun HomeContent(
     language: AppLanguage,
     standard: Standard,
-    onOpenConductorSizing: () -> Unit,
-    onOpenSld: () -> Unit
+    onSld: () -> Unit,
+    onConductorSizing: () -> Unit
 ) {
 
     val arabic = language == AppLanguage.ARABIC
@@ -668,19 +670,16 @@ private fun MainHomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(DarkBackground)
-            .padding(28.dp)
-            .verticalScrollCompat(),
+            .verticalScroll(
+                rememberScrollState()
+            )
+            .padding(28.dp),
         verticalArrangement =
             Arrangement.spacedBy(18.dp)
     ) {
 
         Text(
-            text = if (arabic) {
-                "Electrical Calculations Pro"
-            } else {
-                "Electrical Calculations Pro"
-            },
+            text = "Electrical Calculations Pro",
             color = TextPrimary,
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold
@@ -705,19 +704,21 @@ private fun MainHomeScreen(
         ) {
 
             Column(
-                modifier = Modifier.padding(22.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(10.dp)
+                modifier = Modifier.padding(20.dp)
             ) {
 
                 Text(
                     text = if (arabic) {
-                        "المعيار الحالي"
+                        "المعيار المستخدم"
                     } else {
-                        "Current Standard"
+                        "Selected Standard"
                     },
                     color = TextSecondary,
                     fontSize = 13.sp
+                )
+
+                Spacer(
+                    modifier = Modifier.height(6.dp)
                 )
 
                 Text(
@@ -725,16 +726,6 @@ private fun MainHomeScreen(
                     color = PrimaryTeal,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = if (arabic) {
-                        "يمكن تغيير المعيار من القائمة الجانبية."
-                    } else {
-                        "You can change the standard from the side menu."
-                    },
-                    color = TextSecondary,
-                    fontSize = 13.sp
                 )
             }
         }
@@ -749,7 +740,7 @@ private fun MainHomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clickable {
-                        onOpenSld()
+                        onSld()
                     },
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFF202D3D)
@@ -758,9 +749,7 @@ private fun MainHomeScreen(
             ) {
 
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(20.dp)
                 ) {
 
                     Text(
@@ -768,6 +757,10 @@ private fun MainHomeScreen(
                         color = PrimaryTeal,
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
                     )
 
                     Text(
@@ -781,9 +774,13 @@ private fun MainHomeScreen(
                         fontWeight = FontWeight.Bold
                     )
 
+                    Spacer(
+                        modifier = Modifier.height(6.dp)
+                    )
+
                     Text(
                         text = if (arabic) {
-                            "رسم المخطط الأحادي والخروج بالحسابات Upstream"
+                            "رسم المخطط الأحادي وإجراء الحسابات Upstream"
                         } else {
                             "Draw the single-line diagram and perform upstream calculations"
                         },
@@ -797,7 +794,7 @@ private fun MainHomeScreen(
                 modifier = Modifier
                     .weight(1f)
                     .clickable {
-                        onOpenConductorSizing()
+                        onConductorSizing()
                     },
                 colors = CardDefaults.cardColors(
                     containerColor = Color(0xFF202D3D)
@@ -806,9 +803,7 @@ private fun MainHomeScreen(
             ) {
 
                 Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(20.dp)
                 ) {
 
                     Text(
@@ -816,6 +811,10 @@ private fun MainHomeScreen(
                         color = PrimaryTeal,
                         fontSize = 32.sp,
                         fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
                     )
 
                     Text(
@@ -829,11 +828,15 @@ private fun MainHomeScreen(
                         fontWeight = FontWeight.Bold
                     )
 
+                    Spacer(
+                        modifier = Modifier.height(6.dp)
+                    )
+
                     Text(
                         text = if (arabic) {
-                            "حساب واختيار الكابل ووسائل الحماية"
+                            "حساب واختيار الكابلات والحماية"
                         } else {
-                            "Calculate and select cables and protection"
+                            "Calculate cables and protection"
                         },
                         color = TextSecondary,
                         fontSize = 13.sp
@@ -851,9 +854,7 @@ private fun MainHomeScreen(
         ) {
 
             Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement =
-                    Arrangement.spacedBy(8.dp)
+                modifier = Modifier.padding(20.dp)
             ) {
 
                 Text(
@@ -865,6 +866,10 @@ private fun MainHomeScreen(
                     color = PrimaryTeal,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
+                )
+
+                Spacer(
+                    modifier = Modifier.height(10.dp)
                 )
 
                 Text(
@@ -892,10 +897,4 @@ private fun MainHomeScreen(
             }
         }
     }
-}
-
-private fun Modifier.verticalScrollCompat(): Modifier {
-    return this.then(
-        Modifier
-    )
 }
