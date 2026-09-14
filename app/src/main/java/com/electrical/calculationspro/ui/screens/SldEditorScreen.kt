@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,7 +56,6 @@ import com.electrical.calculationspro.data.SldProtectionCoordinationEngine
 import com.electrical.calculationspro.data.SldShortCircuitEngine
 import kotlin.math.hypot
 import kotlin.math.max
-import kotlin.math.min
 
 private val Background = Color(0xFF0B1116)
 private val CardColor = Color(0xFF151D24)
@@ -774,6 +774,14 @@ private fun SldCanvas(
     onEditNode: (SldNode) -> Unit,
     onEditConnection: (SldConnection) -> Unit
 ) {
+    val currentNodes by rememberUpdatedState(nodes)
+    val currentConnections by rememberUpdatedState(connections)
+    val currentOnSelectNode by rememberUpdatedState(onSelectNode)
+    val currentOnMoveNode by rememberUpdatedState(onMoveNode)
+    val currentOnSelectConnection by rememberUpdatedState(onSelectConnection)
+    val currentOnEditNode by rememberUpdatedState(onEditNode)
+    val currentOnEditConnection by rememberUpdatedState(onEditConnection)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -787,45 +795,45 @@ private fun SldCanvas(
                         onDoubleTap = { position ->
                             val node = findNode(
                                 position,
-                                nodes
+                                currentNodes
                             )
 
                             if (node != null) {
-                                onEditNode(node)
+                                currentOnEditNode(node)
                                 return@detectTapGestures
                             }
 
                             val connection =
                                 findConnection(
                                     position,
-                                    connections,
-                                    nodes
+                                    currentConnections,
+                                    currentNodes
                                 )
 
                             if (connection != null) {
-                                onEditConnection(connection)
+                                currentOnEditConnection(connection)
                             }
                         },
                         onTap = { position ->
                             val node = findNode(
                                 position,
-                                nodes
+                                currentNodes
                             )
 
                             if (node != null) {
-                                onSelectNode(node.id)
+                                currentOnSelectNode(node.id)
                                 return@detectTapGestures
                             }
 
                             val connection =
                                 findConnection(
                                     position,
-                                    connections,
-                                    nodes
+                                    currentConnections,
+                                    currentNodes
                                 )
 
                             if (connection != null) {
-                                onSelectConnection(
+                                currentOnSelectConnection(
                                     connection.id
                                 )
                             }
@@ -833,30 +841,43 @@ private fun SldCanvas(
                     )
                 }
                 .pointerInput(Unit) {
+                    var draggedNodeId: String? = null
+
                     detectDragGestures(
                         onDragStart = { position ->
                             val node = findNode(
                                 position,
-                                nodes
+                                currentNodes
                             )
 
-                            if (node != null) {
-                                onSelectNode(node.id)
-                            }
-                        },
-                        onDrag = { change, dragAmount ->
-                            val node =
-                                findNode(
-                                    change.position,
-                                    nodes
-                                )
+                            draggedNodeId = node?.id
 
                             if (node != null) {
-                                onMoveNode(
-                                    node.id,
-                                    node.x + dragAmount.x,
-                                    node.y + dragAmount.y
-                                )
+                                currentOnSelectNode(node.id)
+                            }
+                        },
+                        onDragEnd = {
+                            draggedNodeId = null
+                        },
+                        onDragCancel = {
+                            draggedNodeId = null
+                        },
+                        onDrag = { change, dragAmount ->
+                            val id = draggedNodeId
+
+                            if (id != null) {
+                                val node =
+                                    currentNodes.firstOrNull {
+                                        it.id == id
+                                    }
+
+                                if (node != null) {
+                                    currentOnMoveNode(
+                                        id,
+                                        node.x + dragAmount.x,
+                                        node.y + dragAmount.y
+                                    )
+                                }
                             }
 
                             change.consume()
@@ -864,14 +885,14 @@ private fun SldCanvas(
                     )
                 }
         ) {
-            connections.forEach { connection ->
+            currentConnections.forEach { connection ->
                 val from =
-                    nodes.firstOrNull {
+                    currentNodes.firstOrNull {
                         it.id == connection.fromNodeId
                     }
 
                 val to =
-                    nodes.firstOrNull {
+                    currentNodes.firstOrNull {
                         it.id == connection.toNodeId
                     }
 
@@ -886,7 +907,7 @@ private fun SldCanvas(
                 }
             }
 
-            nodes.forEach { node ->
+            currentNodes.forEach { node ->
                 drawNode(
                     node = node,
                     selected =
@@ -1029,14 +1050,13 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawConnection(
         )
     )
 
-    val dx = end.x - start.x
-    val dy = end.y - start.y
-    val length = hypot(dx, dy)
+    val arrowDx = end.x - start.x
+    val arrowDy = end.y - start.y
+    val arrowLength = hypot(arrowDx, arrowDy)
 
-    if (length > 0f) {
-        val ux = dx / length
-        val uy = dy / length
-
+    if (arrowLength > 0f) {
+        val ux = arrowDx / arrowLength
+        val uy = arrowDy / arrowLength
         val arrowSize = 10f
 
         val p1 =
@@ -1270,12 +1290,7 @@ private fun NodeEditorDialog(
                 if (type == SldNodeType.GENERATOR) {
                     EditorField(
                         value = generatorXd,
-                        label =
-                            if (arabic) {
-                                "Xd'' %"
-                            } else {
-                                "Xd'' %"
-                            },
+                        label = "Xd'' %",
                         onValueChange = onGeneratorXd
                     )
                 }
@@ -1479,21 +1494,13 @@ private fun TypeSelector(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .padding(1.dp)
-                .background(
-                    Color.Transparent
-                )
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures {
-                            expanded = true
-                        }
+                .background(Color.Transparent)
+                .pointerInput(Unit) {
+                    detectTapGestures {
+                        expanded = true
                     }
-            )
-        }
+                }
+        )
 
         DropdownMenu(
             expanded = expanded,
