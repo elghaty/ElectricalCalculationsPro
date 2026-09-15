@@ -1,5 +1,6 @@
 package com.electrical.calculationspro.ui.screens
 
+import android.graphics.Paint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -35,11 +36,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
@@ -332,7 +330,9 @@ fun SldEditorScreen(
         val nodeId = selectedNodeId
 
         if (nodeId != null && nodeId != "source-1") {
-            nodes = nodes.filterNot { it.id == nodeId }
+            nodes = nodes.filterNot {
+                it.id == nodeId
+            }
 
             connections = connections.filter {
                 it.fromNodeId != nodeId &&
@@ -419,9 +419,21 @@ fun SldEditorScreen(
     }
 
     fun generateCompleteSld() {
-        val source = nodes.firstOrNull {
+        val existingSource = nodes.firstOrNull {
             it.type == SldNodeType.SOURCE
-        } ?: SldNode(
+        }
+
+        val source = existingSource?.copy(
+            id = "source-1",
+            x = 80f,
+            y = 280f,
+            sourceShortCircuitMva =
+                if (existingSource.sourceShortCircuitMva > 0.0) {
+                    existingSource.sourceShortCircuitMva
+                } else {
+                    500.0
+                }
+        ) ?: SldNode(
             id = "source-1",
             name = "MAIN SOURCE",
             type = SldNodeType.SOURCE,
@@ -431,20 +443,13 @@ fun SldEditorScreen(
             sourceShortCircuitMva = 500.0
         )
 
-        val sourceNode = source.copy(
-            id = "source-1",
-            name = if (source.name.isBlank()) "MAIN SOURCE" else source.name,
-            x = 80f,
-            y = 280f
-        )
-
         val breaker1 = SldNode(
             id = "auto-cb-1",
             name = "MAIN ACB",
             type = SldNodeType.BREAKER,
             x = 300f,
             y = 280f,
-            voltage = sourceNode.voltage
+            voltage = source.voltage
         )
 
         val transformer = SldNode(
@@ -523,7 +528,7 @@ fun SldEditorScreen(
         )
 
         nodes = listOf(
-            sourceNode,
+            source,
             breaker1,
             transformer,
             bus,
@@ -537,7 +542,7 @@ fun SldEditorScreen(
         connections = listOf(
             SldConnection(
                 id = "auto-c-1",
-                fromNodeId = sourceNode.id,
+                fromNodeId = source.id,
                 toNodeId = breaker1.id,
                 lengthMeters = 1.0,
                 resistanceOhmPerKm = 0.01,
@@ -640,53 +645,74 @@ fun SldEditorScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(8.dp)
+                .horizontalScroll(
+                    rememberScrollState()
+                ),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            onBack?.let {
-                Button(onClick = it) {
-                    Text(if (arabic) "رجوع" else "Back")
+            if (onBack != null) {
+                Button(
+                    onClick = onBack
+                ) {
+                    Text(
+                        if (arabic) "رجوع" else "Back"
+                    )
                 }
             }
 
             Button(
-                onClick = { openNewNode(SldNodeType.SOURCE) }
+                onClick = {
+                    openNewNode(SldNodeType.SOURCE)
+                }
             ) {
                 Text("Source")
             }
 
             Button(
-                onClick = { openNewNode(SldNodeType.TRANSFORMER) }
+                onClick = {
+                    openNewNode(SldNodeType.TRANSFORMER)
+                }
             ) {
                 Text("Transformer")
             }
 
             Button(
-                onClick = { openNewNode(SldNodeType.GENERATOR) }
+                onClick = {
+                    openNewNode(SldNodeType.GENERATOR)
+                }
             ) {
                 Text("Generator")
             }
 
             Button(
-                onClick = { openNewNode(SldNodeType.BUS) }
+                onClick = {
+                    openNewNode(SldNodeType.BUS)
+                }
             ) {
                 Text("Bus")
             }
 
             Button(
-                onClick = { openNewNode(SldNodeType.BREAKER) }
+                onClick = {
+                    openNewNode(SldNodeType.BREAKER)
+                }
             ) {
                 Text("Breaker")
             }
 
             Button(
-                onClick = { openNewNode(SldNodeType.PANEL) }
+                onClick = {
+                    openNewNode(SldNodeType.PANEL)
+                }
             ) {
                 Text("Panel")
             }
 
             Button(
-                onClick = { openNewNode(SldNodeType.LOAD) }
+                onClick = {
+                    openNewNode(SldNodeType.LOAD)
+                }
             ) {
                 Text("Load")
             }
@@ -695,11 +721,18 @@ fun SldEditorScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp),
+                .padding(
+                    horizontal = 8.dp
+                )
+                .horizontalScroll(
+                    rememberScrollState()
+                ),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Button(
-                onClick = { connectSelected() }
+                onClick = {
+                    connectSelected()
+                }
             ) {
                 Text(
                     if (connectionStartId == null) {
@@ -711,31 +744,41 @@ fun SldEditorScreen(
             }
 
             Button(
-                onClick = { deleteSelected() }
+                onClick = {
+                    deleteSelected()
+                }
             ) {
                 Text("Delete")
             }
 
             Button(
-                onClick = { runShortCircuit() }
+                onClick = {
+                    runShortCircuit()
+                }
             ) {
                 Text("Short Circuit")
             }
 
             Button(
-                onClick = { runPanelSchedule() }
+                onClick = {
+                    runPanelSchedule()
+                }
             ) {
                 Text("Panel Schedule")
             }
 
             Button(
-                onClick = { generateCompleteSld() }
+                onClick = {
+                    generateCompleteSld()
+                }
             ) {
                 Text("Generate Complete SLD")
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(
+            modifier = Modifier.height(4.dp)
+        )
 
         SldCanvas(
             nodes = nodes,
@@ -751,8 +794,14 @@ fun SldEditorScreen(
                 nodes = nodes.map { node ->
                     if (node.id == id) {
                         node.copy(
-                            x = max(20f, node.x + dx),
-                            y = max(20f, node.y + dy)
+                            x = max(
+                                20f,
+                                node.x + dx
+                            ),
+                            y = max(
+                                20f,
+                                node.y + dy
+                            )
                         )
                     } else {
                         node
@@ -763,11 +812,11 @@ fun SldEditorScreen(
                 selectedConnectionId = it
                 selectedNodeId = null
             },
-            onEditNode = { node ->
-                editNode(node)
+            onEditNode = {
+                editNode(it)
             },
-            onEditConnection = { connection ->
-                editConnection(connection)
+            onEditConnection = {
+                editConnection(it)
             }
         )
     }
@@ -786,16 +835,36 @@ fun SldEditorScreen(
             transformerZ = transformerZ,
             generatorXd = generatorXd,
             sourceMva = sourceMva,
-            onNameChange = { name = it },
-            onVoltageChange = { voltage = it },
-            onLoadKwChange = { loadKw = it },
-            onPfChange = { pf = it },
-            onDemandChange = { demand = it },
-            onKvaChange = { kva = it },
-            onTransformerZChange = { transformerZ = it },
-            onGeneratorXdChange = { generatorXd = it },
-            onSourceMvaChange = { sourceMva = it },
-            onSave = { saveNode() },
+            onNameChange = {
+                name = it
+            },
+            onVoltageChange = {
+                voltage = it
+            },
+            onLoadKwChange = {
+                loadKw = it
+            },
+            onPfChange = {
+                pf = it
+            },
+            onDemandChange = {
+                demand = it
+            },
+            onKvaChange = {
+                kva = it
+            },
+            onTransformerZChange = {
+                transformerZ = it
+            },
+            onGeneratorXdChange = {
+                generatorXd = it
+            },
+            onSourceMvaChange = {
+                sourceMva = it
+            },
+            onSave = {
+                saveNode()
+            },
             onCancel = {
                 showNodeDialog = false
             }
@@ -811,13 +880,27 @@ fun SldEditorScreen(
             cableSize = cableSize,
             parallelRuns = parallelRuns,
             capacity = capacity,
-            onLengthChange = { length = it },
-            onResistanceChange = { resistance = it },
-            onReactanceChange = { reactance = it },
-            onCableSizeChange = { cableSize = it },
-            onParallelRunsChange = { parallelRuns = it },
-            onCapacityChange = { capacity = it },
-            onSave = { saveConnection() },
+            onLengthChange = {
+                length = it
+            },
+            onResistanceChange = {
+                resistance = it
+            },
+            onReactanceChange = {
+                reactance = it
+            },
+            onCableSizeChange = {
+                cableSize = it
+            },
+            onParallelRunsChange = {
+                parallelRuns = it
+            },
+            onCapacityChange = {
+                capacity = it
+            },
+            onSave = {
+                saveConnection()
+            },
             onCancel = {
                 showConnectionDialog = false
             }
@@ -848,8 +931,6 @@ private fun SldCanvas(
     onEditNode: (SldNode) -> Unit,
     onEditConnection: (SldConnection) -> Unit
 ) {
-    val textMeasurer = rememberTextMeasurer()
-
     val currentNodes by rememberUpdatedState(nodes)
     val currentConnections by rememberUpdatedState(connections)
     val currentSelectNode by rememberUpdatedState(onSelectNode)
@@ -858,37 +939,41 @@ private fun SldCanvas(
     val currentEditNode by rememberUpdatedState(onEditNode)
     val currentEditConnection by rememberUpdatedState(onEditConnection)
 
-    val horizontal = rememberScrollState()
-    val vertical = rememberScrollState()
+    val horizontalScroll = rememberScrollState()
+    val verticalScroll = rememberScrollState()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .horizontalScroll(horizontal)
-            .verticalScroll(vertical)
+            .horizontalScroll(horizontalScroll)
+            .verticalScroll(verticalScroll)
             .background(CanvasBackground)
     ) {
         Canvas(
             modifier = Modifier
-                .width(2300.dp)
-                .height(1000.dp)
+                .width(2400.dp)
+                .height(1100.dp)
                 .pointerInput(Unit) {
                     detectTapGestures(
                         onDoubleTap = { position ->
-                            findNode(
+                            val node = findNode(
                                 position,
                                 currentNodes
-                            )?.let {
-                                currentEditNode(it)
+                            )
+
+                            if (node != null) {
+                                currentEditNode(node)
                                 return@detectTapGestures
                             }
 
-                            findConnection(
+                            val connection = findConnection(
                                 position,
                                 currentNodes,
                                 currentConnections
-                            )?.let {
-                                currentEditConnection(it)
+                            )
+
+                            if (connection != null) {
+                                currentEditConnection(connection)
                             }
                         },
                         onTap = { position ->
@@ -909,7 +994,9 @@ private fun SldCanvas(
                             )
 
                             if (connection != null) {
-                                currentSelectConnection(connection.id)
+                                currentSelectConnection(
+                                    connection.id
+                                )
                             }
                         }
                     )
@@ -950,17 +1037,21 @@ private fun SldCanvas(
                 drawConnection(
                     connection = connection,
                     nodes = nodes,
-                    selected = connection.id == selectedConnectionId,
-                    textMeasurer = textMeasurer
+                    selected =
+                        connection.id ==
+                            selectedConnectionId
                 )
             }
 
             nodes.forEach { node ->
                 drawNode(
                     node = node,
-                    selected = node.id == selectedNodeId,
-                    connectionStart = node.id == connectionStartId,
-                    textMeasurer = textMeasurer
+                    selected =
+                        node.id ==
+                            selectedNodeId,
+                    connectionStart =
+                        node.id ==
+                            connectionStartId
                 )
             }
         }
@@ -970,8 +1061,7 @@ private fun SldCanvas(
 private fun DrawScope.drawConnection(
     connection: SldConnection,
     nodes: List<SldNode>,
-    selected: Boolean,
-    textMeasurer: androidx.compose.ui.text.TextMeasurer
+    selected: Boolean
 ) {
     val from = nodes.firstOrNull {
         it.id == connection.fromNodeId
@@ -1002,22 +1092,44 @@ private fun DrawScope.drawConnection(
 
     drawPath(
         path = path,
-        color = if (selected) Accent else CableColor,
+        color = if (selected) {
+            Accent
+        } else {
+            CableColor
+        },
         style = Stroke(
-            width = if (selected) 7f else 4f
+            width = if (selected) {
+                7f
+            } else {
+                4f
+            }
         )
     )
 
     drawLine(
-        color = if (selected) Accent else CableColor,
-        start = Offset(end.x - 18f, end.y - 9f),
+        color = if (selected) {
+            Accent
+        } else {
+            CableColor
+        },
+        start = Offset(
+            end.x - 18f,
+            end.y - 9f
+        ),
         end = end,
         strokeWidth = 4f
     )
 
     drawLine(
-        color = if (selected) Accent else CableColor,
-        start = Offset(end.x - 18f, end.y + 9f),
+        color = if (selected) {
+            Accent
+        } else {
+            CableColor
+        },
+        start = Offset(
+            end.x - 18f,
+            end.y + 9f
+        ),
         end = end,
         strokeWidth = 4f
     )
@@ -1028,25 +1140,19 @@ private fun DrawScope.drawConnection(
         "CABLE"
     }
 
-    drawText(
-        textMeasurer = textMeasurer,
+    drawCanvasText(
         text = label,
-        topLeft = Offset(
-            midX - 45f,
-            min(start.y, end.y) - 28f
-        ),
-        style = TextStyle(
-            color = Secondary,
-            fontSize = 13.sp
-        )
+        x = midX - 45f,
+        y = min(start.y, end.y) - 28f,
+        color = Secondary,
+        sizeSp = 13f
     )
 }
 
 private fun DrawScope.drawNode(
     node: SldNode,
     selected: Boolean,
-    connectionStart: Boolean,
-    textMeasurer: androidx.compose.ui.text.TextMeasurer
+    connectionStart: Boolean
 ) {
     val x = node.x
     val y = node.y
@@ -1057,21 +1163,36 @@ private fun DrawScope.drawNode(
             drawCircle(
                 color = color,
                 radius = 38f,
-                center = Offset(x + 65f, y + 48f),
+                center = Offset(
+                    x + 65f,
+                    y + 48f
+                ),
                 style = Stroke(6f)
             )
 
             drawLine(
                 color = color,
-                start = Offset(x + 65f, y + 10f),
-                end = Offset(x + 65f, y + 86f),
+                start = Offset(
+                    x + 65f,
+                    y + 10f
+                ),
+                end = Offset(
+                    x + 65f,
+                    y + 86f
+                ),
                 strokeWidth = 4f
             )
 
             drawLine(
                 color = color,
-                start = Offset(x + 27f, y + 48f),
-                end = Offset(x + 103f, y + 48f),
+                start = Offset(
+                    x + 27f,
+                    y + 48f
+                ),
+                end = Offset(
+                    x + 103f,
+                    y + 48f
+                ),
                 strokeWidth = 4f
             )
         }
@@ -1080,14 +1201,20 @@ private fun DrawScope.drawNode(
             drawCircle(
                 color = color,
                 radius = 29f,
-                center = Offset(x + 48f, y + 48f),
+                center = Offset(
+                    x + 48f,
+                    y + 48f
+                ),
                 style = Stroke(6f)
             )
 
             drawCircle(
                 color = color,
                 radius = 29f,
-                center = Offset(x + 91f, y + 48f),
+                center = Offset(
+                    x + 91f,
+                    y + 48f
+                ),
                 style = Stroke(6f)
             )
         }
@@ -1096,27 +1223,34 @@ private fun DrawScope.drawNode(
             drawCircle(
                 color = color,
                 radius = 38f,
-                center = Offset(x + 65f, y + 48f),
+                center = Offset(
+                    x + 65f,
+                    y + 48f
+                ),
                 style = Stroke(6f)
             )
 
-            drawText(
-                textMeasurer = textMeasurer,
+            drawCanvasText(
                 text = "G",
-                topLeft = Offset(x + 55f, y + 29f),
-                style = TextStyle(
-                    color = color,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                x = x + 55f,
+                y = y + 57f,
+                color = color,
+                sizeSp = 28f,
+                bold = true
             )
         }
 
         SldNodeType.BUS -> {
             drawLine(
                 color = color,
-                start = Offset(x + 8f, y + 50f),
-                end = Offset(x + 158f, y + 50f),
+                start = Offset(
+                    x + 8f,
+                    y + 50f
+                ),
+                end = Offset(
+                    x + 158f,
+                    y + 50f
+                ),
                 strokeWidth = 14f
             )
         }
@@ -1124,14 +1258,26 @@ private fun DrawScope.drawNode(
         SldNodeType.BREAKER -> {
             drawRect(
                 color = color,
-                topLeft = Offset(x + 38f, y + 23f),
-                size = Size(60f, 52f)
+                topLeft = Offset(
+                    x + 38f,
+                    y + 23f
+                ),
+                size = Size(
+                    60f,
+                    52f
+                )
             )
 
             drawLine(
                 color = Color.White,
-                start = Offset(x + 50f, y + 63f),
-                end = Offset(x + 87f, y + 38f),
+                start = Offset(
+                    x + 50f,
+                    y + 63f
+                ),
+                end = Offset(
+                    x + 87f,
+                    y + 38f
+                ),
                 strokeWidth = 5f
             )
         }
@@ -1139,15 +1285,27 @@ private fun DrawScope.drawNode(
         SldNodeType.PANEL -> {
             drawRect(
                 color = color,
-                topLeft = Offset(x + 25f, y + 20f),
-                size = Size(105f, 66f),
+                topLeft = Offset(
+                    x + 25f,
+                    y + 20f
+                ),
+                size = Size(
+                    105f,
+                    66f
+                ),
                 style = Stroke(6f)
             )
 
             drawLine(
                 color = color,
-                start = Offset(x + 35f, y + 43f),
-                end = Offset(x + 120f, y + 43f),
+                start = Offset(
+                    x + 35f,
+                    y + 43f
+                ),
+                end = Offset(
+                    x + 120f,
+                    y + 43f
+                ),
                 strokeWidth = 5f
             )
         }
@@ -1156,26 +1314,34 @@ private fun DrawScope.drawNode(
             drawCircle(
                 color = color,
                 radius = 34f,
-                center = Offset(x + 65f, y + 48f)
+                center = Offset(
+                    x + 65f,
+                    y + 48f
+                )
             )
 
-            drawText(
-                textMeasurer = textMeasurer,
+            drawCanvasText(
                 text = "L",
-                topLeft = Offset(x + 56f, y + 29f),
-                style = TextStyle(
-                    color = Color.White,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                x = x + 56f,
+                y = y + 58f,
+                color = Color.White,
+                sizeSp = 28f,
+                bold = true
             )
         }
     }
 
     if (selected || connectionStart) {
         drawRect(
-            color = if (connectionStart) Accent else Selected,
-            topLeft = Offset(x - 5f, y - 5f),
+            color = if (connectionStart) {
+                Accent
+            } else {
+                Selected
+            },
+            topLeft = Offset(
+                x - 5f,
+                y - 5f
+            ),
             size = Size(
                 NODE_WIDTH + 10f,
                 NODE_HEIGHT + 10f
@@ -1184,15 +1350,13 @@ private fun DrawScope.drawNode(
         )
     }
 
-    drawText(
-        textMeasurer = textMeasurer,
+    drawCanvasText(
         text = node.name,
-        topLeft = Offset(x, y + 91f),
-        style = TextStyle(
-            color = Primary,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold
-        )
+        x = x,
+        y = y + 106f,
+        color = Primary,
+        sizeSp = 15f,
+        bold = true
     )
 
     val lines = when (node.type) {
@@ -1233,22 +1397,72 @@ private fun DrawScope.drawNode(
     }
 
     lines.forEachIndexed { index, line ->
-        drawText(
-            textMeasurer = textMeasurer,
+        drawCanvasText(
             text = line,
-            topLeft = Offset(
-                x + 4f,
-                y + 114f + index * 18f
-            ),
-            style = TextStyle(
-                color = Secondary,
-                fontSize = 12.sp
-            )
+            x = x + 4f,
+            y = y + 126f + index * 18f,
+            color = Secondary,
+            sizeSp = 12f
         )
     }
 }
 
-private fun nodeColor(type: SldNodeType): Color {
+private fun DrawScope.drawCanvasText(
+    text: String,
+    x: Float,
+    y: Float,
+    color: Color,
+    sizeSp: Float,
+    bold: Boolean = false
+) {
+    drawIntoCanvas { canvas ->
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color.toArgbSafe()
+            textSize = sizeSp * density
+            typeface = if (bold) {
+                android.graphics.Typeface.DEFAULT_BOLD
+            } else {
+                android.graphics.Typeface.DEFAULT
+            }
+        }
+
+        canvas.nativeCanvas.drawText(
+            text,
+            x,
+            y,
+            paint
+        )
+    }
+}
+
+private fun Color.toArgbSafe(): Int {
+    val a = (alpha * 255f)
+        .coerceIn(0f, 255f)
+        .toInt()
+
+    val r = (red * 255f)
+        .coerceIn(0f, 255f)
+        .toInt()
+
+    val g = (green * 255f)
+        .coerceIn(0f, 255f)
+        .toInt()
+
+    val b = (blue * 255f)
+        .coerceIn(0f, 255f)
+        .toInt()
+
+    return android.graphics.Color.argb(
+        a,
+        r,
+        g,
+        b
+    )
+}
+
+private fun nodeColor(
+    type: SldNodeType
+): Color {
     return when (type) {
         SldNodeType.SOURCE -> SourceColor
         SldNodeType.TRANSFORMER -> TransformerColor
@@ -1304,24 +1518,39 @@ private fun findConnection(
         val d1 = segmentDistance(
             position,
             start,
-            Offset(midX, start.y)
+            Offset(
+                midX,
+                start.y
+            )
         )
 
         val d2 = segmentDistance(
             position,
-            Offset(midX, start.y),
-            Offset(midX, end.y)
+            Offset(
+                midX,
+                start.y
+            ),
+            Offset(
+                midX,
+                end.y
+            )
         )
 
         val d3 = segmentDistance(
             position,
-            Offset(midX, end.y),
+            Offset(
+                midX,
+                end.y
+            ),
             end
         )
 
         val distance = min(
             d1,
-            min(d2, d3)
+            min(
+                d2,
+                d3
+            )
         )
 
         if (distance < bestDistance) {
@@ -1330,7 +1559,11 @@ private fun findConnection(
         }
     }
 
-    return if (bestDistance <= 25f) best else null
+    return if (bestDistance <= 25f) {
+        best
+    } else {
+        null
+    }
 }
 
 private fun segmentDistance(
@@ -1351,11 +1584,17 @@ private fun segmentDistance(
     val t = (
         (p.x - a.x) * dx +
             (p.y - a.y) * dy
-        ) / (dx * dx + dy * dy)
+        ) / (
+        dx * dx +
+            dy * dy
+        )
 
     val clamped = max(
         0f,
-        min(1f, t)
+        min(
+            1f,
+            t
+        )
     )
 
     val x = a.x + clamped * dx
@@ -1398,21 +1637,31 @@ private fun NodeEditorDialog(
         title = {
             Text(
                 if (editing) {
-                    if (arabic) "تعديل العنصر" else "Edit Element"
+                    if (arabic) {
+                        "تعديل العنصر"
+                    } else {
+                        "Edit Element"
+                    }
                 } else {
-                    if (arabic) "إضافة عنصر" else "Add Element"
+                    if (arabic) {
+                        "إضافة عنصر"
+                    } else {
+                        "Add Element"
+                    }
                 }
             )
         },
         text = {
             Column(
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.verticalScroll(
+                    rememberScrollState()
+                ),
+                verticalArrangement = Arrangement.spacedBy(
+                    8.dp
+                )
             ) {
                 Text(
-                    text = type.name,
-                    fontWeight = FontWeight.Bold
+                    text = type.name
                 )
 
                 OutlinedTextField(
@@ -1439,7 +1688,9 @@ private fun NodeEditorDialog(
                             value = sourceMva,
                             onValueChange = onSourceMvaChange,
                             label = {
-                                Text("Source Fault Level (MVA)")
+                                Text(
+                                    "Source Fault Level (MVA)"
+                                )
                             },
                             singleLine = true
                         )
@@ -1450,7 +1701,9 @@ private fun NodeEditorDialog(
                             value = kva,
                             onValueChange = onKvaChange,
                             label = {
-                                Text("Transformer Rating (kVA)")
+                                Text(
+                                    "Transformer Rating (kVA)"
+                                )
                             },
                             singleLine = true
                         )
@@ -1459,7 +1712,9 @@ private fun NodeEditorDialog(
                             value = transformerZ,
                             onValueChange = onTransformerZChange,
                             label = {
-                                Text("Transformer %Z")
+                                Text(
+                                    "Transformer %Z"
+                                )
                             },
                             singleLine = true
                         )
@@ -1470,7 +1725,9 @@ private fun NodeEditorDialog(
                             value = kva,
                             onValueChange = onKvaChange,
                             label = {
-                                Text("Generator Rating (kVA)")
+                                Text(
+                                    "Generator Rating (kVA)"
+                                )
                             },
                             singleLine = true
                         )
@@ -1490,7 +1747,9 @@ private fun NodeEditorDialog(
                             value = kva,
                             onValueChange = onKvaChange,
                             label = {
-                                Text("Panel Rating (kVA)")
+                                Text(
+                                    "Panel Rating (kVA)"
+                                )
                             },
                             singleLine = true
                         )
@@ -1531,13 +1790,29 @@ private fun NodeEditorDialog(
             }
         },
         confirmButton = {
-            Button(onClick = onSave) {
-                Text(if (arabic) "حفظ" else "Save")
+            Button(
+                onClick = onSave
+            ) {
+                Text(
+                    if (arabic) {
+                        "حفظ"
+                    } else {
+                        "Save"
+                    }
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onCancel) {
-                Text(if (arabic) "إلغاء" else "Cancel")
+            TextButton(
+                onClick = onCancel
+            ) {
+                Text(
+                    if (arabic) {
+                        "إلغاء"
+                    } else {
+                        "Cancel"
+                    }
+                )
             }
         }
     )
@@ -1577,7 +1852,9 @@ private fun ConnectionEditorDialog(
                 modifier = Modifier.verticalScroll(
                     rememberScrollState()
                 ),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(
+                    8.dp
+                )
             ) {
                 OutlinedTextField(
                     value = length,
@@ -1610,7 +1887,9 @@ private fun ConnectionEditorDialog(
                     value = cableSize,
                     onValueChange = onCableSizeChange,
                     label = {
-                        Text("Cable Section (mm²)")
+                        Text(
+                            "Cable Section (mm²)"
+                        )
                     },
                     singleLine = true
                 )
@@ -1628,20 +1907,38 @@ private fun ConnectionEditorDialog(
                     value = capacity,
                     onValueChange = onCapacityChange,
                     label = {
-                        Text("Current Capacity (A)")
+                        Text(
+                            "Current Capacity (A)"
+                        )
                     },
                     singleLine = true
                 )
             }
         },
         confirmButton = {
-            Button(onClick = onSave) {
-                Text(if (arabic) "حفظ" else "Save")
+            Button(
+                onClick = onSave
+            ) {
+                Text(
+                    if (arabic) {
+                        "حفظ"
+                    } else {
+                        "Save"
+                    }
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onCancel) {
-                Text(if (arabic) "إلغاء" else "Cancel")
+            TextButton(
+                onClick = onCancel
+            ) {
+                Text(
+                    if (arabic) {
+                        "إلغاء"
+                    } else {
+                        "Cancel"
+                    }
+                )
             }
         }
     )
@@ -1673,16 +1970,15 @@ private fun ReportDialog(
                 ) {
                     Text(
                         text = text,
-                        style = TextStyle(
-                            fontSize = 13.sp,
-                            color = Primary
-                        )
+                        fontSize = 13.sp
                     )
                 }
             }
         },
         confirmButton = {
-            Button(onClick = onClose) {
+            Button(
+                onClick = onClose
+            ) {
                 Text("Close")
             }
         }
@@ -1697,45 +1993,64 @@ private fun buildShortCircuitReport(
     val result = StringBuilder()
 
     if (arabic) {
-        result.appendLine("تقرير هندسي لحساب تيارات القصر")
-        result.appendLine("================================")
+        result.appendLine(
+            "تقرير هندسي لحساب تيارات القصر"
+        )
+        result.appendLine(
+            "================================"
+        )
         result.appendLine()
+
         result.appendLine(
             "أقصى تيار قصر متماثل: " +
                 "${fmt(study.maximumFaultCurrentKa)} kA"
         )
+
         result.appendLine(
             "أقصى تيار Peak: " +
                 "${fmt(study.maximumPeakCurrentKa)} kA"
         )
+
         result.appendLine(
             "أقصى قدرة قصر: " +
                 "${fmt(study.maximumFaultMva)} MVA"
         )
+
         result.appendLine()
 
         study.results.values.forEachIndexed { index, item ->
             result.appendLine(
                 "${index + 1}. ${item.nodeName}"
             )
+
             result.appendLine(
                 "   الجهد = ${fmt(item.voltageV)} V"
             )
+
             result.appendLine(
-                "   Ik'' = ${fmt(item.initialSymmetricalCurrentKa)} kA"
+                "   Ik'' = " +
+                    "${fmt(item.initialSymmetricalCurrentKa)} kA"
             )
+
             result.appendLine(
-                "   Ip = ${fmt(item.peakCurrentKa)} kA"
+                "   Ip = " +
+                    "${fmt(item.peakCurrentKa)} kA"
             )
+
             result.appendLine(
-                "   Ith = ${fmt(item.thermalCurrentKa)} kA"
+                "   Ith = " +
+                    "${fmt(item.thermalCurrentKa)} kA"
             )
+
             result.appendLine(
-                "   Fault MVA = ${fmt(item.shortCircuitMva)} MVA"
+                "   Fault MVA = " +
+                    "${fmt(item.shortCircuitMva)} MVA"
             )
+
             result.appendLine(
                 "   X/R = ${fmt(item.xrRatio)}"
             )
+
             result.appendLine(
                 "   Breaker Required = " +
                     "${fmt(item.breakerRequiredKa)} kA"
@@ -1750,45 +2065,64 @@ private fun buildShortCircuitReport(
             result.appendLine()
         }
     } else {
-        result.appendLine("SHORT CIRCUIT ENGINEERING REPORT")
-        result.appendLine("================================")
+        result.appendLine(
+            "SHORT CIRCUIT ENGINEERING REPORT"
+        )
+        result.appendLine(
+            "================================"
+        )
         result.appendLine()
+
         result.appendLine(
             "Maximum symmetrical fault current: " +
                 "${fmt(study.maximumFaultCurrentKa)} kA"
         )
+
         result.appendLine(
             "Maximum peak current: " +
                 "${fmt(study.maximumPeakCurrentKa)} kA"
         )
+
         result.appendLine(
             "Maximum fault level: " +
                 "${fmt(study.maximumFaultMva)} MVA"
         )
+
         result.appendLine()
 
         study.results.values.forEachIndexed { index, item ->
             result.appendLine(
                 "${index + 1}. ${item.nodeName}"
             )
+
             result.appendLine(
                 "   Voltage = ${fmt(item.voltageV)} V"
             )
+
             result.appendLine(
-                "   Ik'' = ${fmt(item.initialSymmetricalCurrentKa)} kA"
+                "   Ik'' = " +
+                    "${fmt(item.initialSymmetricalCurrentKa)} kA"
             )
+
             result.appendLine(
-                "   Ip = ${fmt(item.peakCurrentKa)} kA"
+                "   Ip = " +
+                    "${fmt(item.peakCurrentKa)} kA"
             )
+
             result.appendLine(
-                "   Ith = ${fmt(item.thermalCurrentKa)} kA"
+                "   Ith = " +
+                    "${fmt(item.thermalCurrentKa)} kA"
             )
+
             result.appendLine(
-                "   Fault MVA = ${fmt(item.shortCircuitMva)} MVA"
+                "   Fault MVA = " +
+                    "${fmt(item.shortCircuitMva)} MVA"
             )
+
             result.appendLine(
                 "   X/R = ${fmt(item.xrRatio)}"
             )
+
             result.appendLine(
                 "   Breaker Required = " +
                     "${fmt(item.breakerRequiredKa)} kA"
@@ -1820,42 +2154,46 @@ private fun buildPanelSchedule(
             it.toNodeId == panel.id
     }
 
-    if (arabic) {
-        result.appendLine("PANEL SCHEDULE")
-        result.appendLine("==============================")
-        result.appendLine("Panel: ${panel.name}")
-        result.appendLine("Voltage: ${fmt(panel.voltage)} V")
-        result.appendLine(
-            "Rating: ${fmt(panel.ratedKva)} kVA"
-        )
-        result.appendLine()
-        result.appendLine(
-            "No | Load | kW | PF | Cable | Runs | Capacity"
-        )
-        result.appendLine(
-            "----------------------------------------------"
-        )
-    } else {
-        result.appendLine("PANEL SCHEDULE")
-        result.appendLine("==============================")
-        result.appendLine("Panel: ${panel.name}")
-        result.appendLine("Voltage: ${fmt(panel.voltage)} V")
-        result.appendLine(
-            "Rating: ${fmt(panel.ratedKva)} kVA"
-        )
-        result.appendLine()
-        result.appendLine(
-            "No | Load | kW | PF | Cable | Runs | Capacity"
-        )
-        result.appendLine(
-            "----------------------------------------------"
-        )
-    }
+    result.appendLine(
+        if (arabic) {
+            "جدول اللوحة"
+        } else {
+            "PANEL SCHEDULE"
+        }
+    )
+
+    result.appendLine(
+        "=============================="
+    )
+
+    result.appendLine(
+        "Panel: ${panel.name}"
+    )
+
+    result.appendLine(
+        "Voltage: ${fmt(panel.voltage)} V"
+    )
+
+    result.appendLine(
+        "Rating: ${fmt(panel.ratedKva)} kVA"
+    )
+
+    result.appendLine()
+
+    result.appendLine(
+        "No | Load | kW | PF | Cable | Runs | Capacity"
+    )
+
+    result.appendLine(
+        "----------------------------------------------"
+    )
 
     var counter = 1
 
     outgoing.forEach { connection ->
-        val load = if (connection.fromNodeId == panel.id) {
+        val load = if (
+            connection.fromNodeId == panel.id
+        ) {
             nodes.firstOrNull {
                 it.id == connection.toNodeId
             }
@@ -1892,14 +2230,24 @@ private fun buildPanelSchedule(
     return result.toString()
 }
 
-private fun fmt(value: Double): String {
-    return if (value.isFinite()) {
-        if (abs(value) >= 1000.0) {
-            String.format("%.1f", value)
-        } else {
-            String.format("%.3f", value)
-        }
+private fun fmt(
+    value: Double
+): String {
+    if (!value.isFinite()) {
+        return "0"
+    }
+
+    return if (abs(value) >= 1000.0) {
+        String.format(
+            java.util.Locale.US,
+            "%.1f",
+            value
+        )
     } else {
-        "0"
+        String.format(
+            java.util.Locale.US,
+            "%.3f",
+            value
+        )
     }
 }
