@@ -30,18 +30,49 @@ jobs:
           gradle-version: "8.9"
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK
         shell: bash
         run: |
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;35.0.0"
+          set -euxo pipefail
+
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/build-tools/35.0.0" >> "$GITHUB_PATH"
+
+          if [ -x "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          elif [ -x "$SDK_ROOT/cmdline-tools/bin/sdkmanager" ]; then
+            SDKMANAGER="$SDK_ROOT/cmdline-tools/bin/sdkmanager"
+          else
+            echo "sdkmanager not found"
+            find "$SDK_ROOT" -name sdkmanager -type f -print || true
+            exit 1
+          fi
+
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Verify Android SDK
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
       - name: Build APK
         shell: bash
         run: |
+          set -euxo pipefail
           gradle :app:assembleDebug \
             --no-daemon \
             --stacktrace
@@ -49,16 +80,22 @@ jobs:
       - name: Verify APK
         shell: bash
         run: |
-          test -f app/build/outputs/apk/debug/app-debug.apk
+          set -euxo pipefail
+
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          test -f "$APK"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify \
             --verbose \
-            app/build/outputs/apk/debug/app-debug.apk
+            "$APK"
 
       - name: Copy APK
         shell: bash
         run: |
+          set -euxo pipefail
+
           cp \
             app/build/outputs/apk/debug/app-debug.apk \
             app/build/outputs/apk/debug/ElectricalCalculationsPro.apk
