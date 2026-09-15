@@ -2549,3 +2549,607 @@ private fun buildCompleteReport(
             )
 
             sb.appendLine(
+                "  X/R  : %.3f"
+                    .format(
+                        it.xrRatio
+                    )
+            )
+
+            sb.appendLine(
+                "  Icu  : %.1f kA"
+                    .format(
+                        it.breakerRequiredKa
+                    )
+            )
+
+            sb.appendLine(
+                "  Ics  : %.1f kA"
+                    .format(
+                        it.breakerRequiredKa *
+                            0.75
+                    )
+            )
+        }
+
+        sb.appendLine()
+    }
+
+    sb.appendLine(
+        "SHORT CIRCUIT SUMMARY"
+    )
+
+    study?.let {
+
+        sb.appendLine(
+            "Maximum Ik'' : %.3f kA"
+                .format(
+                    it.maximumFaultCurrentKa
+                )
+        )
+
+        sb.appendLine(
+            "Maximum Ip   : %.3f kA"
+                .format(
+                    it.maximumPeakCurrentKa
+                )
+        )
+
+        sb.appendLine(
+            "Maximum MVA  : %.3f MVA"
+                .format(
+                    it.maximumFaultMva
+                )
+        )
+    }
+
+    sb.appendLine()
+    sb.appendLine(
+        "CABLES"
+    )
+
+    connections.forEach { c ->
+
+        sb.appendLine(
+            "${c.id}: " +
+                "${c.cableSizeMm2} mm² x " +
+                "${c.parallelRuns} runs, " +
+                "${c.lengthMeters} m"
+        )
+    }
+
+    return sb.toString()
+}
+
+@Composable
+private fun NodeEditorDialog(
+    arabic: Boolean,
+    editing: Boolean,
+    type: SldNodeType,
+    name: String,
+    voltage: String,
+    kw: String,
+    pf: String,
+    demand: String,
+    kva: String,
+    transformerZ: String,
+    generatorXd: String,
+    sourceMva: String,
+    onType: (SldNodeType) -> Unit,
+    onName: (String) -> Unit,
+    onVoltage: (String) -> Unit,
+    onKw: (String) -> Unit,
+    onPf: (String) -> Unit,
+    onDemand: (String) -> Unit,
+    onKva: (String) -> Unit,
+    onTransformerZ: (String) -> Unit,
+    onGeneratorXd: (String) -> Unit,
+    onSourceMva: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+
+    AlertDialog(
+
+        onDismissRequest = onDismiss,
+
+        title = {
+            Text(
+                if (editing)
+                    if (arabic)
+                        "تعديل العنصر"
+                    else
+                        "Edit Element"
+                else
+                    if (arabic)
+                        "إضافة عنصر"
+                    else
+                        "Add Element"
+            )
+        },
+
+        text = {
+
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(
+                            rememberScrollState()
+                        ),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+
+                TypeSelector(
+                    type = type,
+                    arabic = arabic,
+                    onType = onType
+                )
+
+                EditorField(
+                    value = name,
+                    label =
+                        if (arabic)
+                            "الاسم"
+                        else
+                            "Name",
+                    onValueChange = onName
+                )
+
+                EditorField(
+                    value = voltage,
+                    label =
+                        if (arabic)
+                            "الجهد V"
+                        else
+                            "Voltage V",
+                    onValueChange = onVoltage
+                )
+
+                if (
+                    type ==
+                        SldNodeType.LOAD
+                ) {
+
+                    EditorField(
+                        value = kw,
+                        label =
+                            if (arabic)
+                                "الحمل kW"
+                            else
+                                "Load kW",
+                        onValueChange = onKw
+                    )
+
+                    EditorField(
+                        value = pf,
+                        label =
+                            if (arabic)
+                                "معامل القدرة"
+                            else
+                                "Power Factor",
+                        onValueChange = onPf
+                    )
+
+                    EditorField(
+                        value = demand,
+                        label =
+                            if (arabic)
+                                "معامل الطلب"
+                            else
+                                "Demand Factor",
+                        onValueChange = onDemand
+                    )
+                }
+
+                if (
+                    type ==
+                        SldNodeType.TRANSFORMER
+                ) {
+
+                    EditorField(
+                        value = kva,
+                        label =
+                            if (arabic)
+                                "قدرة المحول kVA"
+                            else
+                                "Transformer kVA",
+                        onValueChange = onKva
+                    )
+
+                    EditorField(
+                        value = transformerZ,
+                        label =
+                            if (arabic)
+                                "%Z للمحول"
+                            else
+                                "Transformer %Z",
+                        onValueChange =
+                            onTransformerZ
+                    )
+                }
+
+                if (
+                    type ==
+                        SldNodeType.GENERATOR
+                ) {
+
+                    EditorField(
+                        value = kva,
+                        label =
+                            if (arabic)
+                                "قدرة المولد kVA"
+                            else
+                                "Generator kVA",
+                        onValueChange = onKva
+                    )
+
+                    EditorField(
+                        value = generatorXd,
+                        label = "Xd'' %",
+                        onValueChange =
+                            onGeneratorXd
+                    )
+                }
+
+                if (
+                    type ==
+                        SldNodeType.SOURCE
+                ) {
+
+                    EditorField(
+                        value = sourceMva,
+                        label =
+                            if (arabic)
+                                "قدرة القصر MVA"
+                            else
+                                "Source Fault MVA",
+                        onValueChange =
+                            onSourceMva
+                    )
+                }
+            }
+        },
+
+        confirmButton = {
+
+            TextButton(
+                onClick = onSave
+            ) {
+                Text(
+                    if (arabic)
+                        "حفظ"
+                    else
+                        "Save"
+                )
+            }
+        },
+
+        dismissButton = {
+
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(
+                    if (arabic)
+                        "إلغاء"
+                    else
+                        "Cancel"
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun ConnectionEditorDialog(
+    arabic: Boolean,
+    length: String,
+    resistance: String,
+    reactance: String,
+    cableSize: String,
+    runs: String,
+    capacity: String,
+    onLength: (String) -> Unit,
+    onResistance: (String) -> Unit,
+    onReactance: (String) -> Unit,
+    onCableSize: (String) -> Unit,
+    onRuns: (String) -> Unit,
+    onCapacity: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+
+    AlertDialog(
+
+        onDismissRequest = onDismiss,
+
+        title = {
+            Text(
+                if (arabic)
+                    "بيانات الكابل والتوصيل"
+                else
+                    "Cable / Connection Data"
+            )
+        },
+
+        text = {
+
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(
+                            rememberScrollState()
+                        ),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(
+                        8.dp
+                    )
+            ) {
+
+                EditorField(
+                    value = length,
+                    label =
+                        if (arabic)
+                            "الطول m"
+                        else
+                            "Length m",
+                    onValueChange =
+                        onLength
+                )
+
+                EditorField(
+                    value = resistance,
+                    label =
+                        if (arabic)
+                            "R Ω/km"
+                        else
+                            "R Ω/km",
+                    onValueChange =
+                        onResistance
+                )
+
+                EditorField(
+                    value = reactance,
+                    label =
+                        if (arabic)
+                            "X Ω/km"
+                        else
+                            "X Ω/km",
+                    onValueChange =
+                        onReactance
+                )
+
+                EditorField(
+                    value = cableSize,
+                    label =
+                        if (arabic)
+                            "مقطع الكابل mm²"
+                        else
+                            "Cable mm²",
+                    onValueChange =
+                        onCableSize
+                )
+
+                EditorField(
+                    value = runs,
+                    label =
+                        if (arabic)
+                            "عدد المسارات"
+                        else
+                            "Parallel Runs",
+                    onValueChange =
+                        onRuns
+                )
+
+                EditorField(
+                    value = capacity,
+                    label =
+                        if (arabic)
+                            "سعة التيار A"
+                        else
+                            "Current Capacity A",
+                    onValueChange =
+                        onCapacity
+                )
+            }
+        },
+
+        confirmButton = {
+
+            TextButton(
+                onClick = onSave
+            ) {
+                Text(
+                    if (arabic)
+                        "حفظ"
+                    else
+                        "Save"
+                )
+            }
+        },
+
+        dismissButton = {
+
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(
+                    if (arabic)
+                        "إلغاء"
+                    else
+                        "Cancel"
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun EditorField(
+    value: String,
+    label: String,
+    onValueChange: (String) -> Unit
+) {
+
+    OutlinedTextField(
+        modifier =
+            Modifier.fillMaxWidth(),
+
+        value = value,
+
+        onValueChange =
+            onValueChange,
+
+        label = {
+            Text(label)
+        },
+
+        singleLine = true
+    )
+}
+
+@Composable
+private fun TypeSelector(
+    type: SldNodeType,
+    arabic: Boolean,
+    onType: (SldNodeType) -> Unit
+) {
+
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    Box(
+        modifier =
+            Modifier.fillMaxWidth()
+    ) {
+
+        OutlinedTextField(
+            modifier =
+                Modifier.fillMaxWidth(),
+
+            value =
+                when (type) {
+                    SldNodeType.SOURCE ->
+                        "SOURCE"
+
+                    SldNodeType.TRANSFORMER ->
+                        "TRANSFORMER"
+
+                    SldNodeType.GENERATOR ->
+                        "GENERATOR"
+
+                    SldNodeType.BUS ->
+                        "BUS"
+
+                    SldNodeType.BREAKER ->
+                        "BREAKER"
+
+                    SldNodeType.PANEL ->
+                        "PANEL"
+
+                    SldNodeType.LOAD ->
+                        "LOAD"
+                },
+
+            onValueChange = {},
+
+            label = {
+                Text(
+                    if (arabic)
+                        "نوع العنصر"
+                    else
+                        "Element Type"
+                )
+            },
+
+            readOnly = true
+        )
+
+        Box(
+            modifier =
+                Modifier
+                    .matchParentSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures {
+                            expanded = true
+                        }
+                    }
+        )
+
+        DropdownMenu(
+            expanded = expanded,
+
+            onDismissRequest = {
+                expanded = false
+            }
+        ) {
+
+            SldNodeType.entries.forEach { item ->
+
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            item.name
+                        )
+                    },
+
+                    onClick = {
+
+                        onType(item)
+
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun standardBreaker(
+    currentA: Double
+): Double {
+
+    val values =
+        listOf(
+            6.0,
+            10.0,
+            16.0,
+            20.0,
+            25.0,
+            32.0,
+            40.0,
+            50.0,
+            63.0,
+            80.0,
+            100.0,
+            125.0,
+            160.0,
+            200.0,
+            250.0,
+            315.0,
+            400.0,
+            500.0,
+            630.0,
+            800.0,
+            1000.0,
+            1250.0,
+            1600.0,
+            2000.0,
+            2500.0,
+            3200.0,
+            4000.0,
+            5000.0,
+            6300.0
+        )
+
+    return values.firstOrNull {
+        it >= currentA
+    } ?: 6300.0
+}
