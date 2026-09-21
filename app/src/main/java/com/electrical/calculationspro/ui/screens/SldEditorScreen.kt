@@ -1922,11 +1922,17 @@ private fun buildShortCircuitReport(
                 "${fmt(item.breakerRequiredKa)} kA"
         )
 
-        if (item.notes.isNotBlank()) {
-            result.appendLine(
-                "   Notes: ${item.notes}"
-            )
-        }
+        if (item.notes.isNotEmpty()) {
+    result.appendLine(
+        "   Notes:"
+    )
+
+    item.notes.forEach { note ->
+        result.appendLine(
+            "      - $note"
+        )
+    }
+}
 
         result.appendLine()
     }
