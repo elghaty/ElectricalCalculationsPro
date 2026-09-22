@@ -5,12 +5,15 @@ import com.electrical.calculationspro.data.ConductorSizingResult
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
+import com.electrical.calculationspro.data.catalog.BreakerCatalogItem
+import com.electrical.calculationspro.data.catalog.CableCatalogItem
+import com.electrical.calculationspro.data.catalog.Manufacturer
 import kotlin.math.abs
 
 /**
- * Professional conductor sizing engine.
- *
- * Architecture:
+ * ================================================================
+ * PROFESSIONAL CONDUCTOR SIZING ENGINE
+ * ================================================================
  *
  * UI
  *  ↓
@@ -19,19 +22,29 @@ import kotlin.math.abs
  * ConductorSizingCalculator
  *  ↓
  * StandardEngine
+ *  ↓
+ * EquipmentSelectionCalculator
+ *  ↓
+ * Cable / Breaker Catalog
  *
- * Code-dependent data is never read directly from IEC/NEC/Egyptian
- * tables here.
+ * The engineering calculation and manufacturer catalog selection
+ * are intentionally separated.
+ * ================================================================
  */
 object ConductorSizingCalculator {
 
     private const val EPSILON = 1.0e-9
 
+    // ============================================================
+    // AUTOMATIC SIZING
+    // ============================================================
+
     fun size(
         input: ConductorSizingInput,
         standard: Standard = Standard.IEC,
         demandFactor: Double = 1.0,
-        diversityFactor: Double = 1.0
+        diversityFactor: Double = 1.0,
+        manufacturer: Manufacturer? = null
     ): ConductorSizingResult {
 
         validateInput(input)
@@ -81,6 +94,7 @@ object ConductorSizingCalculator {
 
         val sections =
             engine.standardConductorSections()
+                .filter { it > EPSILON }
                 .sorted()
 
         val candidate =
@@ -105,7 +119,8 @@ object ConductorSizingCalculator {
             }
 
         val selected =
-            candidate ?: sections.lastOrNull()
+            candidate
+                ?: sections.lastOrNull()
                 ?: 300.0
 
         return evaluateSection(
@@ -115,17 +130,23 @@ object ConductorSizingCalculator {
             rawDesignCurrent = rawDesignCurrent,
             standard = standard,
             requiredBaseIz = requiredBaseIz,
+            manufacturer = manufacturer,
             forceNoCodeDataWarning =
                 candidate == null
         )
     }
+
+    // ============================================================
+    // MANUAL SECTION EVALUATION
+    // ============================================================
 
     fun evaluateSelectedSection(
         input: ConductorSizingInput,
         selectedSection: Double,
         standard: Standard = Standard.IEC,
         demandFactor: Double = 1.0,
-        diversityFactor: Double = 1.0
+        diversityFactor: Double = 1.0,
+        manufacturer: Manufacturer? = null
     ): ConductorSizingResult {
 
         validateInput(input)
@@ -183,9 +204,14 @@ object ConductorSizingCalculator {
             designCurrent = designCurrent,
             rawDesignCurrent = rawDesignCurrent,
             standard = standard,
-            requiredBaseIz = requiredBaseIz
+            requiredBaseIz = requiredBaseIz,
+            manufacturer = manufacturer
         )
     }
+
+    // ============================================================
+    // CORE EVALUATION
+    // ============================================================
 
     private fun evaluateSection(
         input: ConductorSizingInput,
@@ -194,6 +220,7 @@ object ConductorSizingCalculator {
         rawDesignCurrent: Double,
         standard: Standard,
         requiredBaseIz: Double,
+        manufacturer: Manufacturer? = null,
         forceNoCodeDataWarning: Boolean = false
     ): ConductorSizingResult {
 
@@ -232,6 +259,10 @@ object ConductorSizingCalculator {
                     groupingFactor
             } ?: 0.0
 
+        // --------------------------------------------------------
+        // VOLTAGE DROP
+        // --------------------------------------------------------
+
         val voltageDrop =
             VoltageDropCalculator.calculate(
                 current = designCurrent,
@@ -243,11 +274,18 @@ object ConductorSizingCalculator {
                 voltage = input.voltage
             )
 
+        // --------------------------------------------------------
+        // ENGINEERING BREAKER SELECTION
+        // --------------------------------------------------------
+
         val protectiveDevice =
             BreakerSelectionCalculator.selectRating(
-                designCurrentA = designCurrent,
-                cableAmpacityA = ampacity,
-                standard = standard
+                designCurrentA =
+                    designCurrent,
+                cableAmpacityA =
+                    ampacity,
+                standard =
+                    standard
             )
 
         val breakerWithinCapacity =
@@ -262,15 +300,26 @@ object ConductorSizingCalculator {
                             ampacity
                     )
 
+        // --------------------------------------------------------
+        // SHORT CIRCUIT
+        // --------------------------------------------------------
+
         val shortCircuit =
             runCatching {
+
                 ShortCircuitCalculator.calculate(
-                    voltage = input.voltage,
-                    length = input.lineLength,
-                    sectionMm2 = section,
-                    material = input.conductor,
-                    currentType = input.currentType
+                    voltage =
+                        input.voltage,
+                    length =
+                        input.lineLength,
+                    sectionMm2 =
+                        section,
+                    material =
+                        input.conductor,
+                    currentType =
+                        input.currentType
                 )
+
             }.getOrNull()
 
         val shortCircuitKA =
@@ -278,10 +327,57 @@ object ConductorSizingCalculator {
                 ?.shortCircuitCurrentKA
                 ?: 0.0
 
+        // --------------------------------------------------------
+        // CATALOG CABLE SELECTION
+        // --------------------------------------------------------
+
+        val catalogCableResult =
+            EquipmentSelectionCalculator.selectCable(
+                requiredSectionMm2 =
+                    section,
+                manufacturer =
+                    manufacturer
+            )
+
+        val catalogCable =
+            catalogCableResult.selected
+
+        // --------------------------------------------------------
+        // CATALOG BREAKER SELECTION
+        // --------------------------------------------------------
+
+        val catalogBreakerResult =
+            if (protectiveDevice > 0.0) {
+
+                EquipmentSelectionCalculator.selectBreaker(
+                    designCurrentA =
+                        protectiveDevice,
+                    shortCircuitKA =
+                        shortCircuitKA,
+                    manufacturer =
+                        manufacturer
+                )
+
+            } else {
+
+                EquipmentCatalogResultEmpty.breaker()
+            }
+
+        val catalogBreaker =
+            catalogBreakerResult.selected
+
+        // --------------------------------------------------------
+        // VOLTAGE DROP VALIDATION
+        // --------------------------------------------------------
+
         val voltageDropWithinLimit =
             voltageDrop.first <=
                 input.maxVoltageDrop +
                 EPSILON
+
+        // --------------------------------------------------------
+        // NOTES
+        // --------------------------------------------------------
 
         val notes =
             buildList {
@@ -356,7 +452,7 @@ object ConductorSizingCalculator {
                 if (protectiveDevice > 0.0) {
 
                     add(
-                        "Selected breaker rating = %.0f A"
+                        "Engineering breaker rating = %.0f A"
                             .format(protectiveDevice)
                     )
 
@@ -364,6 +460,48 @@ object ConductorSizingCalculator {
 
                     add(
                         "No standard breaker rating satisfies Ib <= In <= Iz."
+                    )
+                }
+
+                if (catalogCable != null) {
+
+                    add(
+                        "Catalog cable = ${catalogCable.model}"
+                    )
+
+                    add(
+                        "Cable manufacturer = ${catalogCable.manufacturer}"
+                    )
+
+                    add(
+                        "Cable family = ${catalogCable.family}"
+                    )
+
+                } else {
+
+                    add(
+                        "No catalog cable was found for the selected section."
+                    )
+                }
+
+                if (catalogBreaker != null) {
+
+                    add(
+                        "Catalog breaker = ${catalogBreaker.model}"
+                    )
+
+                    add(
+                        "Breaker manufacturer = ${catalogBreaker.manufacturer}"
+                    )
+
+                    add(
+                        "Breaker family = ${catalogBreaker.family}"
+                    )
+
+                } else if (protectiveDevice > 0.0) {
+
+                    add(
+                        "No catalog breaker was found for the selected engineering rating."
                     )
                 }
 
@@ -388,24 +526,70 @@ object ConductorSizingCalculator {
                         "Automatic cable sizing could not verify a complete code dataset."
                     )
                 }
+
+                if (!catalogCableResult.valid) {
+
+                    add(
+                        "Catalog cable selection requires verified manufacturer data."
+                    )
+                }
+
+                if (!catalogBreakerResult.valid &&
+                    protectiveDevice > 0.0
+                ) {
+
+                    add(
+                        "Catalog breaker selection requires verified manufacturer configuration and Icu/Ics data."
+                    )
+                }
             }
 
         return ConductorSizingResult(
-            designCurrent = designCurrent,
-            recommendedSection = section,
-            selectedSection = section,
-            ampacity = ampacity,
-            voltageDropPercent = voltageDrop.first,
-            voltageDropVolts = voltageDrop.second,
-            protectiveDevice = protectiveDevice,
-            shortCircuitCurrentKA = shortCircuitKA,
+
+            designCurrent =
+                designCurrent,
+
+            recommendedSection =
+                section,
+
+            selectedSection =
+                section,
+
+            ampacity =
+                ampacity,
+
+            voltageDropPercent =
+                voltageDrop.first,
+
+            voltageDropVolts =
+                voltageDrop.second,
+
+            protectiveDevice =
+                protectiveDevice,
+
+            shortCircuitCurrentKA =
+                shortCircuitKA,
+
             breakerWithinCableCapacity =
                 breakerWithinCapacity,
+
             voltageDropWithinLimit =
                 voltageDropWithinLimit,
-            notes = notes
+
+            notes =
+                notes,
+
+            catalogCable =
+                catalogCable,
+
+            catalogBreaker =
+                catalogBreaker
         )
     }
+
+    // ============================================================
+    // CONDUCTOR COUNT
+    // ============================================================
 
     private fun loadedConductorCount(
         currentType: CurrentType
@@ -424,6 +608,10 @@ object ConductorSizingCalculator {
             CurrentType.AlternatingThreePhase ->
                 3
         }
+
+    // ============================================================
+    // INPUT VALIDATION
+    // ============================================================
 
     private fun validateInput(
         input: ConductorSizingInput
@@ -459,5 +647,21 @@ object ConductorSizingCalculator {
         require(input.maxVoltageDrop > 0.0) {
             "Maximum voltage drop must be greater than zero."
         }
+    }
+
+    // ============================================================
+    // EMPTY CATALOG RESULT
+    // ============================================================
+
+    private object EquipmentCatalogResultEmpty {
+
+        fun breaker():
+            EquipmentCatalogResult<BreakerCatalogItem> =
+            EquipmentCatalogResult(
+                selected = null,
+                alternatives = emptyList(),
+                valid = false,
+                message = "Catalog breaker selection was not performed."
+            )
     }
 }
