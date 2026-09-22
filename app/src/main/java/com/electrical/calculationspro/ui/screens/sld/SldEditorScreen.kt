@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TableView
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -31,16 +33,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.SldNodeType
-import androidx.compose.runtime.mutableStateOf
 
 @Composable
 fun SldEditorScreen(
@@ -88,8 +95,7 @@ fun SldEditorScreen(
                 ) {
 
                     Icon(
-                        imageVector =
-                            Icons.Outlined.ArrowBack,
+                        imageVector = Icons.Outlined.ArrowBack,
                         contentDescription = null,
                         tint = Color.White
                     )
@@ -128,8 +134,7 @@ fun SldEditorScreen(
             ) {
 
                 Icon(
-                    imageVector =
-                        Icons.Outlined.PlayArrow,
+                    imageVector = Icons.Outlined.PlayArrow,
                     contentDescription = null,
                     tint = Color.White
                 )
@@ -158,16 +163,17 @@ fun SldEditorScreen(
             ToolButton(
                 icon = Icons.Outlined.Link,
                 text =
-                    if (state.connectionStartId == null)
+                    if (state.connectionStartId == null) {
                         if (arabic)
                             "توصيل"
                         else
                             "Connect"
-                    else
+                    } else {
                         if (arabic)
                             "اختر الطرف الآخر"
                         else
-                            "Select End",
+                            "Select End"
+                    },
                 onClick = {
                     actions.startOrCompleteConnection()
                 }
@@ -249,23 +255,24 @@ fun SldEditorScreen(
 
                     Text(
                         text =
-                            if (state.selectedNodeId != null)
+                            if (state.selectedNodeId != null) {
                                 if (arabic)
                                     "عنصر محدد"
                                 else
                                     "Selected Component"
-                            else if (
+                            } else if (
                                 state.selectedConnectionId != null
-                            )
+                            ) {
                                 if (arabic)
                                     "وصلة محددة"
                                 else
                                     "Selected Connection"
-                            else
+                            } else {
                                 if (arabic)
                                     "جاهز للتصميم"
                                 else
-                                    "Ready for Design",
+                                    "Ready for Design"
+                            },
                         color = Color.White,
                         fontSize = 13.sp
                     )
@@ -301,8 +308,15 @@ fun SldEditorScreen(
                     OutlinedButton(
                         onClick = {
 
-                            state.selectedNodeId?.let {
-                                actions.editNode(it)
+                            state.selectedNodeId?.let { id ->
+
+                                state.nodes
+                                    .firstOrNull { node ->
+                                        node.id == id
+                                    }
+                                    ?.let { node ->
+                                        actions.editNode(node)
+                                    }
                             }
                         }
                     ) {
@@ -379,12 +393,12 @@ fun SldEditorScreen(
                     state.connectionStartId = null
                 },
 
-                onEditNode = {
-                    actions.editNode(it)
+                onEditNode = { node ->
+                    actions.editNode(node)
                 },
 
-                onEditConnection = {
-                    actions.editConnection(it)
+                onEditConnection = { connection ->
+                    actions.editConnection(connection)
                 }
             )
         }
@@ -662,24 +676,45 @@ private fun typeLabel(
     return when (type) {
 
         SldNodeType.SOURCE ->
-            if (arabic) "مصدر تغذية" else "Utility Source"
+            if (arabic)
+                "مصدر تغذية"
+            else
+                "Utility Source"
 
         SldNodeType.TRANSFORMER ->
-            if (arabic) "محول" else "Transformer"
+            if (arabic)
+                "محول"
+            else
+                "Transformer"
 
         SldNodeType.GENERATOR ->
-            if (arabic) "مولد" else "Generator"
+            if (arabic)
+                "مولد"
+            else
+                "Generator"
 
         SldNodeType.BUS ->
-            if (arabic) "قضبان Busbar" else "Busbar"
+            if (arabic)
+                "قضبان Busbar"
+            else
+                "Busbar"
 
         SldNodeType.BREAKER ->
-            if (arabic) "قاطع" else "Breaker"
+            if (arabic)
+                "قاطع"
+            else
+                "Breaker"
 
         SldNodeType.PANEL ->
-            if (arabic) "لوحة" else "Panel"
+            if (arabic)
+                "لوحة"
+            else
+                "Panel"
 
         SldNodeType.LOAD ->
-            if (arabic) "حمل" else "Load"
+            if (arabic)
+                "حمل"
+            else
+                "Load"
     }
 }
