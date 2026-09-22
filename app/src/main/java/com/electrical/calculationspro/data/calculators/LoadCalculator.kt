@@ -4,11 +4,11 @@ import com.electrical.calculationspro.data.CurrentType
 import kotlin.math.sqrt
 
 /**
- * Professional electrical load calculator.
+ * Fundamental electrical-load calculations.
  *
- * Mathematical calculation layer only.
- *
- * Code-specific requirements belong to the Standards layer.
+ * This class contains mathematical relationships only.
+ * Code tables, correction factors and equipment catalogs are handled
+ * by their dedicated layers.
  */
 object LoadCalculator {
 
@@ -22,14 +22,14 @@ object LoadCalculator {
     ): Double {
 
         require(loadWatts >= 0.0) {
-            "Load cannot be negative."
+            "Load power cannot be negative."
         }
 
         require(voltage > EPSILON) {
             "Voltage must be greater than zero."
         }
 
-        require(powerFactor > 0.0) {
+        require(powerFactor > EPSILON) {
             "Power factor must be greater than zero."
         }
 
@@ -44,18 +44,11 @@ object LoadCalculator {
 
             CurrentType.AlternatingSinglePhase ->
                 loadWatts /
-                    (
-                        voltage *
-                            powerFactor
-                        )
+                    (voltage * powerFactor)
 
             CurrentType.AlternatingTwoPhase ->
                 loadWatts /
-                    (
-                        2.0 *
-                            voltage *
-                            powerFactor
-                        )
+                    (2.0 * voltage * powerFactor)
 
             CurrentType.AlternatingThreePhase ->
                 loadWatts /
@@ -63,7 +56,7 @@ object LoadCalculator {
                         sqrt(3.0) *
                             voltage *
                             powerFactor
-                        )
+                    )
         }
     }
 
@@ -75,7 +68,7 @@ object LoadCalculator {
     ): Double {
 
         require(loadKw >= 0.0) {
-            "Load cannot be negative."
+            "Load power cannot be negative."
         }
 
         return designCurrent(
@@ -99,10 +92,17 @@ object LoadCalculator {
             "Demand factor must be between 0 and 1."
         }
 
-        return current *
-            demandFactor
+        return current * demandFactor
     }
 
+    /**
+     * Historical API retained for compatibility.
+     *
+     * The value supplied here is treated as a utilization multiplier,
+     * not as the conventional diversity factor definition (which is
+     * normally >= 1). Do not use this function when a formal diversity
+     * factor from a code or design standard is intended.
+     */
     fun applyDiversityFactor(
         current: Double,
         diversityFactor: Double
@@ -113,11 +113,10 @@ object LoadCalculator {
         }
 
         require(diversityFactor in 0.0..1.0) {
-            "Diversity factor must be between 0 and 1."
+            "Diversity multiplier must be between 0 and 1."
         }
 
-        return current *
-            diversityFactor
+        return current * diversityFactor
     }
 
     fun applyDemandAndDiversity(
@@ -135,7 +134,7 @@ object LoadCalculator {
         }
 
         require(diversityFactor in 0.0..1.0) {
-            "Diversity factor must be between 0 and 1."
+            "Diversity multiplier must be between 0 and 1."
         }
 
         return current *
@@ -156,8 +155,7 @@ object LoadCalculator {
             "Demand factor must be between 0 and 1."
         }
 
-        return loadWatts *
-            demandFactor
+        return loadWatts * demandFactor
     }
 
     fun loadAfterDiversity(
@@ -170,10 +168,9 @@ object LoadCalculator {
         }
 
         require(diversityFactor in 0.0..1.0) {
-            "Diversity factor must be between 0 and 1."
+            "Diversity multiplier must be between 0 and 1."
         }
 
-        return loadWatts *
-            diversityFactor
+        return loadWatts * diversityFactor
     }
 }
