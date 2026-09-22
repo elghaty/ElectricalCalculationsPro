@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,7 +49,6 @@ import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.InstallationMethod
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.iecInstallationMethods
-import com.electrical.calculationspro.ui.theme.DarkBackground
 import com.electrical.calculationspro.ui.theme.DarkSurface
 import com.electrical.calculationspro.ui.theme.PrimaryTeal
 import com.electrical.calculationspro.ui.theme.TextPrimary
@@ -102,12 +102,10 @@ fun ConductorSizingScreen(
 
     var maxDropText by remember {
         mutableStateOf(
-            ElectricalCalculations
-                .maximumVoltageDropPercent(
-                    standard = standard,
-                    circuitCategory = "power"
-                )
-                .toString()
+            ElectricalCalculations.maximumVoltageDropPercent(
+                standard = standard,
+                circuitCategory = "power"
+            ).toString()
         )
     }
 
@@ -122,10 +120,6 @@ fun ConductorSizingScreen(
     var installationMethod by remember {
         mutableStateOf(
             iecInstallationMethods.firstOrNull()
-                ?: InstallationMethod(
-                    code = "B1",
-                    description = "Reference installation method"
-                )
         )
     }
 
@@ -150,30 +144,60 @@ fun ConductorSizingScreen(
     }
 
     fun buildInput(): ConductorSizingInput {
+        val method =
+            installationMethod
+                ?: error(
+                    if (arabic) {
+                        "لا توجد طريقة تركيب متاحة"
+                    } else {
+                        "No installation method is available"
+                    }
+                )
+
         val voltage =
             voltageText.toDoubleOrNull()
                 ?: error(
-                    if (arabic) "أدخل جهدًا صحيحًا"
-                    else "Enter a valid voltage"
+                    if (arabic) {
+                        "أدخل جهدًا صحيحًا"
+                    } else {
+                        "Enter a valid voltage"
+                    }
                 )
+
+        require(voltage > 0.0) {
+            if (arabic) {
+                "الجهد يجب أن يكون أكبر من صفر"
+            } else {
+                "Voltage must be greater than zero"
+            }
+        }
 
         val loadKw =
             loadKwText.toDoubleOrNull()
                 ?: error(
-                    if (arabic) "أدخل الحمل بالكيلووات"
-                    else "Enter the load in kW"
+                    if (arabic) {
+                        "أدخل الحمل بالكيلووات"
+                    } else {
+                        "Enter the load in kW"
+                    }
                 )
 
         require(loadKw > 0.0) {
-            if (arabic) "الحمل يجب أن يكون أكبر من صفر"
-            else "Load must be greater than zero"
+            if (arabic) {
+                "الحمل يجب أن يكون أكبر من صفر"
+            } else {
+                "Load must be greater than zero"
+            }
         }
 
         val powerFactor =
             powerFactorText.toDoubleOrNull()
                 ?: error(
-                    if (arabic) "أدخل معامل قدرة صحيح"
-                    else "Enter a valid power factor"
+                    if (arabic) {
+                        "أدخل معامل قدرة صحيح"
+                    } else {
+                        "Enter a valid power factor"
+                    }
                 )
 
         require(powerFactor > 0.0 && powerFactor <= 1.0) {
@@ -187,40 +211,66 @@ fun ConductorSizingScreen(
         val length =
             lineLengthText.toDoubleOrNull()
                 ?: error(
-                    if (arabic) "أدخل طولًا صحيحًا"
-                    else "Enter a valid line length"
+                    if (arabic) {
+                        "أدخل طولًا صحيحًا"
+                    } else {
+                        "Enter a valid line length"
+                    }
                 )
 
         require(length > 0.0) {
-            if (arabic) "طول الخط يجب أن يكون أكبر من صفر"
-            else "Line length must be greater than zero"
+            if (arabic) {
+                "طول الخط يجب أن يكون أكبر من صفر"
+            } else {
+                "Line length must be greater than zero"
+            }
         }
 
         val ambient =
             ambientTempText.toDoubleOrNull()
                 ?: error(
-                    if (arabic) "أدخل درجة حرارة صحيحة"
-                    else "Enter a valid ambient temperature"
+                    if (arabic) {
+                        "أدخل درجة حرارة صحيحة"
+                    } else {
+                        "Enter a valid ambient temperature"
+                    }
                 )
 
         val circuits =
             circuitsText.toIntOrNull()
                 ?: error(
-                    if (arabic) "أدخل عدد دوائر صحيح"
-                    else "Enter a valid number of circuits"
+                    if (arabic) {
+                        "أدخل عدد دوائر صحيح"
+                    } else {
+                        "Enter a valid number of circuits"
+                    }
                 )
 
         require(circuits > 0) {
-            if (arabic) "عدد الدوائر يجب أن يكون أكبر من صفر"
-            else "Number of circuits must be greater than zero"
+            if (arabic) {
+                "عدد الدوائر يجب أن يكون أكبر من صفر"
+            } else {
+                "Number of circuits must be greater than zero"
+            }
         }
 
         val maxDrop =
             maxDropText.toDoubleOrNull()
                 ?: error(
-                    if (arabic) "أدخل حد هبوط جهد صحيح"
-                    else "Enter a valid voltage-drop limit"
+                    if (arabic) {
+                        "أدخل حد هبوط جهد صحيح"
+                    } else {
+                        "Enter a valid voltage-drop limit"
+                    }
                 )
+
+        require(maxDrop > 0.0) {
+            if (arabic) {
+                "حد هبوط الجهد يجب أن يكون أكبر من صفر"
+            } else {
+                "Voltage-drop limit must be greater than zero"
+            }
+        }
 
         return ConductorSizingInput(
             currentType = currentType,
@@ -228,7 +278,7 @@ fun ConductorSizingScreen(
             load = loadKw * 1000.0,
             powerFactor = powerFactor,
             lineLength = length,
-            installationMethod = installationMethod,
+            installationMethod = method,
             ambientTemp = ambient,
             conductor = conductor,
             insulation = insulation,
@@ -262,9 +312,17 @@ fun ConductorSizingScreen(
                                 }
                             )
 
+                    require(section > 0.0) {
+                        if (arabic) {
+                            "القطاع يجب أن يكون أكبر من صفر"
+                        } else {
+                            "Section must be greater than zero"
+                        }
+                    }
+
                     ElectricalCalculations.evaluateSelectedSection(
                         input = input,
-                        selectedSectionMm2 = section,
+                        selectedSection = section,
                         standard = standard
                     )
                 }
@@ -296,10 +354,18 @@ fun ConductorSizingScreen(
                         }
                     )
 
+            require(section > 0.0) {
+                if (arabic) {
+                    "القطاع يجب أن يكون أكبر من صفر"
+                } else {
+                    "Section must be greater than zero"
+                }
+            }
+
             selectedSectionResult =
                 ElectricalCalculations.evaluateSelectedSection(
                     input = input,
-                    selectedSectionMm2 = section,
+                    selectedSection = section,
                     standard = standard
                 )
         } catch (e: Exception) {
@@ -337,9 +403,12 @@ fun ConductorSizingScreen(
             TextButton(onClick = goBack) {
                 Text(
                     text =
-                        if (arabic) "رجوع" else "Back",
-                    color =
-                        MaterialTheme.colorScheme.primary
+                        if (arabic) {
+                            "رجوع"
+                        } else {
+                            "Back"
+                        },
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -367,8 +436,9 @@ fun ConductorSizingScreen(
         Text(
             text =
                 "${standard.shortName} • " +
-                    ElectricalCalculations
-                        .standardCodeName(standard),
+                    ElectricalCalculations.standardCodeName(
+                        standard
+                    ),
             fontSize = 14.sp,
             color = TextSecondary
         )
@@ -612,16 +682,16 @@ fun ConductorSizingScreen(
                                     "Installation"
                                 },
                             value =
-                                installationLabel(
-                                    installationMethod
-                                ),
+                                installationMethod?.let {
+                                    installationLabel(it)
+                                } ?: "",
                             options =
                                 iecInstallationMethods.map {
                                     installationLabel(it)
                                 },
                             onSelected = { selected ->
                                 installationMethod =
-                                    iecInstallationMethods.first {
+                                    iecInstallationMethods.firstOrNull {
                                         installationLabel(it) ==
                                             selected
                                     }
@@ -772,6 +842,7 @@ fun ConductorSizingScreen(
         }
 
         result?.let { data ->
+
             ResultCard(
                 title =
                     if (arabic) {
@@ -780,6 +851,7 @@ fun ConductorSizingScreen(
                         "Conductor Sizing Result"
                     }
             ) {
+
                 FourColumnRow(
                     first = {
                         ResultRow(
@@ -980,6 +1052,7 @@ fun ConductorSizingScreen(
                 )
 
                 if (data.notes.isNotEmpty()) {
+
                     Spacer(
                         modifier = Modifier.height(12.dp)
                     )
@@ -1016,6 +1089,7 @@ fun ConductorSizingScreen(
         }
 
         selectedSectionResult?.let { data ->
+
             Spacer(
                 modifier = Modifier.height(16.dp)
             )
@@ -1028,6 +1102,7 @@ fun ConductorSizingScreen(
                         "Selected Section Evaluation"
                     }
             ) {
+
                 FourColumnRow(
                     first = {
                         ResultRow(
@@ -1109,8 +1184,7 @@ private fun FourColumnRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Column(
             modifier = Modifier.weight(1f)
@@ -1164,9 +1238,7 @@ private fun NumberField(
                 if (
                     newValue.isEmpty() ||
                     newValue.matches(
-                        Regex(
-                            """^-?\d*(\.\d*)?$"""
-                        )
+                        Regex("""^-?\d*(\.\d*)?$""")
                     )
                 ) {
                     onValueChange(newValue)
@@ -1206,6 +1278,7 @@ private fun SelectionField(
         Box(
             modifier = Modifier.fillMaxWidth()
         ) {
+
             OutlinedTextField(
                 value = value,
                 onValueChange = {},
@@ -1225,6 +1298,7 @@ private fun SelectionField(
                 }
             ) {
                 options.forEach { option ->
+
                     DropdownMenuItem(
                         text = {
                             Text(option)
@@ -1243,7 +1317,7 @@ private fun SelectionField(
 @Composable
 private fun ResultCard(
     title: String,
-    content: @Composable Column.() -> Unit
+    content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -1254,9 +1328,11 @@ private fun ResultCard(
             defaultElevation = 2.dp
         )
     ) {
+
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+
             Text(
                 text = title,
                 fontSize = 19.sp,
@@ -1268,7 +1344,7 @@ private fun ResultCard(
                 modifier = Modifier.height(12.dp)
             )
 
-            content(this)
+            content()
         }
     }
 }
@@ -1283,6 +1359,7 @@ private fun ResultRow(
             .fillMaxWidth()
             .padding(vertical = 3.dp)
     ) {
+
         Text(
             text = label,
             fontSize = 12.sp,
@@ -1303,17 +1380,34 @@ private fun currentTypeLabel(
     arabic: Boolean
 ): String {
     return when (value) {
+
         CurrentType.DirectCurrent ->
-            if (arabic) "تيار مستمر" else "DC"
+            if (arabic) {
+                "تيار مستمر"
+            } else {
+                "DC"
+            }
 
         CurrentType.AlternatingSinglePhase ->
-            if (arabic) "أحادي فاز" else "Single Phase"
+            if (arabic) {
+                "أحادي فاز"
+            } else {
+                "Single Phase"
+            }
 
         CurrentType.AlternatingTwoPhase ->
-            if (arabic) "ثنائي فاز" else "Two Phase"
+            if (arabic) {
+                "ثنائي فاز"
+            } else {
+                "Two Phase"
+            }
 
         CurrentType.AlternatingThreePhase ->
-            if (arabic) "ثلاثي فاز" else "Three Phase"
+            if (arabic) {
+                "ثلاثي فاز"
+            } else {
+                "Three Phase"
+            }
     }
 }
 
@@ -1322,11 +1416,20 @@ private fun conductorLabel(
     arabic: Boolean
 ): String {
     return when (value) {
+
         ConductorMaterial.Copper ->
-            if (arabic) "نحاس" else "Copper"
+            if (arabic) {
+                "نحاس"
+            } else {
+                "Copper"
+            }
 
         ConductorMaterial.Aluminum ->
-            if (arabic) "ألومنيوم" else "Aluminum"
+            if (arabic) {
+                "ألومنيوم"
+            } else {
+                "Aluminum"
+            }
     }
 }
 
