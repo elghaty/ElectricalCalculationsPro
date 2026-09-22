@@ -7,11 +7,16 @@ import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.standards.egyptian.EgyptianCableTables
 import com.electrical.calculationspro.data.standards.egyptian.EgyptianInstallationRules
 import com.electrical.calculationspro.data.standards.egyptian.EgyptianTables
+import kotlin.math.abs
 
 /**
  * Egyptian Electrical Code engine.
  *
- * Egyptian data is deliberately isolated from IEC and NEC.
+ * This engine is intentionally isolated from IEC and NEC.
+ *
+ * IMPORTANT:
+ * The Egyptian cable ampacity dataset is not considered complete until
+ * verified/current Egyptian Code data is populated.
  */
 class EgyptianCodeEngine : StandardEngine {
 
@@ -22,36 +27,73 @@ class EgyptianCodeEngine : StandardEngine {
         "Egyptian Electrical Code"
 
     override val codeRevision: String =
-        EgyptianTables.codeReference
+        "HBRC D17 / D19 / D18 - controlled implementation"
 
     override fun maximumVoltageDropPercent(
         circuitCategory: String
-    ): Double =
-        EgyptianTables.maximumVoltageDropPercent(
-            circuitCategory
-        )
+    ): Double {
+
+        val application =
+            when (
+                circuitCategory
+                    .trim()
+                    .lowercase()
+            ) {
+
+                "lighting",
+                "light",
+                "lighting circuit" ->
+                    EgyptianTables.EgyptianApplicationType.LIGHTING
+
+                "motor",
+                "motor circuit" ->
+                    EgyptianTables.EgyptianApplicationType.MOTOR
+
+                "critical",
+                "critical load",
+                "critical_load" ->
+                    EgyptianTables.EgyptianApplicationType.CRITICAL_LOAD
+
+                else ->
+                    EgyptianTables.EgyptianApplicationType.GENERAL_BUILDING
+            }
+
+        return EgyptianTables
+            .maximumVoltageDropPercent(application)
+    }
 
     override fun ambientTemperatureFactor(
         insulation: InsulationType,
         ambientTemperatureC: Double
     ): Double {
 
-        return EgyptianCableTables
-            .ambientTemperatureFactor(
-                insulation = insulation,
-                ambientTemperatureC =
-                    ambientTemperatureC
-            )
+        /*
+         * The current EgyptianCableTables does not contain a verified
+         * Egyptian temperature-correction table.
+         *
+         * Therefore no IEC correction factor is substituted here.
+         *
+         * Returning 1.0 keeps the calculation deterministic while the
+         * implementation status remains incomplete.
+         */
+        return 1.0
     }
 
     override fun groupingFactor(
         numberOfCircuits: Int
     ): Double {
 
-        return EgyptianCableTables
-            .groupingFactor(
-                numberOfCircuits
-            )
+        require(numberOfCircuits >= 1) {
+            "Number of circuits must be at least 1."
+        }
+
+        /*
+         * The current Egyptian dataset does not contain a verified
+         * grouping-factor table.
+         *
+         * Do NOT substitute IEC values.
+         */
+        return 1.0
     }
 
     override fun conductorAmpacity(
@@ -62,25 +104,31 @@ class EgyptianCodeEngine : StandardEngine {
         loadedConductors: Int
     ): Double? {
 
-        val method =
-            EgyptianInstallationRules
-                .resolveMethod(
-                    installationMethod.code
-                )
-
-        return EgyptianCableTables
-            .ampacity(
-                sectionMm2 = sectionMm2,
-                material = material,
-                insulation = insulation,
-                installationMethod = method,
-                loadedConductors = loadedConductors
+        val result =
+            EgyptianCableTables.ampacity(
+                request =
+                    EgyptianCableTables.CableAmpacityRequest(
+                        sectionMm2 = sectionMm2,
+                        conductor = material,
+                        insulation = insulation,
+                        installationMethod =
+                            installationMethod.code,
+                        ambientTemperatureC = 30.0,
+                        loadedConductors = loadedConductors
+                    )
             )
+
+        return if (result.available) {
+            result.ampacityA
+        } else {
+            null
+        }
     }
 
     override fun standardConductorSections(): List<Double> =
         EgyptianCableTables
-            .standardConductorSections()
+            .standardSections()
+            .sorted()
 
     override fun standardBreakerRatings(): List<Double> =
         listOf(
@@ -116,14 +164,43 @@ class EgyptianCodeEngine : StandardEngine {
         )
 
     override fun isFullyImplemented(): Boolean =
-        EgyptianCableTables.isDatasetComplete
+        false
 
     override fun implementationStatus(): String =
-        if (isFullyImplemented()) {
-            "Verified Egyptian electrical-code dataset is active."
-        } else {
-            "Egyptian code engine is active, but the verified Egyptian " +
-                "cable/installation datasets are not complete. " +
-                "The application will not label incomplete data as full compliance."
-        }
+        "Egyptian Electrical Code engine is active, but verified/current " +
+            "Egyptian cable ampacity, temperature correction and grouping " +
+            "datasets are not yet populated. IEC tables are NOT substituted."
+
+    /**
+     * Exposes the currently supported Egyptian installation methods.
+     */
+    fun installationMethods(): List<EgyptianInstallationRules.InstallationMethod> =
+        EgyptianInstallationRules.methods
+
+    /**
+     * Validates an Egyptian installation method.
+     */
+    fun validateInstallation(
+        method: EgyptianInstallationRules.InstallationMethod,
+        ambientTemperatureC: Double,
+        circuits: Int
+    ): List<String> =
+        EgyptianInstallationRules.validate(
+            method = method,
+            ambientTemperatureC = ambientTemperatureC,
+            circuits = circuits
+        )
+
+    /**
+     * Verifies that a section is one of the standard Egyptian-engine
+     * sections currently supported by the application.
+     */
+    fun isStandardSection(
+        sectionMm2: Double
+    ): Boolean =
+        EgyptianCableTables
+            .standardSections()
+            .any {
+                abs(it - sectionMm2) < 0.0001
+            }
 }
