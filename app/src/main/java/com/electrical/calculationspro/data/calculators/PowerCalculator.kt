@@ -5,11 +5,8 @@ import kotlin.math.sqrt
 /**
  * Professional electrical power calculator.
  *
- * All returned power values use the same unit as the input
- * voltage/current combination:
- *
- * V × A = VA
- * W / VA / var relationships are preserved.
+ * Engineering layer only.
+ * No UI logic and no catalog data.
  */
 object PowerCalculator {
 
@@ -30,8 +27,11 @@ object PowerCalculator {
             "Current cannot be negative."
         }
 
-        require(powerFactor in 0.0..1.0) {
-            "Power factor must be between 0 and 1."
+        require(
+            powerFactor > EPSILON &&
+                powerFactor <= 1.0
+        ) {
+            "Power factor must be > 0 and <= 1."
         }
 
         return when (phases) {
@@ -60,8 +60,13 @@ object PowerCalculator {
         phases: Int
     ): Double {
 
-        require(voltage >= 0.0)
-        require(current >= 0.0)
+        require(voltage >= 0.0) {
+            "Voltage cannot be negative."
+        }
+
+        require(current >= 0.0) {
+            "Current cannot be negative."
+        }
 
         return when (phases) {
 
@@ -86,8 +91,13 @@ object PowerCalculator {
         apparentPower: Double
     ): Double {
 
-        require(activePower >= 0.0)
-        require(apparentPower >= 0.0)
+        require(activePower >= 0.0) {
+            "Active power cannot be negative."
+        }
+
+        require(apparentPower >= 0.0) {
+            "Apparent power cannot be negative."
+        }
 
         require(
             activePower <=
@@ -111,8 +121,13 @@ object PowerCalculator {
         apparentPower: Double
     ): Double {
 
-        require(activePower >= 0.0)
-        require(apparentPower >= 0.0)
+        require(activePower >= 0.0) {
+            "Active power cannot be negative."
+        }
+
+        require(apparentPower >= 0.0) {
+            "Apparent power cannot be negative."
+        }
 
         if (apparentPower <= EPSILON) {
             return 0.0
@@ -136,9 +151,16 @@ object PowerCalculator {
         powerFactor: Double
     ): Double {
 
-        require(kw >= 0.0)
-        require(powerFactor > EPSILON)
-        require(powerFactor <= 1.0)
+        require(kw >= 0.0) {
+            "Active power cannot be negative."
+        }
+
+        require(
+            powerFactor > EPSILON &&
+                powerFactor <= 1.0
+        ) {
+            "Power factor must be > 0 and <= 1."
+        }
 
         return kw /
             powerFactor
@@ -149,9 +171,16 @@ object PowerCalculator {
         powerFactor: Double
     ): Double {
 
-        require(kw >= 0.0)
-        require(powerFactor > EPSILON)
-        require(powerFactor <= 1.0)
+        require(kw >= 0.0) {
+            "Active power cannot be negative."
+        }
+
+        require(
+            powerFactor > EPSILON &&
+                powerFactor <= 1.0
+        ) {
+            "Power factor must be > 0 and <= 1."
+        }
 
         val sinPhi =
             sqrt(
@@ -172,10 +201,64 @@ object PowerCalculator {
         powerFactor: Double
     ): Double {
 
-        require(kva >= 0.0)
-        require(powerFactor in 0.0..1.0)
+        require(kva >= 0.0) {
+            "Apparent power cannot be negative."
+        }
+
+        require(
+            powerFactor >= 0.0 &&
+                powerFactor <= 1.0
+        ) {
+            "Power factor must be between 0 and 1."
+        }
 
         return kva *
             powerFactor
+    }
+
+    fun voltageFromActivePower(
+        activePowerWatts: Double,
+        currentA: Double,
+        powerFactor: Double,
+        phases: Int
+    ): Double {
+
+        require(activePowerWatts >= 0.0) {
+            "Active power cannot be negative."
+        }
+
+        require(currentA > EPSILON) {
+            "Current must be greater than zero."
+        }
+
+        require(
+            powerFactor > EPSILON &&
+                powerFactor <= 1.0
+        ) {
+            "Power factor must be > 0 and <= 1."
+        }
+
+        return when (phases) {
+
+            1 ->
+                activePowerWatts /
+                    (
+                        currentA *
+                            powerFactor
+                    )
+
+            3 ->
+                activePowerWatts /
+                    (
+                        sqrt(3.0) *
+                            currentA *
+                            powerFactor
+                    )
+
+            else ->
+                throw IllegalArgumentException(
+                    "Only 1-phase and 3-phase systems are supported."
+                )
+        }
     }
 }
