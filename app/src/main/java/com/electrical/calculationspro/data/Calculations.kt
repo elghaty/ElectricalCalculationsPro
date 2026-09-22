@@ -11,20 +11,18 @@ import com.electrical.calculationspro.data.standards.CodeEngineFactory
 
 /**
  * ================================================================
- * PROFESSIONAL ENGINEERING CORE
+ * PROFESSIONAL ENGINEERING CORE / FACADE
  * ================================================================
  *
- * SINGLE PUBLIC CALCULATION FACADE.
- *
  * UI
- *  ↓
+ *   ↓
  * ElectricalCalculations
- *  ↓
+ *   ↓
  * Modular Calculators
- *  ↓
- * Standard Engine / Engineering Data
+ *   ↓
+ * Standard Engine
  *
- * UI must not call individual calculation engines directly.
+ * This object is the single public calculation entry point.
  * ================================================================
  */
 object ElectricalCalculations {
@@ -46,50 +44,63 @@ object ElectricalCalculations {
             currentType = currentType
         )
 
-    fun applyDemandAndDiversity(
-        ib: Double,
-        demandFactor: Double = 1.0,
-        diversityFactor: Double = 1.0
+    fun calculateDesignCurrentFromKw(
+        loadKw: Double,
+        voltage: Double,
+        powerFactor: Double,
+        currentType: CurrentType
     ): Double =
-        LoadCalculator.applyDemandAndDiversity(
-            ib = ib,
-            demandFactor = demandFactor,
-            diversityFactor = diversityFactor
+        LoadCalculator.designCurrentFromKw(
+            loadKw = loadKw,
+            voltage = voltage,
+            powerFactor = powerFactor,
+            currentType = currentType
         )
 
     fun applyDemandFactor(
-        load: Double,
+        current: Double,
         demandFactor: Double
     ): Double =
         LoadCalculator.applyDemandFactor(
-            load = load,
+            current = current,
             demandFactor = demandFactor
         )
 
     fun applyDiversityFactor(
-        load: Double,
+        current: Double,
         diversityFactor: Double
     ): Double =
         LoadCalculator.applyDiversityFactor(
-            load = load,
+            current = current,
+            diversityFactor = diversityFactor
+        )
+
+    fun applyDemandAndDiversity(
+        current: Double,
+        demandFactor: Double = 1.0,
+        diversityFactor: Double = 1.0
+    ): Double =
+        LoadCalculator.applyDemandAndDiversity(
+            current = current,
+            demandFactor = demandFactor,
             diversityFactor = diversityFactor
         )
 
     fun loadAfterDemand(
-        load: Double,
+        loadWatts: Double,
         demandFactor: Double
     ): Double =
         LoadCalculator.loadAfterDemand(
-            load = load,
+            loadWatts = loadWatts,
             demandFactor = demandFactor
         )
 
     fun loadAfterDiversity(
-        load: Double,
+        loadWatts: Double,
         diversityFactor: Double
     ): Double =
         LoadCalculator.loadAfterDiversity(
-            load = load,
+            loadWatts = loadWatts,
             diversityFactor = diversityFactor
         )
 
@@ -126,8 +137,8 @@ object ElectricalCalculations {
         apparent: Double
     ): Double =
         PowerCalculator.reactivePower(
-            active = active,
-            apparent = apparent
+            activePower = active,
+            apparentPower = apparent
         )
 
     fun calculatePowerFactor(
@@ -135,8 +146,8 @@ object ElectricalCalculations {
         apparent: Double
     ): Double =
         PowerCalculator.powerFactor(
-            active = active,
-            apparent = apparent
+            activePower = active,
+            apparentPower = apparent
         )
 
     fun calculateKvaFromKw(
@@ -311,8 +322,10 @@ object ElectricalCalculations {
         breakerBreakingCapacityKA: Double
     ): Boolean =
         BreakerSelectionCalculator.isBreakingCapacityAdequate(
-            prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
-            breakerBreakingCapacityKA = breakerBreakingCapacityKA
+            prospectiveFaultCurrentKA =
+                prospectiveFaultCurrentKA,
+            breakerBreakingCapacityKA =
+                breakerBreakingCapacityKA
         )
 
     fun availableBreakerRatings(
@@ -378,12 +391,13 @@ object ElectricalCalculations {
         impedancePercent: Double,
         phases: Int = 3
     ): Double =
-        TransformerSizingCalculator.shortCircuitCurrentFromImpedance(
-            kva = kva,
-            voltage = voltage,
-            impedancePercent = impedancePercent,
-            phases = phases
-        )
+        TransformerSizingCalculator
+            .shortCircuitCurrentFromImpedance(
+                kva = kva,
+                voltage = voltage,
+                impedancePercent = impedancePercent,
+                phases = phases
+            )
 
     fun calculateTransformerSizing(
         loadKw: Double,
@@ -406,7 +420,7 @@ object ElectricalCalculations {
         TransformerSizingCalculator.standardRatings()
 
     // ============================================================
-    // STANDARD
+    // STANDARDS
     // ============================================================
 
     fun availableStandards(): List<Standard> =
@@ -429,6 +443,6 @@ object ElectricalCalculations {
 
     fun standardEngine(
         standard: Standard
-    ) =
+    ): StandardEngine =
         CodeEngineFactory.get(standard)
 }
