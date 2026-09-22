@@ -5,18 +5,23 @@ import com.electrical.calculationspro.data.CurrentType
 import kotlin.math.sqrt
 
 /**
- * Voltage-drop mathematical engine.
+ * Professional voltage-drop mathematical engine.
  *
- * This class does not select cables.
- * Cable selection and manufacturer data belong to the catalog layer.
+ * This class performs only the electrical calculation.
  *
- * The calculation is preliminary when manufacturer R/X data are
- * not available for the selected cable.
+ * Final design verification should use manufacturer/catalogue
+ * R and X values for the selected cable.
  */
 object VoltageDropCalculator {
 
     private const val EPSILON = 1.0e-9
 
+    /**
+     * Legacy/public API preserved for UI compatibility.
+     *
+     * Uses engineering default R/X values when exact manufacturer
+     * impedance data are not supplied.
+     */
     fun calculate(
         current: Double,
         length: Double,
@@ -27,16 +32,51 @@ object VoltageDropCalculator {
         voltage: Double
     ): Pair<Double, Double> {
 
+        val resistanceOhmPerKm =
+            when (material) {
+                ConductorMaterial.Copper -> 22.5
+                ConductorMaterial.Aluminum -> 36.0
+            }
+
+        val reactanceOhmPerKm =
+            when (currentType) {
+                CurrentType.DirectCurrent -> 0.0
+                else -> 0.08
+            }
+
+        return calculate(
+            current = current,
+            length = length,
+            powerFactor = powerFactor,
+            currentType = currentType,
+            voltage = voltage,
+            resistanceOhmPerKm = resistanceOhmPerKm,
+            reactanceOhmPerKm = reactanceOhmPerKm
+        )
+    }
+
+    /**
+     * Professional catalogue-data calculation.
+     *
+     * R and X are supplied directly from the selected cable
+     * manufacturer catalogue in ohm/km.
+     */
+    fun calculate(
+        current: Double,
+        length: Double,
+        powerFactor: Double,
+        currentType: CurrentType,
+        voltage: Double,
+        resistanceOhmPerKm: Double,
+        reactanceOhmPerKm: Double
+    ): Pair<Double, Double> {
+
         require(current >= 0.0) {
             "Current cannot be negative."
         }
 
         require(length >= 0.0) {
             "Length cannot be negative."
-        }
-
-        require(sectionMm2 > EPSILON) {
-            "Conductor section must be greater than zero."
         }
 
         require(voltage > EPSILON) {
@@ -50,36 +90,19 @@ object VoltageDropCalculator {
             "Power factor must be > 0 and <= 1."
         }
 
-        val resistivity =
-            when (material) {
+        require(resistanceOhmPerKm >= 0.0) {
+            "Cable resistance cannot be negative."
+        }
 
-                ConductorMaterial.Copper ->
-                    0.0225
-
-                ConductorMaterial.Aluminum ->
-                    0.0360
-            }
-
-        val resistancePerMeter =
-            resistivity /
-                sectionMm2
-
-        val reactancePerMeter =
-            if (
-                currentType ==
-                CurrentType.DirectCurrent
-            ) {
-                0.0
-            } else {
-                0.08 / 1000.0
-            }
+        require(reactanceOhmPerKm >= 0.0) {
+            "Cable reactance cannot be negative."
+        }
 
         val sinPhi =
             sqrt(
                 (
                     1.0 -
-                        powerFactor *
-                        powerFactor
+                        powerFactor * powerFactor
                     ).coerceAtLeast(0.0)
             )
 
@@ -99,16 +122,23 @@ object VoltageDropCalculator {
                     sqrt(3.0)
             }
 
+        val resistanceOhm =
+            resistanceOhmPerKm *
+                (length / 1000.0)
+
+        val reactanceOhm =
+            reactanceOhmPerKm *
+                (length / 1000.0)
+
         val voltageDropVolts =
             loopFactor *
                 current *
-                length *
                 (
-                    resistancePerMeter *
+                    resistanceOhm *
                         powerFactor +
-                        reactancePerMeter *
+                        reactanceOhm *
                         sinPhi
-                    )
+                )
 
         val voltageDropPercent =
             voltageDropVolts /
@@ -155,5 +185,43 @@ object VoltageDropCalculator {
             currentType = currentType,
             material = material,
             voltage = voltage
+        ).second
+
+    fun voltageDropPercent(
+        current: Double,
+        length: Double,
+        powerFactor: Double,
+        currentType: CurrentType,
+        voltage: Double,
+        resistanceOhmPerKm: Double,
+        reactanceOhmPerKm: Double
+    ): Double =
+        calculate(
+            current = current,
+            length = length,
+            powerFactor = powerFactor,
+            currentType = currentType,
+            voltage = voltage,
+            resistanceOhmPerKm = resistanceOhmPerKm,
+            reactanceOhmPerKm = reactanceOhmPerKm
+        ).first
+
+    fun voltageDropVolts(
+        current: Double,
+        length: Double,
+        powerFactor: Double,
+        currentType: CurrentType,
+        voltage: Double,
+        resistanceOhmPerKm: Double,
+        reactanceOhmPerKm: Double
+    ): Double =
+        calculate(
+            current = current,
+            length = length,
+            powerFactor = powerFactor,
+            currentType = currentType,
+            voltage = voltage,
+            resistanceOhmPerKm = resistanceOhmPerKm,
+            reactanceOhmPerKm = reactanceOhmPerKm
         ).second
 }
