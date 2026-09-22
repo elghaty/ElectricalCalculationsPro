@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.SldNodeType
+import androidx.compose.runtime.mutableStateOf
 
 @Composable
 fun SldEditorScreen(
