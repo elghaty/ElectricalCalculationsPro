@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -134,7 +133,9 @@ fun ProfessionalVoltageDropScreen(
                 )
 
                 TextButton(onClick = it) {
-                    Text(if (arabic) "رجوع" else "Back")
+                    Text(
+                        if (arabic) "رجوع" else "Back"
+                    )
                 }
             }
 
@@ -142,10 +143,11 @@ fun ProfessionalVoltageDropScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = if (arabic)
+                    text = if (arabic) {
                         "دراسة هبوط الجهد"
-                    else
-                        "Voltage Drop Study",
+                    } else {
+                        "Voltage Drop Study"
+                    },
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 19.sp,
                     fontWeight = FontWeight.Bold
@@ -176,7 +178,11 @@ fun ProfessionalVoltageDropScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SectionTitle(
-                if (arabic) "نظام التغذية والحمل" else "SYSTEM & LOAD"
+                if (arabic) {
+                    "نظام التغذية والحمل"
+                } else {
+                    "SYSTEM & LOAD"
+                }
             )
 
             Card(
@@ -191,57 +197,81 @@ fun ProfessionalVoltageDropScreen(
                 ) {
                     FourColumnGrid {
                         DropdownField(
-                            label = if (arabic) "نوع النظام" else "System Type",
-                            value = currentTypeLabel(currentType, arabic),
+                            label = if (arabic) {
+                                "نوع النظام"
+                            } else {
+                                "System Type"
+                            },
+                            value = currentTypeLabel(
+                                currentType,
+                                arabic
+                            ),
                             items = CurrentType.entries.map {
                                 currentTypeLabel(it, arabic)
                             },
                             onSelect = { index ->
-                                currentType = CurrentType.entries[index]
+                                currentType =
+                                    CurrentType.entries[index]
                             }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "جهد النظام (V)"
-                            else
-                                "System Voltage (V)",
+                            } else {
+                                "System Voltage (V)"
+                            },
                             value = voltage,
-                            onValueChange = { voltage = it }
+                            onValueChange = {
+                                voltage = it
+                            }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "الحمل (kW)"
-                            else
-                                "Load (kW)",
+                            } else {
+                                "Load (kW)"
+                            },
                             value = loadKw,
-                            onValueChange = { loadKw = it }
+                            onValueChange = {
+                                loadKw = it
+                            }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "التيار A"
-                            else
-                                "Current A",
+                            } else {
+                                "Current A"
+                            },
                             value = current,
-                            onValueChange = { current = it }
+                            onValueChange = {
+                                current = it
+                            }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "معامل القدرة"
-                            else
-                                "Power Factor",
+                            } else {
+                                "Power Factor"
+                            },
                             value = pf,
-                            onValueChange = { pf = it }
+                            onValueChange = {
+                                pf = it
+                            }
                         )
                     }
                 }
             }
 
             SectionTitle(
-                if (arabic) "بيانات الكابل" else "CABLE DATA"
+                if (arabic) {
+                    "بيانات الكابل"
+                } else {
+                    "CABLE DATA"
+                }
             )
 
             Card(
@@ -256,52 +286,71 @@ fun ProfessionalVoltageDropScreen(
                 ) {
                     FourColumnGrid {
                         NumberField(
-                            label = if (arabic) "الطول m" else "Length m",
+                            label = if (arabic) {
+                                "الطول m"
+                            } else {
+                                "Length m"
+                            },
                             value = length,
-                            onValueChange = { length = it }
+                            onValueChange = {
+                                length = it
+                            }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "المقطع mm²"
-                            else
-                                "Section mm²",
+                            } else {
+                                "Section mm²"
+                            },
                             value = section,
-                            onValueChange = { section = it }
+                            onValueChange = {
+                                section = it
+                            }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "عدد المسارات"
-                            else
-                                "Parallel Runs",
+                            } else {
+                                "Parallel Runs"
+                            },
                             value = parallelRuns,
-                            onValueChange = { parallelRuns = it }
+                            onValueChange = {
+                                parallelRuns = it
+                            }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "درجة الحرارة °C"
-                            else
-                                "Ambient °C",
+                            } else {
+                                "Ambient °C"
+                            },
                             value = ambient,
-                            onValueChange = { ambient = it }
+                            onValueChange = {
+                                ambient = it
+                            }
                         )
 
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "عدد الدوائر"
-                            else
-                                "Circuits",
+                            } else {
+                                "Circuits"
+                            },
                             value = circuits,
-                            onValueChange = { circuits = it }
+                            onValueChange = {
+                                circuits = it
+                            }
                         )
 
                         DropdownField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "مادة الموصل"
-                            else
-                                "Conductor Material",
+                            } else {
+                                "Conductor Material"
+                            },
                             value = material.name,
                             items = ConductorMaterial.entries.map {
                                 it.name
@@ -313,10 +362,11 @@ fun ProfessionalVoltageDropScreen(
                         )
 
                         DropdownField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "العازل"
-                            else
-                                "Insulation",
+                            } else {
+                                "Insulation"
+                            },
                             value = insulation.name,
                             items = InsulationType.entries.map {
                                 it.name
@@ -328,10 +378,11 @@ fun ProfessionalVoltageDropScreen(
                         )
 
                         DropdownField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "طريقة التركيب"
-                            else
-                                "Installation Method",
+                            } else {
+                                "Installation Method"
+                            },
                             value = installation.description,
                             items = iecInstallationMethods.map {
                                 it.description
@@ -346,7 +397,11 @@ fun ProfessionalVoltageDropScreen(
             }
 
             SectionTitle(
-                if (arabic) "حدود التصميم" else "DESIGN LIMIT"
+                if (arabic) {
+                    "حدود التصميم"
+                } else {
+                    "DESIGN LIMIT"
+                }
             )
 
             Card(
@@ -360,12 +415,15 @@ fun ProfessionalVoltageDropScreen(
                 ) {
                     FourColumnGrid {
                         NumberField(
-                            label = if (arabic)
+                            label = if (arabic) {
                                 "أقصى هبوط جهد %"
-                            else
-                                "Maximum Voltage Drop %",
+                            } else {
+                                "Maximum Voltage Drop %"
+                            },
                             value = maxDrop,
-                            onValueChange = { maxDrop = it }
+                            onValueChange = {
+                                maxDrop = it
+                            }
                         )
                     }
                 }
@@ -404,10 +462,16 @@ fun ProfessionalVoltageDropScreen(
                         contentDescription = null
                     )
 
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(
+                        modifier = Modifier.width(6.dp)
+                    )
 
                     Text(
-                        if (arabic) "إجراء الدراسة" else "RUN STUDY"
+                        if (arabic) {
+                            "إجراء الدراسة"
+                        } else {
+                            "RUN STUDY"
+                        }
                     )
                 }
 
@@ -437,7 +501,11 @@ fun ProfessionalVoltageDropScreen(
                     }
                 ) {
                     Text(
-                        if (arabic) "اختيار المقطع" else "AUTO SIZE"
+                        if (arabic) {
+                            "اختيار المقطع"
+                        } else {
+                            "AUTO SIZE"
+                        }
                     )
                 }
             }
@@ -449,7 +517,9 @@ fun ProfessionalVoltageDropScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(
+                modifier = Modifier.height(24.dp)
+            )
         }
     }
 }
@@ -546,7 +616,11 @@ private fun calculateStudy(
             }
 
     var selected =
-        if (autoSelect) null else section
+        if (autoSelect) {
+            null
+        } else {
+            section
+        }
 
     var selectedAmpacity: Double? = null
 
@@ -577,7 +651,10 @@ private fun calculateStudy(
             break
         }
 
-        if (!autoSelect && candidate == section) {
+        if (
+            !autoSelect &&
+            candidate == section
+        ) {
             selectedAmpacity = ampacity
         }
     }
@@ -699,10 +776,11 @@ private fun StudyResultCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = if (arabic)
+                text = if (arabic) {
                     "نتيجة الدراسة الهندسية"
-                else
-                    "ENGINEERING STUDY RESULT",
+                } else {
+                    "ENGINEERING STUDY RESULT"
+                },
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
@@ -752,29 +830,35 @@ private fun StudyResultCard(
 
             ResultRow(
                 if (arabic) "الحد المسموح" else "Allowed Limit",
-                "%.2f %%".format(study.allowedVoltageDropPercent)
+                "%.2f %%".format(
+                    study.allowedVoltageDropPercent
+                )
             )
 
             StatusRow(
-                title = if (arabic)
+                title = if (arabic) {
                     "اختبار هبوط الجهد"
-                else
-                    "Voltage Drop Check",
+                } else {
+                    "Voltage Drop Check"
+                },
                 passValue = study.voltageDropPass,
                 arabic = arabic
             )
 
             StatusRow(
-                title = if (arabic)
+                title = if (arabic) {
                     "اختبار سعة الكابل"
-                else
-                    "Cable Ampacity Check",
+                } else {
+                    "Cable Ampacity Check"
+                },
                 passValue = study.ampacityPass,
                 arabic = arabic
             )
 
             if (study.notes.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(
+                    modifier = Modifier.height(4.dp)
+                )
 
                 study.notes.forEach { note ->
                     Row(
@@ -787,7 +871,9 @@ private fun StudyResultCard(
                             modifier = Modifier.width(20.dp)
                         )
 
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(
+                            modifier = Modifier.width(6.dp)
+                        )
 
                         Text(
                             text = note,
@@ -813,20 +899,24 @@ private fun StatusRow(
     ) {
         Icon(
             imageVector =
-                if (passValue)
+                if (passValue) {
                     Icons.Outlined.CheckCircle
-                else
-                    Icons.Outlined.Warning,
+                } else {
+                    Icons.Outlined.Warning
+                },
             contentDescription = null,
             tint =
-                if (passValue)
+                if (passValue) {
                     Color(0xFF2E7D32)
-                else
-                    Color(0xFFE65100),
+                } else {
+                    Color(0xFFE65100)
+                },
             modifier = Modifier.width(24.dp)
         )
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(
+            modifier = Modifier.width(8.dp)
+        )
 
         Text(
             text = title,
@@ -836,15 +926,17 @@ private fun StatusRow(
 
         Text(
             text =
-                if (passValue)
+                if (passValue) {
                     if (arabic) "مطابق" else "PASS"
-                else
-                    if (arabic) "غير مطابق" else "FAIL",
+                } else {
+                    if (arabic) "غير مطابق" else "FAIL"
+                },
             color =
-                if (passValue)
+                if (passValue) {
                     Color(0xFF2E7D32)
-                else
-                    Color(0xFFE65100),
+                } else {
+                    Color(0xFFE65100)
+                },
             fontWeight = FontWeight.Bold
         )
     }
@@ -961,18 +1053,83 @@ private fun DropdownField(
     }
 }
 
+/*
+ * Four-column grid without FlowRow.
+ *
+ * Important:
+ * Modifier.weight() is used inside RowScope only.
+ * This avoids the previous compilation problem caused by
+ * importing androidx.compose.foundation.layout.weight.
+ */
 @Composable
 private fun FourColumnGrid(
+    content: @Composable FourColumnScope.() -> Unit
+) {
+    val items = mutableListOf<@Composable () -> Unit>()
+
+    val scope = FourColumnScopeImpl(items)
+
+    scope.content()
+
+    items.chunked(4).forEach { rowItems ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            repeat(4) { index ->
+                Box(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (index < rowItems.size) {
+                        rowItems[index]()
+                    }
+                }
+            }
+        }
+
+        if (rowItems !== items.chunked(4).lastOrNull()) {
+            Spacer(
+                modifier = Modifier.height(10.dp)
+            )
+        }
+    }
+}
+
+private interface FourColumnScope {
+    fun item(content: @Composable () -> Unit)
+}
+
+private class FourColumnScopeImpl(
+    private val items: MutableList<@Composable () -> Unit>
+) : FourColumnScope {
+
+    override fun item(
+        content: @Composable () -> Unit
+    ) {
+        items += content
+    }
+}
+
+private fun FourColumnScope.field(
     content: @Composable () -> Unit
 ) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        maxItemsInEachRow = 4
-    ) {
-        content()
-    }
+    item(content)
+}
+
+private fun FourColumnScope.itemContent(
+    content: @Composable () -> Unit
+) {
+    item(content)
+}
+
+/*
+ * Overloads used by FourColumnGrid's call-site.
+ */
+@Composable
+private fun FourColumnGridContent(
+    content: FourColumnScope.() -> Unit
+) {
+    FourColumnGrid(content)
 }
 
 private fun currentTypeLabel(
@@ -981,15 +1138,31 @@ private fun currentTypeLabel(
 ): String {
     return when (type) {
         CurrentType.DirectCurrent ->
-            if (arabic) "تيار مستمر DC" else "DC"
+            if (arabic) {
+                "تيار مستمر DC"
+            } else {
+                "DC"
+            }
 
         CurrentType.AlternatingSinglePhase ->
-            if (arabic) "أحادي الطور 1Φ" else "Single Phase"
+            if (arabic) {
+                "أحادي الطور 1Φ"
+            } else {
+                "Single Phase"
+            }
 
         CurrentType.AlternatingTwoPhase ->
-            if (arabic) "ثنائي الطور 2Φ" else "Two Phase"
+            if (arabic) {
+                "ثنائي الطور 2Φ"
+            } else {
+                "Two Phase"
+            }
 
         CurrentType.AlternatingThreePhase ->
-            if (arabic) "ثلاثي الطور 3Φ" else "Three Phase"
+            if (arabic) {
+                "ثلاثي الطور 3Φ"
+            } else {
+                "Three Phase"
+            }
     }
 }
