@@ -1,7 +1,6 @@
 package com.electrical.calculationspro.data.standards
 
 import com.electrical.calculationspro.data.ConductorMaterial
-import com.electrical.calculationspro.data.IecTables
 import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.InstallationMethod
 import com.electrical.calculationspro.data.Standard
@@ -9,16 +8,15 @@ import com.electrical.calculationspro.data.Standard
 /**
  * NEC engine.
  *
- * This class intentionally does NOT claim that IEC ampacity tables
- * constitute NEC compliance.
+ * IMPORTANT:
+ * IEC ampacity tables are NEVER substituted for NEC tables.
  *
- * It provides the application contract now, while the dedicated
- * NEC Article/Table datasets are added separately.
+ * Until verified NEC Article 310 data is populated, conductor
+ * ampacity is intentionally unavailable.
  */
 class NecEngine(
     private val standardOverride: Standard =
         Standard.NEC,
-
     private val codeNameOverride: String =
         "NFPA 70 - National Electrical Code"
 ) : StandardEngine {
@@ -30,37 +28,21 @@ class NecEngine(
         codeNameOverride
 
     override val codeRevision: String =
-        "Controlled implementation"
+        "Controlled NEC dataset - incomplete"
 
     override fun maximumVoltageDropPercent(
         circuitCategory: String
     ): Double {
 
-        /*
-         * NEC informational notes commonly use voltage-drop
-         * recommendations rather than treating them as a universal
-         * mandatory branch-circuit limit.
-         *
-         * The final NEC engine will distinguish mandatory rules
-         * from informational recommendations.
-         */
         return when (
             circuitCategory
                 .trim()
                 .lowercase()
         ) {
-
-            "feeder" ->
-                3.0
-
-            "branch" ->
-                3.0
-
-            "total" ->
-                5.0
-
-            else ->
-                5.0
+            "feeder" -> 3.0
+            "branch" -> 3.0
+            "total" -> 5.0
+            else -> 5.0
         }
     }
 
@@ -70,35 +52,21 @@ class NecEngine(
     ): Double {
 
         /*
-         * Placeholder only until NEC 310 correction tables are
-         * populated from the controlled NEC dataset.
-         *
-         * We intentionally return the existing project's value
-         * but mark the engine as incomplete.
+         * NEC Article 310 correction data is intentionally not
+         * approximated using IEC tables.
          */
-        return when (insulation) {
-
-            InsulationType.XLPE,
-            InsulationType.EPR ->
-                IecTables.ambientCorrectionXlpe(
-                    ambientTemperatureC
-                )
-
-            InsulationType.PVC,
-            InsulationType.Rubber ->
-                IecTables.ambientCorrectionPvc(
-                    ambientTemperatureC
-                )
-        }
+        return 1.0
     }
 
     override fun groupingFactor(
         numberOfCircuits: Int
     ): Double {
 
-        return IecTables.groupingFactor(
-            numberOfCircuits
-        )
+        /*
+         * NEC adjustment factors will be supplied by the dedicated
+         * NEC Article 310 dataset.
+         */
+        return 1.0
     }
 
     override fun conductorAmpacity(
@@ -110,21 +78,12 @@ class NecEngine(
     ): Double? {
 
         /*
-         * NEVER label this result NEC compliant.
+         * No IEC fallback.
          *
-         * NEC Article 310 tables will replace this delegation.
+         * Returning null prevents the application from claiming
+         * NEC compliance using non-NEC data.
          */
-        return IecTables.getBaseAmpacity(
-            section = sectionMm2,
-            method =
-                IecTables.methodToKey(
-                    installationMethod.code
-                ),
-            loadedConductors =
-                loadedConductors,
-            material = material,
-            insulation = insulation
-        )
+        return null
     }
 
     override fun standardConductorSections(): List<Double> =
@@ -192,7 +151,7 @@ class NecEngine(
         false
 
     override fun implementationStatus(): String =
-        "NEC engine is not yet compliance-complete. " +
-            "Dedicated NEC Articles 210, 215, 220, 240, 250 and 310 " +
-            "datasets must be populated before NEC compliance is declared."
+        "NEC calculation engine is active, but verified NEC Article 310 " +
+            "ampacity and adjustment datasets are not yet populated. " +
+            "IEC ampacity data is deliberately NOT used as a substitute."
 }
