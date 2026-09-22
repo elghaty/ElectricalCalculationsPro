@@ -3,11 +3,9 @@ package com.electrical.calculationspro.data.standards
 import com.electrical.calculationspro.data.Standard
 
 /**
- * Single factory responsible for resolving the engineering
- * standard selected by the user.
+ * Single entry point for engineering-code engines.
  *
- * The rest of the application should not instantiate individual
- * code engines directly.
+ * A standard is never represented by another standard's engine.
  */
 object CodeEngineFactory {
 
@@ -21,40 +19,90 @@ object CodeEngineFactory {
         NecEngine()
 
     private val ceiEngine =
-        IecEngine(
-            standardOverride = Standard.CEI,
-            codeNameOverride = "CEI 64-8"
+        UnsupportedStandardEngine(
+            standard = Standard.CEI,
+            codeName = "CEI 64-8",
+            description =
+                "CEI 64-8 requires a dedicated verified CEI dataset."
         )
 
     private val cecEngine =
-        NecEngine(
-            standardOverride = Standard.CEC,
-            codeNameOverride = "Canadian Electrical Code"
+        UnsupportedStandardEngine(
+            standard = Standard.CEC,
+            codeName = "Canadian Electrical Code",
+            description =
+                "CEC requires a dedicated verified CEC dataset."
         )
 
     fun get(
         standard: Standard
-    ): StandardEngine {
-
-        return when (standard) {
-
-            Standard.EGYPTIAN ->
-                egyptianEngine
-
-            Standard.IEC ->
-                iecEngine
-
-            Standard.NEC ->
-                necEngine
-
-            Standard.CEI ->
-                ceiEngine
-
-            Standard.CEC ->
-                cecEngine
+    ): StandardEngine =
+        when (standard) {
+            Standard.EGYPTIAN -> egyptianEngine
+            Standard.IEC -> iecEngine
+            Standard.NEC -> necEngine
+            Standard.CEI -> ceiEngine
+            Standard.CEC -> cecEngine
         }
-    }
 
     fun default(): StandardEngine =
         egyptianEngine
+}
+
+/**
+ * Explicit placeholder for standards whose dedicated verified dataset
+ * has not yet been implemented.
+ *
+ * This prevents accidental inheritance of another country's/code's data.
+ */
+private class UnsupportedStandardEngine(
+    override val standard: Standard,
+    override val codeName: String,
+    private val description: String
+) : StandardEngine {
+
+    override val codeRevision: String =
+        "Dataset not implemented"
+
+    override fun maximumVoltageDropPercent(
+        circuitCategory: String
+    ): Double =
+        0.0
+
+    override fun ambientTemperatureFactor(
+        insulation: com.electrical.calculationspro.data.InsulationType,
+        ambientTemperatureC: Double
+    ): Double =
+        1.0
+
+    override fun groupingFactor(
+        numberOfCircuits: Int
+    ): Double {
+        require(numberOfCircuits >= 1) {
+            "Number of circuits must be at least 1."
+        }
+
+        return 1.0
+    }
+
+    override fun conductorAmpacity(
+        sectionMm2: Double,
+        material: com.electrical.calculationspro.data.ConductorMaterial,
+        insulation: com.electrical.calculationspro.data.InsulationType,
+        installationMethod: com.electrical.calculationspro.data.InstallationMethod,
+        loadedConductors: Int
+    ): Double? =
+        null
+
+    override fun standardConductorSections(): List<Double> =
+        emptyList()
+
+    override fun standardBreakerRatings(): List<Double> =
+        emptyList()
+
+    override fun isFullyImplemented(): Boolean =
+        false
+
+    override fun implementationStatus(): String =
+        "$description No data from IEC, NEC, or another standard is substituted."
 }
