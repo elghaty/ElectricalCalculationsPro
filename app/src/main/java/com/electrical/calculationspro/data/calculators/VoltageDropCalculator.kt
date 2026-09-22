@@ -5,27 +5,18 @@ import com.electrical.calculationspro.data.CurrentType
 import kotlin.math.sqrt
 
 /**
- * Voltage-drop calculation engine.
+ * Voltage-drop mathematical engine.
  *
- * IMPORTANT:
- * The mathematical engine is independent from the selected standard.
- * Standard-specific permissible voltage-drop limits are handled by
- * the Standards layer.
+ * This class does not select cables.
+ * Cable selection and manufacturer data belong to the catalog layer.
  *
- * Resistance values here represent engineering calculation defaults.
- * Final production calculations should use conductor/manufacturer
- * catalogue electrical characteristics where available.
+ * The calculation is preliminary when manufacturer R/X data are
+ * not available for the selected cable.
  */
 object VoltageDropCalculator {
 
     private const val EPSILON = 1.0e-9
 
-    /**
-     * Returns Pair(
-     *     voltageDropPercent,
-     *     voltageDropVolts
-     * )
-     */
     fun calculate(
         current: Double,
         length: Double,
@@ -36,21 +27,38 @@ object VoltageDropCalculator {
         voltage: Double
     ): Pair<Double, Double> {
 
-        require(current >= 0.0)
-        require(length >= 0.0)
-        require(sectionMm2 > EPSILON)
-        require(voltage > EPSILON)
-        require(powerFactor > 0.0)
-        require(powerFactor <= 1.0)
-
-        val resistivity = when (material) {
-
-            ConductorMaterial.Copper ->
-                0.0225
-
-            ConductorMaterial.Aluminum ->
-                0.0360
+        require(current >= 0.0) {
+            "Current cannot be negative."
         }
+
+        require(length >= 0.0) {
+            "Length cannot be negative."
+        }
+
+        require(sectionMm2 > EPSILON) {
+            "Conductor section must be greater than zero."
+        }
+
+        require(voltage > EPSILON) {
+            "Voltage must be greater than zero."
+        }
+
+        require(
+            powerFactor > EPSILON &&
+                powerFactor <= 1.0
+        ) {
+            "Power factor must be > 0 and <= 1."
+        }
+
+        val resistivity =
+            when (material) {
+
+                ConductorMaterial.Copper ->
+                    0.0225
+
+                ConductorMaterial.Aluminum ->
+                    0.0360
+            }
 
         val resistancePerMeter =
             resistivity /
@@ -119,9 +127,8 @@ object VoltageDropCalculator {
         currentType: CurrentType,
         material: ConductorMaterial,
         voltage: Double
-    ): Double {
-
-        return calculate(
+    ): Double =
+        calculate(
             current = current,
             length = length,
             sectionMm2 = sectionMm2,
@@ -130,7 +137,6 @@ object VoltageDropCalculator {
             material = material,
             voltage = voltage
         ).first
-    }
 
     fun voltageDropVolts(
         current: Double,
@@ -140,9 +146,8 @@ object VoltageDropCalculator {
         currentType: CurrentType,
         material: ConductorMaterial,
         voltage: Double
-    ): Double {
-
-        return calculate(
+    ): Double =
+        calculate(
             current = current,
             length = length,
             sectionMm2 = sectionMm2,
@@ -151,5 +156,4 @@ object VoltageDropCalculator {
             material = material,
             voltage = voltage
         ).second
-    }
 }
