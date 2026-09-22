@@ -9,15 +9,6 @@ import com.electrical.calculationspro.data.standards.egyptian.EgyptianInstallati
 import com.electrical.calculationspro.data.standards.egyptian.EgyptianTables
 import kotlin.math.abs
 
-/**
- * Egyptian Electrical Code engine.
- *
- * This engine is intentionally isolated from IEC and NEC.
- *
- * IMPORTANT:
- * The Egyptian cable ampacity dataset is not considered complete until
- * verified/current Egyptian Code data is populated.
- */
 class EgyptianCodeEngine : StandardEngine {
 
     override val standard: Standard =
@@ -31,50 +22,41 @@ class EgyptianCodeEngine : StandardEngine {
 
     override fun maximumVoltageDropPercent(
         circuitCategory: String
-    ): Double {
-
-        val application =
-            when (
-                circuitCategory
-                    .trim()
-                    .lowercase()
-            ) {
-
-                "lighting",
-                "light",
-                "lighting circuit" ->
+    ): Double =
+        when (circuitCategory.trim().lowercase()) {
+            "lighting",
+            "light",
+            "lighting circuit" ->
+                EgyptianTables.maximumVoltageDropPercent(
                     EgyptianTables.EgyptianApplicationType.LIGHTING
+                )
 
-                "motor",
-                "motor circuit" ->
+            "motor",
+            "motor circuit" ->
+                EgyptianTables.maximumVoltageDropPercent(
                     EgyptianTables.EgyptianApplicationType.MOTOR
+                )
 
-                "critical",
-                "critical load",
-                "critical_load" ->
+            "critical",
+            "critical load",
+            "critical_load" ->
+                EgyptianTables.maximumVoltageDropPercent(
                     EgyptianTables.EgyptianApplicationType.CRITICAL_LOAD
+                )
 
-                else ->
+            else ->
+                EgyptianTables.maximumVoltageDropPercent(
                     EgyptianTables.EgyptianApplicationType.GENERAL_BUILDING
-            }
-
-        return EgyptianTables
-            .maximumVoltageDropPercent(application)
-    }
+                )
+        }
 
     override fun ambientTemperatureFactor(
         insulation: InsulationType,
         ambientTemperatureC: Double
     ): Double {
-
         /*
-         * The current EgyptianCableTables does not contain a verified
-         * Egyptian temperature-correction table.
-         *
-         * Therefore no IEC correction factor is substituted here.
-         *
-         * Returning 1.0 keeps the calculation deterministic while the
-         * implementation status remains incomplete.
+         * Verified Egyptian correction-factor dataset is not populated.
+         * Do not substitute IEC values.
          */
         return 1.0
     }
@@ -82,16 +64,13 @@ class EgyptianCodeEngine : StandardEngine {
     override fun groupingFactor(
         numberOfCircuits: Int
     ): Double {
-
         require(numberOfCircuits >= 1) {
             "Number of circuits must be at least 1."
         }
 
         /*
-         * The current Egyptian dataset does not contain a verified
-         * grouping-factor table.
-         *
-         * Do NOT substitute IEC values.
+         * Verified Egyptian grouping-factor dataset is not populated.
+         * Do not substitute IEC values.
          */
         return 1.0
     }
@@ -106,23 +85,18 @@ class EgyptianCodeEngine : StandardEngine {
 
         val result =
             EgyptianCableTables.ampacity(
-                request =
-                    EgyptianCableTables.CableAmpacityRequest(
-                        sectionMm2 = sectionMm2,
-                        conductor = material,
-                        insulation = insulation,
-                        installationMethod =
-                            installationMethod.code,
-                        ambientTemperatureC = 30.0,
-                        loadedConductors = loadedConductors
-                    )
+                EgyptianCableTables.CableAmpacityRequest(
+                    sectionMm2 = sectionMm2,
+                    conductor = material,
+                    insulation = insulation,
+                    installationMethod = installationMethod.code,
+                    ambientTemperatureC = 30.0,
+                    loadedConductors = loadedConductors
+                )
             )
 
-        return if (result.available) {
-            result.ampacityA
-        } else {
-            null
-        }
+        return result.ampacityA
+            ?.takeIf { result.available }
     }
 
     override fun standardConductorSections(): List<Double> =
@@ -167,19 +141,15 @@ class EgyptianCodeEngine : StandardEngine {
         false
 
     override fun implementationStatus(): String =
-        "Egyptian Electrical Code engine is active, but verified/current " +
-            "Egyptian cable ampacity, temperature correction and grouping " +
-            "datasets are not yet populated. IEC tables are NOT substituted."
+        "Egyptian Electrical Code engine is active. Verified/current " +
+            "Egyptian cable ampacity, temperature-correction and grouping " +
+            "datasets are not yet completely populated. IEC data is never " +
+            "used as an Egyptian-code substitute."
 
-    /**
-     * Exposes the currently supported Egyptian installation methods.
-     */
-    fun installationMethods(): List<EgyptianInstallationRules.InstallationMethod> =
+    fun installationMethods():
+        List<EgyptianInstallationRules.InstallationMethod> =
         EgyptianInstallationRules.methods
 
-    /**
-     * Validates an Egyptian installation method.
-     */
     fun validateInstallation(
         method: EgyptianInstallationRules.InstallationMethod,
         ambientTemperatureC: Double,
@@ -191,10 +161,6 @@ class EgyptianCodeEngine : StandardEngine {
             circuits = circuits
         )
 
-    /**
-     * Verifies that a section is one of the standard Egyptian-engine
-     * sections currently supported by the application.
-     */
     fun isStandardSection(
         sectionMm2: Double
     ): Boolean =
