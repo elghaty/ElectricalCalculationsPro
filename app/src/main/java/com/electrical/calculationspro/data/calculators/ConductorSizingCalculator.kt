@@ -5,8 +5,6 @@ import com.electrical.calculationspro.data.ConductorSizingResult
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
-import com.electrical.calculationspro.data.catalog.BreakerCatalogItem
-import com.electrical.calculationspro.data.catalog.CableCatalogItem
 import com.electrical.calculationspro.data.catalog.Manufacturer
 import kotlin.math.abs
 
@@ -78,8 +76,7 @@ object ConductorSizingCalculator {
         val temperatureFactor =
             engine.ambientTemperatureFactor(
                 insulation = input.insulation,
-                ambientTemperatureC =
-                    input.ambientTemp
+                ambientTemperatureC = input.ambientTemp
             ).coerceAtLeast(EPSILON)
 
         val groupingFactor =
@@ -105,8 +102,7 @@ object ConductorSizingCalculator {
                         sectionMm2 = section,
                         material = input.conductor,
                         insulation = input.insulation,
-                        installationMethod =
-                            input.installationMethod,
+                        installationMethod = input.installationMethod,
                         loadedConductors =
                             loadedConductorCount(
                                 input.currentType
@@ -114,8 +110,7 @@ object ConductorSizingCalculator {
                     )
 
                 baseAmpacity != null &&
-                    baseAmpacity >=
-                    requiredBaseIz
+                    baseAmpacity >= requiredBaseIz
             }
 
         val selected =
@@ -131,8 +126,7 @@ object ConductorSizingCalculator {
             standard = standard,
             requiredBaseIz = requiredBaseIz,
             manufacturer = manufacturer,
-            forceNoCodeDataWarning =
-                candidate == null
+            forceNoCodeDataWarning = candidate == null
         )
     }
 
@@ -184,8 +178,7 @@ object ConductorSizingCalculator {
         val temperatureFactor =
             engine.ambientTemperatureFactor(
                 insulation = input.insulation,
-                ambientTemperatureC =
-                    input.ambientTemp
+                ambientTemperatureC = input.ambientTemp
             ).coerceAtLeast(EPSILON)
 
         val groupingFactor =
@@ -230,8 +223,7 @@ object ConductorSizingCalculator {
         val temperatureFactor =
             engine.ambientTemperatureFactor(
                 insulation = input.insulation,
-                ambientTemperatureC =
-                    input.ambientTemp
+                ambientTemperatureC = input.ambientTemp
             ).coerceAtLeast(EPSILON)
 
         val groupingFactor =
@@ -244,8 +236,7 @@ object ConductorSizingCalculator {
                 sectionMm2 = section,
                 material = input.conductor,
                 insulation = input.insulation,
-                installationMethod =
-                    input.installationMethod,
+                installationMethod = input.installationMethod,
                 loadedConductors =
                     loadedConductorCount(
                         input.currentType
@@ -280,25 +271,18 @@ object ConductorSizingCalculator {
 
         val protectiveDevice =
             BreakerSelectionCalculator.selectRating(
-                designCurrentA =
-                    designCurrent,
-                cableAmpacityA =
-                    ampacity,
-                standard =
-                    standard
+                designCurrentA = designCurrent,
+                cableAmpacityA = ampacity,
+                standard = standard
             )
 
         val breakerWithinCapacity =
             protectiveDevice > 0.0 &&
-                BreakerSelectionCalculator
-                    .satisfiesCoordination(
-                        designCurrentA =
-                            designCurrent,
-                        breakerRatingA =
-                            protectiveDevice,
-                        cableAmpacityA =
-                            ampacity
-                    )
+                BreakerSelectionCalculator.satisfiesCoordination(
+                    designCurrentA = designCurrent,
+                    breakerRatingA = protectiveDevice,
+                    cableAmpacityA = ampacity
+                )
 
         // --------------------------------------------------------
         // SHORT CIRCUIT
@@ -308,16 +292,11 @@ object ConductorSizingCalculator {
             runCatching {
 
                 ShortCircuitCalculator.calculate(
-                    voltage =
-                        input.voltage,
-                    length =
-                        input.lineLength,
-                    sectionMm2 =
-                        section,
-                    material =
-                        input.conductor,
-                    currentType =
-                        input.currentType
+                    voltage = input.voltage,
+                    length = input.lineLength,
+                    sectionMm2 = section,
+                    material = input.conductor,
+                    currentType = input.currentType
                 )
 
             }.getOrNull()
@@ -333,10 +312,9 @@ object ConductorSizingCalculator {
 
         val catalogCableResult =
             EquipmentSelectionCalculator.selectCable(
-                requiredSectionMm2 =
-                    section,
-                manufacturer =
-                    manufacturer
+                sectionMm2 = section,
+                manufacturer = manufacturer,
+                standard = standard
             )
 
         val catalogCable =
@@ -350,21 +328,18 @@ object ConductorSizingCalculator {
             if (protectiveDevice > 0.0) {
 
                 EquipmentSelectionCalculator.selectBreaker(
-                    designCurrentA =
-                        protectiveDevice,
-                    shortCircuitKA =
-                        shortCircuitKA,
-                    manufacturer =
-                        manufacturer
+                    ratedCurrentA = protectiveDevice,
+                    breakingCapacityKA = shortCircuitKA,
+                    manufacturer = manufacturer,
+                    standard = standard
                 )
 
             } else {
-
-                EquipmentCatalogResultEmpty.breaker()
+                null
             }
 
         val catalogBreaker =
-            catalogBreakerResult.selected
+            catalogBreakerResult?.selected
 
         // --------------------------------------------------------
         // VOLTAGE DROP VALIDATION
@@ -534,8 +509,8 @@ object ConductorSizingCalculator {
                     )
                 }
 
-                if (!catalogBreakerResult.valid &&
-                    protectiveDevice > 0.0
+                if (catalogBreakerResult != null &&
+                    !catalogBreakerResult.valid
                 ) {
 
                     add(
@@ -647,21 +622,5 @@ object ConductorSizingCalculator {
         require(input.maxVoltageDrop > 0.0) {
             "Maximum voltage drop must be greater than zero."
         }
-    }
-
-    // ============================================================
-    // EMPTY CATALOG RESULT
-    // ============================================================
-
-    private object EquipmentCatalogResultEmpty {
-
-        fun breaker():
-            EquipmentCatalogResult<BreakerCatalogItem> =
-            EquipmentCatalogResult(
-                selected = null,
-                alternatives = emptyList(),
-                valid = false,
-                message = "Catalog breaker selection was not performed."
-            )
     }
 }
