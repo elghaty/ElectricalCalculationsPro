@@ -17,11 +17,14 @@ import com.electrical.calculationspro.data.catalog.Manufacturer
 import com.electrical.calculationspro.data.catalog.PanelCatalogItem
 import com.electrical.calculationspro.data.catalog.TransformerCatalogItem
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
+import com.electrical.calculationspro.data.standards.StandardEngine
 
 /**
  * ================================================================
  * PROFESSIONAL ENGINEERING CORE / FACADE
  * ================================================================
+ *
+ * Single public engineering entry point for the application.
  *
  * UI
  *  ↓
@@ -33,19 +36,14 @@ import com.electrical.calculationspro.data.standards.CodeEngineFactory
  *  ↓
  * Equipment Catalog
  *
- * This object is the single public entry point for:
- *
- * - Engineering calculations
- * - Standard selection
- * - Equipment catalog selection
- *
- * UI must not call calculators or catalogs directly.
+ * UI must not call calculators, standards engines or catalog
+ * classes directly.
  * ================================================================
  */
 object ElectricalCalculations {
 
     // ============================================================
-    // LOAD
+    // LOAD CALCULATIONS
     // ============================================================
 
     fun calculateDesignCurrent(
@@ -122,7 +120,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // POWER
+    // POWER CALCULATIONS
     // ============================================================
 
     fun calculateActivePower(
@@ -309,7 +307,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // BREAKER ENGINEERING SELECTION
+    // BREAKER ENGINEERING
     // ============================================================
 
     fun selectBreakerRating(
@@ -339,10 +337,8 @@ object ElectricalCalculations {
         breakerBreakingCapacityKA: Double
     ): Boolean =
         BreakerSelectionCalculator.isBreakingCapacityAdequate(
-            prospectiveFaultCurrentKA =
-                prospectiveFaultCurrentKA,
-            breakerBreakingCapacityKA =
-                breakerBreakingCapacityKA
+            prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
+            breakerBreakingCapacityKA = breakerBreakingCapacityKA
         )
 
     fun availableBreakerRatings(
@@ -362,10 +358,8 @@ object ElectricalCalculations {
         BreakerSelectionCalculator.calculate(
             designCurrentA = designCurrentA,
             cableAmpacityA = cableAmpacityA,
-            prospectiveFaultCurrentKA =
-                prospectiveFaultCurrentKA,
-            breakerBreakingCapacityKA =
-                breakerBreakingCapacityKA,
+            prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
+            breakerBreakingCapacityKA = breakerBreakingCapacityKA,
             standard = standard
         )
 
@@ -376,12 +370,14 @@ object ElectricalCalculations {
     fun selectBreakerFromCatalog(
         designCurrentA: Double,
         shortCircuitKA: Double = 0.0,
-        manufacturer: Manufacturer? = null
-    ): EquipmentCatalogResult<BreakerCatalogItem> =
+        manufacturer: Manufacturer? = null,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<BreakerCatalogItem> =
         EquipmentSelectionCalculator.selectBreaker(
-            designCurrentA = designCurrentA,
-            shortCircuitKA = shortCircuitKA,
-            manufacturer = manufacturer
+            ratedCurrentA = designCurrentA,
+            breakingCapacityKA = shortCircuitKA,
+            manufacturer = manufacturer,
+            standard = standard
         )
 
     // ============================================================
@@ -390,15 +386,36 @@ object ElectricalCalculations {
 
     fun selectCableFromCatalog(
         requiredSectionMm2: Double,
-        manufacturer: Manufacturer? = null
-    ): EquipmentCatalogResult<CableCatalogItem> =
+        manufacturer: Manufacturer? = null,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<CableCatalogItem> =
         EquipmentSelectionCalculator.selectCable(
-            requiredSectionMm2 = requiredSectionMm2,
-            manufacturer = manufacturer
+            sectionMm2 = requiredSectionMm2,
+            manufacturer = manufacturer,
+            standard = standard
+        )
+
+    fun selectCableFromCatalog(
+        requiredSectionMm2: Double,
+        material: String,
+        insulation: String,
+        cores: Int = 1,
+        voltageV: Int = 400,
+        manufacturer: Manufacturer? = null,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<CableCatalogItem> =
+        EquipmentSelectionCalculator.selectCable(
+            sectionMm2 = requiredSectionMm2,
+            material = material,
+            insulation = insulation,
+            cores = cores,
+            voltageV = voltageV,
+            manufacturer = manufacturer,
+            standard = standard
         )
 
     // ============================================================
-    // TRANSFORMER
+    // TRANSFORMER ENGINEERING
     // ============================================================
 
     fun calculateRequiredTransformerKva(
@@ -436,13 +453,12 @@ object ElectricalCalculations {
         impedancePercent: Double,
         phases: Int = 3
     ): Double =
-        TransformerSizingCalculator
-            .shortCircuitCurrentFromImpedance(
-                kva = kva,
-                voltage = voltage,
-                impedancePercent = impedancePercent,
-                phases = phases
-            )
+        TransformerSizingCalculator.shortCircuitCurrentFromImpedance(
+            kva = kva,
+            voltage = voltage,
+            impedancePercent = impedancePercent,
+            phases = phases
+        )
 
     fun calculateTransformerSizing(
         loadKw: Double,
@@ -469,10 +485,12 @@ object ElectricalCalculations {
     // ============================================================
 
     fun selectTransformerFromCatalog(
-        requiredKva: Double
-    ): EquipmentCatalogResult<TransformerCatalogItem> =
+        requiredKva: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<TransformerCatalogItem> =
         EquipmentSelectionCalculator.selectTransformer(
-            requiredKva = requiredKva
+            requiredKva = requiredKva,
+            standard = standard
         )
 
     // ============================================================
@@ -480,10 +498,12 @@ object ElectricalCalculations {
     // ============================================================
 
     fun selectGeneratorFromCatalog(
-        requiredKva: Double
-    ): EquipmentCatalogResult<GeneratorCatalogItem> =
+        requiredKva: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<GeneratorCatalogItem> =
         EquipmentSelectionCalculator.selectGenerator(
-            requiredKva = requiredKva
+            requiredKva = requiredKva,
+            standard = standard
         )
 
     // ============================================================
@@ -491,10 +511,12 @@ object ElectricalCalculations {
     // ============================================================
 
     fun selectBusbarFromCatalog(
-        currentA: Double
-    ): EquipmentCatalogResult<BusbarCatalogItem> =
+        currentA: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<BusbarCatalogItem> =
         EquipmentSelectionCalculator.selectBusbar(
-            currentA = currentA
+            ratedCurrentA = currentA,
+            standard = standard
         )
 
     // ============================================================
@@ -502,10 +524,12 @@ object ElectricalCalculations {
     // ============================================================
 
     fun selectContactorFromCatalog(
-        motorCurrentA: Double
-    ): EquipmentCatalogResult<ContactorCatalogItem> =
+        motorCurrentA: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<ContactorCatalogItem> =
         EquipmentSelectionCalculator.selectContactor(
-            motorCurrentA = motorCurrentA
+            motorCurrentA = motorCurrentA,
+            standard = standard
         )
 
     // ============================================================
@@ -513,14 +537,16 @@ object ElectricalCalculations {
     // ============================================================
 
     fun selectPanelFromCatalog(
-        currentA: Double
-    ): EquipmentCatalogResult<PanelCatalogItem> =
+        currentA: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<PanelCatalogItem> =
         EquipmentSelectionCalculator.selectPanel(
-            currentA = currentA
+            ratedCurrentA = currentA,
+            standard = standard
         )
 
     // ============================================================
-    // STANDARD
+    // STANDARD MANAGEMENT
     // ============================================================
 
     fun availableStandards(): List<Standard> =
@@ -550,17 +576,6 @@ object ElectricalCalculations {
     // ENGINEERING + CATALOG WORKFLOW
     // ============================================================
 
-    /**
-     * Performs preliminary engineering selection and then
-     * exposes catalog selection through the same facade.
-     *
-     * The UI can therefore use:
-     *
-     * ElectricalCalculations
-     *
-     * without knowing where the calculation or catalog lives.
-     */
-
     fun calculateAndSelectBreaker(
         designCurrentA: Double,
         cableAmpacityA: Double,
@@ -581,7 +596,8 @@ object ElectricalCalculations {
             selectBreakerFromCatalog(
                 designCurrentA = designCurrentA,
                 shortCircuitKA = shortCircuitKA,
-                manufacturer = manufacturer
+                manufacturer = manufacturer,
+                standard = standard
             )
 
         return BreakerEngineeringCatalogResult(
@@ -595,7 +611,8 @@ object ElectricalCalculations {
         powerFactor: Double,
         growthFactor: Double = 1.0,
         voltage: Double,
-        phases: Int = 3
+        phases: Int = 3,
+        standard: Standard = Standard.IEC
     ): TransformerEngineeringCatalogResult {
 
         val engineering =
@@ -609,7 +626,8 @@ object ElectricalCalculations {
 
         val catalog =
             selectTransformerFromCatalog(
-                requiredKva = engineering.requiredKva
+                requiredKva = engineering.requiredKva,
+                standard = standard
             )
 
         return TransformerEngineeringCatalogResult(
@@ -619,37 +637,54 @@ object ElectricalCalculations {
     }
 
     fun calculateAndSelectGenerator(
-        requiredKva: Double
-    ): EquipmentCatalogResult<GeneratorCatalogItem> =
+        requiredKva: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<GeneratorCatalogItem> =
         selectGeneratorFromCatalog(
-            requiredKva = requiredKva
+            requiredKva = requiredKva,
+            standard = standard
         )
 
     fun calculateAndSelectBusbar(
-        currentA: Double
-    ): EquipmentCatalogResult<BusbarCatalogItem> =
+        currentA: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<BusbarCatalogItem> =
         selectBusbarFromCatalog(
-            currentA = currentA
+            currentA = currentA,
+            standard = standard
         )
 
     fun calculateAndSelectPanel(
-        currentA: Double
-    ): EquipmentCatalogResult<PanelCatalogItem> =
+        currentA: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<PanelCatalogItem> =
         selectPanelFromCatalog(
-            currentA = currentA
+            currentA = currentA,
+            standard = standard
+        )
+
+    fun calculateAndSelectContactor(
+        motorCurrentA: Double,
+        standard: Standard = Standard.IEC
+    ): EquipmentSelectionCalculator.EquipmentCatalogResult<ContactorCatalogItem> =
+        selectContactorFromCatalog(
+            motorCurrentA = motorCurrentA,
+            standard = standard
         )
 }
 
-// ================================================================
-// COMBINED RESULTS
-// ================================================================
+// ============================================================================
+// COMBINED ENGINEERING + CATALOG RESULTS
+// ============================================================================
 
 data class BreakerEngineeringCatalogResult(
     val engineering: BreakerSelectionResult,
-    val catalog: EquipmentCatalogResult<BreakerCatalogItem>
+    val catalog:
+        EquipmentSelectionCalculator.EquipmentCatalogResult<BreakerCatalogItem>
 )
 
 data class TransformerEngineeringCatalogResult(
     val engineering: TransformerSizingResult,
-    val catalog: EquipmentCatalogResult<TransformerCatalogItem>
+    val catalog:
+        EquipmentSelectionCalculator.EquipmentCatalogResult<TransformerCatalogItem>
 )
