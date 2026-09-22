@@ -24,26 +24,23 @@ import com.electrical.calculationspro.data.standards.StandardEngine
  * PROFESSIONAL ENGINEERING CORE / FACADE
  * ================================================================
  *
- * Single public engineering entry point for the application.
- *
  * UI
  *  ↓
  * ElectricalCalculations
  *  ↓
- * Engineering Calculators
+ * Calculators
  *  ↓
- * Standard Engine
+ * StandardEngine
  *  ↓
- * Equipment Catalog
+ * Catalog
  *
- * UI must not call calculators, standards engines or catalog
- * classes directly.
+ * This is the single public engineering entry point.
  * ================================================================
  */
 object ElectricalCalculations {
 
     // ============================================================
-    // LOAD CALCULATIONS
+    // LOAD
     // ============================================================
 
     fun calculateDesignCurrent(
@@ -120,7 +117,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // POWER CALCULATIONS
+    // POWER
     // ============================================================
 
     fun calculateActivePower(
@@ -275,7 +272,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // CONDUCTOR SIZING
+    // CONDUCTOR
     // ============================================================
 
     fun sizeConductor(
@@ -307,7 +304,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // BREAKER ENGINEERING
+    // BREAKER
     // ============================================================
 
     fun selectBreakerRating(
@@ -359,9 +356,122 @@ object ElectricalCalculations {
             designCurrentA = designCurrentA,
             cableAmpacityA = cableAmpacityA,
             prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
-            breakerBreakingCapacityKA = breakerBreakingCapacityKA,
+            breakerBreakingCapacityKA =
+                breakerBreakingCapacityKA,
             standard = standard
         )
+
+    // ============================================================
+    // STANDARD ENGINE - SINGLE GATEWAY
+    // ============================================================
+
+    fun standardEngine(
+        standard: Standard
+    ): StandardEngine =
+        CodeEngineFactory.get(standard)
+
+    fun defaultStandardEngine(): StandardEngine =
+        CodeEngineFactory.default()
+
+    fun availableStandards(): List<Standard> =
+        Standard.entries.toList()
+
+    fun standardDisplayName(
+        standard: Standard
+    ): String =
+        standard.displayName
+
+    fun standardShortName(
+        standard: Standard
+    ): String =
+        standard.shortName
+
+    fun standardDescription(
+        standard: Standard
+    ): String =
+        standard.description
+
+    fun standardCodeName(
+        standard: Standard
+    ): String =
+        standardEngine(standard).codeName
+
+    fun standardCodeRevision(
+        standard: Standard
+    ): String =
+        standardEngine(standard).codeRevision
+
+    fun standardIsFullyImplemented(
+        standard: Standard
+    ): Boolean =
+        standardEngine(standard).isFullyImplemented()
+
+    fun standardImplementationStatus(
+        standard: Standard
+    ): String =
+        standardEngine(standard).implementationStatus()
+
+    fun maximumVoltageDropPercent(
+        standard: Standard = Standard.IEC,
+        circuitCategory: String = "general"
+    ): Double =
+        standardEngine(standard)
+            .maximumVoltageDropPercent(
+                circuitCategory = circuitCategory
+            )
+
+    fun ambientTemperatureFactor(
+        standard: Standard = Standard.IEC,
+        insulation: InsulationType,
+        ambientTemperatureC: Double
+    ): Double =
+        standardEngine(standard)
+            .ambientTemperatureFactor(
+                insulation = insulation,
+                ambientTemperatureC =
+                    ambientTemperatureC
+            )
+
+    fun groupingFactor(
+        standard: Standard = Standard.IEC,
+        numberOfCircuits: Int
+    ): Double =
+        standardEngine(standard)
+            .groupingFactor(
+                numberOfCircuits =
+                    numberOfCircuits
+            )
+
+    fun conductorAmpacity(
+        standard: Standard = Standard.IEC,
+        sectionMm2: Double,
+        material: ConductorMaterial,
+        insulation: InsulationType,
+        installationMethod: InstallationMethod,
+        loadedConductors: Int
+    ): Double? =
+        standardEngine(standard)
+            .conductorAmpacity(
+                sectionMm2 = sectionMm2,
+                material = material,
+                insulation = insulation,
+                installationMethod =
+                    installationMethod,
+                loadedConductors =
+                    loadedConductors
+            )
+
+    fun standardConductorSections(
+        standard: Standard = Standard.IEC
+    ): List<Double> =
+        standardEngine(standard)
+            .standardConductorSections()
+
+    fun standardBreakerRatings(
+        standard: Standard = Standard.IEC
+    ): List<Double> =
+        standardEngine(standard)
+            .standardBreakerRatings()
 
     // ============================================================
     // BREAKER CATALOG
@@ -415,7 +525,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // TRANSFORMER ENGINEERING
+    // TRANSFORMER
     // ============================================================
 
     fun calculateRequiredTransformerKva(
@@ -481,7 +591,7 @@ object ElectricalCalculations {
         TransformerSizingCalculator.standardRatings()
 
     // ============================================================
-    // TRANSFORMER CATALOG
+    // OTHER CATALOGS
     // ============================================================
 
     fun selectTransformerFromCatalog(
@@ -493,10 +603,6 @@ object ElectricalCalculations {
             standard = standard
         )
 
-    // ============================================================
-    // GENERATOR CATALOG
-    // ============================================================
-
     fun selectGeneratorFromCatalog(
         requiredKva: Double,
         standard: Standard = Standard.IEC
@@ -505,10 +611,6 @@ object ElectricalCalculations {
             requiredKva = requiredKva,
             standard = standard
         )
-
-    // ============================================================
-    // BUSBAR CATALOG
-    // ============================================================
 
     fun selectBusbarFromCatalog(
         currentA: Double,
@@ -519,10 +621,6 @@ object ElectricalCalculations {
             standard = standard
         )
 
-    // ============================================================
-    // CONTACTOR CATALOG
-    // ============================================================
-
     fun selectContactorFromCatalog(
         motorCurrentA: Double,
         standard: Standard = Standard.IEC
@@ -531,10 +629,6 @@ object ElectricalCalculations {
             motorCurrentA = motorCurrentA,
             standard = standard
         )
-
-    // ============================================================
-    // PANEL CATALOG
-    // ============================================================
 
     fun selectPanelFromCatalog(
         currentA: Double,
@@ -546,34 +640,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // STANDARD MANAGEMENT
-    // ============================================================
-
-    fun availableStandards(): List<Standard> =
-        Standard.entries.toList()
-
-    fun standardDisplayName(
-        standard: Standard
-    ): String =
-        standard.displayName
-
-    fun standardShortName(
-        standard: Standard
-    ): String =
-        standard.shortName
-
-    fun standardDescription(
-        standard: Standard
-    ): String =
-        standard.description
-
-    fun standardEngine(
-        standard: Standard
-    ): StandardEngine =
-        CodeEngineFactory.get(standard)
-
-    // ============================================================
-    // ENGINEERING + CATALOG WORKFLOW
+    // COMBINED WORKFLOWS
     // ============================================================
 
     fun calculateAndSelectBreaker(
@@ -588,7 +655,8 @@ object ElectricalCalculations {
             calculateBreakerSelection(
                 designCurrentA = designCurrentA,
                 cableAmpacityA = cableAmpacityA,
-                prospectiveFaultCurrentKA = shortCircuitKA,
+                prospectiveFaultCurrentKA =
+                    shortCircuitKA,
                 standard = standard
             )
 
@@ -674,7 +742,7 @@ object ElectricalCalculations {
 }
 
 // ============================================================================
-// COMBINED ENGINEERING + CATALOG RESULTS
+// COMBINED RESULT MODELS
 // ============================================================================
 
 data class BreakerEngineeringCatalogResult(
