@@ -4,11 +4,11 @@ import com.electrical.calculationspro.data.CurrentType
 import kotlin.math.sqrt
 
 /**
- * Electrical load and design-current calculations.
+ * Professional electrical load calculator.
  *
- * Demand/diversity factors are deliberately kept explicit.
- * The selected engineering standard may impose additional rules
- * before these values are finally accepted for equipment selection.
+ * Mathematical calculation layer only.
+ *
+ * Code-specific requirements belong to the Standards layer.
  */
 object LoadCalculator {
 
@@ -21,10 +21,21 @@ object LoadCalculator {
         currentType: CurrentType
     ): Double {
 
-        require(loadWatts >= 0.0)
-        require(voltage > EPSILON)
-        require(powerFactor > 0.0)
-        require(powerFactor <= 1.0)
+        require(loadWatts >= 0.0) {
+            "Load cannot be negative."
+        }
+
+        require(voltage > EPSILON) {
+            "Voltage must be greater than zero."
+        }
+
+        require(powerFactor > 0.0) {
+            "Power factor must be greater than zero."
+        }
+
+        require(powerFactor <= 1.0) {
+            "Power factor cannot exceed 1.0."
+        }
 
         return when (currentType) {
 
@@ -63,7 +74,9 @@ object LoadCalculator {
         currentType: CurrentType
     ): Double {
 
-        require(loadKw >= 0.0)
+        require(loadKw >= 0.0) {
+            "Load cannot be negative."
+        }
 
         return designCurrent(
             loadWatts = loadKw * 1000.0,
@@ -78,8 +91,13 @@ object LoadCalculator {
         demandFactor: Double
     ): Double {
 
-        require(current >= 0.0)
-        require(demandFactor in 0.0..1.0)
+        require(current >= 0.0) {
+            "Current cannot be negative."
+        }
+
+        require(demandFactor in 0.0..1.0) {
+            "Demand factor must be between 0 and 1."
+        }
 
         return current *
             demandFactor
@@ -90,8 +108,13 @@ object LoadCalculator {
         diversityFactor: Double
     ): Double {
 
-        require(current >= 0.0)
-        require(diversityFactor in 0.0..1.0)
+        require(current >= 0.0) {
+            "Current cannot be negative."
+        }
+
+        require(diversityFactor in 0.0..1.0) {
+            "Diversity factor must be between 0 and 1."
+        }
 
         return current *
             diversityFactor
@@ -103,9 +126,17 @@ object LoadCalculator {
         diversityFactor: Double = 1.0
     ): Double {
 
-        require(current >= 0.0)
-        require(demandFactor in 0.0..1.0)
-        require(diversityFactor in 0.0..1.0)
+        require(current >= 0.0) {
+            "Current cannot be negative."
+        }
+
+        require(demandFactor in 0.0..1.0) {
+            "Demand factor must be between 0 and 1."
+        }
+
+        require(diversityFactor in 0.0..1.0) {
+            "Diversity factor must be between 0 and 1."
+        }
 
         return current *
             demandFactor *
@@ -117,8 +148,13 @@ object LoadCalculator {
         demandFactor: Double
     ): Double {
 
-        require(loadWatts >= 0.0)
-        require(demandFactor in 0.0..1.0)
+        require(loadWatts >= 0.0) {
+            "Load cannot be negative."
+        }
+
+        require(demandFactor in 0.0..1.0) {
+            "Demand factor must be between 0 and 1."
+        }
 
         return loadWatts *
             demandFactor
@@ -129,8 +165,13 @@ object LoadCalculator {
         diversityFactor: Double
     ): Double {
 
-        require(loadWatts >= 0.0)
-        require(diversityFactor in 0.0..1.0)
+        require(loadWatts >= 0.0) {
+            "Load cannot be negative."
+        }
+
+        require(diversityFactor in 0.0..1.0) {
+            "Diversity factor must be between 0 and 1."
+        }
 
         return loadWatts *
             diversityFactor
