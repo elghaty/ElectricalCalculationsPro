@@ -1,13 +1,5 @@
 package com.electrical.calculationspro.data
 
-enum class Standard {
-    IEC,
-    EGYPTIAN,
-    CEI,
-    NEC,
-    CEC
-}
-
 enum class CurrentType {
     DirectCurrent,
     AlternatingSinglePhase,
