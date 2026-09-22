@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,13 +15,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.Cable
+import androidx.compose.material.icons.outlined.ElectricalServices
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Power
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.Transform
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,9 +47,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.vector.ImageVector
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.ui.screens.AboutScreen
@@ -57,6 +72,108 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+private data class CalculationItem(
+    val id: String,
+    val englishName: String,
+    val arabicName: String,
+    val englishDescription: String,
+    val arabicDescription: String,
+    val icon: ImageVector
+)
+
+private val calculationItems = listOf(
+
+    CalculationItem(
+        id = "current",
+        englishName = "Current",
+        arabicName = "حساب التيار",
+        englishDescription = "Calculate electrical current",
+        arabicDescription = "حساب التيار الكهربائي",
+        icon = Icons.Outlined.Bolt
+    ),
+
+    CalculationItem(
+        id = "voltage",
+        englishName = "Voltage",
+        arabicName = "حساب الجهد",
+        englishDescription = "Voltage and electrical quantities",
+        arabicDescription = "حساب الجهد والكميات الكهربائية",
+        icon = Icons.Outlined.Power
+    ),
+
+    CalculationItem(
+        id = "active_power",
+        englishName = "Active Power",
+        arabicName = "القدرة الفعالة",
+        englishDescription = "Active power in kW",
+        arabicDescription = "القدرة الفعالة بالكيلووات kW",
+        icon = Icons.Outlined.ElectricalServices
+    ),
+
+    CalculationItem(
+        id = "apparent_power",
+        englishName = "Apparent Power",
+        arabicName = "القدرة الظاهرية",
+        englishDescription = "Apparent power in kVA",
+        arabicDescription = "القدرة الظاهرية بالكيلو فولت أمبير kVA",
+        icon = Icons.Outlined.GridView
+    ),
+
+    CalculationItem(
+        id = "reactive_power",
+        englishName = "Reactive Power",
+        arabicName = "القدرة غير الفعالة",
+        englishDescription = "Reactive power in kvar",
+        arabicDescription = "القدرة غير الفعالة kvar",
+        icon = Icons.Outlined.Timeline
+    ),
+
+    CalculationItem(
+        id = "power_factor",
+        englishName = "Power Factor",
+        arabicName = "معامل القدرة",
+        englishDescription = "Power factor calculation",
+        arabicDescription = "حساب معامل القدرة",
+        icon = Icons.Outlined.Speed
+    ),
+
+    CalculationItem(
+        id = "voltage_drop",
+        englishName = "Voltage Drop",
+        arabicName = "هبوط الجهد",
+        englishDescription = "Voltage drop calculation",
+        arabicDescription = "حساب هبوط الجهد",
+        icon = Icons.Outlined.Timeline
+    ),
+
+    CalculationItem(
+        id = "conductor_sizing",
+        englishName = "Cable Sizing",
+        arabicName = "اختيار مقطع الكابل",
+        englishDescription = "Cable and conductor sizing",
+        arabicDescription = "اختيار مقطع الموصل والكابل",
+        icon = Icons.Outlined.Cable
+    ),
+
+    CalculationItem(
+        id = "resistance",
+        englishName = "Resistance",
+        arabicName = "المقاومة",
+        englishDescription = "Electrical resistance",
+        arabicDescription = "حساب المقاومة الكهربائية",
+        icon = Icons.Outlined.Calculate
+    ),
+
+    CalculationItem(
+        id = "impedance",
+        englishName = "Impedance",
+        arabicName = "الممانعة",
+        englishDescription = "Electrical impedance",
+        arabicDescription = "حساب الممانعة الكهربائية",
+        icon = Icons.Outlined.AccountTree
+    )
+)
 
 @Composable
 private fun ElectricalCalculationsApp() {
@@ -92,9 +209,7 @@ private fun ElectricalCalculationsApp() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Color(0xFF0B1116)
-            )
+            .background(Color(0xFF0B1116))
     ) {
 
         TopBar(
@@ -111,76 +226,74 @@ private fun ElectricalCalculationsApp() {
             }
         )
 
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
+        when (selectedScreen) {
 
-            SideMenu(
-                language = language,
-                selectedScreen = selectedScreen,
-                onSelect = {
-                    selectedScreen = it
+            "sld" -> {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp)
+                ) {
+
+                    SldEditorScreen(
+                        language = language,
+                        onBack = {
+                            selectedScreen = "home"
+                        }
+                    )
                 }
-            )
+            }
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(12.dp)
-            ) {
+            "conductor_sizing" -> {
 
-                when (selectedScreen) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp)
+                ) {
 
-                    "sld" -> {
-
-                        SldEditorScreen(
-                            language = language,
-                            onBack = {
-                                selectedScreen = "home"
-                            }
-                        )
-                    }
-
-                    "conductor_sizing" -> {
-
-                        ConductorSizingScreen(
-                            language = language,
-                            standard = standard
-                        )
-                    }
-
-                    "voltage_drop",
-                    "current",
-                    "voltage",
-                    "active_power",
-                    "apparent_power",
-                    "reactive_power",
-                    "power_factor",
-                    "resistance",
-                    "impedance" -> {
-
-                        EngineeringCalculatorScreen(
-                            calculation = selectedScreen,
-                            language = language
-                        )
-                    }
-
-                    else -> {
-
-                        HomeScreen(
-                            language = language,
-                            onSld = {
-                                selectedScreen = "sld"
-                            },
-                            onConductor = {
-                                selectedScreen =
-                                    "conductor_sizing"
-                            }
-                        )
-                    }
+                    ConductorSizingScreen(
+                        language = language,
+                        standard = standard
+                    )
                 }
+            }
+
+            "voltage_drop",
+            "current",
+            "voltage",
+            "active_power",
+            "apparent_power",
+            "reactive_power",
+            "power_factor",
+            "resistance",
+            "impedance" -> {
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(12.dp)
+                ) {
+
+                    EngineeringCalculatorScreen(
+                        calculation = selectedScreen,
+                        language = language
+                    )
+                }
+            }
+
+            else -> {
+
+                HomeScreen(
+                    language = language,
+                    onSelectCalculation = {
+                        selectedScreen = it
+                    },
+                    onSld = {
+                        selectedScreen = "sld"
+                    }
+                )
             }
         }
     }
@@ -206,30 +319,79 @@ private fun TopBar(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(62.dp)
-            .background(
-                Color(0xFF151D24)
-            )
-            .padding(
-                horizontal = 12.dp
-            ),
-        verticalAlignment =
-            Alignment.CenterVertically
+            .height(64.dp)
+            .background(Color(0xFF151D24))
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
 
-        Text(
-            text =
-                if (language == AppLanguage.ARABIC) {
-                    "الحسابات الكهربائية الاحترافية"
-                } else {
-                    "Electrical Calculations Pro"
-                },
-            color = Color.White,
-            fontSize = 18.sp
-        )
+        Column {
+
+            Text(
+                text =
+                    if (language == AppLanguage.ARABIC)
+                        "الحسابات الكهربائية الاحترافية"
+                    else
+                        "Electrical Calculations Pro",
+                color = Color.White,
+                fontSize = 18.sp
+            )
+
+            Text(
+                text =
+                    if (language == AppLanguage.ARABIC)
+                        "Professional Engineering Suite"
+                    else
+                        "Professional Engineering Suite",
+                color = Color(0xFF8797A2),
+                fontSize = 11.sp
+            )
+        }
 
         Spacer(
             modifier = Modifier.weight(1f)
+        )
+
+        Box {
+
+            OutlinedButton(
+                onClick = {
+                    standardExpanded = true
+                }
+            ) {
+
+                Text(
+                    text = standard.name,
+                    fontSize = 12.sp
+                )
+            }
+
+            DropdownMenu(
+                expanded = standardExpanded,
+                onDismissRequest = {
+                    standardExpanded = false
+                }
+            ) {
+
+                Standard.entries.forEach { item ->
+
+                    DropdownMenuItem(
+                        text = {
+                            Text(item.name)
+                        },
+                        onClick = {
+
+                            standardExpanded = false
+
+                            onStandardChanged(item)
+                        }
+                    )
+                }
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.width(8.dp)
         )
 
         Box {
@@ -241,14 +403,12 @@ private fun TopBar(
             ) {
 
                 Text(
-                    if (
-                        language ==
-                        AppLanguage.ARABIC
-                    ) {
-                        "العربية"
-                    } else {
-                        "English"
-                    }
+                    text =
+                        if (language == AppLanguage.ARABIC)
+                            "العربية"
+                        else
+                            "English",
+                    fontSize = 12.sp
                 )
             }
 
@@ -290,270 +450,18 @@ private fun TopBar(
         }
 
         Spacer(
-            modifier = Modifier.width(8.dp)
+            modifier = Modifier.width(4.dp)
         )
 
-        Box {
-
-            OutlinedButton(
-                onClick = {
-                    standardExpanded = true
-                }
-            ) {
-
-                Text(
-                    standard.name
-                )
-            }
-
-            DropdownMenu(
-                expanded = standardExpanded,
-                onDismissRequest = {
-                    standardExpanded = false
-                }
-            ) {
-
-                Standard.values()
-                    .forEach { item ->
-
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    item.name
-                                )
-                            },
-                            onClick = {
-
-                                standardExpanded =
-                                    false
-
-                                onStandardChanged(
-                                    item
-                                )
-                            }
-                        )
-                    }
-            }
-        }
-
-        Spacer(
-            modifier = Modifier.width(8.dp)
-        )
-
-        TextButton(
+        IconButton(
             onClick = onAbout
         ) {
 
-            Text(
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "حول"
-                } else {
-                    "About"
-                }
+            Icon(
+                imageVector = Icons.Outlined.Info,
+                contentDescription = "About",
+                tint = Color.White
             )
-        }
-    }
-}
-
-@Composable
-private fun SideMenu(
-    language: AppLanguage,
-    selectedScreen: String,
-    onSelect: (String) -> Unit
-) {
-
-    val items =
-        listOf(
-
-            "home" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "الرئيسية"
-                } else {
-                    "Home"
-                },
-
-            "sld" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "المخطط الأحادي SLD"
-                } else {
-                    "Professional SLD"
-                },
-
-            "conductor_sizing" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "اختيار مقطع الموصل"
-                } else {
-                    "Conductor Sizing"
-                },
-
-            "voltage_drop" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "هبوط الجهد"
-                } else {
-                    "Voltage Drop"
-                },
-
-            "current" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "التيار"
-                } else {
-                    "Current"
-                },
-
-            "voltage" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "الجهد"
-                } else {
-                    "Voltage"
-                },
-
-            "active_power" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "القدرة الفعالة kW"
-                } else {
-                    "Active Power kW"
-                },
-
-            "apparent_power" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "القدرة الظاهرية kVA"
-                } else {
-                    "Apparent Power kVA"
-                },
-
-            "reactive_power" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "القدرة غير الفعالة kvar"
-                } else {
-                    "Reactive Power kvar"
-                },
-
-            "power_factor" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "معامل القدرة"
-                } else {
-                    "Power Factor"
-                },
-
-            "resistance" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "المقاومة"
-                } else {
-                    "Resistance"
-                },
-
-            "impedance" to
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "الممانعة"
-                } else {
-                    "Impedance"
-                }
-        )
-
-    Column(
-        modifier = Modifier
-            /*
-             * مهم جدًا:
-             * لا تستخدم fillMaxSize هنا.
-             * القائمة يجب أن تأخذ عرضها فقط
-             * وتترك باقي الشاشة لـ SLD.
-             */
-            .width(230.dp)
-            .fillMaxHeight()
-            .background(
-                Color(0xFF111920)
-            )
-            .verticalScroll(
-                rememberScrollState()
-            )
-            .padding(10.dp),
-
-        verticalArrangement =
-            Arrangement.spacedBy(6.dp)
-    ) {
-
-        items.forEach { item ->
-
-            val selected =
-                selectedScreen ==
-                    item.first
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(
-                        RoundedCornerShape(8.dp)
-                    )
-                    .clickable {
-                        onSelect(
-                            item.first
-                        )
-                    },
-
-                colors =
-                    CardDefaults.cardColors(
-                        containerColor =
-                            if (selected) {
-                                Color(0xFF263A43)
-                            } else {
-                                Color(0xFF182129)
-                            }
-                    )
-            ) {
-
-                Text(
-                    text = item.second,
-
-                    modifier =
-                        Modifier.padding(
-                            horizontal = 12.dp,
-                            vertical = 11.dp
-                        ),
-
-                    color = Color.White,
-
-                    fontSize = 14.sp
-                )
-            }
         }
     }
 }
@@ -561,165 +469,223 @@ private fun SideMenu(
 @Composable
 private fun HomeScreen(
     language: AppLanguage,
-    onSld: () -> Unit,
-    onConductor: () -> Unit
+    onSelectCalculation: (String) -> Unit,
+    onSld: () -> Unit
 ) {
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(
-                rememberScrollState()
+            .padding(
+                horizontal = 18.dp,
+                vertical = 14.dp
             )
-            .padding(20.dp),
-
-        verticalArrangement =
-            Arrangement.spacedBy(14.dp)
     ) {
 
-        Text(
-            text =
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "الحسابات الكهربائية الاحترافية"
-                } else {
-                    "Electrical Calculations Pro"
-                },
-
-            color = Color.White,
-
-            fontSize = 28.sp
-        )
-
-        Text(
-            text =
-                if (
-                    language ==
-                    AppLanguage.ARABIC
-                ) {
-                    "برنامج هندسي متكامل للحسابات والتصميم الكهربائي."
-                } else {
-                    "Professional electrical calculation and design platform."
-                },
-
-            color =
-                Color(0xFFAAB7C0),
-
-            fontSize = 15.sp
-        )
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    onSld()
-                },
-
-            colors =
-                CardDefaults.cardColors(
-                    containerColor =
-                        Color(0xFF151D24)
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
             Column(
-                modifier =
-                    Modifier.padding(18.dp),
-
-                verticalArrangement =
-                    Arrangement.spacedBy(8.dp)
+                modifier = Modifier.weight(1f)
             ) {
 
                 Text(
                     text =
-                        if (
-                            language ==
-                            AppLanguage.ARABIC
-                        ) {
-                            "المخطط الأحادي الاحترافي SLD"
-                        } else {
-                            "Professional Single Line Diagram"
-                        },
-
+                        if (language == AppLanguage.ARABIC)
+                            "الحسابات الهندسية"
+                        else
+                            "Engineering Calculations",
                     color = Color.White,
+                    fontSize = 26.sp
+                )
 
-                    fontSize = 20.sp
+                Spacer(
+                    modifier = Modifier.height(4.dp)
                 )
 
                 Text(
                     text =
-                        if (
-                            language ==
-                            AppLanguage.ARABIC
-                        ) {
-                            "إنشاء شبكة SLD وإضافة المصادر والمحولات والمولدات واللوحات والأحمال مع الحسابات الهندسية."
-                        } else {
-                            "Create an SLD network with sources, transformers, generators, panels and loads with engineering calculations."
-                        },
-
-                    color =
-                        Color(0xFFAAB7C0),
-
+                        if (language == AppLanguage.ARABIC)
+                            "اختر نوع الحساب"
+                        else
+                            "Select a calculation",
+                    color = Color(0xFFAAB7C0),
                     fontSize = 14.sp
                 )
             }
         }
 
+        Spacer(
+            modifier = Modifier.height(14.dp)
+        )
+
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable {
-                    onConductor()
-                },
-
-            colors =
-                CardDefaults.cardColors(
-                    containerColor =
-                        Color(0xFF151D24)
-                )
+                .height(92.dp)
+                .clip(RoundedCornerShape(16.dp)),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF172832)
+            ),
+            onClick = onSld
         ) {
 
-            Column(
-                modifier =
-                    Modifier.padding(18.dp),
-
-                verticalArrangement =
-                    Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+
+                Box(
+                    modifier = Modifier
+                        .width(58.dp)
+                        .height(58.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFF243D49)),
+                    contentAlignment = Alignment.Center
+                ) {
+
+                    Icon(
+                        imageVector = Icons.Outlined.AccountTree,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .width(34.dp)
+                            .height(34.dp)
+                    )
+                }
+
+                Spacer(
+                    modifier = Modifier.width(16.dp)
+                )
+
+                Column {
+
+                    Text(
+                        text =
+                            if (language == AppLanguage.ARABIC)
+                                "المخطط الأحادي الاحترافي SLD"
+                            else
+                                "Professional Single Line Diagram",
+                        color = Color.White,
+                        fontSize = 17.sp
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(3.dp)
+                    )
+
+                    Text(
+                        text =
+                            if (language == AppLanguage.ARABIC)
+                                "إنشاء الشبكة وإضافة المصادر والمحولات والمولدات واللوحات والأحمال"
+                            else
+                                "Design networks, sources, transformers, generators, panels and loads",
+                        color = Color(0xFF9EADB5),
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.height(18.dp)
+        )
+
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(
+                minSize = 170.dp
+            ),
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            items(calculationItems) { item ->
+
+                CalculationCard(
+                    item = item,
+                    language = language,
+                    onClick = {
+                        onSelectCalculation(item.id)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalculationCard(
+    item: CalculationItem,
+    language: AppLanguage,
+    onClick: () -> Unit
+) {
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(156.dp)
+            .clip(RoundedCornerShape(16.dp)),
+        colors = CardDefaults.cardColors(
+            containerColor = Color(0xFF151F27)
+        ),
+        onClick = onClick
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+
+            Box(
+                modifier = Modifier
+                    .width(52.dp)
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF24343E)),
+                contentAlignment = Alignment.Center
+            ) {
+
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .width(30.dp)
+                        .height(30.dp)
+                )
+            }
+
+            Column {
 
                 Text(
                     text =
-                        if (
-                            language ==
-                            AppLanguage.ARABIC
-                        ) {
-                            "اختيار مقطع الموصل"
-                        } else {
-                            "Conductor Sizing"
-                        },
-
+                        if (language == AppLanguage.ARABIC)
+                            item.arabicName
+                        else
+                            item.englishName,
                     color = Color.White,
+                    fontSize = 16.sp
+                )
 
-                    fontSize = 20.sp
+                Spacer(
+                    modifier = Modifier.height(3.dp)
                 )
 
                 Text(
                     text =
-                        if (
-                            language ==
-                            AppLanguage.ARABIC
-                        ) {
-                            "حساب تيار التصميم واختيار المقطع والتحقق من هبوط الجهد."
-                        } else {
-                            "Calculate design current, select conductor section and verify voltage drop."
-                        },
-
-                    color =
-                        Color(0xFFAAB7C0),
-
-                    fontSize = 14.sp
+                        if (language == AppLanguage.ARABIC)
+                            item.arabicDescription
+                        else
+                            item.englishDescription,
+                    color = Color(0xFF8999A3),
+                    fontSize = 11.sp
                 )
             }
         }
