@@ -3,10 +3,13 @@ package com.electrical.calculationspro.data.calculators
 import kotlin.math.sqrt
 
 /**
- * Professional electrical power calculations.
+ * Professional electrical power calculator.
  *
- * This class contains mathematical power relationships only.
- * Code-specific requirements belong to the Standards layer.
+ * All returned power values use the same unit as the input
+ * voltage/current combination:
+ *
+ * V × A = VA
+ * W / VA / var relationships are preserved.
  */
 object PowerCalculator {
 
@@ -19,13 +22,24 @@ object PowerCalculator {
         phases: Int
     ): Double {
 
-        require(voltage >= 0.0)
-        require(current >= 0.0)
-        require(powerFactor in 0.0..1.0)
+        require(voltage >= 0.0) {
+            "Voltage cannot be negative."
+        }
+
+        require(current >= 0.0) {
+            "Current cannot be negative."
+        }
+
+        require(powerFactor in 0.0..1.0) {
+            "Power factor must be between 0 and 1."
+        }
 
         return when (phases) {
+
             1 ->
-                voltage * current * powerFactor
+                voltage *
+                    current *
+                    powerFactor
 
             3 ->
                 sqrt(3.0) *
@@ -35,7 +49,7 @@ object PowerCalculator {
 
             else ->
                 throw IllegalArgumentException(
-                    "Supported phase systems are 1 or 3."
+                    "Only 1-phase and 3-phase systems are supported."
                 )
         }
     }
@@ -50,8 +64,10 @@ object PowerCalculator {
         require(current >= 0.0)
 
         return when (phases) {
+
             1 ->
-                voltage * current
+                voltage *
+                    current
 
             3 ->
                 sqrt(3.0) *
@@ -60,7 +76,7 @@ object PowerCalculator {
 
             else ->
                 throw IllegalArgumentException(
-                    "Supported phase systems are 1 or 3."
+                    "Only 1-phase and 3-phase systems are supported."
                 )
         }
     }
@@ -76,12 +92,16 @@ object PowerCalculator {
         require(
             activePower <=
                 apparentPower + EPSILON
-        )
+        ) {
+            "Active power cannot exceed apparent power."
+        }
 
         return sqrt(
             (
-                apparentPower * apparentPower -
-                    activePower * activePower
+                apparentPower *
+                    apparentPower -
+                    activePower *
+                    activePower
                 ).coerceAtLeast(0.0)
         )
     }
@@ -101,10 +121,13 @@ object PowerCalculator {
         require(
             activePower <=
                 apparentPower + EPSILON
-        )
+        ) {
+            "Active power cannot exceed apparent power."
+        }
 
         return (
-            activePower / apparentPower
+            activePower /
+                apparentPower
             ).coerceIn(0.0, 1.0)
     }
 
@@ -117,7 +140,8 @@ object PowerCalculator {
         require(powerFactor > EPSILON)
         require(powerFactor <= 1.0)
 
-        return kw / powerFactor
+        return kw /
+            powerFactor
     }
 
     fun kvarFromKw(
@@ -129,15 +153,17 @@ object PowerCalculator {
         require(powerFactor > EPSILON)
         require(powerFactor <= 1.0)
 
-        val angleSin = sqrt(
-            (
-                1.0 -
-                    powerFactor * powerFactor
-                ).coerceAtLeast(0.0)
-        )
+        val sinPhi =
+            sqrt(
+                (
+                    1.0 -
+                        powerFactor *
+                        powerFactor
+                    ).coerceAtLeast(0.0)
+            )
 
         return kw *
-            angleSin /
+            sinPhi /
             powerFactor
     }
 
@@ -149,6 +175,7 @@ object PowerCalculator {
         require(kva >= 0.0)
         require(powerFactor in 0.0..1.0)
 
-        return kva * powerFactor
+        return kva *
+            powerFactor
     }
 }
