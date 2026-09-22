@@ -1,10 +1,8 @@
 package com.electrical.calculationspro.data.calculators
 
-import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.ConductorSizingInput
 import com.electrical.calculationspro.data.ConductorSizingResult
 import com.electrical.calculationspro.data.CurrentType
-import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
 import kotlin.math.abs
@@ -12,9 +10,18 @@ import kotlin.math.abs
 /**
  * Professional conductor sizing engine.
  *
- * All code-dependent data comes through StandardEngine.
+ * Architecture:
  *
- * UI must never access IEC/NEC/Egyptian tables directly.
+ * UI
+ *  ↓
+ * ElectricalCalculations
+ *  ↓
+ * ConductorSizingCalculator
+ *  ↓
+ * StandardEngine
+ *
+ * Code-dependent data is never read directly from IEC/NEC/Egyptian
+ * tables here.
  */
 object ConductorSizingCalculator {
 
@@ -29,12 +36,12 @@ object ConductorSizingCalculator {
 
         validateInput(input)
 
-        require(demandFactor > 0.0) {
-            "Demand factor must be greater than zero."
+        require(demandFactor in 0.0..1.0) {
+            "Demand factor must be between 0 and 1."
         }
 
-        require(diversityFactor > 0.0) {
-            "Diversity factor must be greater than zero."
+        require(diversityFactor in 0.0..1.0) {
+            "Diversity factor must be between 0 and 1."
         }
 
         val engine =
@@ -50,48 +57,30 @@ object ConductorSizingCalculator {
 
         val designCurrent =
             LoadCalculator.applyDemandAndDiversity(
-                ib = rawDesignCurrent,
+                current = rawDesignCurrent,
                 demandFactor = demandFactor,
                 diversityFactor = diversityFactor
             )
 
+        val temperatureFactor =
+            engine.ambientTemperatureFactor(
+                insulation = input.insulation,
+                ambientTemperatureC =
+                    input.ambientTemp
+            ).coerceAtLeast(EPSILON)
+
+        val groupingFactor =
+            engine.groupingFactor(
+                input.circuitsInConduit
+            ).coerceAtLeast(EPSILON)
+
         val requiredBaseIz =
-            if (input.ambientTemp > EPSILON) {
-                designCurrent /
-                    engine.ambientTemperatureFactor(
-                        insulation = input.insulation,
-                        ambientTemperatureC =
-                            input.ambientTemp
-                    ).coerceAtLeast(EPSILON) /
-                    engine.groupingFactor(
-                        input.circuitsInConduit
-                    ).coerceAtLeast(EPSILON)
-            } else {
-                designCurrent
-            }
+            designCurrent /
+                temperatureFactor /
+                groupingFactor
 
         val sections =
             engine.standardConductorSections()
-                .ifEmpty {
-                    listOf(
-                        1.5,
-                        2.5,
-                        4.0,
-                        6.0,
-                        10.0,
-                        16.0,
-                        25.0,
-                        35.0,
-                        50.0,
-                        70.0,
-                        95.0,
-                        120.0,
-                        150.0,
-                        185.0,
-                        240.0,
-                        300.0
-                    )
-                }
                 .sorted()
 
         val candidate =
@@ -110,16 +99,14 @@ object ConductorSizingCalculator {
                             )
                     )
 
-                if (baseAmpacity == null) {
-                    false
-                } else {
+                baseAmpacity != null &&
                     baseAmpacity >=
-                        requiredBaseIz
-                }
+                    requiredBaseIz
             }
 
         val selected =
-            candidate ?: sections.last()
+            candidate ?: sections.lastOrNull()
+                ?: 300.0
 
         return evaluateSection(
             input = input,
@@ -128,7 +115,8 @@ object ConductorSizingCalculator {
             rawDesignCurrent = rawDesignCurrent,
             standard = standard,
             requiredBaseIz = requiredBaseIz,
-            forceNoCodeDataWarning = candidate == null
+            forceNoCodeDataWarning =
+                candidate == null
         )
     }
 
@@ -146,6 +134,14 @@ object ConductorSizingCalculator {
             "Selected conductor section must be greater than zero."
         }
 
+        require(demandFactor in 0.0..1.0) {
+            "Demand factor must be between 0 and 1."
+        }
+
+        require(diversityFactor in 0.0..1.0) {
+            "Diversity factor must be between 0 and 1."
+        }
+
         val engine =
             CodeEngineFactory.get(standard)
 
@@ -159,21 +155,27 @@ object ConductorSizingCalculator {
 
         val designCurrent =
             LoadCalculator.applyDemandAndDiversity(
-                ib = rawDesignCurrent,
+                current = rawDesignCurrent,
                 demandFactor = demandFactor,
                 diversityFactor = diversityFactor
             )
 
+        val temperatureFactor =
+            engine.ambientTemperatureFactor(
+                insulation = input.insulation,
+                ambientTemperatureC =
+                    input.ambientTemp
+            ).coerceAtLeast(EPSILON)
+
+        val groupingFactor =
+            engine.groupingFactor(
+                input.circuitsInConduit
+            ).coerceAtLeast(EPSILON)
+
         val requiredBaseIz =
             designCurrent /
-                engine.ambientTemperatureFactor(
-                    insulation = input.insulation,
-                    ambientTemperatureC =
-                        input.ambientTemp
-                ).coerceAtLeast(EPSILON) /
-                engine.groupingFactor(
-                    input.circuitsInConduit
-                ).coerceAtLeast(EPSILON)
+                temperatureFactor /
+                groupingFactor
 
         return evaluateSection(
             input = input,
@@ -250,14 +252,18 @@ object ConductorSizingCalculator {
 
         val breakerWithinCapacity =
             protectiveDevice > 0.0 &&
-                BreakerSelectionCalculator.satisfiesCoordination(
-                    designCurrentA = designCurrent,
-                    breakerRatingA = protectiveDevice,
-                    cableAmpacityA = ampacity
-                )
+                BreakerSelectionCalculator
+                    .satisfiesCoordination(
+                        designCurrentA =
+                            designCurrent,
+                        breakerRatingA =
+                            protectiveDevice,
+                        cableAmpacityA =
+                            ampacity
+                    )
 
         val shortCircuit =
-            try {
+            runCatching {
                 ShortCircuitCalculator.calculate(
                     voltage = input.voltage,
                     length = input.lineLength,
@@ -265,9 +271,7 @@ object ConductorSizingCalculator {
                     material = input.conductor,
                     currentType = input.currentType
                 )
-            } catch (_: Exception) {
-                null
-            }
+            }.getOrNull()
 
         val shortCircuitKA =
             shortCircuit
@@ -276,12 +280,8 @@ object ConductorSizingCalculator {
 
         val voltageDropWithinLimit =
             voltageDrop.first <=
-                input.maxVoltageDrop + EPSILON
-
-        val ampacityValid =
-            baseAmpacity != null &&
-                ampacity + EPSILON >=
-                designCurrent
+                input.maxVoltageDrop +
+                EPSILON
 
         val notes =
             buildList {
@@ -291,12 +291,16 @@ object ConductorSizingCalculator {
                 )
 
                 add(
+                    "Code revision: ${engine.codeRevision}"
+                )
+
+                add(
                     "Design current = %.2f A"
                         .format(designCurrent)
                 )
 
                 add(
-                    "Raw current = %.2f A"
+                    "Raw design current = %.2f A"
                         .format(rawDesignCurrent)
                 )
 
@@ -306,13 +310,14 @@ object ConductorSizingCalculator {
                 )
 
                 if (baseAmpacity != null) {
+
                     add(
                         "Base ampacity = %.2f A"
                             .format(baseAmpacity)
                     )
 
                     add(
-                        "Temperature factor = %.3f"
+                        "Ambient correction factor = %.3f"
                             .format(temperatureFactor)
                     )
 
@@ -325,15 +330,17 @@ object ConductorSizingCalculator {
                         "Corrected ampacity = %.2f A"
                             .format(ampacity)
                     )
+
                 } else {
+
                     add(
-                        "No verified ampacity data is available for this code/method/material combination."
+                        "Verified ampacity data is unavailable for this code and cable combination."
                     )
                 }
 
                 add(
-                    "Voltage drop = %.3f %%"
-                        .format(voltageDrop.first)
+                    "Required base Iz = %.2f A"
+                        .format(requiredBaseIz)
                 )
 
                 add(
@@ -341,18 +348,27 @@ object ConductorSizingCalculator {
                         .format(voltageDrop.second)
                 )
 
+                add(
+                    "Voltage drop = %.3f %%"
+                        .format(voltageDrop.first)
+                )
+
                 if (protectiveDevice > 0.0) {
+
                     add(
                         "Selected breaker rating = %.0f A"
                             .format(protectiveDevice)
                     )
+
                 } else {
+
                     add(
-                        "No breaker rating satisfies Ib <= In <= Iz."
+                        "No standard breaker rating satisfies Ib <= In <= Iz."
                     )
                 }
 
                 if (shortCircuit != null) {
+
                     add(
                         "Preliminary short-circuit current = %.3f kA"
                             .format(shortCircuitKA)
@@ -360,21 +376,16 @@ object ConductorSizingCalculator {
                 }
 
                 if (!engine.isFullyImplemented()) {
+
                     add(
                         engine.implementationStatus()
                     )
                 }
 
                 if (forceNoCodeDataWarning) {
-                    add(
-                        "Automatic sizing could not verify a complete code dataset for the selected section."
-                    )
-                }
 
-                if (abs(requiredBaseIz) > EPSILON) {
                     add(
-                        "Required base Iz before correction = %.2f A"
-                            .format(requiredBaseIz)
+                        "Automatic cable sizing could not verify a complete code dataset."
                     )
                 }
             }
@@ -388,23 +399,31 @@ object ConductorSizingCalculator {
             voltageDropVolts = voltageDrop.second,
             protectiveDevice = protectiveDevice,
             shortCircuitCurrentKA = shortCircuitKA,
-            breakerWithinCableCapacity = breakerWithinCapacity,
-            voltageDropWithinLimit = voltageDropWithinLimit,
+            breakerWithinCableCapacity =
+                breakerWithinCapacity,
+            voltageDropWithinLimit =
+                voltageDropWithinLimit,
             notes = notes
         )
     }
 
     private fun loadedConductorCount(
         currentType: CurrentType
-    ): Int {
+    ): Int =
+        when (currentType) {
 
-        return when (currentType) {
-            CurrentType.DirectCurrent -> 2
-            CurrentType.AlternatingSinglePhase -> 2
-            CurrentType.AlternatingTwoPhase -> 2
-            CurrentType.AlternatingThreePhase -> 3
+            CurrentType.DirectCurrent ->
+                2
+
+            CurrentType.AlternatingSinglePhase ->
+                2
+
+            CurrentType.AlternatingTwoPhase ->
+                2
+
+            CurrentType.AlternatingThreePhase ->
+                3
         }
-    }
 
     private fun validateInput(
         input: ConductorSizingInput
@@ -422,7 +441,7 @@ object ConductorSizingCalculator {
             input.powerFactor > 0.0 &&
                 input.powerFactor <= 1.0
         ) {
-            "Power factor must be > 0 and <= 1."
+            "Power factor must be greater than 0 and not greater than 1."
         }
 
         require(input.lineLength >= 0.0) {
