@@ -1,14 +1,10 @@
 package com.electrical.calculationspro.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -16,20 +12,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.max
 
 private val PageBackground = Color(0xFFF4F7F9)
 private val CardBackground = Color.White
 private val PrimaryText = Color(0xFF17212B)
 private val SecondaryText = Color(0xFF60717D)
-private val BorderColor = Color(0xFFD5DDE2)
 
 @Composable
 fun EngineeringPage(
@@ -45,7 +41,6 @@ fun EngineeringPage(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-
         Text(
             text = title,
             color = PrimaryText,
@@ -85,7 +80,6 @@ fun EngineeringCard(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-
             title?.let {
                 Text(
                     text = it,
@@ -100,63 +94,174 @@ fun EngineeringCard(
     }
 }
 
-/**
- * Main four-column input grid.
+/*
+ * Real four-column grid.
  *
- * Each item occupies one quarter of the available width.
- * This is intended primarily for tablets and landscape layouts.
+ * No FlowRow.
+ * No experimental API.
+ * No weight modifier outside RowScope.
+ *
+ * Every direct child becomes one grid cell.
  */
 @Composable
 fun FourColumnGrid(
+    modifier: Modifier = Modifier,
+    horizontalSpacing: Int = 10,
+    verticalSpacing: Int = 10,
     content: @Composable () -> Unit
 ) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        maxItemsInEachRow = 4
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(0.25f)
-                .padding(end = 2.dp)
-        ) {
-            content()
+    Layout(
+        modifier = modifier.fillMaxWidth(),
+        content = content
+    ) { measurables, constraints ->
+
+        if (measurables.isEmpty()) {
+            layout(
+                width = constraints.minWidth,
+                height = constraints.minHeight
+            ) {}
+        } else {
+
+            val columns = 4
+
+            val spacingX =
+                horizontalSpacing.dp.roundToPx()
+
+            val spacingY =
+                verticalSpacing.dp.roundToPx()
+
+            val availableWidth =
+                constraints.maxWidth
+
+            val columnWidth =
+                if (availableWidth == Int.MAX_VALUE) {
+                    0
+                } else {
+                    max(
+                        0,
+                        (
+                            availableWidth -
+                                spacingX * (columns - 1)
+                            ) / columns
+                    )
+                }
+
+            val measured =
+                measurables.map { measurable ->
+
+                    if (columnWidth > 0) {
+                        measurable.measure(
+                            constraints.copy(
+                                minWidth = columnWidth,
+                                maxWidth = columnWidth
+                            )
+                        )
+                    } else {
+                        measurable.measure(
+                            constraints
+                        )
+                    }
+                }
+
+            val rowCount =
+                (measured.size + columns - 1) / columns
+
+            val rowHeights =
+                IntArray(rowCount)
+
+            measured.forEachIndexed { index, placeable ->
+                val row = index / columns
+                rowHeights[row] =
+                    max(
+                        rowHeights[row],
+                        placeable.height
+                    )
+            }
+
+            val totalHeight =
+                rowHeights.sum() +
+                    spacingY * (rowCount - 1)
+
+            val finalWidth =
+                if (constraints.maxWidth != Int.MAX_VALUE) {
+                    constraints.maxWidth
+                } else {
+                    columnWidth * columns +
+                        spacingX * (columns - 1)
+                }
+
+            val finalHeight =
+                totalHeight
+                    .coerceIn(
+                        constraints.minHeight,
+                        constraints.maxHeight
+                    )
+
+            layout(
+                width = finalWidth,
+                height = finalHeight
+            ) {
+
+                var y = 0
+
+                rowHeights.forEachIndexed { row, rowHeight ->
+
+                    for (column in 0 until columns) {
+
+                        val index =
+                            row * columns + column
+
+                        if (index >= measured.size) {
+                            continue
+                        }
+
+                        val placeable =
+                            measured[index]
+
+                        val x =
+                            column *
+                                (columnWidth + spacingX)
+
+                        placeable.placeRelative(
+                            x = x,
+                            y = y
+                        )
+                    }
+
+                    y += rowHeight + spacingY
+                }
+            }
         }
     }
 }
 
-/**
- * Four-column container where each supplied field is one grid item.
+/*
+ * Compatibility helper for existing screens.
  *
- * Usage:
+ * Existing calls such as:
  *
  * FourColumnFields {
- *     item { NumberField(...) }
- *     item { NumberField(...) }
- *     item { Dropdown(...) }
- *     item { NumberField(...) }
+ *     item { ... }
+ *     item { ... }
+ *     item { ... }
+ *     item { ... }
  * }
+ *
+ * continue to work.
  */
 @Composable
 fun FourColumnFields(
     content: @Composable FourColumnScope.() -> Unit
 ) {
-    val scope = FourColumnScopeImpl()
+    val scope =
+        FourColumnScopeImpl()
 
     content(scope)
 
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        maxItemsInEachRow = 4
-    ) {
+    FourColumnGrid {
         scope.items.forEach { item ->
             Box(
-                modifier = Modifier
-                    .fillMaxWidth(0.25f)
-                    .padding(end = 2.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 item()
             }
@@ -165,10 +270,13 @@ fun FourColumnFields(
 }
 
 interface FourColumnScope {
-    fun item(content: @Composable () -> Unit)
+    fun item(
+        content: @Composable () -> Unit
+    )
 }
 
-private class FourColumnScopeImpl : FourColumnScope {
+private class FourColumnScopeImpl :
+    FourColumnScope {
 
     val items =
         mutableListOf<@Composable () -> Unit>()
@@ -180,9 +288,6 @@ private class FourColumnScopeImpl : FourColumnScope {
     }
 }
 
-/**
- * Standard result grid.
- */
 @Composable
 fun FourColumnResults(
     content: @Composable FourColumnScope.() -> Unit
@@ -208,7 +313,6 @@ fun EngineeringResultCard(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-
             Text(
                 text = title,
                 color = SecondaryText,
