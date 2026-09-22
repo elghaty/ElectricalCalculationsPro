@@ -5,8 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -48,7 +46,6 @@ import com.electrical.calculationspro.ui.theme.PrimaryTeal
 import com.electrical.calculationspro.ui.theme.TextPrimary
 import com.electrical.calculationspro.ui.theme.TextSecondary
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ConductorSizingScreen(
     language: AppLanguage,
@@ -243,12 +240,11 @@ fun ConductorSizingScreen(
                 modifier =
                     Modifier.padding(14.dp),
                 verticalArrangement =
-                    Arrangement.spacedBy(12.dp)
+                    Arrangement.spacedBy(10.dp)
             ) {
 
-                FourColumnGrid {
-
-                    GridItem {
+                FourColumnRow(
+                    first = {
                         FieldLabel(
                             t("current_type")
                         )
@@ -279,9 +275,8 @@ fun ConductorSizingScreen(
                                 currentType = it
                             }
                         )
-                    }
-
-                    GridItem {
+                    },
+                    second = {
                         NumberField(
                             label =
                                 "${t("voltage")} (V)",
@@ -290,9 +285,8 @@ fun ConductorSizingScreen(
                                 voltage = it
                             }
                         )
-                    }
-
-                    GridItem {
+                    },
+                    third = {
                         NumberField(
                             label =
                                 if (
@@ -308,9 +302,8 @@ fun ConductorSizingScreen(
                                 loadKw = it
                             }
                         )
-                    }
-
-                    GridItem {
+                    },
+                    fourth = {
                         NumberField(
                             label =
                                 t(
@@ -322,8 +315,10 @@ fun ConductorSizingScreen(
                             }
                         )
                     }
+                )
 
-                    GridItem {
+                FourColumnRow(
+                    first = {
                         NumberField(
                             label =
                                 "${t("line_length")} (m)",
@@ -332,9 +327,8 @@ fun ConductorSizingScreen(
                                 lineLength = it
                             }
                         )
-                    }
-
-                    GridItem {
+                    },
+                    second = {
                         NumberField(
                             label =
                                 t("ambient_temp"),
@@ -343,9 +337,8 @@ fun ConductorSizingScreen(
                                 ambientTemp = it
                             }
                         )
-                    }
-
-                    GridItem {
+                    },
+                    third = {
                         NumberField(
                             label =
                                 t(
@@ -356,9 +349,8 @@ fun ConductorSizingScreen(
                                 circuits = it
                             }
                         )
-                    }
-
-                    GridItem {
+                    },
+                    fourth = {
                         NumberField(
                             label =
                                 "${t("max_voltage_drop")} (%)",
@@ -368,8 +360,10 @@ fun ConductorSizingScreen(
                             }
                         )
                     }
+                )
 
-                    GridItem {
+                FourColumnRow(
+                    first = {
                         DropdownColumn(
                             label =
                                 t("conductor")
@@ -395,9 +389,8 @@ fun ConductorSizingScreen(
                                 }
                             )
                         }
-                    }
-
-                    GridItem {
+                    },
+                    second = {
                         DropdownColumn(
                             label =
                                 t(
@@ -416,9 +409,8 @@ fun ConductorSizingScreen(
                                 }
                             )
                         }
-                    }
-
-                    GridItem {
+                    },
+                    third = {
                         DropdownColumn(
                             label =
                                 t("insulation")
@@ -450,8 +442,14 @@ fun ConductorSizingScreen(
                                 }
                             )
                         }
+                    },
+                    fourth = {
+                        Box(
+                            modifier =
+                                Modifier.fillMaxWidth()
+                        )
                     }
-                }
+                )
 
                 Button(
                     modifier =
@@ -511,35 +509,47 @@ fun ConductorSizingScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FourColumnGrid(
-    content:
-        @Composable () -> Unit
+private fun FourColumnRow(
+    first: @Composable () -> Unit,
+    second: @Composable () -> Unit,
+    third: @Composable () -> Unit,
+    fourth: @Composable () -> Unit
 ) {
-    FlowRow(
+    Row(
         modifier =
             Modifier.fillMaxWidth(),
         horizontalArrangement =
-            Arrangement.spacedBy(10.dp),
-        verticalArrangement =
-            Arrangement.spacedBy(10.dp),
-        maxItemsInEachRow = 4
+            Arrangement.spacedBy(10.dp)
     ) {
-        content()
-    }
-}
 
-@Composable
-private fun GridItem(
-    content:
-        @Composable () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .weight(1f)
-    ) {
-        content()
+        Box(
+            modifier =
+                Modifier.weight(1f)
+        ) {
+            first()
+        }
+
+        Box(
+            modifier =
+                Modifier.weight(1f)
+        ) {
+            second()
+        }
+
+        Box(
+            modifier =
+                Modifier.weight(1f)
+        ) {
+            third()
+        }
+
+        Box(
+            modifier =
+                Modifier.weight(1f)
+        ) {
+            fourth()
+        }
     }
 }
 
