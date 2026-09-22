@@ -1,58 +1,25 @@
 package com.electrical.calculationspro.data.calculators
 
+import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.ConductorSizingInput
 import com.electrical.calculationspro.data.ConductorSizingResult
 import com.electrical.calculationspro.data.CurrentType
+import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.Standard
-import com.electrical.calculationspro.data.standardSections
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
 import kotlin.math.abs
 
 /**
- * PROFESSIONAL ENGINEERING CORE
+ * Professional conductor sizing engine.
  *
- * Conductor sizing orchestration layer.
+ * All code-dependent data comes through StandardEngine.
  *
- * Architecture:
- *
- * UI
- *   ↓
- * ElectricalCalculations
- *   ↓
- * ConductorSizingCalculator
- *   ↓
- * CodeEngineFactory
- *   ↓
- * Selected StandardEngine
- *
- * Supported standards:
- * - Egyptian
- * - IEC
- * - NEC
- * - CEI
- * - CEC
- *
- * IMPORTANT:
- * This calculator never accesses IecTables directly.
- *
- * All code-dependent data must come from the selected
- * StandardEngine.
- *
- * Therefore:
- *
- * NEC → NecEngine
- * IEC → IecEngine
- * Egyptian → EgyptianCodeEngine
- *
- * This prevents NEC calculations from silently using IEC tables.
+ * UI must never access IEC/NEC/Egyptian tables directly.
  */
 object ConductorSizingCalculator {
 
     private const val EPSILON = 1.0e-9
 
-    /**
-     * Main conductor sizing calculation.
-     */
     fun size(
         input: ConductorSizingInput,
         standard: Standard = Standard.IEC,
@@ -62,15 +29,18 @@ object ConductorSizingCalculator {
 
         validateInput(input)
 
-        val engine = CodeEngineFactory.get(standard)
+        require(demandFactor > 0.0) {
+            "Demand factor must be greater than zero."
+        }
 
-        /*
-         * ---------------------------------------------------------
-         * 1. RAW DESIGN CURRENT
-         * ---------------------------------------------------------
-         */
+        require(diversityFactor > 0.0) {
+            "Diversity factor must be greater than zero."
+        }
 
-        val rawCurrent =
+        val engine =
+            CodeEngineFactory.get(standard)
+
+        val rawDesignCurrent =
             LoadCalculator.designCurrent(
                 loadWatts = input.load,
                 voltage = input.voltage,
@@ -78,174 +48,90 @@ object ConductorSizingCalculator {
                 currentType = input.currentType
             )
 
-        /*
-         * ---------------------------------------------------------
-         * 2. DEMAND + DIVERSITY
-         * ---------------------------------------------------------
-         */
-
         val designCurrent =
             LoadCalculator.applyDemandAndDiversity(
-                current = rawCurrent,
+                ib = rawDesignCurrent,
                 demandFactor = demandFactor,
                 diversityFactor = diversityFactor
             )
 
-        /*
-         * ---------------------------------------------------------
-         * 3. CODE-SPECIFIC CORRECTION FACTORS
-         * ---------------------------------------------------------
-         */
-
-        val temperatureFactor =
-            engine
-                .ambientTemperatureFactor(
-                    insulation = input.insulation,
-                    ambientTemperatureC = input.ambientTemp
-                )
-                .coerceAtLeast(EPSILON)
-
-        val groupingFactor =
-            engine
-                .groupingFactor(
-                    numberOfCircuits = input.circuitsInConduit
-                )
-                .coerceAtLeast(EPSILON)
-
-        /*
-         * Required base ampacity before correction factors.
-         *
-         * Iz(base) >= Ib / (Ca × Cg)
-         */
         val requiredBaseIz =
-            designCurrent /
-                (temperatureFactor * groupingFactor)
-
-        /*
-         * ---------------------------------------------------------
-         * 4. CURRENT-CARRYING CONDUCTORS
-         * ---------------------------------------------------------
-         */
-
-        val loadedConductors =
-            loadedConductorCount(
-                input.currentType
-            )
-
-        /*
-         * ---------------------------------------------------------
-         * 5. CODE-SPECIFIC STANDARD SECTIONS
-         * ---------------------------------------------------------
-         *
-         * NEVER use the global IEC list as the primary source.
-         */
+            if (input.ambientTemp > EPSILON) {
+                designCurrent /
+                    engine.ambientTemperatureFactor(
+                        insulation = input.insulation,
+                        ambientTemperatureC =
+                            input.ambientTemp
+                    ).coerceAtLeast(EPSILON) /
+                    engine.groupingFactor(
+                        input.circuitsInConduit
+                    ).coerceAtLeast(EPSILON)
+            } else {
+                designCurrent
+            }
 
         val sections =
-            engine
-                .standardConductorSections()
+            engine.standardConductorSections()
                 .ifEmpty {
-                    standardSections
+                    listOf(
+                        1.5,
+                        2.5,
+                        4.0,
+                        6.0,
+                        10.0,
+                        16.0,
+                        25.0,
+                        35.0,
+                        50.0,
+                        70.0,
+                        95.0,
+                        120.0,
+                        150.0,
+                        185.0,
+                        240.0,
+                        300.0
+                    )
                 }
+                .sorted()
 
-        var lastSection =
-            sections.lastOrNull()
-                ?: standardSections.last()
+        val candidate =
+            sections.firstOrNull { section ->
 
-        /*
-         * ---------------------------------------------------------
-         * 6. SELECT FIRST VALID SECTION
-         * ---------------------------------------------------------
-         */
+                val baseAmpacity =
+                    engine.conductorAmpacity(
+                        sectionMm2 = section,
+                        material = input.conductor,
+                        insulation = input.insulation,
+                        installationMethod =
+                            input.installationMethod,
+                        loadedConductors =
+                            loadedConductorCount(
+                                input.currentType
+                            )
+                    )
 
-        for (section in sections) {
-
-            lastSection = section
-
-            val baseAmpacity =
-                engine.conductorAmpacity(
-                    sectionMm2 = section,
-                    material = input.conductor,
-                    insulation = input.insulation,
-                    installationMethod = input.installationMethod,
-                    loadedConductors = loadedConductors
-                )
-
-            /*
-             * null means the selected code does not currently
-             * contain verified ampacity data for this combination.
-             *
-             * DO NOT substitute IEC data.
-             */
-            if (baseAmpacity == null) {
-                continue
+                if (baseAmpacity == null) {
+                    false
+                } else {
+                    baseAmpacity >=
+                        requiredBaseIz
+                }
             }
 
-            val correctedAmpacity =
-                baseAmpacity *
-                    temperatureFactor *
-                    groupingFactor
-
-            /*
-             * Ampacity requirement.
-             */
-            if (
-                correctedAmpacity + EPSILON <
-                designCurrent
-            ) {
-                continue
-            }
-
-            /*
-             * Voltage-drop requirement.
-             */
-            val voltageDrop =
-                VoltageDropCalculator.calculate(
-                    current = designCurrent,
-                    length = input.lineLength,
-                    sectionMm2 = section,
-                    powerFactor = input.powerFactor,
-                    currentType = input.currentType,
-                    material = input.conductor,
-                    voltage = input.voltage
-                )
-
-            if (
-                voltageDrop.first <=
-                input.maxVoltageDrop
-            ) {
-
-                return evaluateSection(
-                    input = input,
-                    section = section,
-                    designCurrent = designCurrent,
-                    rawDesignCurrent = rawCurrent,
-                    standard = standard,
-                    requiredBaseIz = requiredBaseIz
-                )
-            }
-        }
-
-        /*
-         * ---------------------------------------------------------
-         * 7. NO FULLY VALID SECTION FOUND
-         * ---------------------------------------------------------
-         */
+        val selected =
+            candidate ?: sections.last()
 
         return evaluateSection(
             input = input,
-            section = lastSection,
+            section = selected,
             designCurrent = designCurrent,
-            rawDesignCurrent = rawCurrent,
+            rawDesignCurrent = rawDesignCurrent,
             standard = standard,
             requiredBaseIz = requiredBaseIz,
-            forceVoltageDropWarning = true,
-            forceNoCodeDataWarning = true
+            forceNoCodeDataWarning = candidate == null
         )
     }
 
-    /**
-     * Evaluate a user-selected conductor section.
-     */
     fun evaluateSelectedSection(
         input: ConductorSizingInput,
         selectedSection: Double,
@@ -256,21 +142,14 @@ object ConductorSizingCalculator {
 
         validateInput(input)
 
+        require(selectedSection > EPSILON) {
+            "Selected conductor section must be greater than zero."
+        }
+
         val engine =
             CodeEngineFactory.get(standard)
 
-        val sections =
-            engine.standardConductorSections()
-
-        require(
-            sections.any {
-                abs(it - selectedSection) < EPSILON
-            }
-        ) {
-            "Selected conductor section is not available in the selected standard."
-        }
-
-        val rawCurrent =
+        val rawDesignCurrent =
             LoadCalculator.designCurrent(
                 loadWatts = input.load,
                 voltage = input.voltage,
@@ -280,44 +159,32 @@ object ConductorSizingCalculator {
 
         val designCurrent =
             LoadCalculator.applyDemandAndDiversity(
-                current = rawCurrent,
+                ib = rawDesignCurrent,
                 demandFactor = demandFactor,
                 diversityFactor = diversityFactor
             )
 
-        val temperatureFactor =
-            engine
-                .ambientTemperatureFactor(
-                    insulation = input.insulation,
-                    ambientTemperatureC = input.ambientTemp
-                )
-                .coerceAtLeast(EPSILON)
-
-        val groupingFactor =
-            engine
-                .groupingFactor(
-                    numberOfCircuits = input.circuitsInConduit
-                )
-                .coerceAtLeast(EPSILON)
-
         val requiredBaseIz =
             designCurrent /
-                (temperatureFactor * groupingFactor)
+                engine.ambientTemperatureFactor(
+                    insulation = input.insulation,
+                    ambientTemperatureC =
+                        input.ambientTemp
+                ).coerceAtLeast(EPSILON) /
+                engine.groupingFactor(
+                    input.circuitsInConduit
+                ).coerceAtLeast(EPSILON)
 
         return evaluateSection(
             input = input,
             section = selectedSection,
             designCurrent = designCurrent,
-            rawDesignCurrent = rawCurrent,
+            rawDesignCurrent = rawDesignCurrent,
             standard = standard,
-            requiredBaseIz = requiredBaseIz,
-            forceNoCodeDataWarning = true
+            requiredBaseIz = requiredBaseIz
         )
     }
 
-    /**
-     * Evaluate one conductor section.
-     */
     private fun evaluateSection(
         input: ConductorSizingInput,
         section: Double,
@@ -325,66 +192,43 @@ object ConductorSizingCalculator {
         rawDesignCurrent: Double,
         standard: Standard,
         requiredBaseIz: Double,
-        forceVoltageDropWarning: Boolean = false,
         forceNoCodeDataWarning: Boolean = false
     ): ConductorSizingResult {
 
         val engine =
             CodeEngineFactory.get(standard)
 
-        val loadedConductors =
-            loadedConductorCount(
-                input.currentType
-            )
-
-        /*
-         * ---------------------------------------------------------
-         * CODE CORRECTION FACTORS
-         * ---------------------------------------------------------
-         */
-
         val temperatureFactor =
-            engine
-                .ambientTemperatureFactor(
-                    insulation = input.insulation,
-                    ambientTemperatureC = input.ambientTemp
-                )
-                .coerceAtLeast(EPSILON)
+            engine.ambientTemperatureFactor(
+                insulation = input.insulation,
+                ambientTemperatureC =
+                    input.ambientTemp
+            ).coerceAtLeast(EPSILON)
 
         val groupingFactor =
-            engine
-                .groupingFactor(
-                    numberOfCircuits = input.circuitsInConduit
-                )
-                .coerceAtLeast(EPSILON)
-
-        /*
-         * ---------------------------------------------------------
-         * CODE-SPECIFIC AMPACITY
-         * ---------------------------------------------------------
-         */
+            engine.groupingFactor(
+                input.circuitsInConduit
+            ).coerceAtLeast(EPSILON)
 
         val baseAmpacity =
             engine.conductorAmpacity(
                 sectionMm2 = section,
                 material = input.conductor,
                 insulation = input.insulation,
-                installationMethod = input.installationMethod,
-                loadedConductors = loadedConductors
+                installationMethod =
+                    input.installationMethod,
+                loadedConductors =
+                    loadedConductorCount(
+                        input.currentType
+                    )
             )
 
-        val correctedAmpacity =
+        val ampacity =
             baseAmpacity?.let {
                 it *
                     temperatureFactor *
                     groupingFactor
             } ?: 0.0
-
-        /*
-         * ---------------------------------------------------------
-         * VOLTAGE DROP
-         * ---------------------------------------------------------
-         */
 
         val voltageDrop =
             VoltageDropCalculator.calculate(
@@ -397,348 +241,204 @@ object ConductorSizingCalculator {
                 voltage = input.voltage
             )
 
-        val voltageDropOk =
-            voltageDrop.first <=
-                input.maxVoltageDrop
-
-        /*
-         * ---------------------------------------------------------
-         * BREAKER SELECTION
-         * ---------------------------------------------------------
-         */
-
-        val breaker =
-            if (baseAmpacity != null) {
-
-                BreakerSelectionCalculator.selectRating(
-                    designCurrentA = designCurrent,
-                    cableAmpacityA = correctedAmpacity
-                )
-
-            } else {
-                0.0
-            }
-
-        val breakerOk =
-            baseAmpacity != null &&
-                breaker > 0.0 &&
-                BreakerSelectionCalculator.satisfiesCoordination(
-                    designCurrentA = designCurrent,
-                    breakerRatingA = breaker,
-                    cableAmpacityA = correctedAmpacity
-                )
-
-        /*
-         * ---------------------------------------------------------
-         * SHORT CIRCUIT
-         * ---------------------------------------------------------
-         *
-         * This is the existing cable-end calculation.
-         * Full IEC 60909 / NEC fault methodology is handled
-         * separately by the corresponding standard layers.
-         */
-
-        val shortCircuit =
-            ShortCircuitCalculator.calculate(
-                voltage = input.voltage,
-                length = input.lineLength,
-                sectionMm2 = section,
-                material = input.conductor,
-                currentType = input.currentType
+        val protectiveDevice =
+            BreakerSelectionCalculator.selectRating(
+                designCurrentA = designCurrent,
+                cableAmpacityA = ampacity,
+                standard = standard
             )
 
-        /*
-         * ---------------------------------------------------------
-         * ENGINEERING NOTES
-         * ---------------------------------------------------------
-         */
+        val breakerWithinCapacity =
+            protectiveDevice > 0.0 &&
+                BreakerSelectionCalculator.satisfiesCoordination(
+                    designCurrentA = designCurrent,
+                    breakerRatingA = protectiveDevice,
+                    cableAmpacityA = ampacity
+                )
+
+        val shortCircuit =
+            try {
+                ShortCircuitCalculator.calculate(
+                    voltage = input.voltage,
+                    length = input.lineLength,
+                    sectionMm2 = section,
+                    material = input.conductor,
+                    currentType = input.currentType
+                )
+            } catch (_: Exception) {
+                null
+            }
+
+        val shortCircuitKA =
+            shortCircuit
+                ?.shortCircuitCurrentKA
+                ?: 0.0
+
+        val voltageDropWithinLimit =
+            voltageDrop.first <=
+                input.maxVoltageDrop + EPSILON
+
+        val ampacityValid =
+            baseAmpacity != null &&
+                ampacity + EPSILON >=
+                designCurrent
 
         val notes =
-            mutableListOf<String>()
+            buildList {
 
-        notes +=
-            "Selected code: " +
-                engine.codeName
-
-        notes +=
-            "Code revision: " +
-                engine.codeRevision
-
-        notes +=
-            "Implementation status: " +
-                engine.implementationStatus()
-
-        notes +=
-            "Ib raw = %.2f A"
-                .format(rawDesignCurrent)
-
-        notes +=
-            "Ib design = %.2f A"
-                .format(designCurrent)
-
-        notes +=
-            "Required base Iz = %.1f A"
-                .format(requiredBaseIz)
-
-        /*
-         * ---------------------------------------------------------
-         * AMPACITY RESULT
-         * ---------------------------------------------------------
-         */
-
-        if (baseAmpacity != null) {
-
-            notes +=
-                "Base Iz = %.1f A"
-                    .format(baseAmpacity)
-
-            notes +=
-                "Corrected Iz = %.1f A"
-                    .format(correctedAmpacity)
-
-        } else {
-
-            notes +=
-                "CODE DATA UNAVAILABLE: verified conductor ampacity data is not available for this section under the selected standard."
-
-            notes +=
-                "No IEC table has been substituted."
-        }
-
-        /*
-         * ---------------------------------------------------------
-         * CONDUCTOR
-         * ---------------------------------------------------------
-         */
-
-        notes +=
-            "Conductor = %.1f mm² %s"
-                .format(
-                    section,
-                    input.conductor.name
+                add(
+                    "Code: ${engine.codeName}"
                 )
 
-        /*
-         * ---------------------------------------------------------
-         * CORRECTION FACTORS
-         * ---------------------------------------------------------
-         */
-
-        notes +=
-            "Temperature correction factor Ca = %.3f"
-                .format(temperatureFactor)
-
-        notes +=
-            "Grouping correction factor Cg = %.3f"
-                .format(groupingFactor)
-
-        notes +=
-            "Installation method = " +
-                input.installationMethod.code
-
-        /*
-         * ---------------------------------------------------------
-         * VOLTAGE DROP
-         * ---------------------------------------------------------
-         */
-
-        notes +=
-            "Voltage drop = %.2f %% (%.2f V)"
-                .format(
-                    voltageDrop.first,
-                    voltageDrop.second
+                add(
+                    "Design current = %.2f A"
+                        .format(designCurrent)
                 )
 
-        if (
-            !voltageDropOk ||
-            forceVoltageDropWarning
-        ) {
+                add(
+                    "Raw current = %.2f A"
+                        .format(rawDesignCurrent)
+                )
 
-            notes +=
-                "WARNING: voltage drop exceeds the configured limit."
-        }
+                add(
+                    "Selected section = %.1f mm²"
+                        .format(section)
+                )
 
-        /*
-         * ---------------------------------------------------------
-         * AMPACITY CHECK
-         * ---------------------------------------------------------
-         */
+                if (baseAmpacity != null) {
+                    add(
+                        "Base ampacity = %.2f A"
+                            .format(baseAmpacity)
+                    )
 
-        if (
-            baseAmpacity != null &&
-            correctedAmpacity <
-            designCurrent
-        ) {
+                    add(
+                        "Temperature factor = %.3f"
+                            .format(temperatureFactor)
+                    )
 
-            notes +=
-                "WARNING: corrected conductor ampacity is below design current."
-        }
+                    add(
+                        "Grouping factor = %.3f"
+                            .format(groupingFactor)
+                    )
 
-        /*
-         * ---------------------------------------------------------
-         * PROTECTION
-         * ---------------------------------------------------------
-         */
+                    add(
+                        "Corrected ampacity = %.2f A"
+                            .format(ampacity)
+                    )
+                } else {
+                    add(
+                        "No verified ampacity data is available for this code/method/material combination."
+                    )
+                }
 
-        if (breakerOk) {
+                add(
+                    "Voltage drop = %.3f %%"
+                        .format(voltageDrop.first)
+                )
 
-            notes +=
-                "Selected protective device rating = %.0f A"
-                    .format(breaker)
+                add(
+                    "Voltage drop = %.3f V"
+                        .format(voltageDrop.second)
+                )
 
-        } else {
+                if (protectiveDevice > 0.0) {
+                    add(
+                        "Selected breaker rating = %.0f A"
+                            .format(protectiveDevice)
+                    )
+                } else {
+                    add(
+                        "No breaker rating satisfies Ib <= In <= Iz."
+                    )
+                }
 
-            notes +=
-                "WARNING: no standard breaker rating satisfies Ib ≤ In ≤ Iz."
-        }
+                if (shortCircuit != null) {
+                    add(
+                        "Preliminary short-circuit current = %.3f kA"
+                            .format(shortCircuitKA)
+                    )
+                }
 
-        /*
-         * ---------------------------------------------------------
-         * CODE IMPLEMENTATION WARNING
-         * ---------------------------------------------------------
-         */
+                if (!engine.isFullyImplemented()) {
+                    add(
+                        engine.implementationStatus()
+                    )
+                }
 
-        if (
-            forceNoCodeDataWarning ||
-            baseAmpacity == null
-        ) {
+                if (forceNoCodeDataWarning) {
+                    add(
+                        "Automatic sizing could not verify a complete code dataset for the selected section."
+                    )
+                }
 
-            notes +=
-                "WARNING: this result must not be presented as fully code-compliant because the selected code dataset is incomplete for this calculation."
-        }
-
-        if (
-            !engine.isFullyImplemented()
-        ) {
-
-            notes +=
-                "WARNING: selected standard engine is not compliance-complete."
-        }
-
-        /*
-         * ---------------------------------------------------------
-         * NEC-SPECIFIC SAFETY
-         * ---------------------------------------------------------
-         */
-
-        if (
-            standard ==
-            Standard.NEC
-        ) {
-
-            notes +=
-                "NEC Article 310 conductor ampacity data must be used for NEC compliance."
-
-            notes +=
-                "IEC conductor ampacity tables are not used as a substitute for NEC."
-        }
-
-        /*
-         * ---------------------------------------------------------
-         * SHORT CIRCUIT NOTE
-         * ---------------------------------------------------------
-         */
-
-        notes +=
-            "Estimated cable-end short-circuit current = %.2f kA"
-                .format(shortCircuit.ikKA)
-
-        /*
-         * ---------------------------------------------------------
-         * FINAL RESULT
-         * ---------------------------------------------------------
-         */
+                if (abs(requiredBaseIz) > EPSILON) {
+                    add(
+                        "Required base Iz before correction = %.2f A"
+                            .format(requiredBaseIz)
+                    )
+                }
+            }
 
         return ConductorSizingResult(
             designCurrent = designCurrent,
             recommendedSection = section,
             selectedSection = section,
-            ampacity = correctedAmpacity,
+            ampacity = ampacity,
             voltageDropPercent = voltageDrop.first,
             voltageDropVolts = voltageDrop.second,
-            protectiveDevice = breaker,
-            shortCircuitCurrentKA =
-                shortCircuit.ikKA,
-            breakerWithinCableCapacity =
-                breakerOk,
-            voltageDropWithinLimit =
-                voltageDropOk,
+            protectiveDevice = protectiveDevice,
+            shortCircuitCurrentKA = shortCircuitKA,
+            breakerWithinCableCapacity = breakerWithinCapacity,
+            voltageDropWithinLimit = voltageDropWithinLimit,
             notes = notes
         )
     }
 
-    /**
-     * Number of current-carrying conductors.
-     */
     private fun loadedConductorCount(
         currentType: CurrentType
     ): Int {
 
         return when (currentType) {
-
-            CurrentType.DirectCurrent ->
-                2
-
-            CurrentType.AlternatingSinglePhase ->
-                2
-
-            CurrentType.AlternatingTwoPhase ->
-                2
-
-            CurrentType.AlternatingThreePhase ->
-                3
+            CurrentType.DirectCurrent -> 2
+            CurrentType.AlternatingSinglePhase -> 2
+            CurrentType.AlternatingTwoPhase -> 2
+            CurrentType.AlternatingThreePhase -> 3
         }
     }
 
-    /**
-     * Input validation.
-     */
     private fun validateInput(
         input: ConductorSizingInput
     ) {
 
-        require(
-            input.voltage >
-                EPSILON
-        ) {
+        require(input.voltage > EPSILON) {
             "Voltage must be greater than zero."
         }
 
-        require(
-            input.load >= 0.0
-        ) {
+        require(input.load >= 0.0) {
             "Load cannot be negative."
-        }
-
-        require(
-            input.lineLength >= 0.0
-        ) {
-            "Line length cannot be negative."
         }
 
         require(
             input.powerFactor > 0.0 &&
                 input.powerFactor <= 1.0
         ) {
-            "Power factor must be greater than 0 and not greater than 1."
+            "Power factor must be > 0 and <= 1."
         }
 
-        require(
-            input.circuitsInConduit > 0
-        ) {
-            "Number of circuits must be greater than zero."
+        require(input.lineLength >= 0.0) {
+            "Line length cannot be negative."
         }
 
-        require(
-            input.maxVoltageDrop > 0.0
-        ) {
+        require(input.ambientTemp > -50.0) {
+            "Ambient temperature is invalid."
+        }
+
+        require(input.circuitsInConduit >= 1) {
+            "Number of circuits must be at least 1."
+        }
+
+        require(input.maxVoltageDrop > 0.0) {
             "Maximum voltage drop must be greater than zero."
-        }
-
-        require(
-            input.ambientTemp in -50.0..100.0
-        ) {
-            "Ambient temperature is outside the supported input range."
         }
     }
 }
