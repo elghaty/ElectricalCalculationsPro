@@ -13,33 +13,14 @@ import com.electrical.calculationspro.data.catalog.PanelCatalogItem
 import com.electrical.calculationspro.data.catalog.TransformerCatalogItem
 
 /**
- * Professional Engineering Core - Equipment Selection Calculator.
+ * Engineering-to-catalog adapter.
  *
- * Architecture:
- *
- * UI
- *   ↓
- * ElectricalCalculations
- *   ↓
- * EquipmentSelectionCalculator
- *   ↓
- * CatalogSelector
- *   ↓
- * EquipmentCatalog
- *
- * This class is the engineering-facing adapter between the
- * Professional Engineering Core and the equipment catalog.
- *
- * IMPORTANT:
- * The calculator does not fabricate manufacturer data.
- * It only selects from the catalog dataset currently available
- * in the application.
+ * This layer never invents manufacturer data.
+ * A catalog result is considered valid only when the available
+ * catalog dataset actually satisfies the requested requirements.
  */
 object EquipmentSelectionCalculator {
 
-    /**
-     * Unified result exposed to the Professional Engineering Core.
-     */
     data class EquipmentCatalogResult<T>(
         val selected: T?,
         val alternatives: List<T>,
@@ -48,16 +29,10 @@ object EquipmentSelectionCalculator {
         val standard: Standard = Standard.IEC
     )
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // BREAKER
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
-    /**
-     * Select a breaker using design current and short-circuit current.
-     *
-     * The catalog selector is responsible for matching the available
-     * breaker families and ratings.
-     */
     fun selectBreaker(
         ratedCurrentA: Double,
         breakingCapacityKA: Double = 0.0,
@@ -67,14 +42,14 @@ object EquipmentSelectionCalculator {
 
         if (ratedCurrentA <= 0.0) {
             return invalid(
-                "Breaker design current must be greater than zero.",
+                "Breaker rated current must be greater than zero.",
                 standard
             )
         }
 
         if (breakingCapacityKA < 0.0) {
             return invalid(
-                "Breaker breaking capacity cannot be negative.",
+                "Required breaking capacity cannot be negative.",
                 standard
             )
         }
@@ -88,32 +63,22 @@ object EquipmentSelectionCalculator {
         return result.toCoreResult(standard)
     }
 
-    /**
-     * Breaker selection using only design current.
-     */
     fun selectBreaker(
         ratedCurrentA: Double,
         manufacturer: Manufacturer? = null,
         standard: Standard = Standard.IEC
-    ): EquipmentCatalogResult<BreakerCatalogItem> {
-
-        return selectBreaker(
+    ): EquipmentCatalogResult<BreakerCatalogItem> =
+        selectBreaker(
             ratedCurrentA = ratedCurrentA,
             breakingCapacityKA = 0.0,
             manufacturer = manufacturer,
             standard = standard
         )
-    }
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // CABLE
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
-    /**
-     * Select a cable by the minimum engineering section.
-     *
-     * Manufacturer is optional and is used as a catalog filter.
-     */
     fun selectCable(
         sectionMm2: Double,
         manufacturer: Manufacturer? = null,
@@ -122,7 +87,7 @@ object EquipmentSelectionCalculator {
 
         if (sectionMm2 <= 0.0) {
             return invalid(
-                "Cable section must be greater than zero.",
+                "Required cable section must be greater than zero.",
                 standard
             )
         }
@@ -135,16 +100,6 @@ object EquipmentSelectionCalculator {
         return result.toCoreResult(standard)
     }
 
-    /**
-     * Cable selection with engineering metadata.
-     *
-     * Material, insulation, core count and voltage are validated here
-     * and retained as engineering requirements. The current catalog
-     * selector selects by section/manufacturer because those are the
-     * currently exposed catalog-selector parameters.
-     *
-     * The metadata is deliberately not used to fabricate a product match.
-     */
     fun selectCable(
         sectionMm2: Double,
         material: String,
@@ -157,7 +112,7 @@ object EquipmentSelectionCalculator {
 
         if (sectionMm2 <= 0.0) {
             return invalid(
-                "Cable section must be greater than zero.",
+                "Required cable section must be greater than zero.",
                 standard
             )
         }
@@ -171,7 +126,7 @@ object EquipmentSelectionCalculator {
 
         if (insulation.isBlank()) {
             return invalid(
-                "Cable insulation type is required.",
+                "Cable insulation is required.",
                 standard
             )
         }
@@ -195,23 +150,50 @@ object EquipmentSelectionCalculator {
             manufacturer = manufacturer
         )
 
-        val filtered = result.filterCableEngineeringRequirements(
-            material = material,
-            insulation = insulation,
-            cores = cores,
-            voltageV = voltageV
-        )
+        val candidates =
+            (listOfNotNull(result.selected) + result.alternatives)
+                .asSequence()
+                .filter {
+                    it.conductorMaterial.equals(
+                        material.trim(),
+                        ignoreCase = true
+                    )
+                }
+                .filter {
+                    it.insulation.equals(
+                        insulation.trim(),
+                        ignoreCase = true
+                    )
+                }
+                .filter {
+                    it.cores == cores
+                }
+                .filter {
+                    it.voltageClassV >= voltageV
+                }
+                .sortedBy {
+                    it.sectionMm2
+                }
+                .toList()
 
-        return filtered.toCoreResult(standard)
+        return EquipmentCatalogResult(
+            selected = candidates.firstOrNull(),
+            alternatives = candidates.drop(1),
+            valid = candidates.isNotEmpty(),
+            message =
+                if (candidates.isNotEmpty()) {
+                    "Catalog cable satisfies the requested material, insulation, core count and voltage requirements."
+                } else {
+                    "No catalog cable satisfies all requested engineering requirements."
+                },
+            standard = standard
+        )
     }
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // TRANSFORMER
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
-    /**
-     * Select the next suitable transformer rating.
-     */
     fun selectTransformer(
         requiredKva: Double,
         standard: Standard = Standard.IEC
@@ -219,25 +201,20 @@ object EquipmentSelectionCalculator {
 
         if (requiredKva <= 0.0) {
             return invalid(
-                "Required transformer power must be greater than zero.",
+                "Required transformer rating must be greater than zero.",
                 standard
             )
         }
 
-        val result = CatalogSelector.selectTransformer(
-            requiredKva = requiredKva
-        )
-
-        return result.toCoreResult(standard)
+        return CatalogSelector
+            .selectTransformer(requiredKva)
+            .toCoreResult(standard)
     }
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // GENERATOR
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
-    /**
-     * Select the next suitable generator rating.
-     */
     fun selectGenerator(
         requiredKva: Double,
         standard: Standard = Standard.IEC
@@ -245,25 +222,20 @@ object EquipmentSelectionCalculator {
 
         if (requiredKva <= 0.0) {
             return invalid(
-                "Required generator power must be greater than zero.",
+                "Required generator rating must be greater than zero.",
                 standard
             )
         }
 
-        val result = CatalogSelector.selectGenerator(
-            requiredKva = requiredKva
-        )
-
-        return result.toCoreResult(standard)
+        return CatalogSelector
+            .selectGenerator(requiredKva)
+            .toCoreResult(standard)
     }
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // BUSBAR
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
-    /**
-     * Select a busbar based on required current.
-     */
     fun selectBusbar(
         ratedCurrentA: Double,
         standard: Standard = Standard.IEC
@@ -271,25 +243,20 @@ object EquipmentSelectionCalculator {
 
         if (ratedCurrentA <= 0.0) {
             return invalid(
-                "Busbar rated current must be greater than zero.",
+                "Required busbar current must be greater than zero.",
                 standard
             )
         }
 
-        val result = CatalogSelector.selectBusbar(
-            currentA = ratedCurrentA
-        )
-
-        return result.toCoreResult(standard)
+        return CatalogSelector
+            .selectBusbar(ratedCurrentA)
+            .toCoreResult(standard)
     }
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // CONTACTOR
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
-    /**
-     * Select a contactor based on motor current.
-     */
     fun selectContactor(
         motorCurrentA: Double,
         standard: Standard = Standard.IEC
@@ -302,20 +269,15 @@ object EquipmentSelectionCalculator {
             )
         }
 
-        val result = CatalogSelector.selectContactor(
-            motorCurrentA = motorCurrentA
-        )
-
-        return result.toCoreResult(standard)
+        return CatalogSelector
+            .selectContactor(motorCurrentA)
+            .toCoreResult(standard)
     }
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // PANEL
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
-    /**
-     * Select a panel based on required current.
-     */
     fun selectPanel(
         ratedCurrentA: Double,
         standard: Standard = Standard.IEC
@@ -328,16 +290,14 @@ object EquipmentSelectionCalculator {
             )
         }
 
-        val result = CatalogSelector.selectPanel(
-            currentA = ratedCurrentA
-        )
-
-        return result.toCoreResult(standard)
+        return CatalogSelector
+            .selectPanel(ratedCurrentA)
+            .toCoreResult(standard)
     }
 
-    // ========================================================================
+    // ------------------------------------------------------------------------
     // RESULT ADAPTER
-    // ========================================================================
+    // ------------------------------------------------------------------------
 
     private fun <T> EquipmentSelectionResult<T>.toCoreResult(
         standard: Standard
@@ -352,61 +312,9 @@ object EquipmentSelectionCalculator {
         )
     }
 
-    /**
-     * Apply engineering cable filters to the catalog result without
-     * inventing a match when the available catalog data does not support it.
-     */
-    private fun EquipmentSelectionResult<CableCatalogItem>
-        .filterCableEngineeringRequirements(
-            material: String,
-            insulation: String,
-            cores: Int,
-            voltageV: Int
-        ): EquipmentSelectionResult<CableCatalogItem> {
-
-        val normalizedMaterial = material.trim().lowercase()
-        val normalizedInsulation = insulation.trim().lowercase()
-
-        val candidates = (
-            listOfNotNull(selected) + alternatives
-            )
-            .filter { item ->
-                item.conductorMaterial
-                    .trim()
-                    .lowercase()
-                    .contains(normalizedMaterial)
-            }
-            .filter { item ->
-                item.insulation
-                    .trim()
-                    .lowercase()
-                    .contains(normalizedInsulation)
-            }
-            .filter { item ->
-                item.cores == cores
-            }
-            .filter { item ->
-                item.voltageClassV >= voltageV
-            }
-            .sortedBy { item ->
-                item.sectionMm2
-            }
-
-        return EquipmentSelectionResult(
-            selected = candidates.firstOrNull(),
-            alternatives = candidates.drop(1),
-            valid = candidates.isNotEmpty(),
-            message = if (candidates.isNotEmpty()) {
-                "Suitable cable catalog item found for the requested engineering requirements."
-            } else {
-                "No catalog cable item satisfies material, insulation, core count and voltage requirements."
-            }
-        )
-    }
-
-    // ========================================================================
-    // INVALID RESULT
-    // ========================================================================
+    // ------------------------------------------------------------------------
+    // INVALID
+    // ------------------------------------------------------------------------
 
     private fun <T> invalid(
         message: String,
