@@ -2,10 +2,10 @@ package com.electrical.calculationspro.ui.screens.sld
 
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.SldConnection
+import com.electrical.calculationspro.data.SldEngineeringFacade
 import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
-import com.electrical.calculationspro.data.SldShortCircuitEngine
 
 class SldEditorActions(
     private val state: SldEditorState,
@@ -102,7 +102,8 @@ class SldEditorActions(
                 ?.takeIf { it > 0.0 }
                 ?: 500.0
 
-        val existingId = state.editingNodeId
+        val existingId =
+            state.editingNodeId
 
         if (existingId == null) {
 
@@ -128,8 +129,11 @@ class SldEditorActions(
             state.nodes =
                 state.nodes + node
 
-            state.selectedNodeId = node.id
-            state.selectedConnectionId = null
+            state.selectedNodeId =
+                node.id
+
+            state.selectedConnectionId =
+                null
 
         } else {
 
@@ -159,13 +163,19 @@ class SldEditorActions(
                 }
         }
 
-        state.showNodeDialog = false
-        state.editingNodeId = null
+        state.showNodeDialog =
+            false
+
+        state.editingNodeId =
+            null
     }
 
-    fun editConnection(connection: SldConnection) {
+    fun editConnection(
+        connection: SldConnection
+    ) {
 
-        state.editingConnectionId = connection.id
+        state.editingConnectionId =
+            connection.id
 
         state.length =
             connection.lengthMeters.toString()
@@ -185,7 +195,8 @@ class SldEditorActions(
         state.capacity =
             connection.currentCapacityA.toString()
 
-        state.showConnectionDialog = true
+        state.showConnectionDialog =
+            true
     }
 
     fun saveConnection() {
@@ -290,9 +301,14 @@ class SldEditorActions(
             }
         }
 
-        state.editingConnectionId = null
-        state.connectionStartId = null
-        state.showConnectionDialog = false
+        state.editingConnectionId =
+            null
+
+        state.connectionStartId =
+            null
+
+        state.showConnectionDialog =
+            false
     }
 
     fun startOrCompleteConnection() {
@@ -306,20 +322,25 @@ class SldEditorActions(
             state.connectionStartId =
                 nodeId
 
-            state.selectedConnectionId = null
+            state.selectedConnectionId =
+                null
 
             return
         }
 
         if (state.connectionStartId == nodeId) {
 
-            state.connectionStartId = null
+            state.connectionStartId =
+                null
 
             return
         }
 
-        state.editingConnectionId = null
-        state.showConnectionDialog = true
+        state.editingConnectionId =
+            null
+
+        state.showConnectionDialog =
+            true
     }
 
     fun deleteSelected() {
@@ -334,7 +355,8 @@ class SldEditorActions(
                     it.id != connectionId
                 }
 
-            state.selectedConnectionId = null
+            state.selectedConnectionId =
+                null
 
             return
         }
@@ -354,8 +376,11 @@ class SldEditorActions(
                 it.id != nodeId
             }
 
-        state.selectedNodeId = null
-        state.connectionStartId = null
+        state.selectedNodeId =
+            null
+
+        state.connectionStartId =
+            null
     }
 
     fun runShortCircuit() {
@@ -363,7 +388,7 @@ class SldEditorActions(
         try {
 
             val study =
-                SldShortCircuitEngine.calculate(
+                SldEngineeringFacade.calculateShortCircuit(
                     network = network(),
                     voltageFactor = 1.05
                 )
@@ -395,7 +420,8 @@ class SldEditorActions(
                     ?: "Calculation error."
         }
 
-        state.showReport = true
+        state.showReport =
+            true
     }
 
     fun runPanelSchedule() {
@@ -418,11 +444,13 @@ class SldEditorActions(
 
         state.reportText =
             if (panel == null) {
+
                 if (arabic) {
                     "لا توجد لوحة في الـ SLD."
                 } else {
                     "No panel exists in the SLD."
                 }
+
             } else {
 
                 buildPanelSchedule(
@@ -433,7 +461,8 @@ class SldEditorActions(
                 )
             }
 
-        state.showReport = true
+        state.showReport =
+            true
     }
 
     fun generateCompleteSld() {
@@ -454,13 +483,16 @@ class SldEditorActions(
                 }
                 ?.id
 
-        state.selectedConnectionId = null
-        state.connectionStartId = null
+        state.selectedConnectionId =
+            null
+
+        state.connectionStartId =
+            null
 
         try {
 
             val study =
-                SldShortCircuitEngine.calculate(
+                SldEngineeringFacade.calculateShortCircuit(
                     network = generated,
                     voltageFactor = 1.05
                 )
@@ -494,6 +526,7 @@ class SldEditorActions(
                     ?: "Calculation error."
         }
 
-        state.showReport = true
+        state.showReport =
+            true
     }
 }
