@@ -29,9 +29,9 @@ import androidx.compose.material.icons.outlined.Cable
 import androidx.compose.material.icons.outlined.ElectricalServices
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Timeline
+
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -50,8 +50,6 @@ import androidx.compose.runtime.setValue
 
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -66,6 +64,12 @@ import com.electrical.calculationspro.ui.screens.EngineeringCalculatorScreen
 import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
 import com.electrical.calculationspro.ui.screens.sld.SldEditorScreen
 
+import com.electrical.calculationspro.ui.theme.DarkBackground
+import com.electrical.calculationspro.ui.theme.DarkSurface
+import com.electrical.calculationspro.ui.theme.DividerColor
+import com.electrical.calculationspro.ui.theme.PrimaryTeal
+import com.electrical.calculationspro.ui.theme.TextPrimary
+import com.electrical.calculationspro.ui.theme.TextSecondary
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
 
 
@@ -224,7 +228,7 @@ private fun ElectricalCalculationsApp() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF080D12))
+            .background(DarkBackground)
     ) {
 
         TopBar(
@@ -246,10 +250,6 @@ private fun ElectricalCalculationsApp() {
 
         when (selectedScreen) {
 
-            /* -------------------------------------------------------------- */
-            /* SLD                                                            */
-            /* -------------------------------------------------------------- */
-
             "sld" -> {
 
                 SldEditorScreen(
@@ -259,11 +259,6 @@ private fun ElectricalCalculationsApp() {
                     }
                 )
             }
-
-
-            /* -------------------------------------------------------------- */
-            /* PROFESSIONAL VOLTAGE DROP                                      */
-            /* -------------------------------------------------------------- */
 
             "voltage_drop" -> {
 
@@ -276,11 +271,6 @@ private fun ElectricalCalculationsApp() {
                 )
             }
 
-
-            /* -------------------------------------------------------------- */
-            /* CABLE SIZING                                                   */
-            /* -------------------------------------------------------------- */
-
             "conductor_sizing" -> {
 
                 ConductorSizingScreen(
@@ -288,11 +278,6 @@ private fun ElectricalCalculationsApp() {
                     standard = standard
                 )
             }
-
-
-            /* -------------------------------------------------------------- */
-            /* BASIC ENGINEERING CALCULATORS                                  */
-            /* -------------------------------------------------------------- */
 
             "current",
             "voltage",
@@ -305,14 +290,12 @@ private fun ElectricalCalculationsApp() {
 
                 EngineeringCalculatorScreen(
                     calculation = selectedScreen,
-                    language = language
+                    language = language,
+                    onBack = {
+                        selectedScreen = "home"
+                    }
                 )
             }
-
-
-            /* -------------------------------------------------------------- */
-            /* HOME                                                           */
-            /* -------------------------------------------------------------- */
 
             else -> {
 
@@ -358,7 +341,7 @@ private fun TopBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(68.dp)
-            .background(Color(0xFF121A21))
+            .background(DarkSurface)
             .padding(horizontal = 14.dp),
 
         verticalAlignment = Alignment.CenterVertically
@@ -375,7 +358,7 @@ private fun TopBar(
                     else
                         "Electrical Calculations Pro",
 
-                color = Color.White,
+                color = TextPrimary,
 
                 fontSize = 18.sp,
 
@@ -383,22 +366,14 @@ private fun TopBar(
             )
 
             Text(
-                text =
-                    if (language == AppLanguage.ARABIC)
-                        "Professional Engineering Suite"
-                    else
-                        "Professional Engineering Suite",
+                text = "Professional Engineering Suite",
 
-                color = Color(0xFF82929D),
+                color = TextSecondary,
 
                 fontSize = 11.sp
             )
         }
 
-
-        /* ------------------------------------------------------------------ */
-        /* STANDARD                                                           */
-        /* ------------------------------------------------------------------ */
 
         Box {
 
@@ -425,17 +400,12 @@ private fun TopBar(
                 Standard.entries.forEach { item ->
 
                     DropdownMenuItem(
-
                         text = {
-                            Text(
-                                item.shortName
-                            )
+                            Text(item.shortName)
                         },
 
                         onClick = {
-
                             standardExpanded = false
-
                             onStandardChanged(item)
                         }
                     )
@@ -448,10 +418,6 @@ private fun TopBar(
             modifier = Modifier.width(7.dp)
         )
 
-
-        /* ------------------------------------------------------------------ */
-        /* LANGUAGE                                                           */
-        /* ------------------------------------------------------------------ */
 
         Box {
 
@@ -481,15 +447,12 @@ private fun TopBar(
             ) {
 
                 DropdownMenuItem(
-
                     text = {
                         Text("English")
                     },
 
                     onClick = {
-
                         languageExpanded = false
-
                         onLanguageChanged(
                             AppLanguage.ENGLISH
                         )
@@ -497,15 +460,12 @@ private fun TopBar(
                 )
 
                 DropdownMenuItem(
-
                     text = {
                         Text("العربية")
                     },
 
                     onClick = {
-
                         languageExpanded = false
-
                         onLanguageChanged(
                             AppLanguage.ARABIC
                         )
@@ -514,10 +474,6 @@ private fun TopBar(
             }
         }
 
-
-        /* ------------------------------------------------------------------ */
-        /* ABOUT                                                              */
-        /* ------------------------------------------------------------------ */
 
         IconButton(
             onClick = onAbout
@@ -532,7 +488,7 @@ private fun TopBar(
                     else
                         "About",
 
-                tint = Color.White
+                tint = PrimaryTeal
             )
         }
     }
@@ -562,10 +518,6 @@ private fun HomeScreen(
             )
     ) {
 
-        /* ------------------------------------------------------------------ */
-        /* HEADER                                                             */
-        /* ------------------------------------------------------------------ */
-
         Text(
             text =
                 if (arabic)
@@ -573,7 +525,7 @@ private fun HomeScreen(
                 else
                     "Engineering Dashboard",
 
-            color = Color.White,
+            color = TextPrimary,
 
             fontSize = 26.sp,
 
@@ -591,7 +543,7 @@ private fun HomeScreen(
                 else
                     "Electrical design and engineering calculations",
 
-            color = Color(0xFF8999A4),
+            color = TextSecondary,
 
             fontSize = 13.sp
         )
@@ -601,20 +553,15 @@ private fun HomeScreen(
         )
 
 
-        /* ------------------------------------------------------------------ */
-        /* SLD MAIN CARD                                                      */
-        /* ------------------------------------------------------------------ */
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(112.dp)
-                .clip(
-                    RoundedCornerShape(18.dp)
-                ),
+                .height(112.dp),
+
+            shape = RoundedCornerShape(18.dp),
 
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF172832)
+                containerColor = DarkSurface
             ),
 
             onClick = onSld
@@ -633,11 +580,9 @@ private fun HomeScreen(
                     modifier = Modifier
                         .width(64.dp)
                         .height(64.dp)
-                        .clip(
-                            RoundedCornerShape(16.dp)
-                        )
                         .background(
-                            Color(0xFF263E4A)
+                            PrimaryTeal,
+                            RoundedCornerShape(16.dp)
                         ),
 
                     contentAlignment =
@@ -650,7 +595,8 @@ private fun HomeScreen(
 
                         contentDescription = null,
 
-                        tint = Color.White,
+                        tint =
+                            androidx.compose.ui.graphics.Color.White,
 
                         modifier = Modifier
                             .width(36.dp)
@@ -673,7 +619,7 @@ private fun HomeScreen(
                             else
                                 "Single Line Diagram",
 
-                        color = Color.White,
+                        color = TextPrimary,
 
                         fontSize = 18.sp,
 
@@ -691,7 +637,7 @@ private fun HomeScreen(
                             else
                                 "Source • Transformer • Generator • Busbar • Breaker • Panel • Load",
 
-                        color = Color(0xFF9BAAB3),
+                        color = TextSecondary,
 
                         fontSize = 11.sp
                     )
@@ -705,10 +651,6 @@ private fun HomeScreen(
         )
 
 
-        /* ------------------------------------------------------------------ */
-        /* SECTION TITLE                                                      */
-        /* ------------------------------------------------------------------ */
-
         Text(
             text =
                 if (arabic)
@@ -716,7 +658,7 @@ private fun HomeScreen(
                 else
                     "CALCULATIONS & DESIGN",
 
-            color = Color(0xFF92A3AE),
+            color = TextSecondary,
 
             fontSize = 12.sp,
 
@@ -727,10 +669,6 @@ private fun HomeScreen(
             modifier = Modifier.height(9.dp)
         )
 
-
-        /* ------------------------------------------------------------------ */
-        /* CALCULATION GRID                                                   */
-        /* ------------------------------------------------------------------ */
 
         LazyVerticalGrid(
 
@@ -758,9 +696,7 @@ private fun HomeScreen(
 
                 CalculationCard(
                     item = item,
-
                     language = language,
-
                     onClick = {
                         onSelectCalculation(
                             item.id
@@ -790,13 +726,12 @@ private fun CalculationCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .height(145.dp)
-            .clip(
-                RoundedCornerShape(16.dp)
-            ),
+            .height(145.dp),
+
+        shape = RoundedCornerShape(16.dp),
 
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF141E26)
+            containerColor = DarkSurface
         ),
 
         onClick = onClick
@@ -815,11 +750,9 @@ private fun CalculationCard(
                 modifier = Modifier
                     .width(50.dp)
                     .height(50.dp)
-                    .clip(
-                        RoundedCornerShape(14.dp)
-                    )
                     .background(
-                        Color(0xFF24343E)
+                        PrimaryTeal,
+                        RoundedCornerShape(14.dp)
                     ),
 
                 contentAlignment =
@@ -831,14 +764,14 @@ private fun CalculationCard(
 
                     contentDescription = null,
 
-                    tint = Color.White,
+                    tint =
+                        androidx.compose.ui.graphics.Color.White,
 
                     modifier = Modifier
                         .width(28.dp)
                         .height(28.dp)
                 )
             }
-
 
             Column {
 
@@ -849,7 +782,7 @@ private fun CalculationCard(
                         else
                             item.englishName,
 
-                    color = Color.White,
+                    color = TextPrimary,
 
                     fontSize = 15.sp,
 
@@ -867,7 +800,7 @@ private fun CalculationCard(
                         else
                             item.englishDescription,
 
-                    color = Color(0xFF84949E),
+                    color = TextSecondary,
 
                     fontSize = 10.sp
                 )
