@@ -49,7 +49,6 @@ import com.electrical.calculationspro.data.InstallationMethod
 import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.iecInstallationMethods
-import kotlin.math.sqrt
 
 private data class VoltageDropStudy(
     val currentA: Double,
@@ -165,8 +164,7 @@ fun ProfessionalVoltageDropScreen(
                     imageVector = Icons.Outlined.ArrowBack,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = Modifier
-                        .width(28.dp)
+                    modifier = Modifier.width(28.dp)
                 )
 
                 TextButton(
@@ -195,7 +193,11 @@ fun ProfessionalVoltageDropScreen(
 
                 Text(
                     text =
-                        "${standard.shortName} • ${standard.codeName}",
+                        "${standard.shortName} • ${
+                            ElectricalCalculations.standardCodeName(
+                                standard
+                            )
+                        }",
                     color = Color(0xFF91A2AD),
                     fontSize = 11.sp
                 )
@@ -278,8 +280,7 @@ fun ProfessionalVoltageDropScreen(
                     ) {
 
                         NumberField(
-                            modifier =
-                                Modifier.weight(1f),
+                            modifier = Modifier.weight(1f),
                             label =
                                 if (arabic)
                                     "الحمل (kW)"
@@ -292,8 +293,7 @@ fun ProfessionalVoltageDropScreen(
                         )
 
                         NumberField(
-                            modifier =
-                                Modifier.weight(1f),
+                            modifier = Modifier.weight(1f),
                             label =
                                 if (arabic)
                                     "التيار A"
@@ -343,8 +343,7 @@ fun ProfessionalVoltageDropScreen(
                     ) {
 
                         NumberField(
-                            modifier =
-                                Modifier.weight(1f),
+                            modifier = Modifier.weight(1f),
                             label =
                                 if (arabic)
                                     "الطول m"
@@ -357,8 +356,7 @@ fun ProfessionalVoltageDropScreen(
                         )
 
                         NumberField(
-                            modifier =
-                                Modifier.weight(1f),
+                            modifier = Modifier.weight(1f),
                             label =
                                 if (arabic)
                                     "المقطع mm²"
@@ -378,8 +376,7 @@ fun ProfessionalVoltageDropScreen(
                     ) {
 
                         NumberField(
-                            modifier =
-                                Modifier.weight(1f),
+                            modifier = Modifier.weight(1f),
                             label =
                                 if (arabic)
                                     "عدد المسارات"
@@ -392,8 +389,7 @@ fun ProfessionalVoltageDropScreen(
                         )
 
                         NumberField(
-                            modifier =
-                                Modifier.weight(1f),
+                            modifier = Modifier.weight(1f),
                             label =
                                 if (arabic)
                                     "درجة الحرارة °C"
@@ -424,8 +420,7 @@ fun ProfessionalVoltageDropScreen(
                                 "مادة الموصل"
                             else
                                 "Conductor Material",
-                        value =
-                            material.name,
+                        value = material.name,
                         items =
                             ConductorMaterial.entries.map {
                                 it.name
@@ -442,8 +437,7 @@ fun ProfessionalVoltageDropScreen(
                                 "العازل"
                             else
                                 "Insulation",
-                        value =
-                            insulation.name,
+                        value = insulation.name,
                         items =
                             InsulationType.entries.map {
                                 it.name
@@ -460,8 +454,7 @@ fun ProfessionalVoltageDropScreen(
                                 "طريقة التركيب"
                             else
                                 "Installation Method",
-                        value =
-                            installation.description,
+                        value = installation.description,
                         items =
                             iecInstallationMethods.map {
                                 it.description
@@ -510,8 +503,7 @@ fun ProfessionalVoltageDropScreen(
             ) {
 
                 Button(
-                    modifier =
-                        Modifier.weight(1f),
+                    modifier = Modifier.weight(1f),
                     onClick = {
 
                         study =
@@ -564,8 +556,7 @@ fun ProfessionalVoltageDropScreen(
                 }
 
                 OutlinedButton(
-                    modifier =
-                        Modifier.weight(1f),
+                    modifier = Modifier.weight(1f),
                     onClick = {
 
                         study =
@@ -664,14 +655,12 @@ private fun calculateStudy(
                 require(loadKw != null)
                 require(loadKw > 0.0)
 
-                ElectricalCalculations
-                    .calculateDesignCurrent(
-                        loadWatts =
-                            loadKw * 1000.0,
-                        voltage = voltage,
-                        powerFactor = pf,
-                        currentType = currentType
-                    )
+                ElectricalCalculations.calculateDesignCurrent(
+                    loadWatts = loadKw * 1000.0,
+                    voltage = voltage,
+                    powerFactor = pf,
+                    currentType = currentType
+                )
             }
 
     val temperatureFactor =
@@ -694,20 +683,35 @@ private fun calculateStudy(
     val effectiveCurrent =
         calculatedCurrent / parallelRuns
 
+    val correctionFactor =
+        (
+            temperatureFactor * groupingFactor
+        ).coerceAtLeast(0.01)
+
     val requiredAmpacity =
-        effectiveCurrent /
-            (temperatureFactor * groupingFactor)
-                .coerceAtLeast(0.01)
+        effectiveCurrent / correctionFactor
 
     val sections =
         ElectricalCalculations
             .standardConductorSections(standard)
             .ifEmpty {
                 listOf(
-                    1.5, 2.5, 4.0, 6.0,
-                    10.0, 16.0, 25.0, 35.0,
-                    50.0, 70.0, 95.0, 120.0,
-                    150.0, 185.0, 240.0, 300.0
+                    1.5,
+                    2.5,
+                    4.0,
+                    6.0,
+                    10.0,
+                    16.0,
+                    25.0,
+                    35.0,
+                    50.0,
+                    70.0,
+                    95.0,
+                    120.0,
+                    150.0,
+                    185.0,
+                    240.0,
+                    300.0
                 )
             }
 
@@ -737,10 +741,7 @@ private fun calculateStudy(
         if (
             autoSelect &&
             ampacity != null &&
-            ampacity *
-            temperatureFactor *
-            groupingFactor >=
-            requiredAmpacity
+            ampacity * correctionFactor >= effectiveCurrent
         ) {
 
             selected = candidate
@@ -761,9 +762,27 @@ private fun calculateStudy(
 
     val actualSection = selected
 
+    if (selectedAmpacity == null) {
+        selectedAmpacity =
+            runCatching {
+                ElectricalCalculations.conductorAmpacity(
+                    standard = standard,
+                    sectionMm2 = actualSection,
+                    material = material,
+                    insulation = insulation,
+                    installationMethod = installation,
+                    loadedConductors =
+                        when (currentType) {
+                            CurrentType.AlternatingThreePhase -> 3
+                            else -> 2
+                        }
+                )
+            }.getOrNull()
+    }
+
     val vd =
         ElectricalCalculations.calculateVoltageDrop(
-            current = calculatedCurrent,
+            current = effectiveCurrent,
             length = length,
             sectionMm2 = actualSection,
             powerFactor = pf,
@@ -775,17 +794,21 @@ private fun calculateStudy(
     val vdVolts = vd.second
     val vdPercent = vd.first
 
-    val effectiveAmpacity =
+    val correctedAmpacity =
         selectedAmpacity?.let {
             it *
                 temperatureFactor *
-                groupingFactor *
-                parallelRuns
+                groupingFactor
+        }
+
+    val totalAmpacity =
+        correctedAmpacity?.let {
+            it * parallelRuns
         }
 
     val ampacityPass =
-        effectiveAmpacity == null ||
-            effectiveAmpacity >= calculatedCurrent
+        totalAmpacity == null ||
+            totalAmpacity >= calculatedCurrent
 
     val voltageDropPass =
         vdPercent <= maxDrop
@@ -812,11 +835,16 @@ private fun calculateStudy(
             "Parallel runs were included in the current and ampacity assessment."
     }
 
+    if (autoSelect) {
+        notes +=
+            "Automatic sizing selected the first standard conductor section satisfying the available ampacity data."
+    }
+
     return VoltageDropStudy(
         currentA = calculatedCurrent,
         requiredAmpacityA = requiredAmpacity,
         selectedSectionMm2 = actualSection,
-        ampacityA = effectiveAmpacity,
+        ampacityA = totalAmpacity,
         temperatureFactor = temperatureFactor,
         groupingFactor = groupingFactor,
         voltageDropV = vdVolts,
@@ -870,7 +898,10 @@ private fun StudyResultCard(
             )
 
             ResultRow(
-                if (arabic) "Iz بعد معاملات التصحيح" else "Corrected Iz",
+                if (arabic)
+                    "Iz بعد معاملات التصحيح"
+                else
+                    "Corrected Iz",
                 study.ampacityA?.let {
                     "%.2f A".format(it)
                 } ?: "N/A"
@@ -924,8 +955,7 @@ private fun StudyResultCard(
                         "اختبار هبوط الجهد"
                     else
                         "Voltage Drop Check",
-                passValue =
-                    study.voltageDropPass,
+                passValue = study.voltageDropPass,
                 arabic = arabic
             )
 
@@ -935,8 +965,7 @@ private fun StudyResultCard(
                         "اختبار سعة الكابل"
                     else
                         "Cable Ampacity Check",
-                passValue =
-                    study.ampacityPass,
+                passValue = study.ampacityPass,
                 arabic = arabic
             )
 
@@ -957,21 +986,17 @@ private fun StudyResultCard(
                             imageVector =
                                 Icons.Outlined.Info,
                             contentDescription = null,
-                            tint =
-                                Color(0xFFFFC107),
-                            modifier =
-                                Modifier.width(20.dp)
+                            tint = Color(0xFFFFC107),
+                            modifier = Modifier.width(20.dp)
                         )
 
                         Spacer(
-                            modifier =
-                                Modifier.width(6.dp)
+                            modifier = Modifier.width(6.dp)
                         )
 
                         Text(
                             text = note,
-                            color =
-                                Color(0xFFD3DCE1),
+                            color = Color(0xFFD3DCE1),
                             fontSize = 12.sp
                         )
                     }
