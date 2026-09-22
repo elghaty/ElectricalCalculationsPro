@@ -1,5 +1,13 @@
 package com.electrical.calculationspro.data
 
+/**
+ * IEC engineering datasets used by the application.
+ *
+ * IMPORTANT:
+ * A missing table entry must never be replaced by an invented
+ * ampacity approximation. Returning null is intentional and allows
+ * the caller to report that verified data is unavailable.
+ */
 object IecTables {
 
     val pvcCopper2Loaded = mapOf(
@@ -76,105 +84,136 @@ object IecTables {
         300.0 to mapOf("A1" to 261.0, "A2" to 237.0, "B1" to 306.0, "B2" to 265.0, "C" to 351.0, "D1" to 254.0, "D2" to 282.0)
     )
 
-    fun ambientCorrectionPvc(ambientTemp: Double): Double {
-        return when {
-            ambientTemp <= 10 -> 1.22
-            ambientTemp <= 15 -> 1.17
-            ambientTemp <= 20 -> 1.12
-            ambientTemp <= 25 -> 1.06
-            ambientTemp <= 30 -> 1.00
-            ambientTemp <= 35 -> 0.94
-            ambientTemp <= 40 -> 0.87
-            ambientTemp <= 45 -> 0.79
-            ambientTemp <= 50 -> 0.71
-            ambientTemp <= 55 -> 0.61
-            ambientTemp <= 60 -> 0.50
+    fun ambientCorrectionPvc(ambientTemp: Double): Double =
+        when {
+            ambientTemp <= 10.0 -> 1.22
+            ambientTemp <= 15.0 -> 1.17
+            ambientTemp <= 20.0 -> 1.12
+            ambientTemp <= 25.0 -> 1.06
+            ambientTemp <= 30.0 -> 1.00
+            ambientTemp <= 35.0 -> 0.94
+            ambientTemp <= 40.0 -> 0.87
+            ambientTemp <= 45.0 -> 0.79
+            ambientTemp <= 50.0 -> 0.71
+            ambientTemp <= 55.0 -> 0.61
+            ambientTemp <= 60.0 -> 0.50
             else -> 0.40
         }
-    }
 
-    fun ambientCorrectionXlpe(ambientTemp: Double): Double {
-        return when {
-            ambientTemp <= 10 -> 1.15
-            ambientTemp <= 15 -> 1.12
-            ambientTemp <= 20 -> 1.08
-            ambientTemp <= 25 -> 1.04
-            ambientTemp <= 30 -> 1.00
-            ambientTemp <= 35 -> 0.96
-            ambientTemp <= 40 -> 0.91
-            ambientTemp <= 45 -> 0.87
-            ambientTemp <= 50 -> 0.82
-            ambientTemp <= 55 -> 0.76
-            ambientTemp <= 60 -> 0.71
-            ambientTemp <= 65 -> 0.65
-            ambientTemp <= 70 -> 0.58
-            ambientTemp <= 75 -> 0.50
-            ambientTemp <= 80 -> 0.41
+    fun ambientCorrectionXlpe(ambientTemp: Double): Double =
+        when {
+            ambientTemp <= 10.0 -> 1.15
+            ambientTemp <= 15.0 -> 1.12
+            ambientTemp <= 20.0 -> 1.08
+            ambientTemp <= 25.0 -> 1.04
+            ambientTemp <= 30.0 -> 1.00
+            ambientTemp <= 35.0 -> 0.96
+            ambientTemp <= 40.0 -> 0.91
+            ambientTemp <= 45.0 -> 0.87
+            ambientTemp <= 50.0 -> 0.82
+            ambientTemp <= 55.0 -> 0.76
+            ambientTemp <= 60.0 -> 0.71
+            ambientTemp <= 65.0 -> 0.65
+            ambientTemp <= 70.0 -> 0.58
+            ambientTemp <= 75.0 -> 0.50
+            ambientTemp <= 80.0 -> 0.41
             else -> 0.35
         }
-    }
 
-    fun groupingFactor(numberOfCircuits: Int): Double {
-        return when {
+    fun groupingFactor(numberOfCircuits: Int): Double =
+        when {
             numberOfCircuits <= 1 -> 1.00
             numberOfCircuits == 2 -> 0.80
             numberOfCircuits == 3 -> 0.70
             numberOfCircuits == 4 -> 0.65
             numberOfCircuits == 5 -> 0.60
             numberOfCircuits == 6 -> 0.57
-            numberOfCircuits <= 7 -> 0.54
-            numberOfCircuits <= 8 -> 0.52
-            numberOfCircuits <= 9 -> 0.50
+            numberOfCircuits == 7 -> 0.54
+            numberOfCircuits == 8 -> 0.52
+            numberOfCircuits == 9 -> 0.50
             numberOfCircuits <= 12 -> 0.45
             numberOfCircuits <= 16 -> 0.41
             numberOfCircuits <= 20 -> 0.38
             else -> 0.35
         }
-    }
 
+    /**
+     * Returns null when the requested combination is not present
+     * in the verified dataset.
+     */
     fun getBaseAmpacity(
         section: Double,
         method: String,
         loadedConductors: Int = 2,
         material: ConductorMaterial = ConductorMaterial.Copper,
         insulation: InsulationType = InsulationType.PVC
-    ): Double {
-        val table = when {
-            material == ConductorMaterial.Copper && loadedConductors >= 3 -> pvcCopper3Loaded
-            material == ConductorMaterial.Copper -> pvcCopper2Loaded
-            material == ConductorMaterial.Aluminum && loadedConductors >= 3 -> pvcAluminium3Loaded
-            else -> pvcAluminium2Loaded
+    ): Double? {
+
+        if (section <= 0.0) return null
+        if (loadedConductors <= 0) return null
+
+        /*
+         * Current dataset contains PVC tables.
+         * Do not silently use PVC values for another insulation.
+         */
+        if (insulation != InsulationType.PVC) {
+            return null
         }
-        val row = table[section] ?: return if (material == ConductorMaterial.Copper) section * 6.5 else section * 5.0
-        return row[method] ?: row["B1"] ?: (if (material == ConductorMaterial.Copper) section * 6.5 else section * 5.0)
+
+        val table =
+            when {
+                material == ConductorMaterial.Copper &&
+                    loadedConductors >= 3 ->
+                    pvcCopper3Loaded
+
+                material == ConductorMaterial.Copper ->
+                    pvcCopper2Loaded
+
+                material == ConductorMaterial.Aluminum &&
+                    loadedConductors >= 3 ->
+                    pvcAluminium3Loaded
+
+                material == ConductorMaterial.Aluminum ->
+                    pvcAluminium2Loaded
+
+                else ->
+                    return null
+            }
+
+        val row = table[section] ?: return null
+
+        return row[method]
     }
 
-    fun methodToKey(methodCode: String): String {
-        return when {
-            methodCode.contains("A1") -> "A1"
-            methodCode.contains("A2") -> "A2"
-            methodCode.contains("B1") -> "B1"
-            methodCode.contains("B2") -> "B2"
-            methodCode.contains("C") -> "C"
-            methodCode.contains("D1") -> "D1"
-            methodCode.contains("D2") -> "D2"
-            methodCode.contains("E") -> "C"
-            methodCode.contains("F") -> "C"
-            methodCode.contains("G") -> "C"
-            else -> "B1"
-        }
-    }
+    fun methodToKey(methodCode: String): String =
+        when {
+            methodCode.equals("A1", true) -> "A1"
+            methodCode.equals("A2", true) -> "A2"
+            methodCode.equals("B1", true) -> "B1"
+            methodCode.equals("B2", true) -> "B2"
+            methodCode.equals("C", true) -> "C"
+            methodCode.equals("D1", true) -> "D1"
+            methodCode.equals("D2", true) -> "D2"
 
-    val allInstallationMethods = listOf(
-        InstallationMethod("1 - A1", "Insulated conductors in conduit in thermally insulated wall"),
-        InstallationMethod("1 - A2", "Multi-core cable in conduit in thermally insulated wall"),
-        InstallationMethod("2 - B1", "Insulated conductors in conduit on wall"),
-        InstallationMethod("2 - B2", "Multi-core cable in conduit on wall"),
-        InstallationMethod("3 - C", "Multi-core cable on wall / clipped direct"),
-        InstallationMethod("4 - D1", "Multi-core cable in ducts in the ground"),
-        InstallationMethod("4 - D2", "Multi-core cable direct in the ground"),
-        InstallationMethod("5 - E", "Multi-core cable in free air"),
-        InstallationMethod("6 - F", "Single-core cables on perforated tray"),
-        InstallationMethod("7 - G", "Single-core cables on ladder / supports")
-    )
+            methodCode.contains("A1", true) -> "A1"
+            methodCode.contains("A2", true) -> "A2"
+            methodCode.contains("B1", true) -> "B1"
+            methodCode.contains("B2", true) -> "B2"
+            methodCode.contains("D1", true) -> "D1"
+            methodCode.contains("D2", true) -> "D2"
+            methodCode.contains("C", true) -> "C"
+
+            else -> methodCode.trim().uppercase()
+        }
+
+    val allInstallationMethods: List<InstallationMethod> =
+        listOf(
+            InstallationMethod("A1", "Insulated conductors in conduit in thermally insulated wall"),
+            InstallationMethod("A2", "Multicore cable in conduit in thermally insulated wall"),
+            InstallationMethod("B1", "Insulated conductors in conduit on wall"),
+            InstallationMethod("B2", "Multicore cable in conduit on wall"),
+            InstallationMethod("C", "Cable clipped direct"),
+            InstallationMethod("D1", "Multicore cable in duct in ground"),
+            InstallationMethod("D2", "Single-core cables in duct in ground")
+        )
 }
