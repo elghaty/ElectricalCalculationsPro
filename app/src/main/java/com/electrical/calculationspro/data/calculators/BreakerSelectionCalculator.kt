@@ -1,68 +1,47 @@
 package com.electrical.calculationspro.data.calculators
 
+import com.electrical.calculationspro.data.BreakerSelectionResult
+import com.electrical.calculationspro.data.Standard
+import com.electrical.calculationspro.data.standards.CodeEngineFactory
+
 /**
- * Protective-device preliminary rating selection.
+ * Protective-device preliminary selection.
  *
- * This class selects a nominal rating only.
- * Manufacturer/model selection belongs to EquipmentCatalog.
- *
- * Coordination principle:
+ * Engineering rule:
  *
  *      Ib <= In <= Iz
  *
- * Breaking-capacity verification is deliberately separated and will
- * use the calculated prospective short-circuit current and real
- * manufacturer catalogue data.
+ * Manufacturer/model selection is performed by the equipment catalog
+ * layer after the required electrical ratings are known.
  */
 object BreakerSelectionCalculator {
 
-    private val standardRatings = listOf(
-        2.0,
-        4.0,
-        6.0,
-        10.0,
-        13.0,
-        16.0,
-        20.0,
-        25.0,
-        32.0,
-        40.0,
-        50.0,
-        63.0,
-        80.0,
-        100.0,
-        125.0,
-        160.0,
-        200.0,
-        250.0,
-        315.0,
-        400.0,
-        500.0,
-        630.0,
-        800.0,
-        1000.0,
-        1250.0,
-        1600.0,
-        2000.0,
-        2500.0,
-        3200.0,
-        4000.0,
-        5000.0,
-        6300.0
-    )
+    private const val EPSILON = 1.0e-9
 
     fun selectRating(
         designCurrentA: Double,
-        cableAmpacityA: Double
-    ): Double? {
+        cableAmpacityA: Double,
+        standard: Standard = Standard.IEC
+    ): Double {
 
-        require(designCurrentA >= 0.0)
-        require(cableAmpacityA >= 0.0)
-
-        return standardRatings.firstOrNull { rating ->
-            rating >= designCurrentA &&
-                rating <= cableAmpacityA
+        require(designCurrentA >= 0.0) {
+            "Design current cannot be negative."
         }
+
+        require(cableAmpacityA >= 0.0) {
+            "Cable ampacity cannot be negative."
+        }
+
+        val ratings =
+            CodeEngineFactory
+                .get(standard)
+                .standardBreakerRatings()
+                .sorted()
+
+        return ratings.firstOrNull { rating ->
+            rating + EPSILON >= designCurrentA &&
+                rating <= cableAmpacityA + EPSILON
+        } ?: 0.0
     }
 
     fun satisfiesCoordination(
@@ -75,10 +54,8 @@ object BreakerSelectionCalculator {
         require(breakerRatingA >= 0.0)
         require(cableAmpacityA >= 0.0)
 
-        return designCurrentA <=
-            breakerRatingA &&
-            breakerRatingA <=
-            cableAmpacityA
+        return designCurrentA <= breakerRatingA &&
+            breakerRatingA <= cableAmpacityA
     }
 
     fun isBreakingCapacityAdequate(
@@ -93,6 +70,108 @@ object BreakerSelectionCalculator {
             prospectiveFaultCurrentKA
     }
 
-    fun availableRatings(): List<Double> =
-        standardRatings
+    fun availableRatings(
+        standard: Standard = Standard.IEC
+    ): List<Double> {
+
+        return CodeEngineFactory
+            .get(standard)
+            .standardBreakerRatings()
+            .sorted()
+    }
+
+    fun calculate(
+        designCurrentA: Double,
+        cableAmpacityA: Double,
+        prospectiveFaultCurrentKA: Double = 0.0,
+        breakerBreakingCapacityKA: Double = 0.0,
+        standard: Standard = Standard.IEC
+    ): BreakerSelectionResult {
+
+        val selected =
+            selectRating(
+                designCurrentA = designCurrentA,
+                cableAmpacityA = cableAmpacityA,
+                standard = standard
+            )
+
+        val coordination =
+            selected > 0.0 &&
+                satisfiesCoordination(
+                    designCurrentA = designCurrentA,
+                    breakerRatingA = selected,
+                    cableAmpacityA = cableAmpacityA
+                )
+
+        val breakingCapacityValid =
+            if (prospectiveFaultCurrentKA > 0.0 &&
+                breakerBreakingCapacityKA > 0.0
+            ) {
+                isBreakingCapacityAdequate(
+                    prospectiveFaultCurrentKA =
+                        prospectiveFaultCurrentKA,
+                    breakerBreakingCapacityKA =
+                        breakerBreakingCapacityKA
+                )
+            } else {
+                false
+            }
+
+        val engine =
+            CodeEngineFactory.get(standard)
+
+        val notes =
+            buildList {
+
+                add(
+                    "Standard: ${engine.codeName}"
+                )
+
+                add(
+                    "Design current = %.2f A"
+                        .format(designCurrentA)
+                )
+
+                add(
+                    "Cable ampacity = %.2f A"
+                        .format(cableAmpacityA)
+                )
+
+                if (selected > 0.0) {
+                    add(
+                        "Selected nominal rating = %.0f A"
+                            .format(selected)
+                    )
+                } else {
+                    add(
+                        "No standard breaker rating satisfies Ib <= In <= Iz."
+                    )
+                }
+
+                add(
+                    if (coordination) {
+                        "Coordination Ib <= In <= Iz: PASS"
+                    } else {
+                        "Coordination Ib <= In <= Iz: FAIL"
+                    }
+                )
+
+                if (!engine.isFullyImplemented()) {
+                    add(
+                        engine.implementationStatus()
+                    )
+                }
+            }
+
+        return BreakerSelectionResult(
+            designCurrentA = designCurrentA,
+            cableAmpacityA = cableAmpacityA,
+            selectedRatingA = selected,
+            breakingCapacityKA = breakerBreakingCapacityKA,
+            coordinationValid = coordination,
+            breakingCapacityValid = breakingCapacityValid,
+            valid = selected > 0.0 && coordination,
+            notes = notes
+        )
+    }
 }
