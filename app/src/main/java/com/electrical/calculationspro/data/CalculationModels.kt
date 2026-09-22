@@ -6,35 +6,18 @@ package com.electrical.calculationspro.data
  * Calculation Models
  * ================================================================
  *
- * This file contains calculation result models only.
- *
- * It intentionally contains NO calculation formulas and NO UI code.
- *
- * Architecture:
- *
- * UI
- *  ↓
- * ElectricalCalculations
- *  ↓
- * Calculators
- *  ↓
- * CalculationModels
- *
+ * Models only.
+ * No UI.
+ * No calculation formulas.
  * ================================================================
  */
 
-/**
- * Generic engineering validation result.
- */
 data class EngineeringValidationResult(
     val valid: Boolean,
     val errors: List<String> = emptyList(),
     val warnings: List<String> = emptyList()
 )
 
-/**
- * Generic engineering calculation status.
- */
 enum class CalculationStatus {
     SUCCESS,
     WARNING,
@@ -42,9 +25,6 @@ enum class CalculationStatus {
     NOT_IMPLEMENTED
 }
 
-/**
- * Generic calculation metadata.
- */
 data class CalculationMetadata(
     val status: CalculationStatus,
     val standard: Standard,
@@ -54,9 +34,9 @@ data class CalculationMetadata(
 )
 
 /**
- * Short-circuit calculation result.
+ * Unified short-circuit result used by the Professional Core.
  *
- * All currents are expressed in kA unless explicitly stated otherwise.
+ * Currents are in kA unless explicitly stated otherwise.
  */
 data class ShortCircuitResult(
     val sourceShortCircuitCurrentKA: Double = 0.0,
@@ -72,9 +52,6 @@ data class ShortCircuitResult(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Power calculation result.
- */
 data class PowerCalculationResult(
     val activePowerKw: Double = 0.0,
     val apparentPowerKva: Double = 0.0,
@@ -84,9 +61,6 @@ data class PowerCalculationResult(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Load calculation result.
- */
 data class LoadCalculationResult(
     val connectedLoadKw: Double = 0.0,
     val demandFactor: Double = 1.0,
@@ -99,9 +73,6 @@ data class LoadCalculationResult(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Voltage-drop calculation result.
- */
 data class VoltageDropResult(
     val voltageDropVolts: Double = 0.0,
     val voltageDropPercent: Double = 0.0,
@@ -111,9 +82,6 @@ data class VoltageDropResult(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Breaker selection result.
- */
 data class BreakerSelectionResult(
     val designCurrentA: Double = 0.0,
     val cableAmpacityA: Double = 0.0,
@@ -125,9 +93,6 @@ data class BreakerSelectionResult(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Transformer sizing result.
- */
 data class TransformerSizingResult(
     val loadKw: Double = 0.0,
     val powerFactor: Double = 1.0,
@@ -141,9 +106,6 @@ data class TransformerSizingResult(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Cable/conductor sizing study summary.
- */
 data class ConductorSizingStudy(
     val input: ConductorSizingInput,
     val result: ConductorSizingResult,
@@ -155,12 +117,6 @@ data class ConductorSizingStudy(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Engineering calculation package.
- *
- * Useful when a screen needs to keep the complete calculation context
- * rather than only one numeric result.
- */
 data class EngineeringCalculationPackage(
     val load: LoadCalculationResult? = null,
     val power: PowerCalculationResult? = null,
@@ -172,9 +128,6 @@ data class EngineeringCalculationPackage(
     val metadata: CalculationMetadata? = null
 )
 
-/**
- * Calculation history record.
- */
 data class CalculationHistoryItem(
     val id: String,
     val calculationType: String,
