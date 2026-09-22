@@ -1,5 +1,8 @@
 package com.electrical.calculationspro.data
 
+import com.electrical.calculationspro.data.catalog.BreakerCatalogItem
+import com.electrical.calculationspro.data.catalog.CableCatalogItem
+
 enum class CurrentType {
     DirectCurrent,
     AlternatingSinglePhase,
@@ -57,16 +60,42 @@ data class ConductorSizingInput(
 
 data class ConductorSizingResult(
     val designCurrent: Double,
+
     val recommendedSection: Double,
+
     val selectedSection: Double,
+
     val ampacity: Double,
+
     val voltageDropPercent: Double,
+
     val voltageDropVolts: Double,
+
     val protectiveDevice: Double,
+
     val shortCircuitCurrentKA: Double = 0.0,
+
     val breakerWithinCableCapacity: Boolean = false,
+
     val voltageDropWithinLimit: Boolean = false,
-    val notes: List<String>
+
+    val notes: List<String>,
+
+    /**
+     * Selected cable from the equipment catalog.
+     *
+     * Nullable because a verified manufacturer catalog
+     * item may not be available for every combination.
+     */
+    val catalogCable: CableCatalogItem? = null,
+
+    /**
+     * Selected breaker from the equipment catalog.
+     *
+     * Nullable because exact Icu/Ics data may require
+     * the final manufacturer configuration.
+     */
+    val catalogBreaker: BreakerCatalogItem? = null
 )
 
 val standardSections = listOf(
