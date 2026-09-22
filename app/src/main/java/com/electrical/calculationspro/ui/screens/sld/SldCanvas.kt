@@ -12,9 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.consume
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
@@ -113,8 +112,7 @@ fun SldCanvas(
                     }
                     .pointerInput(nodes) {
 
-                        var draggingNodeId: String? =
-                            null
+                        var draggingNodeId: String? = null
 
                         detectDragGestures(
 
@@ -136,8 +134,6 @@ fun SldCanvas(
                             },
 
                             onDrag = { change, dragAmount ->
-
-                                change.consume()
 
                                 draggingNodeId?.let { id ->
 
