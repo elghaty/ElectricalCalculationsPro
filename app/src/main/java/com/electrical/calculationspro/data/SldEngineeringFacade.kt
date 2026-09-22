@@ -2,7 +2,8 @@ package com.electrical.calculationspro.data
 
 /**
  * ================================================================
- * PROFESSIONAL SLD ENGINEERING FACADE
+ * PROFESSIONAL ENGINEERING CORE
+ * SLD FACADE
  * ================================================================
  *
  * UI
@@ -11,23 +12,17 @@ package com.electrical.calculationspro.data
  *  ↓
  * SldEngineeringFacade
  *  ↓
- * ┌─────────────────────────────────────────────┐
- * │ SldShortCircuitEngine                       │
- * │ SldCableSizingEngine                        │
- * │ SldPanelScheduleEngine                      │
- * │ SldProtectionCoordinationEngine             │
- * └─────────────────────────────────────────────┘
+ * SLD Engineering Engines
  *
- * The UI must never call an SLD calculation engine directly.
- *
- * This facade is intentionally located in the Professional
- * Engineering Core package.
+ * The UI must not access SLD engines directly.
  * ================================================================
  */
 object SldEngineeringFacade {
 
     /**
-     * Complete SLD short-circuit study.
+     * ------------------------------------------------------------
+     * SHORT CIRCUIT
+     * ------------------------------------------------------------
      */
     fun calculateShortCircuit(
         network: SldNetwork,
@@ -45,10 +40,15 @@ object SldEngineeringFacade {
     }
 
     /**
-     * Complete SLD cable sizing study.
+     * ------------------------------------------------------------
+     * CABLE SIZING
+     * ------------------------------------------------------------
      */
     fun calculateCableSizing(
-        network: SldNetwork
+        network: SldNetwork,
+        shortCircuitStudy: SldShortCircuitStudy? = null,
+        voltageDropLimitPercent: Double = 3.0,
+        shortCircuitTimeSeconds: Double = 1.0
     ): SldCableSizingStudy {
 
         require(network.nodes.isNotEmpty()) {
@@ -56,41 +56,78 @@ object SldEngineeringFacade {
         }
 
         return SldCableSizingEngine.calculate(
-            network = network
+            network = network,
+            shortCircuitStudy = shortCircuitStudy,
+            voltageDropLimitPercent = voltageDropLimitPercent,
+            shortCircuitTimeSeconds = shortCircuitTimeSeconds
         )
     }
 
     /**
-     * Complete panel schedule study.
+     * ------------------------------------------------------------
+     * PANEL SCHEDULE
+     * ------------------------------------------------------------
      */
     fun calculatePanelSchedule(
         network: SldNetwork,
-        panelNodeId: String? = null
-    ): SldPanelScheduleResult {
+        panelNodeId: String,
+        cableSizingStudy: SldCableSizingStudy? = null,
+        shortCircuitStudy: SldShortCircuitStudy? = null
+    ): SldPanelSchedule {
 
         require(network.nodes.isNotEmpty()) {
             "SLD network is empty."
         }
 
-        return if (panelNodeId != null) {
-            SldPanelScheduleEngine.calculate(
-                network = network,
-                panelNodeId = panelNodeId
-            )
-        } else {
-            SldPanelScheduleEngine.calculate(
-                network = network
-            )
-        }
+        return SldPanelScheduleEngine.calculate(
+            network = network,
+            panelNodeId = panelNodeId,
+            cableSizingStudy = cableSizingStudy,
+            shortCircuitStudy = shortCircuitStudy
+        )
     }
 
     /**
-     * Complete protection coordination study.
+     * ------------------------------------------------------------
+     * PROTECTION COORDINATION
+     * ------------------------------------------------------------
      */
     fun calculateProtectionCoordination(
         network: SldNetwork,
-        voltageFactor: Double = 1.05
+        shortCircuitStudy: SldShortCircuitStudy? = null,
+        cableSizingStudy: SldCableSizingStudy? = null
     ): SldProtectionCoordinationResult {
+
+        require(network.nodes.isNotEmpty()) {
+            "SLD network is empty."
+        }
+
+        return SldProtectionCoordinationEngine.calculate(
+            network = network,
+            shortCircuitStudy = shortCircuitStudy,
+            cableSizingStudy = cableSizingStudy
+        )
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * COMPLETE SLD ENGINEERING STUDY
+     * ------------------------------------------------------------
+     *
+     * The complete workflow is:
+     *
+     * 1. Short Circuit
+     * 2. Cable Sizing
+     * 3. Protection Coordination
+     * 4. Panel Schedule when a panel is supplied
+     */
+    fun calculateComplete(
+        network: SldNetwork,
+        panelNodeId: String? = null,
+        voltageFactor: Double = 1.05,
+        voltageDropLimitPercent: Double = 3.0,
+        shortCircuitTimeSeconds: Double = 1.0
+    ): SldEngineeringPackage {
 
         require(network.nodes.isNotEmpty()) {
             "SLD network is empty."
@@ -104,70 +141,55 @@ object SldEngineeringFacade {
 
         val cableSizingStudy =
             calculateCableSizing(
-                network = network
-            )
-
-        return SldProtectionCoordinationEngine.calculate(
-            network = network,
-            shortCircuitStudy = shortCircuitStudy,
-            cableSizingStudy = cableSizingStudy
-        )
-    }
-
-    /**
-     * Complete SLD engineering package.
-     *
-     * This is the main API that should be used by the UI.
-     */
-    fun calculateComplete(
-        network: SldNetwork,
-        voltageFactor: Double = 1.05,
-        panelNodeId: String? = null
-    ): SldEngineeringPackage {
-
-        require(network.nodes.isNotEmpty()) {
-            "SLD network is empty."
-        }
-
-        val shortCircuit =
-            calculateShortCircuit(
                 network = network,
-                voltageFactor = voltageFactor
+                shortCircuitStudy = shortCircuitStudy,
+                voltageDropLimitPercent =
+                    voltageDropLimitPercent,
+                shortCircuitTimeSeconds =
+                    shortCircuitTimeSeconds
             )
 
-        val cableSizing =
-            calculateCableSizing(
-                network = network
+        val protectionStudy =
+            calculateProtectionCoordination(
+                network = network,
+                shortCircuitStudy = shortCircuitStudy,
+                cableSizingStudy = cableSizingStudy
             )
 
         val panelSchedule =
-            calculatePanelSchedule(
-                network = network,
-                panelNodeId = panelNodeId
-            )
+            panelNodeId?.let { id ->
 
-        val protection =
-            SldProtectionCoordinationEngine.calculate(
-                network = network,
-                shortCircuitStudy = shortCircuit,
-                cableSizingStudy = cableSizing
-            )
+                calculatePanelSchedule(
+                    network = network,
+                    panelNodeId = id,
+                    cableSizingStudy =
+                        cableSizingStudy,
+                    shortCircuitStudy =
+                        shortCircuitStudy
+                )
+            }
 
         return SldEngineeringPackage(
-            shortCircuit = shortCircuit,
-            cableSizing = cableSizing,
-            panelSchedule = panelSchedule,
-            protectionCoordination = protection
+            shortCircuit =
+                shortCircuitStudy,
+            cableSizing =
+                cableSizingStudy,
+            protectionCoordination =
+                protectionStudy,
+            panelSchedule =
+                panelSchedule
         )
     }
 }
 
 /**
- * Unified result returned by the SLD Professional Core.
+ * ================================================================
+ * COMPLETE SLD ENGINEERING RESULT
+ * ================================================================
  */
 data class SldEngineeringPackage(
     val shortCircuit: SldShortCircuitStudy,
     val cableSizing: SldCableSizingStudy,
-    val panelSchedule: SldPanelScheduleResult,
-    val protectionCoordination: SldProtectionCoordinationResult
+    val protectionCoordination: SldProtectionCoordinationResult,
+    val panelSchedule: SldPanelSchedule?
 )
