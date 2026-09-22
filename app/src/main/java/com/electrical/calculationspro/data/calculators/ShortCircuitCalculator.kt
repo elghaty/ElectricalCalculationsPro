@@ -6,12 +6,21 @@ import com.electrical.calculationspro.data.ShortCircuitResult
 import kotlin.math.sqrt
 
 /**
- * Preliminary short-circuit calculation engine.
+ * Preliminary network short-circuit calculator.
  *
- * This engine keeps the source fault level explicit.
- * A complete IEC 60909 implementation will later be provided as
- * a dedicated standard engine, including c-factors, source types,
- * transformer impedance, generator contribution and motor contribution.
+ * This calculator is deliberately separated from the UI.
+ *
+ * The complete IEC 60909 network implementation will later handle:
+ * - c factor
+ * - maximum/minimum fault cases
+ * - transformer impedance
+ * - generator contribution
+ * - motor contribution
+ * - positive/negative/zero sequence networks
+ * - correction factors
+ *
+ * Until those datasets are implemented, this calculator is explicitly
+ * marked as a preliminary engineering calculation.
  */
 object ShortCircuitCalculator {
 
@@ -26,48 +35,43 @@ object ShortCircuitCalculator {
         sourceIkKA: Double = 50.0
     ): ShortCircuitResult {
 
-        require(voltage > EPSILON)
-        require(length >= 0.0)
-        require(sectionMm2 > EPSILON)
-        require(sourceIkKA > EPSILON)
-
-        val resistivity = when (material) {
-
-            ConductorMaterial.Copper ->
-                0.018
-
-            ConductorMaterial.Aluminum ->
-                0.029
+        require(voltage > EPSILON) {
+            "Voltage must be greater than zero."
         }
 
+        require(length >= 0.0) {
+            "Cable length cannot be negative."
+        }
+
+        require(sectionMm2 > EPSILON) {
+            "Cable section must be greater than zero."
+        }
+
+        require(sourceIkKA > EPSILON) {
+            "Source short-circuit current must be greater than zero."
+        }
+
+        val resistivityOhmMm2PerM =
+            when (material) {
+                ConductorMaterial.Copper -> 0.018
+                ConductorMaterial.Aluminum -> 0.029
+            }
+
         val resistancePerMeter =
-            resistivity /
-                sectionMm2
+            resistivityOhmMm2PerM / sectionMm2
 
         val reactancePerMeter =
-            if (
-                currentType ==
-                CurrentType.DirectCurrent
-            ) {
-                0.0
-            } else {
-                0.08 / 1000.0
+            when (currentType) {
+                CurrentType.DirectCurrent -> 0.0
+                else -> 0.08 / 1000.0
             }
 
         val loopFactor =
             when (currentType) {
-
-                CurrentType.DirectCurrent ->
-                    2.0
-
-                CurrentType.AlternatingSinglePhase ->
-                    2.0
-
-                CurrentType.AlternatingTwoPhase ->
-                    2.0
-
-                CurrentType.AlternatingThreePhase ->
-                    1.0
+                CurrentType.DirectCurrent -> 2.0
+                CurrentType.AlternatingSinglePhase -> 2.0
+                CurrentType.AlternatingTwoPhase -> 2.0
+                CurrentType.AlternatingThreePhase -> 1.0
             }
 
         val cableResistance =
@@ -82,73 +86,80 @@ object ShortCircuitCalculator {
 
         val faultVoltage =
             when (currentType) {
-
                 CurrentType.AlternatingThreePhase ->
-                    voltage /
-                        sqrt(3.0)
+                    voltage / sqrt(3.0)
 
-                CurrentType.DirectCurrent,
-                CurrentType.AlternatingSinglePhase,
-                CurrentType.AlternatingTwoPhase ->
+                else ->
                     voltage
             }
 
         val sourceImpedance =
             faultVoltage /
-                (
-                    sourceIkKA *
-                        1000.0
-                    )
+                (sourceIkKA * 1000.0)
 
         val totalResistance =
             sourceImpedance +
                 cableResistance
 
+        val totalReactance =
+            cableReactance
+
         val totalImpedance =
             sqrt(
-                totalResistance *
-                    totalResistance +
-                    cableReactance *
-                    cableReactance
+                totalResistance * totalResistance +
+                    totalReactance * totalReactance
             ).coerceAtLeast(EPSILON)
 
-        val faultCurrent =
+        val faultCurrentA =
             faultVoltage /
                 totalImpedance
 
         val faultCurrentKA =
-            faultCurrent /
-                1000.0
+            faultCurrentA / 1000.0
 
-        val i2t =
-            faultCurrent *
-                faultCurrent *
-                0.1
+        val shortCircuitMva =
+            when (currentType) {
+                CurrentType.AlternatingThreePhase ->
+                    sqrt(3.0) *
+                        voltage *
+                        faultCurrentA /
+                        1_000_000.0
+
+                else ->
+                    voltage *
+                        faultCurrentA /
+                        1_000_000.0
+            }
+
+        val xrRatio =
+            if (totalResistance > EPSILON) {
+                totalReactance /
+                    totalResistance
+            } else {
+                0.0
+            }
 
         return ShortCircuitResult(
-            ikAmps = faultCurrent,
-            ikKA = faultCurrentKA,
-            cableImpedance = totalImpedance,
-            sourceImpedance = sourceImpedance,
-            i2t = i2t,
+            sourceShortCircuitCurrentKA = sourceIkKA,
+            cableResistanceOhm = cableResistance,
+            cableReactanceOhm = cableReactance,
+            totalResistanceOhm = totalResistance,
+            totalReactanceOhm = totalReactance,
+            totalImpedanceOhm = totalImpedance,
+            shortCircuitCurrentKA = faultCurrentKA,
+            shortCircuitMva = shortCircuitMva,
+            xrRatio = xrRatio,
+            valid = true,
             notes = listOf(
-                "Ik = %.2f kA"
-                    .format(faultCurrentKA),
-
-                "Total impedance = %.6f Ω"
-                    .format(totalImpedance),
-
-                "Source impedance = %.6f Ω"
-                    .format(sourceImpedance),
-
-                "Cable resistance = %.6f Ω"
-                    .format(cableResistance),
-
-                "Cable reactance = %.6f Ω"
-                    .format(cableReactance),
-
-                "I²t at 0.10 s = %.0f A²s"
-                    .format(i2t)
+                "Preliminary short-circuit calculation.",
+                "Source Ik = %.3f kA".format(sourceIkKA),
+                "Cable R = %.6f Ω".format(cableResistance),
+                "Cable X = %.6f Ω".format(cableReactance),
+                "Total Z = %.6f Ω".format(totalImpedance),
+                "Fault current Ik = %.3f kA".format(faultCurrentKA),
+                "Short-circuit level = %.3f MVA".format(shortCircuitMva),
+                "X/R = %.3f".format(xrRatio),
+                "Full IEC 60909 network modelling is not yet enabled."
             )
         )
     }
