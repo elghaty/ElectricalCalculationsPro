@@ -1,8 +1,3 @@
-// ============================================================
-// FILE:
-// app/src/main/java/com/electrical/calculationspro/ui/theme/Theme.kt
-// ============================================================
-
 package com.electrical.calculationspro.ui.theme
 
 import androidx.compose.material3.MaterialTheme
