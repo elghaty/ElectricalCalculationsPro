@@ -6,62 +6,42 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val LightColorScheme =
-    lightColorScheme(
-        primary = PrimaryTeal,
-        onPrimary = Color.White,
+private val LightColorScheme = lightColorScheme(
+    primary = PrimaryTeal,
+    onPrimary = Color.White,
 
-        primaryContainer =
-            Color(0xFFD7F2F6),
+    primaryContainer = Color(0xFFD7F2F6),
+    onPrimaryContainer = Color(0xFF00363D),
 
-        onPrimaryContainer =
-            Color(0xFF00363D),
+    secondary = PrimaryTealDark,
+    onSecondary = Color.White,
 
-        secondary =
-            PrimaryTealDark,
+    secondaryContainer = Color(0xFFD6EDF1),
+    onSecondaryContainer = Color(0xFF102F35),
 
-        onSecondary =
-            Color.White,
+    tertiary = AccentPurple,
+    onTertiary = Color.White,
 
-        secondaryContainer =
-            Color(0xFFD6EDF1),
+    tertiaryContainer = Color(0xFFEEDCFF),
+    onTertiaryContainer = Color(0xFF2A0046),
 
-        onSecondaryContainer =
-            Color(0xFF102F35),
+    background = DarkBackground,
+    onBackground = TextPrimary,
 
-        background =
-            DarkBackground,
+    surface = DarkSurface,
+    onSurface = TextPrimary,
 
-        onBackground =
-            TextPrimary,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = TextSecondary,
 
-        surface =
-            DarkSurface,
+    outline = DividerColor,
 
-        onSurface =
-            TextPrimary,
+    error = AccentRed,
+    onError = Color.White,
 
-        surfaceVariant =
-            DarkSurfaceVariant,
-
-        onSurfaceVariant =
-            TextSecondary,
-
-        outline =
-            DividerColor,
-
-        error =
-            AccentRed,
-
-        onError =
-            Color.White,
-
-        errorContainer =
-            Color(0xFFFFDAD6),
-
-        onErrorContainer =
-            Color(0xFF410002)
-    )
+    errorContainer = Color(0xFFFFDAD6),
+    onErrorContainer = Color(0xFF410002)
+)
 
 @Composable
 fun ElectricalCalculationsProTheme(
@@ -71,15 +51,12 @@ fun ElectricalCalculationsProTheme(
     /*
      * The application is intentionally LIGHT.
      *
-     * darkTheme is kept in the function signature so existing
-     * calls from MainActivity do not break.
+     * darkTheme is retained in the API so existing callers
+     * remain compatible.
      */
     MaterialTheme(
-        colorScheme =
-            LightColorScheme,
-        typography =
-            Typography(),
-        content =
-            content
+        colorScheme = LightColorScheme,
+        typography = Typography(),
+        content = content
     )
 }
