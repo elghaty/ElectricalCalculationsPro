@@ -195,74 +195,86 @@ fun ProfessionalVoltageDropScreen(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    FourColumnGrid {
-                        DropdownField(
-                            label = if (arabic) {
-                                "نوع النظام"
-                            } else {
-                                "System Type"
-                            },
-                            value = currentTypeLabel(
-                                currentType,
-                                arabic
-                            ),
-                            items = CurrentType.entries.map {
-                                currentTypeLabel(it, arabic)
-                            },
-                            onSelect = { index ->
-                                currentType =
-                                    CurrentType.entries[index]
-                            }
-                        )
+                    FourColumnRow(
+                        first = {
+                            DropdownField(
+                                label = if (arabic) {
+                                    "نوع النظام"
+                                } else {
+                                    "System Type"
+                                },
+                                value = currentTypeLabel(
+                                    currentType,
+                                    arabic
+                                ),
+                                items = CurrentType.entries.map {
+                                    currentTypeLabel(it, arabic)
+                                },
+                                onSelect = { index ->
+                                    currentType =
+                                        CurrentType.entries[index]
+                                }
+                            )
+                        },
+                        second = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "جهد النظام (V)"
+                                } else {
+                                    "System Voltage (V)"
+                                },
+                                value = voltage,
+                                onValueChange = {
+                                    voltage = it
+                                }
+                            )
+                        },
+                        third = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "الحمل (kW)"
+                                } else {
+                                    "Load (kW)"
+                                },
+                                value = loadKw,
+                                onValueChange = {
+                                    loadKw = it
+                                }
+                            )
+                        },
+                        fourth = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "التيار A"
+                                } else {
+                                    "Current A"
+                                },
+                                value = current,
+                                onValueChange = {
+                                    current = it
+                                }
+                            )
+                        }
+                    )
 
-                        NumberField(
-                            label = if (arabic) {
-                                "جهد النظام (V)"
-                            } else {
-                                "System Voltage (V)"
-                            },
-                            value = voltage,
-                            onValueChange = {
-                                voltage = it
-                            }
-                        )
-
-                        NumberField(
-                            label = if (arabic) {
-                                "الحمل (kW)"
-                            } else {
-                                "Load (kW)"
-                            },
-                            value = loadKw,
-                            onValueChange = {
-                                loadKw = it
-                            }
-                        )
-
-                        NumberField(
-                            label = if (arabic) {
-                                "التيار A"
-                            } else {
-                                "Current A"
-                            },
-                            value = current,
-                            onValueChange = {
-                                current = it
-                            }
-                        )
-
-                        NumberField(
-                            label = if (arabic) {
-                                "معامل القدرة"
-                            } else {
-                                "Power Factor"
-                            },
-                            value = pf,
-                            onValueChange = {
-                                pf = it
-                            }
-                        )
-                    }
+                    FourColumnRow(
+                        first = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "معامل القدرة"
+                                } else {
+                                    "Power Factor"
+                                },
+                                value = pf,
+                                onValueChange = {
+                                    pf = it
+                                }
+                            )
+                        },
+                        second = {},
+                        third = {},
+                        fourth = {}
+                    )
                 }
             }
 
@@ -284,115 +296,127 @@ fun ProfessionalVoltageDropScreen(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    FourColumnGrid {
-                        NumberField(
-                            label = if (arabic) {
-                                "الطول m"
-                            } else {
-                                "Length m"
-                            },
-                            value = length,
-                            onValueChange = {
-                                length = it
-                            }
-                        )
+                    FourColumnRow(
+                        first = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "الطول m"
+                                } else {
+                                    "Length m"
+                                },
+                                value = length,
+                                onValueChange = {
+                                    length = it
+                                }
+                            )
+                        },
+                        second = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "المقطع mm²"
+                                } else {
+                                    "Section mm²"
+                                },
+                                value = section,
+                                onValueChange = {
+                                    section = it
+                                }
+                            )
+                        },
+                        third = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "عدد المسارات"
+                                } else {
+                                    "Parallel Runs"
+                                },
+                                value = parallelRuns,
+                                onValueChange = {
+                                    parallelRuns = it
+                                }
+                            )
+                        },
+                        fourth = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "درجة الحرارة °C"
+                                } else {
+                                    "Ambient °C"
+                                },
+                                value = ambient,
+                                onValueChange = {
+                                    ambient = it
+                                }
+                            )
+                        }
+                    )
 
-                        NumberField(
-                            label = if (arabic) {
-                                "المقطع mm²"
-                            } else {
-                                "Section mm²"
-                            },
-                            value = section,
-                            onValueChange = {
-                                section = it
-                            }
-                        )
-
-                        NumberField(
-                            label = if (arabic) {
-                                "عدد المسارات"
-                            } else {
-                                "Parallel Runs"
-                            },
-                            value = parallelRuns,
-                            onValueChange = {
-                                parallelRuns = it
-                            }
-                        )
-
-                        NumberField(
-                            label = if (arabic) {
-                                "درجة الحرارة °C"
-                            } else {
-                                "Ambient °C"
-                            },
-                            value = ambient,
-                            onValueChange = {
-                                ambient = it
-                            }
-                        )
-
-                        NumberField(
-                            label = if (arabic) {
-                                "عدد الدوائر"
-                            } else {
-                                "Circuits"
-                            },
-                            value = circuits,
-                            onValueChange = {
-                                circuits = it
-                            }
-                        )
-
-                        DropdownField(
-                            label = if (arabic) {
-                                "مادة الموصل"
-                            } else {
-                                "Conductor Material"
-                            },
-                            value = material.name,
-                            items = ConductorMaterial.entries.map {
-                                it.name
-                            },
-                            onSelect = { index ->
-                                material =
-                                    ConductorMaterial.entries[index]
-                            }
-                        )
-
-                        DropdownField(
-                            label = if (arabic) {
-                                "العازل"
-                            } else {
-                                "Insulation"
-                            },
-                            value = insulation.name,
-                            items = InsulationType.entries.map {
-                                it.name
-                            },
-                            onSelect = { index ->
-                                insulation =
-                                    InsulationType.entries[index]
-                            }
-                        )
-
-                        DropdownField(
-                            label = if (arabic) {
-                                "طريقة التركيب"
-                            } else {
-                                "Installation Method"
-                            },
-                            value = installation.description,
-                            items = iecInstallationMethods.map {
-                                it.description
-                            },
-                            onSelect = { index ->
-                                installation =
-                                    iecInstallationMethods[index]
-                            }
-                        )
-                    }
+                    FourColumnRow(
+                        first = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "عدد الدوائر"
+                                } else {
+                                    "Circuits"
+                                },
+                                value = circuits,
+                                onValueChange = {
+                                    circuits = it
+                                }
+                            )
+                        },
+                        second = {
+                            DropdownField(
+                                label = if (arabic) {
+                                    "مادة الموصل"
+                                } else {
+                                    "Conductor Material"
+                                },
+                                value = material.name,
+                                items = ConductorMaterial.entries.map {
+                                    it.name
+                                },
+                                onSelect = { index ->
+                                    material =
+                                        ConductorMaterial.entries[index]
+                                }
+                            )
+                        },
+                        third = {
+                            DropdownField(
+                                label = if (arabic) {
+                                    "العازل"
+                                } else {
+                                    "Insulation"
+                                },
+                                value = insulation.name,
+                                items = InsulationType.entries.map {
+                                    it.name
+                                },
+                                onSelect = { index ->
+                                    insulation =
+                                        InsulationType.entries[index]
+                                }
+                            )
+                        },
+                        fourth = {
+                            DropdownField(
+                                label = if (arabic) {
+                                    "طريقة التركيب"
+                                } else {
+                                    "Installation Method"
+                                },
+                                value = installation.description,
+                                items = iecInstallationMethods.map {
+                                    it.description
+                                },
+                                onSelect = { index ->
+                                    installation =
+                                        iecInstallationMethods[index]
+                                }
+                            )
+                        }
+                    )
                 }
             }
 
@@ -413,19 +437,24 @@ fun ProfessionalVoltageDropScreen(
                 Column(
                     modifier = Modifier.padding(14.dp)
                 ) {
-                    FourColumnGrid {
-                        NumberField(
-                            label = if (arabic) {
-                                "أقصى هبوط جهد %"
-                            } else {
-                                "Maximum Voltage Drop %"
-                            },
-                            value = maxDrop,
-                            onValueChange = {
-                                maxDrop = it
-                            }
-                        )
-                    }
+                    FourColumnRow(
+                        first = {
+                            NumberField(
+                                label = if (arabic) {
+                                    "أقصى هبوط جهد %"
+                                } else {
+                                    "Maximum Voltage Drop %"
+                                },
+                                value = maxDrop,
+                                onValueChange = {
+                                    maxDrop = it
+                                }
+                            )
+                        },
+                        second = {},
+                        third = {},
+                        fourth = {}
+                    )
                 }
             }
 
@@ -1053,83 +1082,42 @@ private fun DropdownField(
     }
 }
 
-/*
- * Four-column grid without FlowRow.
- *
- * Important:
- * Modifier.weight() is used inside RowScope only.
- * This avoids the previous compilation problem caused by
- * importing androidx.compose.foundation.layout.weight.
- */
 @Composable
-private fun FourColumnGrid(
-    content: @Composable FourColumnScope.() -> Unit
+private fun FourColumnRow(
+    first: @Composable () -> Unit,
+    second: @Composable () -> Unit,
+    third: @Composable () -> Unit,
+    fourth: @Composable () -> Unit
 ) {
-    val items = mutableListOf<@Composable () -> Unit>()
-
-    val scope = FourColumnScopeImpl(items)
-
-    scope.content()
-
-    items.chunked(4).forEach { rowItems ->
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            repeat(4) { index ->
-                Box(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (index < rowItems.size) {
-                        rowItems[index]()
-                    }
-                }
-            }
-        }
-
-        if (rowItems !== items.chunked(4).lastOrNull()) {
-            Spacer(
-                modifier = Modifier.height(10.dp)
-            )
-        }
-    }
-}
-
-private interface FourColumnScope {
-    fun item(content: @Composable () -> Unit)
-}
-
-private class FourColumnScopeImpl(
-    private val items: MutableList<@Composable () -> Unit>
-) : FourColumnScope {
-
-    override fun item(
-        content: @Composable () -> Unit
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        items += content
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
+            first()
+        }
+
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
+            second()
+        }
+
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
+            third()
+        }
+
+        Box(
+            modifier = Modifier.weight(1f)
+        ) {
+            fourth()
+        }
     }
-}
-
-private fun FourColumnScope.field(
-    content: @Composable () -> Unit
-) {
-    item(content)
-}
-
-private fun FourColumnScope.itemContent(
-    content: @Composable () -> Unit
-) {
-    item(content)
-}
-
-/*
- * Overloads used by FourColumnGrid's call-site.
- */
-@Composable
-private fun FourColumnGridContent(
-    content: FourColumnScope.() -> Unit
-) {
-    FourColumnGrid(content)
 }
 
 private fun currentTypeLabel(
