@@ -6,78 +6,57 @@ import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.InstallationMethod
 import com.electrical.calculationspro.data.Standard
 
-/**
- * IEC-oriented engineering-code engine.
- *
- * The current project dataset is based primarily on IEC installation
- * concepts and existing IecTables. More IEC-specific tables will be
- * added as separate datasets rather than being mixed into the facade.
- */
 class IecEngine(
-    private val standardOverride: Standard =
-        Standard.IEC,
-
-    private val codeNameOverride: String =
-        "IEC 60364"
+    private val standardOverride: Standard = Standard.IEC,
+    private val codeNameOverride: String = "IEC 60364"
 ) : StandardEngine {
 
-    override val standard: Standard =
-        standardOverride
+    override val standard: Standard = standardOverride
 
-    override val codeName: String =
-        codeNameOverride
+    override val codeName: String = codeNameOverride
 
     override val codeRevision: String =
-        "IEC dataset - controlled implementation"
+        "IEC 60364 - controlled project dataset"
 
     override fun maximumVoltageDropPercent(
         circuitCategory: String
-    ): Double {
+    ): Double =
+        when (circuitCategory.trim().lowercase()) {
+            "lighting",
+            "light" -> 3.0
 
-        return when (
-            circuitCategory
-                .trim()
-                .lowercase()
-        ) {
+            "motor",
+            "motor circuit" -> 5.0
 
-            "lighting" ->
-                3.0
+            "power" -> 5.0
 
-            "motor" ->
-                5.0
-
-            "power" ->
-                5.0
-
-            else ->
-                5.0
+            else -> 5.0
         }
-    }
 
     override fun ambientTemperatureFactor(
         insulation: InsulationType,
         ambientTemperatureC: Double
-    ): Double {
-
-        return when (insulation) {
+    ): Double =
+        when (insulation) {
+            InsulationType.PVC,
+            InsulationType.Rubber ->
+                IecTables.ambientCorrectionPvc(
+                    ambientTemperatureC
+                )
 
             InsulationType.XLPE,
             InsulationType.EPR ->
                 IecTables.ambientCorrectionXlpe(
                     ambientTemperatureC
                 )
-
-            InsulationType.PVC,
-            InsulationType.Rubber ->
-                IecTables.ambientCorrectionPvc(
-                    ambientTemperatureC
-                )
         }
-    }
 
     override fun groupingFactor(
         numberOfCircuits: Int
     ): Double {
+        require(numberOfCircuits >= 1) {
+            "Number of circuits must be at least 1."
+        }
 
         return IecTables.groupingFactor(
             numberOfCircuits
@@ -92,14 +71,21 @@ class IecEngine(
         loadedConductors: Int
     ): Double? {
 
+        /*
+         * CEI must not inherit IEC data merely because the implementation
+         * class is reusable. The factory controls which standards may use
+         * this engine.
+         */
+        if (standard != Standard.IEC) {
+            return null
+        }
+
         return IecTables.getBaseAmpacity(
             section = sectionMm2,
-            method =
-                IecTables.methodToKey(
-                    installationMethod.code
-                ),
-            loadedConductors =
-                loadedConductors,
+            method = IecTables.methodToKey(
+                installationMethod.code
+            ),
+            loadedConductors = loadedConductors,
             material = material,
             insulation = insulation
         )
@@ -162,7 +148,14 @@ class IecEngine(
         false
 
     override fun implementationStatus(): String =
-        "IEC engine is active with the project's existing IEC dataset. " +
-            "Additional IEC tables are being separated into dedicated " +
-            "modules before full compliance is declared."
+        if (standard == Standard.IEC) {
+            "IEC engine is active with the project's controlled IEC " +
+                "dataset. Ampacity data is available only for the " +
+                "explicitly populated combinations. Missing combinations " +
+                "are not replaced by approximations. Full IEC compliance " +
+                "is not claimed."
+        } else {
+            "This engine is not an implementation of ${standard.shortName}. " +
+                "A dedicated verified dataset is required."
+        }
 }
