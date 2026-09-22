@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -45,15 +45,15 @@ import com.electrical.calculationspro.data.ConductorSizingResult
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.InsulationType
+import com.electrical.calculationspro.data.InstallationMethod
 import com.electrical.calculationspro.data.Standard
-import com.electrical.calculationspro.data.Strings
 import com.electrical.calculationspro.data.iecInstallationMethods
-import com.electrical.calculationspro.data.standardSections
 import com.electrical.calculationspro.ui.theme.DarkBackground
 import com.electrical.calculationspro.ui.theme.DarkSurface
 import com.electrical.calculationspro.ui.theme.PrimaryTeal
 import com.electrical.calculationspro.ui.theme.TextPrimary
 import com.electrical.calculationspro.ui.theme.TextSecondary
+import java.util.Locale
 
 @Composable
 fun ConductorSizingScreen(
@@ -120,7 +120,13 @@ fun ConductorSizingScreen(
     }
 
     var installationMethod by remember {
-        mutableStateOf(iecInstallationMethods.firstOrNull() ?: "")
+        mutableStateOf(
+            iecInstallationMethods.firstOrNull()
+                ?: InstallationMethod(
+                    code = "B1",
+                    description = "Reference installation method"
+                )
+        )
     }
 
     var autoSelect by remember {
@@ -146,47 +152,88 @@ fun ConductorSizingScreen(
     fun buildInput(): ConductorSizingInput {
         val voltage =
             voltageText.toDoubleOrNull()
-                ?: error("Invalid voltage")
+                ?: error(
+                    if (arabic) "أدخل جهدًا صحيحًا"
+                    else "Enter a valid voltage"
+                )
 
         val loadKw =
             loadKwText.toDoubleOrNull()
-                ?: error("Invalid load")
+                ?: error(
+                    if (arabic) "أدخل الحمل بالكيلووات"
+                    else "Enter the load in kW"
+                )
+
+        require(loadKw > 0.0) {
+            if (arabic) "الحمل يجب أن يكون أكبر من صفر"
+            else "Load must be greater than zero"
+        }
 
         val powerFactor =
             powerFactorText.toDoubleOrNull()
-                ?: error("Invalid power factor")
+                ?: error(
+                    if (arabic) "أدخل معامل قدرة صحيح"
+                    else "Enter a valid power factor"
+                )
+
+        require(powerFactor > 0.0 && powerFactor <= 1.0) {
+            if (arabic) {
+                "معامل القدرة يجب أن يكون بين 0 و 1"
+            } else {
+                "Power factor must be between 0 and 1"
+            }
+        }
 
         val length =
             lineLengthText.toDoubleOrNull()
-                ?: error("Invalid length")
+                ?: error(
+                    if (arabic) "أدخل طولًا صحيحًا"
+                    else "Enter a valid line length"
+                )
+
+        require(length > 0.0) {
+            if (arabic) "طول الخط يجب أن يكون أكبر من صفر"
+            else "Line length must be greater than zero"
+        }
 
         val ambient =
             ambientTempText.toDoubleOrNull()
-                ?: error("Invalid ambient temperature")
+                ?: error(
+                    if (arabic) "أدخل درجة حرارة صحيحة"
+                    else "Enter a valid ambient temperature"
+                )
 
         val circuits =
             circuitsText.toIntOrNull()
-                ?: error("Invalid number of circuits")
+                ?: error(
+                    if (arabic) "أدخل عدد دوائر صحيح"
+                    else "Enter a valid number of circuits"
+                )
+
+        require(circuits > 0) {
+            if (arabic) "عدد الدوائر يجب أن يكون أكبر من صفر"
+            else "Number of circuits must be greater than zero"
+        }
 
         val maxDrop =
             maxDropText.toDoubleOrNull()
-                ?: error("Invalid voltage drop")
+                ?: error(
+                    if (arabic) "أدخل حد هبوط جهد صحيح"
+                    else "Enter a valid voltage-drop limit"
+                )
 
         return ConductorSizingInput(
             currentType = currentType,
             voltage = voltage,
-            loadKw = loadKw,
+            load = loadKw * 1000.0,
             powerFactor = powerFactor,
             lineLength = length,
-            ambientTemperatureC = ambient,
-            numberOfCircuits = circuits,
-            maxVoltageDropPercent = maxDrop,
-            conductorMaterial = conductor,
-            insulationType = insulation,
             installationMethod = installationMethod,
-            autoSelect = autoSelect,
-            selectedSectionMm2 =
-                selectedSectionText.toDoubleOrNull()
+            ambientTemp = ambient,
+            conductor = conductor,
+            insulation = insulation,
+            circuitsInConduit = circuits,
+            maxVoltageDrop = maxDrop
         )
     }
 
@@ -199,21 +246,40 @@ fun ConductorSizingScreen(
             val input = buildInput()
 
             result =
-                ElectricalCalculations.sizeConductor(
-                    input = input,
-                    standard = standard
-                )
+                if (autoSelect) {
+                    ElectricalCalculations.sizeConductor(
+                        input = input,
+                        standard = standard
+                    )
+                } else {
+                    val section =
+                        selectedSectionText.toDoubleOrNull()
+                            ?: error(
+                                if (arabic) {
+                                    "أدخل قطاعًا صحيحًا"
+                                } else {
+                                    "Enter a valid section"
+                                }
+                            )
+
+                    ElectricalCalculations.evaluateSelectedSection(
+                        input = input,
+                        selectedSectionMm2 = section,
+                        standard = standard
+                    )
+                }
         } catch (e: Exception) {
             errorMessage =
-                e.message ?: if (arabic) {
-                    "حدث خطأ أثناء الحساب"
-                } else {
-                    "Calculation error"
-                }
+                e.message
+                    ?: if (arabic) {
+                        "حدث خطأ أثناء الحساب"
+                    } else {
+                        "Calculation error"
+                    }
         }
     }
 
-    fun selectSection() {
+    fun evaluateSelected() {
         errorMessage = null
         selectedSectionResult = null
 
@@ -221,9 +287,14 @@ fun ConductorSizingScreen(
             val input = buildInput()
 
             val section =
-                selectedSectionText
-                    .toDoubleOrNull()
-                    ?: error("Invalid section")
+                selectedSectionText.toDoubleOrNull()
+                    ?: error(
+                        if (arabic) {
+                            "أدخل قطاعًا صحيحًا"
+                        } else {
+                            "Enter a valid section"
+                        }
+                    )
 
             selectedSectionResult =
                 ElectricalCalculations.evaluateSelectedSection(
@@ -233,11 +304,12 @@ fun ConductorSizingScreen(
                 )
         } catch (e: Exception) {
             errorMessage =
-                e.message ?: if (arabic) {
-                    "حدث خطأ أثناء تقييم القطاع"
-                } else {
-                    "Section evaluation error"
-                }
+                e.message
+                    ?: if (arabic) {
+                        "حدث خطأ أثناء تقييم القطاع"
+                    } else {
+                        "Section evaluation error"
+                    }
         }
     }
 
@@ -264,36 +336,46 @@ fun ConductorSizingScreen(
 
             TextButton(onClick = goBack) {
                 Text(
-                    text = if (arabic) "رجوع" else "Back",
-                    color = MaterialTheme.colorScheme.primary
+                    text =
+                        if (arabic) "رجوع" else "Back",
+                    color =
+                        MaterialTheme.colorScheme.primary
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(
+                modifier = Modifier.weight(1f)
+            )
         }
 
         Text(
-            text = if (arabic) {
-                "حساب واختيار الكابل"
-            } else {
-                "Conductor Sizing"
-            },
+            text =
+                if (arabic) {
+                    "حساب واختيار الموصل"
+                } else {
+                    "Conductor Sizing"
+                },
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(
+            modifier = Modifier.height(4.dp)
+        )
 
         Text(
             text =
                 "${standard.shortName} • " +
-                    ElectricalCalculations.standardCodeName(standard),
+                    ElectricalCalculations
+                        .standardCodeName(standard),
             fontSize = 14.sp,
             color = TextSecondary
         )
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(
+            modifier = Modifier.height(18.dp)
+        )
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -306,37 +388,61 @@ fun ConductorSizingScreen(
             ) {
 
                 Text(
-                    text = if (arabic) {
-                        "بيانات الدائرة"
-                    } else {
-                        "Circuit Data"
-                    },
+                    text =
+                        if (arabic) {
+                            "بيانات الدائرة"
+                        } else {
+                            "Circuit Data"
+                        },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryTeal
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
                 FourColumnRow(
                     first = {
-                        DropdownColumn(
-                            label = if (arabic) "نوع التيار" else "Current Type",
-                            value = currentTypeLabel(currentType, arabic),
-                            options = CurrentType.entries.map {
-                                currentTypeLabel(it, arabic)
-                            },
-                            onSelected = { value ->
+                        SelectionField(
+                            label =
+                                if (arabic) {
+                                    "نوع التيار"
+                                } else {
+                                    "Current Type"
+                                },
+                            value =
+                                currentTypeLabel(
+                                    currentType,
+                                    arabic
+                                ),
+                            options =
+                                CurrentType.entries.map {
+                                    currentTypeLabel(
+                                        it,
+                                        arabic
+                                    )
+                                },
+                            onSelected = { selected ->
                                 currentType =
                                     CurrentType.entries.first {
-                                        currentTypeLabel(it, arabic) == value
+                                        currentTypeLabel(
+                                            it,
+                                            arabic
+                                        ) == selected
                                     }
                             }
                         )
                     },
                     second = {
                         NumberField(
-                            label = if (arabic) "الجهد V" else "Voltage V",
+                            label =
+                                if (arabic) {
+                                    "الجهد V"
+                                } else {
+                                    "Voltage V"
+                                },
                             value = voltageText,
                             onValueChange = {
                                 voltageText = it
@@ -345,7 +451,12 @@ fun ConductorSizingScreen(
                     },
                     third = {
                         NumberField(
-                            label = if (arabic) "الحمل kW" else "Load kW",
+                            label =
+                                if (arabic) {
+                                    "الحمل kW"
+                                } else {
+                                    "Load kW"
+                                },
                             value = loadKwText,
                             onValueChange = {
                                 loadKwText = it
@@ -354,7 +465,12 @@ fun ConductorSizingScreen(
                     },
                     fourth = {
                         NumberField(
-                            label = if (arabic) "معامل القدرة" else "Power Factor",
+                            label =
+                                if (arabic) {
+                                    "معامل القدرة"
+                                } else {
+                                    "Power Factor"
+                                },
                             value = powerFactorText,
                             onValueChange = {
                                 powerFactorText = it
@@ -363,16 +479,19 @@ fun ConductorSizingScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
                 FourColumnRow(
                     first = {
                         NumberField(
-                            label = if (arabic) {
-                                "طول الخط m"
-                            } else {
-                                "Length m"
-                            },
+                            label =
+                                if (arabic) {
+                                    "طول الخط m"
+                                } else {
+                                    "Length m"
+                                },
                             value = lineLengthText,
                             onValueChange = {
                                 lineLengthText = it
@@ -381,11 +500,12 @@ fun ConductorSizingScreen(
                     },
                     second = {
                         NumberField(
-                            label = if (arabic) {
-                                "درجة الحرارة °C"
-                            } else {
-                                "Ambient °C"
-                            },
+                            label =
+                                if (arabic) {
+                                    "درجة الحرارة °C"
+                                } else {
+                                    "Ambient °C"
+                                },
                             value = ambientTempText,
                             onValueChange = {
                                 ambientTempText = it
@@ -394,11 +514,12 @@ fun ConductorSizingScreen(
                     },
                     third = {
                         NumberField(
-                            label = if (arabic) {
-                                "عدد الدوائر"
-                            } else {
-                                "Circuits"
-                            },
+                            label =
+                                if (arabic) {
+                                    "عدد الدوائر"
+                                } else {
+                                    "Circuits"
+                                },
                             value = circuitsText,
                             onValueChange = {
                                 circuitsText = it
@@ -407,11 +528,12 @@ fun ConductorSizingScreen(
                     },
                     fourth = {
                         NumberField(
-                            label = if (arabic) {
-                                "أقصى هبوط %"
-                            } else {
-                                "Max Drop %"
-                            },
+                            label =
+                                if (arabic) {
+                                    "أقصى هبوط %"
+                                } else {
+                                    "Max Drop %"
+                                },
                             value = maxDropText,
                             onValueChange = {
                                 maxDropText = it
@@ -420,72 +542,130 @@ fun ConductorSizingScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
                 FourColumnRow(
                     first = {
-                        DropdownColumn(
-                            label = if (arabic) "الموصل" else "Conductor",
-                            value = conductorLabel(conductor, arabic),
-                            options = ConductorMaterial.entries.map {
-                                conductorLabel(it, arabic)
-                            },
-                            onSelected = { value ->
+                        SelectionField(
+                            label =
+                                if (arabic) {
+                                    "الموصل"
+                                } else {
+                                    "Conductor"
+                                },
+                            value =
+                                conductorLabel(
+                                    conductor,
+                                    arabic
+                                ),
+                            options =
+                                ConductorMaterial.entries.map {
+                                    conductorLabel(
+                                        it,
+                                        arabic
+                                    )
+                                },
+                            onSelected = { selected ->
                                 conductor =
                                     ConductorMaterial.entries.first {
-                                        conductorLabel(it, arabic) == value
+                                        conductorLabel(
+                                            it,
+                                            arabic
+                                        ) == selected
                                     }
                             }
                         )
                     },
                     second = {
-                        DropdownColumn(
-                            label = if (arabic) "العازل" else "Insulation",
-                            value = insulationLabel(insulation, arabic),
-                            options = InsulationType.entries.map {
-                                insulationLabel(it, arabic)
-                            },
-                            onSelected = { value ->
+                        SelectionField(
+                            label =
+                                if (arabic) {
+                                    "العازل"
+                                } else {
+                                    "Insulation"
+                                },
+                            value =
+                                insulationLabel(
+                                    insulation
+                                ),
+                            options =
+                                InsulationType.entries.map {
+                                    insulationLabel(it)
+                                },
+                            onSelected = { selected ->
                                 insulation =
                                     InsulationType.entries.first {
-                                        insulationLabel(it, arabic) == value
+                                        insulationLabel(it) ==
+                                            selected
                                     }
                             }
                         )
                     },
                     third = {
-                        DropdownColumn(
-                            label = if (arabic) {
-                                "طريقة التركيب"
-                            } else {
-                                "Installation"
-                            },
-                            value = installationMethod,
-                            options = iecInstallationMethods,
-                            onSelected = {
-                                installationMethod = it
+                        SelectionField(
+                            label =
+                                if (arabic) {
+                                    "طريقة التركيب"
+                                } else {
+                                    "Installation"
+                                },
+                            value =
+                                installationLabel(
+                                    installationMethod
+                                ),
+                            options =
+                                iecInstallationMethods.map {
+                                    installationLabel(it)
+                                },
+                            onSelected = { selected ->
+                                installationMethod =
+                                    iecInstallationMethods.first {
+                                        installationLabel(it) ==
+                                            selected
+                                    }
                             }
                         )
                     },
                     fourth = {
-                        DropdownColumn(
-                            label = if (arabic) {
-                                "اختيار القطاع"
-                            } else {
-                                "Section Mode"
-                            },
-                            value = if (autoSelect) {
-                                if (arabic) "تلقائي" else "Automatic"
-                            } else {
-                                if (arabic) "يدوي" else "Manual"
-                            },
-                            options = listOf(
-                                if (arabic) "تلقائي" else "Automatic",
-                                if (arabic) "يدوي" else "Manual"
-                            ),
-                            onSelected = {
+                        SelectionField(
+                            label =
+                                if (arabic) {
+                                    "طريقة اختيار القطاع"
+                                } else {
+                                    "Section Mode"
+                                },
+                            value =
+                                if (autoSelect) {
+                                    if (arabic) {
+                                        "تلقائي"
+                                    } else {
+                                        "Automatic"
+                                    }
+                                } else {
+                                    if (arabic) {
+                                        "يدوي"
+                                    } else {
+                                        "Manual"
+                                    }
+                                },
+                            options =
+                                listOf(
+                                    if (arabic) {
+                                        "تلقائي"
+                                    } else {
+                                        "Automatic"
+                                    },
+                                    if (arabic) {
+                                        "يدوي"
+                                    } else {
+                                        "Manual"
+                                    }
+                                ),
+                            onSelected = { selected ->
                                 autoSelect =
-                                    it ==
+                                    selected ==
                                         if (arabic) {
                                             "تلقائي"
                                         } else {
@@ -496,16 +676,19 @@ fun ConductorSizingScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
                 FourColumnRow(
                     first = {
                         NumberField(
-                            label = if (arabic) {
-                                "القطاع المختار mm²"
-                            } else {
-                                "Selected Section mm²"
-                            },
+                            label =
+                                if (arabic) {
+                                    "القطاع المختار mm²"
+                                } else {
+                                    "Selected Section mm²"
+                                },
                             value = selectedSectionText,
                             onValueChange = {
                                 selectedSectionText = it
@@ -517,7 +700,9 @@ fun ConductorSizingScreen(
                     fourth = {}
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(
+                    modifier = Modifier.height(16.dp)
+                )
 
                 Button(
                     modifier = Modifier.fillMaxWidth(),
@@ -527,167 +712,391 @@ fun ConductorSizingScreen(
                 ) {
                     Text(
                         if (arabic) {
-                            "احسب واختَر القطاع"
+                            "احسب"
                         } else {
-                            "Calculate & Select"
+                            "Calculate"
                         }
                     )
+                }
+
+                if (!autoSelect) {
+                    Spacer(
+                        modifier = Modifier.height(8.dp)
+                    )
+
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            evaluateSelected()
+                        }
+                    ) {
+                        Text(
+                            if (arabic) {
+                                "تقييم القطاع المختار"
+                            } else {
+                                "Evaluate Selected Section"
+                            }
+                        )
+                    }
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
 
         errorMessage?.let { message ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
                     containerColor =
-                        MaterialTheme.colorScheme.errorContainer
+                        MaterialTheme
+                            .colorScheme
+                            .errorContainer
                 )
             ) {
                 Text(
                     text = message,
                     modifier = Modifier.padding(16.dp),
                     color =
-                        MaterialTheme.colorScheme.onErrorContainer
+                        MaterialTheme
+                            .colorScheme
+                            .onErrorContainer
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
         }
 
         result?.let { data ->
             ResultCard(
-                title = if (arabic) {
-                    "نتيجة اختيار الكابل"
-                } else {
-                    "Cable Selection Result"
-                }
+                title =
+                    if (arabic) {
+                        "نتيجة حساب الموصل"
+                    } else {
+                        "Conductor Sizing Result"
+                    }
             ) {
                 FourColumnRow(
                     first = {
                         ResultRow(
-                            if (arabic) "تيار التصميم" else "Design Current",
-                            formatNumber(data.designCurrentA) + " A"
+                            label =
+                                if (arabic) {
+                                    "تيار التصميم"
+                                } else {
+                                    "Design Current"
+                                },
+                            value =
+                                formatNumber(
+                                    data.designCurrent
+                                ) + " A"
                         )
                     },
                     second = {
                         ResultRow(
-                            if (arabic) "القطاع" else "Section",
-                            formatNumber(data.selectedSectionMm2) + " mm²"
+                            label =
+                                if (arabic) {
+                                    "القطاع المقترح"
+                                } else {
+                                    "Recommended Section"
+                                },
+                            value =
+                                formatNumber(
+                                    data.recommendedSection
+                                ) + " mm²"
                         )
                     },
                     third = {
                         ResultRow(
-                            if (arabic) "السعة" else "Ampacity",
-                            data.ampacityA?.let {
-                                formatNumber(it) + " A"
-                            } ?: "—"
+                            label =
+                                if (arabic) {
+                                    "القطاع المختار"
+                                } else {
+                                    "Selected Section"
+                                },
+                            value =
+                                formatNumber(
+                                    data.selectedSection
+                                ) + " mm²"
                         )
                     },
                     fourth = {
                         ResultRow(
-                            if (arabic) "هبوط الجهد" else "Voltage Drop",
-                            formatNumber(data.voltageDropPercent) + " %"
+                            label =
+                                if (arabic) {
+                                    "السعة"
+                                } else {
+                                    "Ampacity"
+                                },
+                            value =
+                                formatNumber(
+                                    data.ampacity
+                                ) + " A"
                         )
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
                 FourColumnRow(
                     first = {
                         ResultRow(
-                            if (arabic) "الطول" else "Length",
-                            formatNumber(data.lineLengthM) + " m"
+                            label =
+                                if (arabic) {
+                                    "هبوط الجهد"
+                                } else {
+                                    "Voltage Drop"
+                                },
+                            value =
+                                formatNumber(
+                                    data.voltageDropPercent
+                                ) + " %"
                         )
                     },
                     second = {
                         ResultRow(
-                            if (arabic) "درجة الحرارة" else "Ambient",
-                            formatNumber(data.ambientTemperatureC) + " °C"
+                            label =
+                                if (arabic) {
+                                    "هبوط الجهد بالفولت"
+                                } else {
+                                    "Voltage Drop V"
+                                },
+                            value =
+                                formatNumber(
+                                    data.voltageDropVolts
+                                ) + " V"
                         )
                     },
                     third = {
                         ResultRow(
-                            if (arabic) "معامل التجميع" else "Grouping Factor",
-                            formatNumber(data.groupingFactor)
+                            label =
+                                if (arabic) {
+                                    "القاطع"
+                                } else {
+                                    "Protective Device"
+                                },
+                            value =
+                                if (data.protectiveDevice > 0.0) {
+                                    formatNumber(
+                                        data.protectiveDevice
+                                    ) + " A"
+                                } else {
+                                    if (arabic) {
+                                        "غير متاح"
+                                    } else {
+                                        "Not Available"
+                                    }
+                                }
                         )
                     },
                     fourth = {
                         ResultRow(
-                            if (arabic) "معامل الحرارة" else "Temperature Factor",
-                            formatNumber(data.temperatureFactor)
+                            label =
+                                if (arabic) {
+                                    "تيار القصر"
+                                } else {
+                                    "Short Circuit"
+                                },
+                            value =
+                                formatNumber(
+                                    data.shortCircuitCurrentKA
+                                ) + " kA"
                         )
                     }
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(
+                    modifier = Modifier.height(12.dp)
+                )
 
-                Button(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = {
-                        selectSection()
+                FourColumnRow(
+                    first = {
+                        ResultRow(
+                            label =
+                                if (arabic) {
+                                    "تنسيق القاطع والكابل"
+                                } else {
+                                    "Breaker / Cable"
+                                },
+                            value =
+                                if (
+                                    data.breakerWithinCableCapacity
+                                ) {
+                                    "PASS"
+                                } else {
+                                    "CHECK"
+                                }
+                        )
+                    },
+                    second = {
+                        ResultRow(
+                            label =
+                                if (arabic) {
+                                    "حد هبوط الجهد"
+                                } else {
+                                    "Voltage Drop Limit"
+                                },
+                            value =
+                                if (
+                                    data.voltageDropWithinLimit
+                                ) {
+                                    "PASS"
+                                } else {
+                                    "CHECK"
+                                }
+                        )
+                    },
+                    third = {
+                        ResultRow(
+                            label =
+                                if (arabic) {
+                                    "الكابل"
+                                } else {
+                                    "Catalog Cable"
+                                },
+                            value =
+                                data.catalogCable?.model
+                                    ?: "—"
+                        )
+                    },
+                    fourth = {
+                        ResultRow(
+                            label =
+                                if (arabic) {
+                                    "القاطع المختار"
+                                } else {
+                                    "Catalog Breaker"
+                                },
+                            value =
+                                data.catalogBreaker?.model
+                                    ?: "—"
+                        )
                     }
-                ) {
-                    Text(
-                        if (arabic) {
-                            "تقييم القطاع المختار"
-                        } else {
-                            "Evaluate Selected Section"
-                        }
+                )
+
+                if (data.notes.isNotEmpty()) {
+                    Spacer(
+                        modifier = Modifier.height(12.dp)
                     )
+
+                    Text(
+                        text =
+                            if (arabic) {
+                                "ملاحظات هندسية"
+                            } else {
+                                "Engineering Notes"
+                            },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryTeal
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(6.dp)
+                    )
+
+                    data.notes.forEach { note ->
+                        Text(
+                            text = "• $note",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            modifier =
+                                Modifier.padding(
+                                    vertical = 2.dp
+                                )
+                        )
+                    }
                 }
             }
         }
 
         selectedSectionResult?.let { data ->
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(
+                modifier = Modifier.height(16.dp)
+            )
 
             ResultCard(
-                title = if (arabic) {
-                    "تقييم القطاع"
-                } else {
-                    "Section Evaluation"
-                }
+                title =
+                    if (arabic) {
+                        "تقييم القطاع المختار"
+                    } else {
+                        "Selected Section Evaluation"
+                    }
             ) {
                 FourColumnRow(
                     first = {
                         ResultRow(
-                            if (arabic) "القطاع" else "Section",
-                            formatNumber(data.selectedSectionMm2) + " mm²"
+                            label =
+                                if (arabic) {
+                                    "القطاع"
+                                } else {
+                                    "Section"
+                                },
+                            value =
+                                formatNumber(
+                                    data.selectedSection
+                                ) + " mm²"
                         )
                     },
                     second = {
                         ResultRow(
-                            if (arabic) "السعة" else "Ampacity",
-                            data.ampacityA?.let {
-                                formatNumber(it) + " A"
-                            } ?: "—"
+                            label =
+                                if (arabic) {
+                                    "السعة"
+                                } else {
+                                    "Ampacity"
+                                },
+                            value =
+                                formatNumber(
+                                    data.ampacity
+                                ) + " A"
                         )
                     },
                     third = {
                         ResultRow(
-                            if (arabic) "هبوط الجهد" else "Voltage Drop",
-                            formatNumber(data.voltageDropPercent) + " %"
+                            label =
+                                if (arabic) {
+                                    "هبوط الجهد"
+                                } else {
+                                    "Voltage Drop"
+                                },
+                            value =
+                                formatNumber(
+                                    data.voltageDropPercent
+                                ) + " %"
                         )
                     },
                     fourth = {
                         ResultRow(
-                            if (arabic) "الحالة" else "Status",
-                            if (data.isAcceptable) {
-                                if (arabic) "مقبول" else "PASS"
-                            } else {
-                                if (arabic) "غير مقبول" else "FAIL"
-                            }
+                            label =
+                                if (arabic) {
+                                    "الحالة"
+                                } else {
+                                    "Status"
+                                },
+                            value =
+                                if (
+                                    data.breakerWithinCableCapacity &&
+                                        data.voltageDropWithinLimit
+                                ) {
+                                    "PASS"
+                                } else {
+                                    "CHECK"
+                                }
                         )
                     }
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
     }
 }
 
@@ -700,7 +1109,8 @@ private fun FourColumnRow(
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement =
+            Arrangement.spacedBy(10.dp)
     ) {
         Column(
             modifier = Modifier.weight(1f)
@@ -744,11 +1154,24 @@ private fun NumberField(
             fontWeight = FontWeight.Medium
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(
+            modifier = Modifier.height(4.dp)
+        )
 
         OutlinedTextField(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = { newValue ->
+                if (
+                    newValue.isEmpty() ||
+                    newValue.matches(
+                        Regex(
+                            """^-?\d*(\.\d*)?$"""
+                        )
+                    )
+                ) {
+                    onValueChange(newValue)
+                }
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -756,7 +1179,8 @@ private fun NumberField(
 }
 
 @Composable
-private fun <T> SelectionDropdown(
+private fun SelectionField(
+    label: String,
     value: String,
     options: List<String>,
     onSelected: (String) -> Unit
@@ -765,49 +1189,6 @@ private fun <T> SelectionDropdown(
         mutableStateOf(false)
     }
 
-    Box(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    expanded = true
-                },
-            readOnly = true,
-            singleLine = true
-        )
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-            }
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = {
-                        Text(option)
-                    },
-                    onClick = {
-                        onSelected(option)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DropdownColumn(
-    label: String,
-    value: String,
-    options: List<String>,
-    onSelected: (String) -> Unit
-) {
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -818,13 +1199,44 @@ private fun DropdownColumn(
             fontWeight = FontWeight.Medium
         )
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        SelectionDropdown(
-            value = value,
-            options = options,
-            onSelected = onSelected
+        Spacer(
+            modifier = Modifier.height(4.dp)
         )
+
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        expanded = true
+                    },
+                readOnly = true,
+                singleLine = true
+            )
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = {
+                    expanded = false
+                }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(option)
+                        },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -852,7 +1264,9 @@ private fun ResultCard(
                 color = PrimaryTeal
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(
+                modifier = Modifier.height(12.dp)
+            )
 
             content(this)
         }
@@ -889,14 +1303,17 @@ private fun currentTypeLabel(
     arabic: Boolean
 ): String {
     return when (value) {
+        CurrentType.DirectCurrent ->
+            if (arabic) "تيار مستمر" else "DC"
+
         CurrentType.AlternatingSinglePhase ->
             if (arabic) "أحادي فاز" else "Single Phase"
 
+        CurrentType.AlternatingTwoPhase ->
+            if (arabic) "ثنائي فاز" else "Two Phase"
+
         CurrentType.AlternatingThreePhase ->
             if (arabic) "ثلاثي فاز" else "Three Phase"
-
-        CurrentType.DirectCurrent ->
-            if (arabic) "تيار مستمر" else "DC"
     }
 }
 
@@ -908,26 +1325,28 @@ private fun conductorLabel(
         ConductorMaterial.Copper ->
             if (arabic) "نحاس" else "Copper"
 
-        ConductorMaterial.Aluminium ->
-            if (arabic) "ألومنيوم" else "Aluminium"
+        ConductorMaterial.Aluminum ->
+            if (arabic) "ألومنيوم" else "Aluminum"
     }
 }
 
 private fun insulationLabel(
-    value: InsulationType,
-    arabic: Boolean
+    value: InsulationType
 ): String {
-    return when (value) {
-        InsulationType.PVC -> "PVC"
-        InsulationType.XLPE -> "XLPE"
-        InsulationType.EPR -> "EPR"
-        InsulationType.Rubber -> "Rubber"
-    }
+    return value.name
 }
 
-private fun formatNumber(value: Double): String {
+private fun installationLabel(
+    value: InstallationMethod
+): String {
+    return "${value.code} • ${value.description}"
+}
+
+private fun formatNumber(
+    value: Double
+): String {
     return String.format(
-        java.util.Locale.US,
+        Locale.US,
         "%.2f",
         value
     )
