@@ -4,9 +4,19 @@ import com.electrical.calculationspro.data.TransformerSizingResult
 import kotlin.math.sqrt
 
 /**
- * Transformer preliminary sizing.
+ * Professional transformer preliminary sizing engine.
  *
- * Final equipment selection belongs to the manufacturer catalog layer.
+ * Architecture:
+ * UI
+ *  ↓
+ * ElectricalCalculations
+ *  ↓
+ * TransformerSizingCalculator
+ *  ↓
+ * Transformer Catalog
+ *
+ * This class performs engineering sizing only.
+ * Final equipment/model selection belongs to the catalog layer.
  */
 object TransformerSizingCalculator {
 
@@ -61,21 +71,22 @@ object TransformerSizingCalculator {
         return (
             loadKw /
                 powerFactor
-            ) *
-            growthFactor
+            ) * growthFactor
     }
 
     fun selectStandardRating(
         requiredKva: Double
     ): Double {
 
-        require(requiredKva >= 0.0)
+        require(requiredKva >= 0.0) {
+            "Required transformer capacity cannot be negative."
+        }
 
         return standardRatingsKva
             .firstOrNull {
                 it >= requiredKva
             }
-            ?: standardRatingsKva.last()
+            ?: 0.0
     }
 
     fun fullLoadCurrent(
@@ -84,8 +95,13 @@ object TransformerSizingCalculator {
         phases: Int = 3
     ): Double {
 
-        require(kva >= 0.0)
-        require(voltage > EPSILON)
+        require(kva >= 0.0) {
+            "Transformer capacity cannot be negative."
+        }
+
+        require(voltage > EPSILON) {
+            "Voltage must be greater than zero."
+        }
 
         return when (phases) {
 
@@ -98,7 +114,7 @@ object TransformerSizingCalculator {
                     (
                         sqrt(3.0) *
                             voltage
-                        )
+                    )
 
             else ->
                 error(
@@ -114,9 +130,17 @@ object TransformerSizingCalculator {
         phases: Int = 3
     ): Double {
 
-        require(kva > EPSILON)
-        require(voltage > EPSILON)
-        require(impedancePercent > EPSILON)
+        require(kva > EPSILON) {
+            "Transformer capacity must be greater than zero."
+        }
+
+        require(voltage > EPSILON) {
+            "Voltage must be greater than zero."
+        }
+
+        require(impedancePercent > EPSILON) {
+            "Transformer impedance must be greater than zero."
+        }
 
         val ratedCurrent =
             fullLoadCurrent(
@@ -139,6 +163,14 @@ object TransformerSizingCalculator {
         impedancePercent: Double = 6.0
     ): TransformerSizingResult {
 
+        require(voltage > EPSILON) {
+            "Voltage must be greater than zero."
+        }
+
+        require(impedancePercent > EPSILON) {
+            "Transformer impedance must be greater than zero."
+        }
+
         val required =
             requiredKva(
                 loadKw = loadKw,
@@ -150,6 +182,34 @@ object TransformerSizingCalculator {
             selectStandardRating(
                 requiredKva = required
             )
+
+        if (selected <= EPSILON) {
+
+            return TransformerSizingResult(
+                loadKw = loadKw,
+                powerFactor = powerFactor,
+                growthFactor = growthFactor,
+                requiredKva = required,
+                selectedKva = 0.0,
+                fullLoadCurrentA = 0.0,
+                impedancePercent = impedancePercent,
+                shortCircuitCurrentKA = 0.0,
+                valid = false,
+                notes = listOf(
+                    "Required transformer capacity = %.2f kVA"
+                        .format(required),
+
+                    "No standard transformer rating in the engineering range can satisfy the requirement.",
+
+                    "Maximum internal standard rating = %.0f kVA"
+                        .format(standardRatingsKva.last()),
+
+                    "Transformer selection is NOT VERIFIED.",
+
+                    "Final transformer model must be selected and verified from the manufacturer catalog."
+                )
+            )
+        }
 
         val fullLoadCurrent =
             fullLoadCurrent(
@@ -179,14 +239,20 @@ object TransformerSizingCalculator {
             notes = listOf(
                 "Required transformer capacity = %.2f kVA"
                     .format(required),
+
                 "Selected standard capacity = %.0f kVA"
                     .format(selected),
+
                 "Full-load current = %.2f A"
                     .format(fullLoadCurrent),
+
                 "Transformer impedance = %.2f %%"
                     .format(impedancePercent),
+
                 "Estimated transformer terminal fault current = %.3f kA"
-                    .format(shortCircuitKA)
+                    .format(shortCircuitKA),
+
+                "Final transformer model must be verified against manufacturer catalog data."
             )
         )
     }
