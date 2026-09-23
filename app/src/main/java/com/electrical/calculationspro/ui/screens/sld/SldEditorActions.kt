@@ -6,7 +6,7 @@ import com.electrical.calculationspro.data.SldEngineeringFacade
 import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
-import com.electrical.calculationspro.data.project.DesignProjects
+import com.electrical.calculationspro.data.project.DesignProjectSldBridge
 
 class SldEditorActions(
     private val state: SldEditorState,
@@ -22,62 +22,82 @@ class SldEditorActions(
             connections = state.connections
         )
 
-    /**
-     * Load SLD from the active DesignProject.
-     *
-     * The current project model stores the SLD as
-     * ElectricalSldDesign, therefore this editor uses
-     * the node/connection IDs stored there and keeps the
-     * editable network in screen state.
-     *
-     * If no stored SLD exists, the editor starts with
-     * the safe empty/source state from SldEditorState.
-     */
     fun loadProjectNetwork() {
 
-        val project =
-            DesignProjects.getActive()
-                ?: return
+        val projectNetwork =
+            DesignProjectSldBridge
+                .getActiveNetwork()
 
-        val storedSld =
-            project.electrical.sld
+        if (projectNetwork != null) {
 
-        if (storedSld == null) {
+            state.nodes =
+                projectNetwork.nodes
+
+            state.connections =
+                projectNetwork.connections
+
+            state.selectedNodeId =
+                projectNetwork.nodes
+                    .firstOrNull()
+                    ?.id
+
+            state.selectedConnectionId =
+                null
+
+            state.connectionStartId =
+                null
+
             return
         }
 
-        /*
-         * The current ElectricalSldDesign model stores
-         * references as String IDs rather than full SldNode
-         * and SldConnection objects.
-         *
-         * We therefore do not manufacture engineering data
-         * from those IDs.
-         *
-         * Existing editor state remains the authoritative
-         * editable representation until the project SLD
-         * persistence model is upgraded to SldNetwork.
-         */
+        val project =
+            com.electrical.calculationspro.data.project
+                .DesignProjects
+                .getActive()
+                ?: return
+
+        val generated =
+            DesignProjectSldBridge
+                .buildFromElectricalDesign(
+                    project.electrical
+                )
+
+        if (generated.nodes.isNotEmpty()) {
+
+            state.nodes =
+                generated.nodes
+
+            state.connections =
+                generated.connections
+
+            state.selectedNodeId =
+                generated.nodes
+                    .firstOrNull()
+                    ?.id
+
+            state.selectedConnectionId =
+                null
+
+            state.connectionStartId =
+                null
+        }
     }
 
-    /**
-     * Save the current SLD.
-     *
-     * The current DesignProject model does not expose an
-     * SldNetwork property. Therefore this method deliberately
-     * avoids writing incompatible fields into DesignProject.
-     *
-     * This keeps the application compilable and prevents
-     * corruption of the existing project model.
-     */
     fun saveProjectNetwork() {
-        /*
-         * Persistence of the complete SldNetwork will be
-         * connected after ElectricalSldDesign is upgraded to
-         * contain the canonical SldNetwork.
-         *
-         * Do not write incompatible properties here.
-         */
+
+        val current =
+            network()
+
+        if (current.nodes.isEmpty()) {
+            return
+        }
+
+        DesignProjectSldBridge
+            .saveNetworkToActiveProject(
+                network = current,
+                name = "Main SLD",
+                source = "Electrical Design"
+            )
     }
 
     fun resetNodeEditor(
@@ -104,64 +124,90 @@ class SldEditorActions(
         node: SldNode
     ) {
 
-        state.editingNodeId = node.id
+        state.editingNodeId =
+            node.id
 
-        state.nodeType = node.type
-        state.name = node.name
-        state.voltage = node.voltage.toString()
-        state.loadKw = node.loadKw.toString()
-        state.pf = node.powerFactor.toString()
-        state.demand = node.demandFactor.toString()
-        state.kva = node.ratedKva.toString()
+        state.nodeType =
+            node.type
+
+        state.name =
+            node.name
+
+        state.voltage =
+            node.voltage.toString()
+
+        state.loadKw =
+            node.loadKw.toString()
+
+        state.pf =
+            node.powerFactor.toString()
+
+        state.demand =
+            node.demandFactor.toString()
+
+        state.kva =
+            node.ratedKva.toString()
+
         state.transformerZ =
             node.transformerPercentZ.toString()
+
         state.generatorXd =
             node.generatorXdSubtransient.toString()
+
         state.sourceMva =
             node.sourceShortCircuitMva.toString()
 
-        state.showNodeDialog = true
+        state.showNodeDialog =
+            true
     }
 
     fun saveNode() {
 
         val voltage =
-            state.voltage.toDoubleOrNull()
+            state.voltage
+                .toDoubleOrNull()
                 ?.takeIf { it > 0.0 }
                 ?: return
 
         val load =
-            state.loadKw.toDoubleOrNull()
+            state.loadKw
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val pf =
-            state.pf.toDoubleOrNull()
+            state.pf
+                .toDoubleOrNull()
                 ?.takeIf { it in 0.01..1.0 }
                 ?: 0.90
 
         val demand =
-            state.demand.toDoubleOrNull()
+            state.demand
+                .toDoubleOrNull()
                 ?.takeIf { it in 0.0..1.0 }
                 ?: 0.80
 
         val kva =
-            state.kva.toDoubleOrNull()
+            state.kva
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val transformerZ =
-            state.transformerZ.toDoubleOrNull()
+            state.transformerZ
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val generatorXd =
-            state.generatorXd.toDoubleOrNull()
+            state.generatorXd
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val sourceMva =
-            state.sourceMva.toDoubleOrNull()
+            state.sourceMva
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
@@ -289,32 +335,38 @@ class SldEditorActions(
     fun saveConnection() {
 
         val length =
-            state.length.toDoubleOrNull()
+            state.length
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: return
 
         val resistance =
-            state.resistance.toDoubleOrNull()
+            state.resistance
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: return
 
         val reactance =
-            state.reactance.toDoubleOrNull()
+            state.reactance
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: return
 
         val cableSize =
-            state.cableSize.toDoubleOrNull()
+            state.cableSize
+                .toDoubleOrNull()
                 ?.takeIf { it > 0.0 }
                 ?: return
 
         val parallelRuns =
-            state.parallelRuns.toIntOrNull()
+            state.parallelRuns
+                .toIntOrNull()
                 ?.takeIf { it > 0 }
                 ?: return
 
         val capacity =
-            state.capacity.toDoubleOrNull()
+            state.capacity
+                .toDoubleOrNull()
                 ?.takeIf { it >= 0.0 }
                 ?: return
 
@@ -326,10 +378,7 @@ class SldEditorActions(
             state.connections =
                 state.connections.map { connection ->
 
-                    if (
-                        connection.id ==
-                        editingId
-                    ) {
+                    if (connection.id == editingId) {
 
                         connection.copy(
                             lengthMeters =
@@ -406,9 +455,14 @@ class SldEditorActions(
             }
         }
 
-        state.editingConnectionId = null
-        state.connectionStartId = null
-        state.showConnectionDialog = false
+        state.editingConnectionId =
+            null
+
+        state.connectionStartId =
+            null
+
+        state.showConnectionDialog =
+            false
 
         saveProjectNetwork()
     }
@@ -432,13 +486,17 @@ class SldEditorActions(
 
         if (state.connectionStartId == nodeId) {
 
-            state.connectionStartId = null
+            state.connectionStartId =
+                null
 
             return
         }
 
-        state.editingConnectionId = null
-        state.showConnectionDialog = true
+        state.editingConnectionId =
+            null
+
+        state.showConnectionDialog =
+            true
     }
 
     fun deleteSelected() {
@@ -453,7 +511,8 @@ class SldEditorActions(
                     it.id != connectionId
                 }
 
-            state.selectedConnectionId = null
+            state.selectedConnectionId =
+                null
 
             saveProjectNetwork()
 
@@ -475,8 +534,11 @@ class SldEditorActions(
                 it.id != nodeId
             }
 
-        state.selectedNodeId = null
-        state.connectionStartId = null
+        state.selectedNodeId =
+            null
+
+        state.connectionStartId =
+            null
 
         saveProjectNetwork()
     }
@@ -486,10 +548,11 @@ class SldEditorActions(
         try {
 
             val study =
-                SldEngineeringFacade.calculateShortCircuit(
-                    network = network(),
-                    voltageFactor = 1.05
-                )
+                SldEngineeringFacade
+                    .calculateShortCircuit(
+                        network = network(),
+                        voltageFactor = 1.05
+                    )
 
             state.reportTitle =
                 if (arabic) {
@@ -561,17 +624,22 @@ class SldEditorActions(
         state.showReport = true
     }
 
-    /**
-     * Generate the complete SLD currently supported by
-     * the existing SLD model.
-     *
-     * No nonexistent DesignProjectEngine.rebuildSld()
-     * is called.
-     */
     fun generateCompleteSld() {
 
+        val project =
+            com.electrical.calculationspro.data.project
+                .DesignProjects
+                .getActive()
+
         val generated =
-            SldCompleteGenerator.generate()
+            if (project != null) {
+                DesignProjectSldBridge
+                    .buildFromElectricalDesign(
+                        project.electrical
+                    )
+            } else {
+                SldCompleteGenerator.generate()
+            }
 
         state.nodes =
             generated.nodes
@@ -580,13 +648,17 @@ class SldEditorActions(
             generated.connections
 
         state.selectedNodeId =
-            generated.nodes.firstOrNull()?.id
+            generated.nodes
+                .firstOrNull()
+                ?.id
 
         state.selectedConnectionId =
             null
 
         state.connectionStartId =
             null
+
+        saveProjectNetwork()
 
         runEngineeringReport(
             generated
@@ -600,10 +672,11 @@ class SldEditorActions(
         try {
 
             val study =
-                SldEngineeringFacade.calculateShortCircuit(
-                    network = generated,
-                    voltageFactor = 1.05
-                )
+                SldEngineeringFacade
+                    .calculateShortCircuit(
+                        network = generated,
+                        voltageFactor = 1.05
+                    )
 
             state.reportTitle =
                 if (arabic) {
