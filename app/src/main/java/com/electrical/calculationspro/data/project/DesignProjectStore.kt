@@ -1,37 +1,15 @@
 package com.electrical.calculationspro.data.project
 
-/**
- * ================================================================
- * PROFESSIONAL DESIGN
- * Project Store
- * ================================================================
- *
- * Application-level project state.
- *
- * This is intentionally independent from Compose.
- *
- * The store provides:
- * - project creation
- * - active project
- * - update
- * - delete
- * - project lookup
- *
- * Persistent database can replace the internal storage later
- * without changing the engineering models.
- * ================================================================
- */
+import com.electrical.calculationspro.data.Standard
 
 class DesignProjectStore {
 
     private val projects =
-        mutableListOf<DesignProject>()
+        LinkedHashMap<String, DesignProject>()
 
     private var activeProjectId: String? = null
 
-    /**
-     * Create a new project.
-     */
+    @Synchronized
     fun create(
         projectName: String,
         projectNumber: String = "",
@@ -39,8 +17,7 @@ class DesignProjectStore {
         consultantName: String = "",
         location: String = "",
         description: String = "",
-        standard: com.electrical.calculationspro.data.Standard =
-            com.electrical.calculationspro.data.Standard.IEC
+        electricalStandard: Standard? = Standard.IEC
     ): DesignProject {
 
         val project =
@@ -51,24 +28,16 @@ class DesignProjectStore {
                 consultantName = consultantName.trim(),
                 location = location.trim(),
                 description = description.trim(),
-                standard = standard
+                electricalStandard = electricalStandard
             )
 
-        projects.removeAll {
-            it.id == project.id
-        }
-
-        projects.add(project)
-
-        activeProjectId =
-            project.id
+        projects[project.id] = project
+        activeProjectId = project.id
 
         return project
     }
 
-    /**
-     * Save or update an existing project.
-     */
+    @Synchronized
     fun save(
         project: DesignProject
     ): DesignProject {
@@ -76,126 +45,80 @@ class DesignProjectStore {
         val updated =
             project.updateTimestamp()
 
-        val index =
-            projects.indexOfFirst {
-                it.id == updated.id
-            }
-
-        if (index >= 0) {
-            projects[index] = updated
-        } else {
-            projects.add(updated)
-        }
-
-        activeProjectId =
-            updated.id
+        projects[updated.id] = updated
+        activeProjectId = updated.id
 
         return updated
     }
 
-    /**
-     * Get active project.
-     */
-    fun getActive(): DesignProject? {
-
-        val id =
-            activeProjectId
-                ?: return null
-
-        return projects.firstOrNull {
-            it.id == id
-        }
-    }
-
-    /**
-     * Set active project.
-     */
-    fun setActive(
-        projectId: String
-    ): Boolean {
-
-        val exists =
-            projects.any {
-                it.id == projectId
-            }
-
-        if (!exists) {
-            return false
+    @Synchronized
+    fun getActive(): DesignProject? =
+        activeProjectId?.let {
+            projects[it]
         }
 
-        activeProjectId =
-            projectId
-
-        return true
-    }
-
-    /**
-     * Get project by ID.
-     */
+    @Synchronized
     fun getById(
         projectId: String
     ): DesignProject? =
-        projects.firstOrNull {
-            it.id == projectId
-        }
+        projects[projectId]
 
-    /**
-     * Get all projects.
-     */
+    @Synchronized
     fun getAll(): List<DesignProject> =
-        projects
+        projects.values
             .sortedByDescending {
                 it.updatedAtMillis
             }
             .toList()
 
-    /**
-     * Delete a project.
-     */
+    @Synchronized
+    fun setActive(
+        projectId: String
+    ): Boolean {
+
+        if (!projects.containsKey(projectId)) {
+            return false
+        }
+
+        activeProjectId = projectId
+        return true
+    }
+
+    @Synchronized
     fun delete(
         projectId: String
     ): Boolean {
 
         val removed =
-            projects.removeAll {
-                it.id == projectId
-            }
+            projects.remove(projectId) != null
 
         if (activeProjectId == projectId) {
-            activeProjectId = null
+            activeProjectId =
+                projects.values
+                    .maxByOrNull {
+                        it.updatedAtMillis
+                    }
+                    ?.id
         }
 
         return removed
     }
 
-    /**
-     * Clear all projects.
-     */
+    @Synchronized
     fun clear() {
-
         projects.clear()
-
         activeProjectId = null
     }
 
-    /**
-     * Number of projects.
-     */
+    @Synchronized
     fun size(): Int =
         projects.size
 
-    /**
-     * Whether there is an active project.
-     */
+    @Synchronized
     fun hasActiveProject(): Boolean =
         getActive() != null
 }
 
-/**
- * Shared application-level project store.
- *
- * The UI can use this object without owning engineering logic.
- */
 object DesignProjects {
 
     private val store =
@@ -208,8 +131,7 @@ object DesignProjects {
         consultantName: String = "",
         location: String = "",
         description: String = "",
-        standard: com.electrical.calculationspro.data.Standard =
-            com.electrical.calculationspro.data.Standard.IEC
+        electricalStandard: Standard? = Standard.IEC
     ): DesignProject =
         store.create(
             projectName = projectName,
@@ -218,7 +140,7 @@ object DesignProjects {
             consultantName = consultantName,
             location = location,
             description = description,
-            standard = standard
+            electricalStandard = electricalStandard
         )
 
     fun save(
@@ -229,11 +151,6 @@ object DesignProjects {
     fun getActive(): DesignProject? =
         store.getActive()
 
-    fun setActive(
-        projectId: String
-    ): Boolean =
-        store.setActive(projectId)
-
     fun getById(
         projectId: String
     ): DesignProject? =
@@ -241,6 +158,11 @@ object DesignProjects {
 
     fun getAll(): List<DesignProject> =
         store.getAll()
+
+    fun setActive(
+        projectId: String
+    ): Boolean =
+        store.setActive(projectId)
 
     fun delete(
         projectId: String
