@@ -1,7 +1,8 @@
 package com.electrical.calculationspro.data.project
 
-import com.electrical.calculationspro.data.CurrentType
-import com.electrical.calculationspro.data.calculators.LoadCalculator
+import com.electrical.calculationspro.data.electrical.ElectricalDesignEngine
+import com.electrical.calculationspro.data.water.WaterDesignEngine
+import com.electrical.calculationspro.data.sewage.SewageDesignEngine
 
 object DesignProjectEngine {
 
@@ -9,142 +10,47 @@ object DesignProjectEngine {
         project: DesignProject
     ): DesignProject {
 
-        val loads =
-            project.electrical.loads.map { load ->
+        val calculated =
+            ElectricalDesignEngine.recalculate(project)
 
-                val baseKw =
-                    if (load.designLoadKw > 0.0) {
-                        load.designLoadKw
-                    } else {
-                        load.connectedLoadKw
-                    }
+        return DesignProjects.save(calculated)
+    }
 
-                if (
-                    baseKw <= 0.0 ||
-                    load.voltageV <= 0.0 ||
-                    load.powerFactor <= 0.0 ||
-                    load.powerFactor > 1.0
-                ) {
+    fun recalculateWater(
+        project: DesignProject
+    ): DesignProject {
 
-                    load.copy(
-                        status =
-                            DesignCalculationStatus.DATA_INCOMPLETE
-                    )
+        val calculated =
+            WaterDesignEngine.recalculate(project)
 
-                } else {
+        return DesignProjects.save(calculated)
+    }
 
-                    val currentType =
-                        when (load.phases) {
+    fun recalculateSewage(
+        project: DesignProject
+    ): DesignProject {
 
-                            1 ->
-                                CurrentType.AlternatingSinglePhase
+        val calculated =
+            SewageDesignEngine.recalculate(project)
 
-                            2 ->
-                                CurrentType.AlternatingTwoPhase
+        return DesignProjects.save(calculated)
+    }
 
-                            else ->
-                                CurrentType.AlternatingThreePhase
-                        }
+    fun recalculateAll(
+        project: DesignProject
+    ): DesignProject {
 
-                    val rawCurrent =
-                        LoadCalculator.designCurrentFromKw(
-                            loadKw = baseKw,
-                            voltage = load.voltageV,
-                            powerFactor = load.powerFactor,
-                            currentType = currentType
-                        )
+        val electrical =
+            ElectricalDesignEngine.recalculate(project)
 
-                    val designCurrent =
-                        LoadCalculator.applyDemandAndDiversity(
-                            current = rawCurrent,
-                            demandFactor =
-                                load.demandFactor
-                                    .coerceIn(0.0, 1.0),
-                            diversityFactor =
-                                load.diversityFactor
-                                    .coerceIn(0.0, 1.0)
-                        )
+        val water =
+            WaterDesignEngine.recalculate(electrical)
 
-                    load.copy(
-                        designLoadKw = baseKw,
-                        designCurrentA = designCurrent,
-                        status =
-                            DesignCalculationStatus.CALCULATED
-                    )
-                }
-            }
-
-        val panels =
-            project.electrical.panels.map { panel ->
-
-                val panelLoads =
-                    loads.filter {
-                        it.sourcePanelId == panel.id
-                    }
-
-                val totalKw =
-                    panelLoads.sumOf {
-                        it.designLoadKw *
-                            it.quantity.coerceAtLeast(1)
-                    }
-
-                val totalCurrent =
-                    panelLoads.sumOf {
-                        it.designCurrentA *
-                            it.quantity.coerceAtLeast(1)
-                    }
-
-                panel.copy(
-                    designLoadKw = totalKw,
-                    designCurrentA = totalCurrent,
-                    status =
-                        if (panelLoads.isEmpty()) {
-                            DesignCalculationStatus.DATA_INCOMPLETE
-                        } else {
-                            DesignCalculationStatus.CALCULATED
-                        }
-                )
-            }
-
-        val electricalStatus =
-            when {
-
-                loads.any {
-                    it.status ==
-                        DesignCalculationStatus.INVALID
-                } ||
-                    panels.any {
-                        it.status ==
-                            DesignCalculationStatus.INVALID
-                    } ->
-                    DesignCalculationStatus.INVALID
-
-                loads.any {
-                    it.status ==
-                        DesignCalculationStatus.DATA_INCOMPLETE
-                } ||
-                    panels.any {
-                        it.status ==
-                            DesignCalculationStatus.DATA_INCOMPLETE
-                    } ->
-                    DesignCalculationStatus.DATA_INCOMPLETE
-
-                loads.isNotEmpty() ||
-                    panels.isNotEmpty() ->
-                    DesignCalculationStatus.CALCULATED
-
-                else ->
-                    DesignCalculationStatus.NOT_STARTED
-            }
+        val sewage =
+            SewageDesignEngine.recalculate(water)
 
         return DesignProjects.save(
-            project.withElectrical(
-                project.electrical.copy(
-                    loads = loads,
-                    panels = panels,
-                    status = electricalStatus
-                )
-            )
+            sewage
         )
     }
 
