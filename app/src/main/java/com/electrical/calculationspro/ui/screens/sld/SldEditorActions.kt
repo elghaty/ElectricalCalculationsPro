@@ -24,10 +24,7 @@ class SldEditorActions(
         )
 
     fun loadProjectNetwork() {
-
-        val project =
-            DesignProjects.getActive()
-                ?: return
+        val project = DesignProjects.getActive() ?: return
 
         val projectNetwork =
             DesignProjectCoreBridge.getProjectSld(project)
@@ -45,7 +42,6 @@ class SldEditorActions(
     }
 
     fun saveProjectNetwork() {
-
         val current = network()
 
         if (current.nodes.isEmpty()) {
@@ -60,7 +56,6 @@ class SldEditorActions(
     }
 
     fun resetNodeEditor(type: SldNodeType) {
-
         state.editingNodeId = null
         state.nodeType = type
         state.name = type.name
@@ -76,7 +71,6 @@ class SldEditorActions(
     }
 
     fun editNode(node: SldNode) {
-
         state.editingNodeId = node.id
         state.nodeType = node.type
         state.name = node.name
@@ -92,7 +86,6 @@ class SldEditorActions(
     }
 
     fun saveNode() {
-
         val voltage =
             state.voltage
                 .toDoubleOrNull()
@@ -144,7 +137,6 @@ class SldEditorActions(
         val existingId = state.editingNodeId
 
         if (existingId == null) {
-
             val node =
                 SldNode(
                     id = "node-${System.currentTimeMillis()}",
@@ -169,14 +161,10 @@ class SldEditorActions(
             state.nodes = state.nodes + node
             state.selectedNodeId = node.id
             state.selectedConnectionId = null
-
         } else {
-
             state.nodes =
                 state.nodes.map { node ->
-
                     if (node.id == existingId) {
-
                         node.copy(
                             name = state.name.ifBlank {
                                 node.name
@@ -191,7 +179,6 @@ class SldEditorActions(
                             generatorXdSubtransient = generatorXd,
                             sourceShortCircuitMva = sourceMva
                         )
-
                     } else {
                         node
                     }
@@ -205,7 +192,6 @@ class SldEditorActions(
     }
 
     fun editConnection(connection: SldConnection) {
-
         state.editingConnectionId = connection.id
         state.length = connection.lengthMeters.toString()
         state.resistance =
@@ -222,7 +208,6 @@ class SldEditorActions(
     }
 
     fun saveConnection() {
-
         val length =
             state.length
                 .toDoubleOrNull()
@@ -262,12 +247,9 @@ class SldEditorActions(
         val editingId = state.editingConnectionId
 
         if (editingId != null) {
-
             state.connections =
                 state.connections.map { connection ->
-
                     if (connection.id == editingId) {
-
                         connection.copy(
                             lengthMeters = length,
                             resistanceOhmPerKm = resistance,
@@ -276,14 +258,11 @@ class SldEditorActions(
                             parallelRuns = parallelRuns,
                             currentCapacityA = capacity
                         )
-
                     } else {
                         connection
                     }
                 }
-
         } else {
-
             val start = state.connectionStartId
             val end = state.selectedNodeId
 
@@ -292,10 +271,8 @@ class SldEditorActions(
                 end != null &&
                 start != end
             ) {
-
                 val duplicate =
                     state.connections.any { connection ->
-
                         (
                             connection.fromNodeId == start &&
                                 connection.toNodeId == end
@@ -307,7 +284,6 @@ class SldEditorActions(
                     }
 
                 if (!duplicate) {
-
                     state.connections =
                         state.connections +
                             SldConnection(
@@ -334,20 +310,17 @@ class SldEditorActions(
     }
 
     fun startOrCompleteConnection() {
-
         val nodeId =
             state.selectedNodeId
                 ?: return
 
         if (state.connectionStartId == null) {
-
             state.connectionStartId = nodeId
             state.selectedConnectionId = null
             return
         }
 
         if (state.connectionStartId == nodeId) {
-
             state.connectionStartId = null
             return
         }
@@ -357,12 +330,9 @@ class SldEditorActions(
     }
 
     fun deleteSelected() {
-
-        val connectionId =
-            state.selectedConnectionId
+        val connectionId = state.selectedConnectionId
 
         if (connectionId != null) {
-
             state.connections =
                 state.connections.filter {
                     it.id != connectionId
@@ -395,9 +365,7 @@ class SldEditorActions(
     }
 
     fun runShortCircuit() {
-
         try {
-
             val project =
                 DesignProjects.getActive()
                     ?: throw IllegalStateException(
@@ -414,10 +382,8 @@ class SldEditorActions(
                     panelNodeId =
                         state.nodes
                             .firstOrNull {
-                                it.id ==
-                                    state.selectedNodeId &&
-                                    it.type ==
-                                    SldNodeType.PANEL
+                                it.id == state.selectedNodeId &&
+                                    it.type == SldNodeType.PANEL
                             }
                             ?.id
                 )
@@ -434,9 +400,7 @@ class SldEditorActions(
                     study = packageResult.shortCircuit,
                     arabic = arabic
                 )
-
         } catch (exception: Exception) {
-
             state.reportTitle =
                 if (arabic) "خطأ" else "Error"
 
@@ -448,9 +412,7 @@ class SldEditorActions(
     }
 
     fun runPanelSchedule() {
-
         try {
-
             val project =
                 DesignProjects.getActive()
                     ?: throw IllegalStateException(
@@ -502,9 +464,7 @@ class SldEditorActions(
                         result = result,
                         arabic = arabic
                     )
-
         } catch (exception: Exception) {
-
             state.reportTitle =
                 if (arabic) "خطأ" else "Error"
 
@@ -516,9 +476,7 @@ class SldEditorActions(
     }
 
     fun generateCompleteSld() {
-
         try {
-
             val project =
                 DesignProjects.getActive()
                     ?: throw IllegalStateException(
@@ -533,7 +491,6 @@ class SldEditorActions(
                 DesignProjectCoreBridge.buildProjectSld(project)
 
             if (generated.nodes.isEmpty()) {
-
                 throw IllegalStateException(
                     if (arabic) {
                         "لا توجد بيانات كهربائية كافية لإنشاء SLD."
@@ -556,10 +513,8 @@ class SldEditorActions(
                 source = "Electrical Design"
             )
 
-            runCompleteEngineeringReport(generated)
-
+            runCompleteEngineeringReport()
         } catch (exception: Exception) {
-
             state.reportTitle =
                 if (arabic) {
                     "خطأ في إنشاء SLD"
@@ -574,12 +529,8 @@ class SldEditorActions(
         }
     }
 
-    private fun runCompleteEngineeringReport(
-        generated: SldNetwork
-    ) {
-
+    private fun runCompleteEngineeringReport() {
         try {
-
             val project =
                 DesignProjects.getActive()
                     ?: throw IllegalStateException(
@@ -603,9 +554,7 @@ class SldEditorActions(
                     result = result,
                     arabic = arabic
                 )
-
         } catch (exception: Exception) {
-
             state.reportTitle =
                 if (arabic) "خطأ" else "Error"
 
@@ -621,21 +570,12 @@ class SldEditorActions(
         result: SldEngineeringPackage,
         arabic: Boolean
     ): String {
-
-        val shortCircuit =
-            result.shortCircuit
-
-        val cableSizing =
-            result.cableSizing
-
-        val protection =
-            result.protectionCoordination
-
-        val panelSchedule =
-            result.panelSchedule
+        val shortCircuit = result.shortCircuit
+        val cableSizing = result.cableSizing
+        val protection = result.protectionCoordination
+        val panelSchedule = result.panelSchedule
 
         return buildString {
-
             appendLine(
                 if (arabic) {
                     "ملخص الدراسة الهندسية"
@@ -671,6 +611,7 @@ class SldEditorActions(
                         "%.3f kA".format(
                             shortCircuit.maximumPeakCurrentKa
                         )
+                }
             )
 
             appendLine(
@@ -684,6 +625,7 @@ class SldEditorActions(
                         "%.3f MVA".format(
                             shortCircuit.maximumFaultMva
                         )
+                }
             )
 
             appendLine()
@@ -741,7 +683,6 @@ class SldEditorActions(
             )
 
             panelSchedule?.let {
-
                 appendLine()
 
                 appendLine(
@@ -793,10 +734,25 @@ class SldEditorActions(
                             )
                     }
                 )
+
+                if (it.notes.isNotEmpty()) {
+                    appendLine()
+
+                    appendLine(
+                        if (arabic) {
+                            "ملاحظات جدول اللوحة:"
+                        } else {
+                            "Panel Schedule Notes:"
+                        }
+                    )
+
+                    it.notes.forEach { note ->
+                        appendLine("• $note")
+                    }
+                }
             }
 
             if (shortCircuit.notes.isNotEmpty()) {
-
                 appendLine()
 
                 appendLine(
@@ -807,13 +763,12 @@ class SldEditorActions(
                     }
                 )
 
-                shortCircuit.notes.forEach {
-                    appendLine("• $it")
+                shortCircuit.notes.forEach { note ->
+                    appendLine("• $note")
                 }
             }
 
             if (cableSizing.notes.isNotEmpty()) {
-
                 appendLine()
 
                 appendLine(
@@ -824,13 +779,12 @@ class SldEditorActions(
                     }
                 )
 
-                cableSizing.notes.forEach {
-                    appendLine("• $it")
+                cableSizing.notes.forEach { note ->
+                    appendLine("• $note")
                 }
             }
 
             if (protection.notes.isNotEmpty()) {
-
                 appendLine()
 
                 appendLine(
@@ -841,8 +795,8 @@ class SldEditorActions(
                     }
                 )
 
-                protection.notes.forEach {
-                    appendLine("• $it")
+                protection.notes.forEach { note ->
+                    appendLine("• $note")
                 }
             }
         }
@@ -852,21 +806,12 @@ class SldEditorActions(
         result: SldEngineeringPackage,
         arabic: Boolean
     ): String {
-
-        val shortCircuit =
-            result.shortCircuit
-
-        val cableSizing =
-            result.cableSizing
-
-        val protection =
-            result.protectionCoordination
-
-        val panelSchedule =
-            result.panelSchedule
+        val shortCircuit = result.shortCircuit
+        val cableSizing = result.cableSizing
+        val protection = result.protectionCoordination
+        val panelSchedule = result.panelSchedule
 
         return buildString {
-
             appendLine(
                 if (arabic) {
                     "الدراسة الهندسية المتكاملة"
@@ -998,7 +943,6 @@ class SldEditorActions(
             )
 
             panelSchedule?.let {
-
                 appendLine()
 
                 appendLine(
@@ -1050,7 +994,8 @@ class SldEditorActions(
                             "%.2f kW".format(
                                 it.totalDemandLoadKw
                             )
-                    )
+                    }
+                )
 
                 appendLine(
                     if (arabic) {
@@ -1067,7 +1012,6 @@ class SldEditorActions(
                 )
 
                 if (it.notes.isNotEmpty()) {
-
                     appendLine()
 
                     appendLine(
@@ -1078,8 +1022,8 @@ class SldEditorActions(
                         }
                     )
 
-                    it.notes.forEach {
-                        appendLine("• $it")
+                    it.notes.forEach { note ->
+                        appendLine("• $note")
                     }
                 }
             }
@@ -1094,16 +1038,16 @@ class SldEditorActions(
                 }
             )
 
-            shortCircuit.notes.forEach {
-                appendLine("• $it")
+            shortCircuit.notes.forEach { note ->
+                appendLine("• $note")
             }
 
-            cableSizing.notes.forEach {
-                appendLine("• $it")
+            cableSizing.notes.forEach { note ->
+                appendLine("• $note")
             }
 
-            protection.notes.forEach {
-                appendLine("• $it")
+            protection.notes.forEach { note ->
+                appendLine("• $note")
             }
         }
     }
