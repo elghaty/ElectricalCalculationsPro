@@ -6,12 +6,6 @@ import com.electrical.calculationspro.data.project.DesignProjects
 import com.electrical.calculationspro.data.project.WaterPipe
 import com.electrical.calculationspro.data.project.WaterPump
 
-/**
- * Water design project module.
- *
- * This class is an orchestration layer only.
- * Engineering formulas must remain in dedicated calculators/engines.
- */
 object WaterDesignModule {
 
     fun addPipe(
@@ -19,18 +13,19 @@ object WaterDesignModule {
         pipe: WaterPipe
     ): DesignProject {
 
-        val updatedPipes =
+        val pipes =
             project.water.pipes
-                .filterNot { it.id == pipe.id } + pipe
-
-        val design =
-            project.water.copy(
-                pipes = updatedPipes,
-                status = DesignCalculationStatus.IN_PROGRESS
-            )
+                .filterNot { it.id == pipe.id } +
+                pipe
 
         return DesignProjects.save(
-            project.withWater(design)
+            project.withWater(
+                project.water.copy(
+                    pipes = pipes,
+                    status =
+                        DesignCalculationStatus.IN_PROGRESS
+                )
+            )
         )
     }
 
@@ -39,27 +34,22 @@ object WaterDesignModule {
         pump: WaterPump
     ): DesignProject {
 
-        val updatedPumps =
+        val pumps =
             project.water.pumps
-                .filterNot { it.id == pump.id } + pump
-
-        val design =
-            project.water.copy(
-                pumps = updatedPumps,
-                status = DesignCalculationStatus.IN_PROGRESS
-            )
+                .filterNot { it.id == pump.id } +
+                pump
 
         return DesignProjects.save(
-            project.withWater(design)
+            project.withWater(
+                project.water.copy(
+                    pumps = pumps,
+                    status =
+                        DesignCalculationStatus.IN_PROGRESS
+                )
+            )
         )
     }
 
-    /**
-     * Stores hydraulic design inputs.
-     *
-     * TDH is deliberately NOT calculated here.
-     * The hydraulic engine/calculator is responsible for that calculation.
-     */
     fun updateHydraulicDesign(
         project: DesignProject,
         flowM3PerHour: Double,
@@ -70,60 +60,68 @@ object WaterDesignModule {
         tdhM: Double? = null
     ): DesignProject {
 
-        val calculationStatus =
-            if (tdhM != null && tdhM.isFinite() && tdhM >= 0.0) {
-                DesignCalculationStatus.CALCULATED
-            } else {
-                DesignCalculationStatus.IN_PROGRESS
-            }
-
-        val design =
-            project.water.copy(
-                requiredFlowM3PerHour =
-                    flowM3PerHour.coerceAtLeast(0.0),
-
-                staticHeadM =
-                    staticHeadM.coerceAtLeast(0.0),
-
-                frictionHeadM =
-                    frictionHeadM.coerceAtLeast(0.0),
-
-                minorLossHeadM =
-                    minorLossHeadM.coerceAtLeast(0.0),
-
-                requiredPressureHeadM =
-                    requiredPressureHeadM.coerceAtLeast(0.0),
-
-                tdhM =
-                    tdhM?.takeIf {
-                        it.isFinite() && it >= 0.0
-                    } ?: project.water.tdhM,
-
-                status = calculationStatus
-            )
+        val calculatedTdh =
+            tdhM
+                ?.takeIf {
+                    it.isFinite() && it >= 0.0
+                }
+                ?: WaterDesignEngine.calculateTdh(
+                    staticHeadM =
+                        staticHeadM.coerceAtLeast(0.0),
+                    frictionHeadM =
+                        frictionHeadM.coerceAtLeast(0.0),
+                    minorLossHeadM =
+                        minorLossHeadM.coerceAtLeast(0.0),
+                    requiredPressureHeadM =
+                        requiredPressureHeadM.coerceAtLeast(0.0)
+                )
 
         return DesignProjects.save(
-            project.withWater(design)
+            project.withWater(
+                project.water.copy(
+                    requiredFlowM3PerHour =
+                        flowM3PerHour.coerceAtLeast(0.0),
+                    staticHeadM =
+                        staticHeadM.coerceAtLeast(0.0),
+                    frictionHeadM =
+                        frictionHeadM.coerceAtLeast(0.0),
+                    minorLossHeadM =
+                        minorLossHeadM.coerceAtLeast(0.0),
+                    requiredPressureHeadM =
+                        requiredPressureHeadM.coerceAtLeast(0.0),
+                    tdhM = calculatedTdh,
+                    status =
+                        DesignCalculationStatus.CALCULATED
+                )
+            )
         )
     }
+
+    fun recalculate(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectEngine.recalculateWater(project)
 
     fun updateCalculatedTdh(
         project: DesignProject,
         tdhM: Double
     ): DesignProject {
 
-        if (!tdhM.isFinite() || tdhM < 0.0) {
+        if (
+            !tdhM.isFinite() ||
+            tdhM < 0.0
+        ) {
             return project
         }
 
-        val design =
-            project.water.copy(
-                tdhM = tdhM,
-                status = DesignCalculationStatus.CALCULATED
-            )
-
         return DesignProjects.save(
-            project.withWater(design)
+            project.withWater(
+                project.water.copy(
+                    tdhM = tdhM,
+                    status =
+                        DesignCalculationStatus.CALCULATED
+                )
+            )
         )
     }
 
@@ -133,7 +131,8 @@ object WaterDesignModule {
         DesignProjects.save(
             project.withWater(
                 project.water.copy(
-                    status = DesignCalculationStatus.IN_PROGRESS
+                    status =
+                        DesignCalculationStatus.IN_PROGRESS
                 )
             )
         )
@@ -144,7 +143,8 @@ object WaterDesignModule {
         DesignProjects.save(
             project.withWater(
                 project.water.copy(
-                    status = DesignCalculationStatus.CALCULATED
+                    status =
+                        DesignCalculationStatus.CALCULATED
                 )
             )
         )
@@ -155,7 +155,8 @@ object WaterDesignModule {
         DesignProjects.save(
             project.withWater(
                 project.water.copy(
-                    status = DesignCalculationStatus.DATA_INCOMPLETE
+                    status =
+                        DesignCalculationStatus.DATA_INCOMPLETE
                 )
             )
         )
@@ -166,7 +167,8 @@ object WaterDesignModule {
         DesignProjects.save(
             project.withWater(
                 project.water.copy(
-                    status = DesignCalculationStatus.INVALID
+                    status =
+                        DesignCalculationStatus.INVALID
                 )
             )
         )
