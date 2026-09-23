@@ -16,6 +16,10 @@ import com.electrical.calculationspro.data.catalog.GeneratorCatalogItem
 import com.electrical.calculationspro.data.catalog.Manufacturer
 import com.electrical.calculationspro.data.catalog.PanelCatalogItem
 import com.electrical.calculationspro.data.catalog.TransformerCatalogItem
+import com.electrical.calculationspro.data.pumps.PumpCalculationInput
+import com.electrical.calculationspro.data.pumps.PumpCalculationResult
+import com.electrical.calculationspro.data.pumps.PumpCalculator
+import com.electrical.calculationspro.data.pumps.PumpFlow
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
 import com.electrical.calculationspro.data.standards.StandardEngine
 
@@ -28,13 +32,28 @@ import com.electrical.calculationspro.data.standards.StandardEngine
  *  ↓
  * ElectricalCalculations
  *  ↓
- * Calculators
+ * Calculators / Engineering Engines
  *  ↓
- * StandardEngine
- *  ↓
- * Catalog
+ * Standards / Catalogs / Models
  *
  * This is the single public engineering entry point.
+ *
+ * Electrical Engineering
+ * ├── Load
+ * ├── Power
+ * ├── Voltage Drop
+ * ├── Short Circuit
+ * ├── Conductor
+ * ├── Breaker
+ * ├── Transformer
+ * └── Equipment Catalog
+ *
+ * Water / Sewage Engineering
+ * └── Pump Engineering
+ *
+ * IMPORTANT:
+ * This facade contains NO engineering calculation formulas.
+ * It only routes requests to the appropriate calculator/engine.
  * ================================================================
  */
 object ElectricalCalculations {
@@ -640,7 +659,7 @@ object ElectricalCalculations {
         )
 
     // ============================================================
-    // COMBINED WORKFLOWS
+    // COMBINED ELECTRICAL WORKFLOWS
     // ============================================================
 
     fun calculateAndSelectBreaker(
@@ -694,7 +713,8 @@ object ElectricalCalculations {
 
         val catalog =
             selectTransformerFromCatalog(
-                requiredKva = engineering.requiredKva,
+                requiredKva =
+                    engineering.requiredKva,
                 standard = standard
             )
 
@@ -738,6 +758,51 @@ object ElectricalCalculations {
         selectContactorFromCatalog(
             motorCurrentA = motorCurrentA,
             standard = standard
+        )
+
+    // ============================================================
+    // PUMP ENGINEERING
+    // WATER + SEWAGE
+    // ============================================================
+
+    /**
+     * Single public gateway for pump calculations.
+     *
+     * Flow:
+     *
+     * UI
+     *  ↓
+     * ElectricalCalculations.calculatePump()
+     *  ↓
+     * PumpCalculator
+     *
+     * The facade does not contain pump formulas.
+     */
+    fun calculatePump(
+        input: PumpCalculationInput
+    ): PumpCalculationResult =
+        PumpCalculator.calculate(
+            input = input
+        )
+
+    /**
+     * Convert pump flow to m³/s.
+     */
+    fun pumpFlowToM3PerSecond(
+        flow: PumpFlow
+    ): Double =
+        PumpCalculator.flowToM3PerSecond(
+            flow = flow
+        )
+
+    /**
+     * Convert pump flow to m³/h.
+     */
+    fun pumpFlowToM3PerHour(
+        flow: PumpFlow
+    ): Double =
+        PumpCalculator.flowToM3PerHour(
+            flow = flow
         )
 }
 
