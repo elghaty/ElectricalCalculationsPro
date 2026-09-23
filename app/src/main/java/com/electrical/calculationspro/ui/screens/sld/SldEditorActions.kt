@@ -6,6 +6,8 @@ import com.electrical.calculationspro.data.SldEngineeringFacade
 import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
+import com.electrical.calculationspro.data.project.DesignProjectEngine
+import com.electrical.calculationspro.data.project.DesignProjects
 
 class SldEditorActions(
     private val state: SldEditorState,
@@ -21,7 +23,92 @@ class SldEditorActions(
             connections = state.connections
         )
 
-    fun resetNodeEditor(type: SldNodeType) {
+    /**
+     * Loads the canonical SLD belonging to the active project.
+     *
+     * The project is the source of truth.
+     */
+    fun loadProjectNetwork() {
+
+        val project =
+            DesignProjects.getActive()
+                ?: return
+
+        val projectNetwork =
+            project.electrical.sldNetwork
+
+        if (
+            projectNetwork != null &&
+            projectNetwork.nodes.isNotEmpty()
+        ) {
+
+            state.nodes =
+                projectNetwork.nodes
+
+            state.connections =
+                projectNetwork.connections
+
+            state.selectedNodeId =
+                projectNetwork.nodes.firstOrNull()?.id
+
+            state.selectedConnectionId =
+                null
+
+            state.connectionStartId =
+                null
+
+            return
+        }
+
+        /*
+         * No SLD exists yet.
+         * Build it from the current project model.
+         */
+        val rebuilt =
+            DesignProjectEngine.rebuildSld(
+                project
+            )
+
+        rebuilt.electrical.sldNetwork?.let {
+
+            state.nodes =
+                it.nodes
+
+            state.connections =
+                it.connections
+
+            state.selectedNodeId =
+                it.nodes.firstOrNull()?.id
+        }
+    }
+
+    /**
+     * Saves the currently edited SLD back into the active project.
+     *
+     * Manual editor changes therefore become part of the project
+     * instead of remaining only inside the screen state.
+     */
+    fun saveProjectNetwork() {
+
+        val project =
+            DesignProjects.getActive()
+                ?: return
+
+        val updated =
+            project.withElectrical(
+                project.electrical.copy(
+                    sldNetwork = network()
+                )
+            )
+
+        DesignProjects.save(
+            updated
+        )
+    }
+
+    fun resetNodeEditor(
+        type: SldNodeType
+    ) {
 
         state.editingNodeId = null
 
@@ -39,7 +126,9 @@ class SldEditorActions(
         state.showNodeDialog = true
     }
 
-    fun editNode(node: SldNode) {
+    fun editNode(
+        node: SldNode
+    ) {
 
         state.editingNodeId = node.id
 
@@ -50,9 +139,12 @@ class SldEditorActions(
         state.pf = node.powerFactor.toString()
         state.demand = node.demandFactor.toString()
         state.kva = node.ratedKva.toString()
-        state.transformerZ = node.transformerPercentZ.toString()
-        state.generatorXd = node.generatorXdSubtransient.toString()
-        state.sourceMva = node.sourceShortCircuitMva.toString()
+        state.transformerZ =
+            node.transformerPercentZ.toString()
+        state.generatorXd =
+            node.generatorXdSubtransient.toString()
+        state.sourceMva =
+            node.sourceShortCircuitMva.toString()
 
         state.showNodeDialog = true
     }
@@ -69,37 +161,51 @@ class SldEditorActions(
 
         val load =
             state.loadKw.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: 0.0
 
         val pf =
             state.pf.toDoubleOrNull()
-                ?.takeIf { it in 0.0..1.0 }
+                ?.takeIf {
+                    it in 0.0..1.0
+                }
                 ?: 0.90
 
         val demand =
             state.demand.toDoubleOrNull()
-                ?.takeIf { it in 0.0..1.0 }
+                ?.takeIf {
+                    it in 0.0..1.0
+                }
                 ?: 0.80
 
         val kva =
             state.kva.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: 0.0
 
         val transformerZ =
             state.transformerZ.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: 0.0
 
         val generatorXd =
             state.generatorXd.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: 0.0
 
         val sourceMva =
             state.sourceMva.toDoubleOrNull()
-                ?.takeIf { it > 0.0 }
+                ?.takeIf {
+                    it > 0.0
+                }
                 ?: 500.0
 
         val existingId =
@@ -109,21 +215,36 @@ class SldEditorActions(
 
             val node =
                 SldNode(
-                    id = "node-${System.currentTimeMillis()}",
-                    name = state.name.ifBlank {
-                        state.nodeType.name
-                    },
-                    type = state.nodeType,
-                    x = 120f + (state.nodes.size % 6) * 260f,
-                    y = 180f + (state.nodes.size / 6) * 180f,
-                    voltage = voltage,
-                    loadKw = load,
-                    powerFactor = pf,
-                    demandFactor = demand,
-                    ratedKva = kva,
-                    transformerPercentZ = transformerZ,
-                    generatorXdSubtransient = generatorXd,
-                    sourceShortCircuitMva = sourceMva
+                    id =
+                        "node-${System.currentTimeMillis()}",
+                    name =
+                        state.name.ifBlank {
+                            state.nodeType.name
+                        },
+                    type =
+                        state.nodeType,
+                    x =
+                        120f +
+                            (state.nodes.size % 6) * 260f,
+                    y =
+                        180f +
+                            (state.nodes.size / 6) * 180f,
+                    voltage =
+                        voltage,
+                    loadKw =
+                        load,
+                    powerFactor =
+                        pf,
+                    demandFactor =
+                        demand,
+                    ratedKva =
+                        kva,
+                    transformerPercentZ =
+                        transformerZ,
+                    generatorXdSubtransient =
+                        generatorXd,
+                    sourceShortCircuitMva =
+                        sourceMva
                 )
 
             state.nodes =
@@ -143,18 +264,28 @@ class SldEditorActions(
                     if (node.id == existingId) {
 
                         node.copy(
-                            name = state.name.ifBlank {
-                                node.name
-                            },
-                            type = state.nodeType,
-                            voltage = voltage,
-                            loadKw = load,
-                            powerFactor = pf,
-                            demandFactor = demand,
-                            ratedKva = kva,
-                            transformerPercentZ = transformerZ,
-                            generatorXdSubtransient = generatorXd,
-                            sourceShortCircuitMva = sourceMva
+                            name =
+                                state.name.ifBlank {
+                                    node.name
+                                },
+                            type =
+                                state.nodeType,
+                            voltage =
+                                voltage,
+                            loadKw =
+                                load,
+                            powerFactor =
+                                pf,
+                            demandFactor =
+                                demand,
+                            ratedKva =
+                                kva,
+                            transformerPercentZ =
+                                transformerZ,
+                            generatorXdSubtransient =
+                                generatorXd,
+                            sourceShortCircuitMva =
+                                sourceMva
                         )
 
                     } else {
@@ -168,6 +299,8 @@ class SldEditorActions(
 
         state.editingNodeId =
             null
+
+        saveProjectNetwork()
     }
 
     fun editConnection(
@@ -203,32 +336,44 @@ class SldEditorActions(
 
         val length =
             state.length.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: return
 
         val resistance =
             state.resistance.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: return
 
         val reactance =
             state.reactance.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: return
 
         val cableSize =
             state.cableSize.toDoubleOrNull()
-                ?.takeIf { it > 0.0 }
+                ?.takeIf {
+                    it > 0.0
+                }
                 ?: return
 
         val parallelRuns =
             state.parallelRuns.toIntOrNull()
-                ?.takeIf { it > 0 }
+                ?.takeIf {
+                    it > 0
+                }
                 ?: return
 
         val capacity =
             state.capacity.toDoubleOrNull()
-                ?.takeIf { it >= 0.0 }
+                ?.takeIf {
+                    it >= 0.0
+                }
                 ?: return
 
         val editingId =
@@ -239,15 +384,24 @@ class SldEditorActions(
             state.connections =
                 state.connections.map { connection ->
 
-                    if (connection.id == editingId) {
+                    if (
+                        connection.id ==
+                        editingId
+                    ) {
 
                         connection.copy(
-                            lengthMeters = length,
-                            resistanceOhmPerKm = resistance,
-                            reactanceOhmPerKm = reactance,
-                            cableSizeMm2 = cableSize,
-                            parallelRuns = parallelRuns,
-                            currentCapacityA = capacity
+                            lengthMeters =
+                                length,
+                            resistanceOhmPerKm =
+                                resistance,
+                            reactanceOhmPerKm =
+                                reactance,
+                            cableSizeMm2 =
+                                cableSize,
+                            parallelRuns =
+                                parallelRuns,
+                            currentCapacityA =
+                                capacity
                         )
 
                     } else {
@@ -270,15 +424,20 @@ class SldEditorActions(
             ) {
 
                 val duplicate =
-                    state.connections.any { connection ->
+                    state.connections.any {
+                        connection ->
 
                         (
-                            connection.fromNodeId == start &&
-                                connection.toNodeId == end
+                            connection.fromNodeId ==
+                                start &&
+                                connection.toNodeId ==
+                                end
                             ) ||
                             (
-                                connection.fromNodeId == end &&
-                                    connection.toNodeId == start
+                                connection.fromNodeId ==
+                                    end &&
+                                    connection.toNodeId ==
+                                    start
                                 )
                     }
 
@@ -287,15 +446,24 @@ class SldEditorActions(
                     state.connections =
                         state.connections +
                             SldConnection(
-                                id = "connection-${System.currentTimeMillis()}",
-                                fromNodeId = start,
-                                toNodeId = end,
-                                lengthMeters = length,
-                                resistanceOhmPerKm = resistance,
-                                reactanceOhmPerKm = reactance,
-                                cableSizeMm2 = cableSize,
-                                parallelRuns = parallelRuns,
-                                currentCapacityA = capacity
+                                id =
+                                    "connection-${System.currentTimeMillis()}",
+                                fromNodeId =
+                                    start,
+                                toNodeId =
+                                    end,
+                                lengthMeters =
+                                    length,
+                                resistanceOhmPerKm =
+                                    resistance,
+                                reactanceOhmPerKm =
+                                    reactance,
+                                cableSizeMm2 =
+                                    cableSize,
+                                parallelRuns =
+                                    parallelRuns,
+                                currentCapacityA =
+                                    capacity
                             )
                 }
             }
@@ -309,6 +477,8 @@ class SldEditorActions(
 
         state.showConnectionDialog =
             false
+
+        saveProjectNetwork()
     }
 
     fun startOrCompleteConnection() {
@@ -317,7 +487,9 @@ class SldEditorActions(
             state.selectedNodeId
                 ?: return
 
-        if (state.connectionStartId == null) {
+        if (
+            state.connectionStartId == null
+        ) {
 
             state.connectionStartId =
                 nodeId
@@ -328,7 +500,10 @@ class SldEditorActions(
             return
         }
 
-        if (state.connectionStartId == nodeId) {
+        if (
+            state.connectionStartId ==
+            nodeId
+        ) {
 
             state.connectionStartId =
                 null
@@ -358,6 +533,8 @@ class SldEditorActions(
             state.selectedConnectionId =
                 null
 
+            saveProjectNetwork()
+
             return
         }
 
@@ -381,6 +558,8 @@ class SldEditorActions(
 
         state.connectionStartId =
             null
+
+        saveProjectNetwork()
     }
 
     fun runShortCircuit() {
@@ -456,7 +635,8 @@ class SldEditorActions(
                 buildPanelSchedule(
                     panel = panel,
                     nodes = state.nodes,
-                    connections = state.connections,
+                    connections =
+                        state.connections,
                     arabic = arabic
                 )
             }
@@ -465,8 +645,59 @@ class SldEditorActions(
             true
     }
 
+    /**
+     * Rebuild the SLD from the active DesignProject.
+     *
+     * The old hard-coded demonstration SLD is no longer used
+     * when a project exists.
+     */
     fun generateCompleteSld() {
 
+        val project =
+            DesignProjects.getActive()
+
+        if (project != null) {
+
+            val rebuilt =
+                DesignProjectEngine.rebuildSld(
+                    project
+                )
+
+            val generated =
+                rebuilt.electrical.sldNetwork
+
+            if (
+                generated != null &&
+                generated.nodes.isNotEmpty()
+            ) {
+
+                state.nodes =
+                    generated.nodes
+
+                state.connections =
+                    generated.connections
+
+                state.selectedNodeId =
+                    generated.nodes.firstOrNull()?.id
+
+                state.selectedConnectionId =
+                    null
+
+                state.connectionStartId =
+                    null
+
+                runEngineeringReport(
+                    generated
+                )
+
+                return
+            }
+        }
+
+        /*
+         * Fallback retained for projects that have not
+         * been created yet.
+         */
         val generated =
             SldCompleteGenerator.generate()
 
@@ -477,17 +708,22 @@ class SldEditorActions(
             generated.connections
 
         state.selectedNodeId =
-            generated.nodes
-                .firstOrNull {
-                    it.id == "auto-bus"
-                }
-                ?.id
+            generated.nodes.firstOrNull()?.id
 
         state.selectedConnectionId =
             null
 
         state.connectionStartId =
             null
+
+        runEngineeringReport(
+            generated
+        )
+    }
+
+    private fun runEngineeringReport(
+        generated: SldNetwork
+    ) {
 
         try {
 
@@ -499,16 +735,17 @@ class SldEditorActions(
 
             state.reportTitle =
                 if (arabic) {
-                    "SLD كامل - نتائج الحسابات"
+                    "SLD - نتائج التصميم الهندسي"
                 } else {
-                    "Complete SLD - Engineering Results"
+                    "SLD - Engineering Design Results"
                 }
 
             state.reportText =
                 buildCompleteSldReport(
                     study = study,
                     nodes = generated.nodes,
-                    connections = generated.connections,
+                    connections =
+                        generated.connections,
                     arabic = arabic
                 )
 
