@@ -1,11 +1,5 @@
 package com.electrical.calculationspro.data.catalog
 
-/**
- * Single catalog-selection gateway.
- *
- * No engineering assumptions are introduced here.
- * Only data actually present in EquipmentCatalog are returned.
- */
 object CatalogSelector {
 
     fun selectBreaker(
@@ -32,9 +26,9 @@ object CatalogSelector {
                     currentA = designCurrentA,
                     shortCircuitKA = shortCircuitKA
                 )
-                .filter {
+                .filter { item ->
                     manufacturer == null ||
-                        it.manufacturer == manufacturer
+                        item.manufacturer == manufacturer
                 }
 
         if (candidates.isEmpty()) {
@@ -78,8 +72,8 @@ object CatalogSelector {
                     sectionMm2 = requiredSectionMm2,
                     manufacturer = manufacturer
                 )
-                .sortedBy {
-                    it.sectionMm2
+                .sortedBy { item ->
+                    item.sectionMm2
                 }
 
         if (candidates.isEmpty()) {
@@ -110,8 +104,8 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectTransformer(requiredKva)
-                .sortedBy {
-                    it.ratedPowerKva
+                .sortedBy { item ->
+                    item.ratedPowerKva
                 }
 
         return if (candidates.isEmpty()) {
@@ -142,8 +136,8 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectGenerator(requiredKva)
-                .sortedBy {
-                    it.ratedPowerKva
+                .sortedBy { item ->
+                    item.ratedPowerKva
                 }
 
         return if (candidates.isEmpty()) {
@@ -174,8 +168,8 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectBusbar(currentA)
-                .sortedBy {
-                    it.ratedCurrentA
+                .sortedBy { item ->
+                    item.ratedCurrentA
                 }
 
         return if (candidates.isEmpty()) {
@@ -210,8 +204,8 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectContactor(motorCurrentA)
-                .sortedBy {
-                    it.ratedCurrentA
+                .sortedBy { item ->
+                    item.ratedCurrentA
                 }
 
         return if (candidates.isEmpty()) {
@@ -242,8 +236,8 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectPanel(currentA)
-                .sortedBy {
-                    it.ratedCurrentA
+                .sortedBy { item ->
+                    item.ratedCurrentA
                 }
 
         return if (candidates.isEmpty()) {
