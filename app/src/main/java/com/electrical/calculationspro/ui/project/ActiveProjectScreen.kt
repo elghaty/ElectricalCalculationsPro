@@ -13,8 +13,6 @@ import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -36,70 +34,55 @@ fun ActiveProjectScreen(
     onSld: () -> Unit,
     onBack: () -> Unit
 ) {
-
-    val arabic =
-        language == AppLanguage.ARABIC
+    val arabic = language == AppLanguage.ARABIC
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(18.dp)
     ) {
-
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment =
-                Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
-
             Column(
-                modifier =
-                    Modifier.weight(1f)
+                modifier = Modifier.weight(1f)
             ) {
-
                 Text(
                     text = project.projectName,
-                    style =
-                        MaterialTheme.typography.headlineMedium
+                    style = MaterialTheme.typography.headlineMedium
                 )
 
                 if (project.projectNumber.isNotBlank()) {
-
                     Text(
-                        text =
-                            if (arabic)
-                                "رقم المشروع: ${project.projectNumber}"
-                            else
-                                "Project No: ${project.projectNumber}"
+                        text = if (arabic)
+                            "رقم المشروع: ${project.projectNumber}"
+                        else
+                            "Project No: ${project.projectNumber}"
                     )
                 }
 
                 if (project.clientName.isNotBlank()) {
-
                     Text(
-                        text =
-                            if (arabic)
-                                "العميل: ${project.clientName}"
-                            else
-                                "Client: ${project.clientName}"
+                        text = if (arabic)
+                            "العميل: ${project.clientName}"
+                        else
+                            "Client: ${project.clientName}"
                     )
                 }
 
                 if (project.location.isNotBlank()) {
-
                     Text(
-                        text =
-                            if (arabic)
-                                "الموقع: ${project.location}"
-                            else
-                                "Location: ${project.location}"
+                        text = if (arabic)
+                            "الموقع: ${project.location}"
+                        else
+                            "Location: ${project.location}"
                     )
                 }
             }
 
             Icon(
-                imageVector =
-                    Icons.Outlined.Description,
+                imageVector = Icons.Outlined.Description,
                 contentDescription = null
             )
         }
@@ -109,179 +92,111 @@ fun ActiveProjectScreen(
         )
 
         Text(
-            text =
-                if (arabic)
-                    "التصميم داخل المشروع"
-                else
-                    "PROJECT DESIGN",
-            style =
-                MaterialTheme.typography.titleMedium
+            text = if (arabic)
+                "التصميم داخل المشروع"
+            else
+                "PROJECT DESIGN",
+            style = MaterialTheme.typography.titleMedium
         )
 
         Spacer(
             modifier = Modifier.height(10.dp)
         )
 
-        DesignModuleCard(
-            title =
-                if (arabic)
-                    "التصميم الكهربائي"
-                else
-                    "Electrical Design",
-            description =
-                if (arabic)
-                    "أحمال • تيارات • كابلات • هبوط جهد • قواطع • قصر • حماية"
-                else
-                    "Loads • Currents • Cables • Voltage Drop • Breakers • Short Circuit • Protection",
-            icon = {
-                Icon(
-                    imageVector =
-                        Icons.Outlined.Bolt,
-                    contentDescription = null
+        FourColumnDesignGrid(
+            modifier = Modifier.weight(1f),
+            items = listOf(
+                DesignGridItem(
+                    id = "electrical",
+                    title = if (arabic)
+                        "التصميم الكهربائي"
+                    else
+                        "Electrical Design",
+                    subtitle = if (arabic)
+                        "أحمال • تيارات • كابلات • قواطع • حماية"
+                    else
+                        "Loads • Cables • Breakers • Protection",
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Outlined.Bolt,
+                            contentDescription = null
+                        )
+                    },
+                    onClick = onElectrical
+                ),
+
+                DesignGridItem(
+                    id = "water",
+                    title = if (arabic)
+                        "تصميم المياه"
+                    else
+                        "Water Design",
+                    subtitle = if (arabic)
+                        "تصرف • مواسير • TDH • طلمبات • استهلاك"
+                    else
+                        "Flow • Pipes • TDH • Pumps • Energy",
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Outlined.WaterDrop,
+                            contentDescription = null
+                        )
+                    },
+                    onClick = onWater
+                ),
+
+                DesignGridItem(
+                    id = "sewage",
+                    title = if (arabic)
+                        "الصرف الصحي"
+                    else
+                        "Sewage Design",
+                    subtitle = if (arabic)
+                        "تصرفات • بيارة • خط طرد • طلمبات"
+                    else
+                        "Flows • Wet Well • Rising Main • Pumps",
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Outlined.WaterDrop,
+                            contentDescription = null
+                        )
+                    },
+                    onClick = onSewage
+                ),
+
+                DesignGridItem(
+                    id = "sld",
+                    title = if (arabic)
+                        "المخطط SLD"
+                    else
+                        "Single Line Diagram",
+                    subtitle = if (arabic)
+                        "مرتبط ببيانات التصميم"
+                    else
+                        "Linked to design data",
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Outlined.AccountTree,
+                            contentDescription = null
+                        )
+                    },
+                    onClick = onSld
                 )
-            },
-            onClick = onElectrical
+            )
         )
 
         Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        DesignModuleCard(
-            title =
-                if (arabic)
-                    "تصميم المياه"
-                else
-                    "Water Design",
-            description =
-                if (arabic)
-                    "تصرف • مواسير • فاقد • TDH • طلمبات • قدرة • استهلاك"
-                else
-                    "Flow • Pipes • Losses • TDH • Pumps • Power • Energy",
-            icon = {
-                Icon(
-                    imageVector =
-                        Icons.Outlined.WaterDrop,
-                    contentDescription = null
-                )
-            },
-            onClick = onWater
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        DesignModuleCard(
-            title =
-                if (arabic)
-                    "تصميم الصرف الصحي"
-                else
-                    "Sewage Design",
-            description =
-                if (arabic)
-                    "التصرفات • البيارة • خط الطرد • TDH • Duty/Standby • الطلمبات"
-                else
-                    "Flows • Wet Well • Rising Main • TDH • Duty/Standby • Pumps",
-            icon = {
-                Icon(
-                    imageVector =
-                        Icons.Outlined.WaterDrop,
-                    contentDescription = null
-                )
-            },
-            onClick = onSewage
-        )
-
-        Spacer(
-            modifier = Modifier.height(10.dp)
-        )
-
-        DesignModuleCard(
-            title =
-                if (arabic)
-                    "المخطط الأحادي SLD"
-                else
-                    "Single Line Diagram",
-            description =
-                if (arabic)
-                    "يُنشأ من بيانات التصميم وليس من إدخال مستقل"
-                else
-                    "Generated from the project design data",
-            icon = {
-                Icon(
-                    imageVector =
-                        Icons.Outlined.AccountTree,
-                    contentDescription = null
-                )
-            },
-            onClick = onSld
-        )
-
-        Spacer(
-            modifier = Modifier.height(18.dp)
+            modifier = Modifier.height(12.dp)
         )
 
         OutlinedButton(
             onClick = onBack
         ) {
-
             Text(
                 if (arabic)
                     "العودة إلى المشروعات"
                 else
                     "Back to Projects"
             )
-        }
-    }
-}
-
-@Composable
-private fun DesignModuleCard(
-    title: String,
-    description: String,
-    icon: @Composable () -> Unit,
-    onClick: () -> Unit
-) {
-
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment =
-                Alignment.CenterVertically
-        ) {
-
-            icon()
-
-            Spacer(
-                modifier = Modifier.height(1.dp)
-            )
-
-            Column(
-                modifier =
-                    Modifier.padding(
-                        horizontal = 14.dp
-                    )
-            ) {
-
-                Text(
-                    text = title,
-                    style =
-                        MaterialTheme.typography.titleLarge
-                )
-
-                Text(
-                    text = description,
-                    style =
-                        MaterialTheme.typography.bodyMedium
-                )
-            }
         }
     }
 }
