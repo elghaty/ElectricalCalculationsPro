@@ -39,6 +39,13 @@ data class CatalogSource(
     val status: ProductFamilyStatus
 )
 
+data class EquipmentSelectionResult<T>(
+    val selected: T?,
+    val alternatives: List<T> = emptyList(),
+    val valid: Boolean,
+    val message: String
+)
+
 data class CableCatalogItem(
     val manufacturer: Manufacturer,
     val family: String,
