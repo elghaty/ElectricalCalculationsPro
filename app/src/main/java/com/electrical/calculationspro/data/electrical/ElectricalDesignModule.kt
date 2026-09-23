@@ -1,6 +1,5 @@
 package com.electrical.calculationspro.data.electrical
 
-import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.project.DesignCalculationStatus
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
@@ -16,15 +15,17 @@ object ElectricalDesignModule {
         panel: ElectricalPanel
     ): DesignProject {
 
-        val updatedPanels =
+        val panels =
             project.electrical.panels
-                .filterNot { it.id == panel.id } + panel
+                .filterNot { it.id == panel.id } +
+                panel
 
         return DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    panels = updatedPanels,
-                    status = DesignCalculationStatus.IN_PROGRESS
+                    panels = panels,
+                    status =
+                        DesignCalculationStatus.IN_PROGRESS
                 )
             )
         )
@@ -35,15 +36,17 @@ object ElectricalDesignModule {
         load: ElectricalLoad
     ): DesignProject {
 
-        val updatedLoads =
+        val loads =
             project.electrical.loads
-                .filterNot { it.id == load.id } + load
+                .filterNot { it.id == load.id } +
+                load
 
         return DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    loads = updatedLoads,
-                    status = DesignCalculationStatus.IN_PROGRESS
+                    loads = loads,
+                    status =
+                        DesignCalculationStatus.IN_PROGRESS
                 )
             )
         )
@@ -53,24 +56,9 @@ object ElectricalDesignModule {
         load: ElectricalLoad
     ): Double {
 
-        val designLoadKw =
-            load.designLoadKw
-                .takeIf { it > 0.0 }
-                ?: load.connectedLoadKw
-
-        val currentType =
-            when (load.phases) {
-                1 -> CurrentType.AlternatingSinglePhase
-                2 -> CurrentType.AlternatingTwoPhase
-                else -> CurrentType.AlternatingThreePhase
-            }
-
-        return DesignProjectCoreBridge.calculateDesignCurrentFromKw(
-            loadKw = designLoadKw,
-            voltage = load.voltageV,
-            powerFactor = load.powerFactor,
-            currentType = currentType
-        )
+        return ElectricalDesignEngine
+            .calculateLoadCurrent(load)
+            ?: 0.0
     }
 
     fun updateLoadCalculatedValues(
@@ -78,67 +66,82 @@ object ElectricalDesignModule {
         loadId: String
     ): DesignProject {
 
-        val oldLoad =
+        val load =
             project.electrical.loads
-                .firstOrNull { it.id == loadId }
+                .firstOrNull {
+                    it.id == loadId
+                }
                 ?: return project
 
-        val designLoadKw =
-            oldLoad.designLoadKw
+        val current =
+            ElectricalDesignEngine
+                .calculateLoadCurrent(load)
+                ?: return DesignProjects.save(
+                    project.withElectrical(
+                        project.electrical.copy(
+                            loads =
+                                project.electrical.loads.map {
+                                    if (it.id == loadId) {
+                                        it.copy(
+                                            status =
+                                                DesignCalculationStatus
+                                                    .DATA_INCOMPLETE
+                                        )
+                                    } else {
+                                        it
+                                    }
+                                }
+                        )
+                    )
+                )
+
+        val loadKw =
+            load.designLoadKw
                 .takeIf { it > 0.0 }
-                ?: oldLoad.connectedLoadKw
+                ?: load.connectedLoadKw
 
-        val current = calculateLoadCurrent(oldLoad)
-
-        val updatedLoad =
-            oldLoad.copy(
-                designLoadKw = designLoadKw,
-                designCurrentA = current,
-                status = DesignCalculationStatus.CALCULATED
-            )
-
-        val updatedLoads =
-            project.electrical.loads.map { loadItem ->
-                if (loadItem.id == loadId) {
-                    updatedLoad
-                } else {
-                    loadItem
-                }
-            }
+        val finalCurrent =
+            current *
+                load.demandFactor
+                    .coerceIn(0.0, 1.0) *
+                load.diversityFactor
+                    .coerceIn(0.0, 1.0)
 
         return DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    loads = updatedLoads,
-                    status = DesignCalculationStatus.CALCULATED
+                    loads =
+                        project.electrical.loads.map {
+                            if (it.id == loadId) {
+                                it.copy(
+                                    designLoadKw = loadKw,
+                                    designCurrentA = finalCurrent,
+                                    status =
+                                        DesignCalculationStatus.CALCULATED
+                                )
+                            } else {
+                                it
+                            }
+                        },
+                    status =
+                        DesignCalculationStatus.IN_PROGRESS
                 )
             )
         )
     }
 
-    fun updateLoadStatus(
-        project: DesignProject,
-        loadId: String,
-        status: DesignCalculationStatus
-    ): DesignProject {
+    fun recalculate(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectCoreBridge
+            .recalculateElectrical(project)
 
-        val updatedLoads =
-            project.electrical.loads.map { loadItem ->
-                if (loadItem.id == loadId) {
-                    loadItem.copy(status = status)
-                } else {
-                    loadItem
-                }
-            }
-
-        return DesignProjects.save(
-            project.withElectrical(
-                project.electrical.copy(
-                    loads = updatedLoads
-                )
-            )
+    fun recalculateAll(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjects.save(
+            DesignProjectEngine.recalculateAll(project)
         )
-    }
 
     fun updatePanelCalculatedValues(
         project: DesignProject,
@@ -156,25 +159,27 @@ object ElectricalDesignModule {
             return project
         }
 
-        val updatedPanels =
-            project.electrical.panels.map { panelItem ->
-                if (panelItem.id == panelId) {
-                    panelItem.copy(
-                        designLoadKw = designLoadKw,
-                        designCurrentA = designCurrentA,
-                        shortCircuitKA = shortCircuitKA,
-                        status = DesignCalculationStatus.CALCULATED
-                    )
-                } else {
-                    panelItem
-                }
-            }
-
         return DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    panels = updatedPanels,
-                    status = DesignCalculationStatus.CALCULATED
+                    panels =
+                        project.electrical.panels.map {
+                            if (it.id == panelId) {
+                                it.copy(
+                                    designLoadKw =
+                                        designLoadKw,
+                                    designCurrentA =
+                                        designCurrentA,
+                                    shortCircuitKA =
+                                        shortCircuitKA,
+                                    status =
+                                        DesignCalculationStatus
+                                            .CALCULATED
+                                )
+                            } else {
+                                it
+                            }
+                        }
                 )
             )
         )
@@ -186,7 +191,8 @@ object ElectricalDesignModule {
         DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    status = DesignCalculationStatus.IN_PROGRESS
+                    status =
+                        DesignCalculationStatus.IN_PROGRESS
                 )
             )
         )
@@ -197,7 +203,8 @@ object ElectricalDesignModule {
         DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    status = DesignCalculationStatus.CALCULATED
+                    status =
+                        DesignCalculationStatus.CALCULATED
                 )
             )
         )
@@ -208,7 +215,8 @@ object ElectricalDesignModule {
         DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    status = DesignCalculationStatus.DATA_INCOMPLETE
+                    status =
+                        DesignCalculationStatus.DATA_INCOMPLETE
                 )
             )
         )
@@ -219,7 +227,8 @@ object ElectricalDesignModule {
         DesignProjects.save(
             project.withElectrical(
                 project.electrical.copy(
-                    status = DesignCalculationStatus.INVALID
+                    status =
+                        DesignCalculationStatus.INVALID
                 )
             )
         )
