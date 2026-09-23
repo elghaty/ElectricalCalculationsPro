@@ -3,6 +3,13 @@ package com.electrical.calculationspro.data
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjects
 
+/**
+ * Calculation history storage.
+ *
+ * This class intentionally remains an in-memory repository at this stage.
+ * Persistent project storage can replace this implementation later without
+ * changing the engineering calculators or project facade.
+ */
 class CalculationStorage {
 
     private val history =
@@ -141,21 +148,21 @@ class CalculationStorage {
             "PROFESSIONAL ENGINEERING DESIGN"
         )
 
-        activeProject?.let {
+        activeProject?.let { project ->
 
             builder.appendLine(
-                "Project: ${it.projectName}"
+                "Project: ${project.projectName}"
             )
 
             builder.appendLine(
-                "Project Number: ${it.projectNumber}"
+                "Project Number: ${project.projectNumber}"
             )
 
             builder.appendLine(
-                "Client: ${it.clientName}"
+                "Client: ${project.clientName}"
             )
 
-            it.electricalStandard?.let { standard ->
+            project.electricalStandard?.let { standard ->
                 builder.appendLine(
                     "Electrical Standard: ${standard.displayName}"
                 )
