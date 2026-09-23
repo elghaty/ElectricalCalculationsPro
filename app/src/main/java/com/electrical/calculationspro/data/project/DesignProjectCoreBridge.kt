@@ -2,7 +2,8 @@ package com.electrical.calculationspro.data.project
 
 import com.electrical.calculationspro.data.CalculationHistory
 import com.electrical.calculationspro.data.CalculationHistoryItem
-import com.electrical.calculationspro.data.Calculations
+import com.electrical.calculationspro.data.ConductorMaterial
+import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.EngineeringCalculationPackage
 import com.electrical.calculationspro.data.Standard
@@ -57,7 +58,7 @@ object DesignProjectCoreBridge {
         loadKw: Double,
         voltage: Double,
         powerFactor: Double,
-        currentType: com.electrical.calculationspro.data.CurrentType
+        currentType: CurrentType
     ): Double =
         ElectricalCalculations.calculateDesignCurrentFromKw(
             loadKw = loadKw,
@@ -71,8 +72,8 @@ object DesignProjectCoreBridge {
         length: Double,
         sectionMm2: Double,
         powerFactor: Double,
-        currentType: com.electrical.calculationspro.data.CurrentType,
-        material: com.electrical.calculationspro.data.ConductorMaterial,
+        currentType: CurrentType,
+        material: ConductorMaterial,
         voltage: Double
     ): Pair<Double, Double> =
         ElectricalCalculations.calculateVoltageDrop(
@@ -89,8 +90,8 @@ object DesignProjectCoreBridge {
         voltage: Double,
         length: Double,
         sectionMm2: Double,
-        material: com.electrical.calculationspro.data.ConductorMaterial,
-        currentType: com.electrical.calculationspro.data.CurrentType,
+        material: ConductorMaterial,
+        currentType: CurrentType,
         sourceIkKA: Double = 50.0
     ) =
         ElectricalCalculations.calculateShortCircuitCurrent(
