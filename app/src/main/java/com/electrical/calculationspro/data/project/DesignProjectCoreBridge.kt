@@ -1,42 +1,19 @@
 package com.electrical.calculationspro.data.project
 
 import com.electrical.calculationspro.data.CalculationHistory
+import com.electrical.calculationspro.data.CalculationHistoryItem
+import com.electrical.calculationspro.data.Calculations
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.EngineeringCalculationPackage
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.pumps.PumpCalculationInput
 import com.electrical.calculationspro.data.pumps.PumpCalculationResult
 
-/**
- * ================================================================
- * PROFESSIONAL DESIGN
- * Core Integration
- * ================================================================
- *
- * Integration point between:
- *
- * UI
- *   ↓
- * Project
- *   ↓
- * Professional Core
- *
- * This class does NOT duplicate engineering calculations.
- * All calculations remain inside ElectricalCalculations.
- * ================================================================
- */
-
 object DesignProjectCoreBridge {
 
-    /**
-     * Return active project.
-     */
-    fun activeProject(): DesignProject? =
+    fun getActiveProject(): DesignProject? =
         DesignProjects.getActive()
 
-    /**
-     * Create a new design and make it active.
-     */
     fun createProject(
         projectName: String,
         projectNumber: String = "",
@@ -44,59 +21,108 @@ object DesignProjectCoreBridge {
         consultantName: String = "",
         location: String = "",
         description: String = "",
-        standard: Standard = Standard.IEC
-    ): DesignProject {
-
-        return DesignProjects.create(
+        electricalStandard: Standard? = Standard.IEC
+    ): DesignProject =
+        DesignProjects.create(
             projectName = projectName,
             projectNumber = projectNumber,
             clientName = clientName,
             consultantName = consultantName,
             location = location,
             description = description,
-            standard = standard
+            electricalStandard = electricalStandard
         )
-    }
 
-    /**
-     * Save the project.
-     */
     fun saveProject(
         project: DesignProject
     ): DesignProject =
         DesignProjects.save(project)
 
-    /**
-     * Select active project.
-     */
     fun selectProject(
         projectId: String
     ): Boolean =
         DesignProjects.setActive(projectId)
 
-    /**
-     * Execute pump engineering through the
-     * existing Professional Core.
-     *
-     * No pump formula is implemented here.
-     */
+    fun validateProject(
+        project: DesignProject
+    ): DesignProjectValidationResult =
+        DesignProjectValidator.validate(project)
+
     fun calculatePump(
         input: PumpCalculationInput
     ): PumpCalculationResult =
-        ElectricalCalculations.calculatePump(
-            input
+        ElectricalCalculations.calculatePump(input)
+
+    fun calculateDesignCurrentFromKw(
+        loadKw: Double,
+        voltage: Double,
+        powerFactor: Double,
+        currentType: com.electrical.calculationspro.data.CurrentType
+    ): Double =
+        ElectricalCalculations.calculateDesignCurrentFromKw(
+            loadKw = loadKw,
+            voltage = voltage,
+            powerFactor = powerFactor,
+            currentType = currentType
         )
 
-    /**
-     * Store a completed engineering calculation
-     * in the calculation history.
-     */
+    fun calculateVoltageDrop(
+        current: Double,
+        length: Double,
+        sectionMm2: Double,
+        powerFactor: Double,
+        currentType: com.electrical.calculationspro.data.CurrentType,
+        material: com.electrical.calculationspro.data.ConductorMaterial,
+        voltage: Double
+    ): Pair<Double, Double> =
+        ElectricalCalculations.calculateVoltageDrop(
+            current = current,
+            length = length,
+            sectionMm2 = sectionMm2,
+            powerFactor = powerFactor,
+            currentType = currentType,
+            material = material,
+            voltage = voltage
+        )
+
+    fun calculateShortCircuitCurrent(
+        voltage: Double,
+        length: Double,
+        sectionMm2: Double,
+        material: com.electrical.calculationspro.data.ConductorMaterial,
+        currentType: com.electrical.calculationspro.data.CurrentType,
+        sourceIkKA: Double = 50.0
+    ) =
+        ElectricalCalculations.calculateShortCircuitCurrent(
+            voltage = voltage,
+            length = length,
+            sectionMm2 = sectionMm2,
+            material = material,
+            currentType = currentType,
+            sourceIkKA = sourceIkKA
+        )
+
+    fun calculateBreakerSelection(
+        designCurrentA: Double,
+        cableAmpacityA: Double,
+        prospectiveFaultCurrentKA: Double = 0.0,
+        breakerBreakingCapacityKA: Double = 0.0,
+        standard: Standard = Standard.IEC
+    ) =
+        ElectricalCalculations.calculateBreakerSelection(
+            designCurrentA = designCurrentA,
+            cableAmpacityA = cableAmpacityA,
+            prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
+            breakerBreakingCapacityKA = breakerBreakingCapacityKA,
+            standard = standard
+        )
+
     fun saveCalculation(
         calculationType: String,
         standard: Standard,
         summary: String,
         result: EngineeringCalculationPackage
-    ) =
+    ): CalculationHistoryItem =
         CalculationHistory.saveToActiveProject(
             calculationType = calculationType,
             standard = standard,
