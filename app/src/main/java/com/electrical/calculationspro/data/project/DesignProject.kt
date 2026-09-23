@@ -52,9 +52,12 @@ data class DesignProject(
     ): DesignProject =
         copy(
             electrical = design,
-            status = if (status == DesignStatus.DRAFT)
-                DesignStatus.IN_PROGRESS
-            else status,
+            status =
+                if (status == DesignStatus.DRAFT) {
+                    DesignStatus.IN_PROGRESS
+                } else {
+                    status
+                },
             updatedAtMillis = System.currentTimeMillis()
         )
 
@@ -63,9 +66,12 @@ data class DesignProject(
     ): DesignProject =
         copy(
             water = design,
-            status = if (status == DesignStatus.DRAFT)
-                DesignStatus.IN_PROGRESS
-            else status,
+            status =
+                if (status == DesignStatus.DRAFT) {
+                    DesignStatus.IN_PROGRESS
+                } else {
+                    status
+                },
             updatedAtMillis = System.currentTimeMillis()
         )
 
@@ -74,9 +80,12 @@ data class DesignProject(
     ): DesignProject =
         copy(
             sewage = design,
-            status = if (status == DesignStatus.DRAFT)
-                DesignStatus.IN_PROGRESS
-            else status,
+            status =
+                if (status == DesignStatus.DRAFT) {
+                    DesignStatus.IN_PROGRESS
+                } else {
+                    status
+                },
             updatedAtMillis = System.currentTimeMillis()
         )
 }
@@ -261,6 +270,9 @@ data class SewageDesign(
     val averageFlowM3PerDay: Double = 0.0,
     val peakFlowM3PerDay: Double = 0.0,
     val minimumFlowM3PerDay: Double = 0.0,
+
+    val staticHeadM: Double = 0.0,
+    val tdhM: Double = 0.0,
 
     val wetWell: WetWellDesign? = null,
     val risingMain: RisingMainDesign? = null,
