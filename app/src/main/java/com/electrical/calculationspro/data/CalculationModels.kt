@@ -1,17 +1,5 @@
 package com.electrical.calculationspro.data
 
-/**
- * ================================================================
- * PROFESSIONAL ENGINEERING CORE
- * Calculation Models
- * ================================================================
- *
- * Models only.
- * No UI.
- * No calculation formulas.
- * ================================================================
- */
-
 data class EngineeringValidationResult(
     val valid: Boolean,
     val errors: List<String> = emptyList(),
@@ -33,11 +21,6 @@ data class CalculationMetadata(
     val notes: List<String> = emptyList()
 )
 
-/**
- * Unified short-circuit result used by the Professional Core.
- *
- * Currents are in kA unless explicitly stated otherwise.
- */
 data class ShortCircuitResult(
     val sourceShortCircuitCurrentKA: Double = 0.0,
     val cableResistanceOhm: Double = 0.0,
@@ -134,5 +117,6 @@ data class CalculationHistoryItem(
     val timestampMillis: Long,
     val standard: Standard,
     val summary: String,
-    val result: EngineeringCalculationPackage
+    val result: EngineeringCalculationPackage,
+    val projectId: String? = null
 )
