@@ -1,18 +1,5 @@
 package com.electrical.calculationspro.data.project
 
-/**
- * ================================================================
- * PROFESSIONAL DESIGN
- * Project Validation
- * ================================================================
- *
- * Validation only.
- * No UI.
- * No Compose.
- * No engineering calculation formulas.
- * ================================================================
- */
-
 data class DesignProjectValidationResult(
     val valid: Boolean,
     val errors: List<String> = emptyList(),
@@ -29,24 +16,15 @@ object DesignProjectValidator {
         val warnings = mutableListOf<String>()
 
         if (project.projectName.isBlank()) {
-            errors.add("Project name is required.")
+            errors += "Project name is required."
         }
 
         if (project.projectNumber.isBlank()) {
-            warnings.add("Project number has not been defined.")
+            warnings += "Project number has not been defined."
         }
 
         if (project.clientName.isBlank()) {
-            warnings.add("Client name has not been defined.")
-        }
-
-        if (project.electrical.panels.isEmpty() &&
-            project.water.pumps.isEmpty() &&
-            project.sewage.pumps.isEmpty()
-        ) {
-            warnings.add(
-                "No engineering equipment has been added to the project."
-            )
+            warnings += "Client name has not been defined."
         }
 
         validateElectrical(
@@ -67,6 +45,18 @@ object DesignProjectValidator {
             warnings
         )
 
+        if (
+            project.electrical.panels.isEmpty() &&
+            project.electrical.loads.isEmpty() &&
+            project.water.pumps.isEmpty() &&
+            project.water.pipes.isEmpty() &&
+            project.sewage.pumps.isEmpty() &&
+            project.sewage.risingMain == null
+        ) {
+            warnings +=
+                "The project does not contain engineering design elements."
+        }
+
         return DesignProjectValidationResult(
             valid = errors.isEmpty(),
             errors = errors,
@@ -83,68 +73,89 @@ object DesignProjectValidator {
         design.panels.forEach { panel ->
 
             if (panel.name.isBlank()) {
-                errors.add("Electrical panel name is required.")
+                errors +=
+                    "Electrical panel name is required."
             }
 
             if (panel.voltageV <= 0.0) {
-                errors.add(
-                    "Panel ${panel.name} has an invalid voltage."
-                )
+                errors +=
+                    "Panel ${panel.name} has invalid voltage."
             }
 
             if (panel.phases !in 1..3) {
-                errors.add(
-                    "Panel ${panel.name} has an invalid phase count."
-                )
+                errors +=
+                    "Panel ${panel.name} has invalid phase count."
             }
         }
 
         design.loads.forEach { load ->
 
             if (load.name.isBlank()) {
-                errors.add("Electrical load name is required.")
+                errors +=
+                    "Electrical load name is required."
+            }
+
+            if (load.quantity <= 0) {
+                errors +=
+                    "Load ${load.name} has invalid quantity."
             }
 
             if (load.connectedLoadKw < 0.0) {
-                errors.add(
-                    "Load ${load.name} has an invalid connected load."
-                )
+                errors +=
+                    "Load ${load.name} has invalid connected load."
             }
 
-            if (load.powerFactor <= 0.0 ||
+            if (
+                load.powerFactor <= 0.0 ||
                 load.powerFactor > 1.0
             ) {
-                errors.add(
-                    "Load ${load.name} has an invalid power factor."
-                )
+                errors +=
+                    "Load ${load.name} has invalid power factor."
             }
         }
 
         design.cables.forEach { cable ->
 
             if (cable.name.isBlank()) {
-                errors.add("Cable name is required.")
+                errors +=
+                    "Cable name is required."
             }
 
             if (cable.lengthM < 0.0) {
-                errors.add(
-                    "Cable ${cable.name} has an invalid length."
-                )
+                errors +=
+                    "Cable ${cable.name} has invalid length."
             }
 
             if (cable.sectionMm2 < 0.0) {
-                errors.add(
-                    "Cable ${cable.name} has an invalid section."
-                )
+                errors +=
+                    "Cable ${cable.name} has invalid section."
             }
         }
 
-        if (design.sld == null &&
-            design.panels.isNotEmpty()
+        design.breakers.forEach { breaker ->
+
+            if (breaker.name.isBlank()) {
+                errors +=
+                    "Breaker name is required."
+            }
+
+            if (breaker.ratingA < 0.0) {
+                errors +=
+                    "Breaker ${breaker.name} has invalid rating."
+            }
+
+            if (breaker.breakingCapacityKA < 0.0) {
+                errors +=
+                    "Breaker ${breaker.name} has invalid breaking capacity."
+            }
+        }
+
+        if (
+            design.panels.isNotEmpty() &&
+            design.sld == null
         ) {
-            warnings.add(
+            warnings +=
                 "Electrical panels exist but no SLD has been created."
-            )
         }
     }
 
@@ -155,56 +166,61 @@ object DesignProjectValidator {
     ) {
 
         if (design.requiredFlowM3PerHour < 0.0) {
-            errors.add(
+            errors +=
                 "Water design flow cannot be negative."
-            )
         }
 
-        if (design.staticHeadM < 0.0 ||
+        if (
+            design.staticHeadM < 0.0 ||
             design.frictionHeadM < 0.0 ||
             design.minorLossHeadM < 0.0 ||
             design.requiredPressureHeadM < 0.0
         ) {
-            errors.add(
-                "Water hydraulic head values cannot be negative."
-            )
+            errors +=
+                "Water head values cannot be negative."
         }
 
         design.pipes.forEach { pipe ->
 
+            if (pipe.name.isBlank()) {
+                errors +=
+                    "Water pipe name is required."
+            }
+
             if (pipe.diameterMm <= 0.0) {
-                errors.add(
-                    "Water pipe ${pipe.name} has an invalid diameter."
-                )
+                errors +=
+                    "Water pipe ${pipe.name} has invalid diameter."
             }
 
             if (pipe.lengthM < 0.0) {
-                errors.add(
-                    "Water pipe ${pipe.name} has an invalid length."
-                )
+                errors +=
+                    "Water pipe ${pipe.name} has invalid length."
             }
         }
 
         design.pumps.forEach { pump ->
 
+            if (pump.name.isBlank()) {
+                errors +=
+                    "Water pump name is required."
+            }
+
             if (pump.flowM3PerHour <= 0.0) {
-                warnings.add(
-                    "Water pump ${pump.name} has no design flow."
-                )
+                warnings +=
+                    "Water pump ${pump.name} has no valid design flow."
             }
 
             if (pump.headM <= 0.0) {
-                warnings.add(
-                    "Water pump ${pump.name} has no design head."
-                )
+                warnings +=
+                    "Water pump ${pump.name} has no valid design head."
             }
 
-            if (pump.manufacturer.isBlank() ||
+            if (
+                pump.manufacturer.isBlank() ||
                 pump.model.isBlank()
             ) {
-                warnings.add(
+                warnings +=
                     "Water pump ${pump.name} has no verified manufacturer/model data."
-                )
             }
         }
     }
@@ -216,95 +232,98 @@ object DesignProjectValidator {
     ) {
 
         if (design.averageFlowM3PerDay < 0.0) {
-            errors.add(
+            errors +=
                 "Average sewage flow cannot be negative."
-            )
         }
 
         if (design.peakFlowM3PerDay < 0.0) {
-            errors.add(
+            errors +=
                 "Peak sewage flow cannot be negative."
-            )
         }
 
         if (design.minimumFlowM3PerDay < 0.0) {
-            errors.add(
+            errors +=
                 "Minimum sewage flow cannot be negative."
-            )
         }
 
-        if (design.peakFlowM3PerDay <
+        if (
+            design.peakFlowM3PerDay <
             design.averageFlowM3PerDay
         ) {
-            warnings.add(
+            warnings +=
                 "Peak sewage flow is lower than average flow."
-            )
         }
 
         design.wetWell?.let { wetWell ->
 
+            if (wetWell.name.isBlank()) {
+                errors +=
+                    "Wet well name is required."
+            }
+
             if (wetWell.diameterM <= 0.0) {
-                errors.add(
-                    "Wet well ${wetWell.name} has an invalid diameter."
-                )
+                errors +=
+                    "Wet well ${wetWell.name} has invalid diameter."
             }
 
             if (wetWell.effectiveDepthM <= 0.0) {
-                errors.add(
-                    "Wet well ${wetWell.name} has an invalid effective depth."
-                )
+                errors +=
+                    "Wet well ${wetWell.name} has invalid effective depth."
             }
         }
 
-        design.risingMain?.let { risingMain ->
+        design.risingMain?.let { main ->
 
-            if (risingMain.diameterMm <= 0.0) {
-                errors.add(
-                    "Rising main ${risingMain.name} has an invalid diameter."
-                )
+            if (main.name.isBlank()) {
+                errors +=
+                    "Rising main name is required."
             }
 
-            if (risingMain.lengthM < 0.0) {
-                errors.add(
-                    "Rising main ${risingMain.name} has an invalid length."
-                )
+            if (main.diameterMm <= 0.0) {
+                errors +=
+                    "Rising main ${main.name} has invalid diameter."
+            }
+
+            if (main.lengthM < 0.0) {
+                errors +=
+                    "Rising main ${main.name} has invalid length."
             }
         }
 
-        if (design.pumps.isNotEmpty()) {
+        val dutyCount =
+            design.pumps.count { it.duty }
 
-            val dutyCount =
-                design.pumps.count {
-                    it.duty
-                }
+        if (
+            design.pumps.isNotEmpty() &&
+            dutyCount == 0
+        ) {
+            errors +=
+                "Sewage design has pumps but no duty pump."
+        }
 
-            if (dutyCount == 0) {
-                errors.add(
-                    "Sewage design has pumps but no duty pump."
-                )
+        design.pumps.forEach { pump ->
+
+            if (pump.name.isBlank()) {
+                errors +=
+                    "Sewage pump name is required."
             }
 
-            design.pumps.forEach { pump ->
+            if (pump.flowM3PerHour <= 0.0) {
+                warnings +=
+                    "Sewage pump ${pump.name} has no valid design flow."
+            }
 
-                if (pump.flowM3PerHour <= 0.0) {
-                    warnings.add(
-                        "Sewage pump ${pump.name} has no design flow."
-                    )
-                }
+            if (pump.headM <= 0.0) {
+                warnings +=
+                    "Sewage pump ${pump.name} has no valid design head."
+            }
 
-                if (pump.headM <= 0.0) {
-                    warnings.add(
-                        "Sewage pump ${pump.name} has no design head."
-                    )
-                }
-
-                if (pump.manufacturer.isBlank() ||
-                    pump.model.isBlank()
-                ) {
-                    warnings.add(
-                        "Sewage pump ${pump.name} has no verified manufacturer/model data."
-                    )
-                }
+            if (
+                pump.manufacturer.isBlank() ||
+                pump.model.isBlank()
+            ) {
+                warnings +=
+                    "Sewage pump ${pump.name} has no verified manufacturer/model data."
             }
         }
     }
