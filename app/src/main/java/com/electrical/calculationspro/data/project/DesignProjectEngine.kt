@@ -3,15 +3,6 @@ package com.electrical.calculationspro.data.project
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.calculators.LoadCalculator
 
-/**
- * Single project-level orchestration boundary.
- *
- * UI must change DesignProject through this engine instead of maintaining
- * independent calculation state.
- *
- * Mathematical, code and catalogue calculations remain in their
- * dedicated engineering layers.
- */
 object DesignProjectEngine {
 
     fun recalculateElectrical(
