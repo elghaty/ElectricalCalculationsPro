@@ -9,24 +9,23 @@ import com.electrical.calculationspro.data.EngineeringCalculationPackage
 import com.electrical.calculationspro.data.SldEngineeringFacade
 import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNetwork
-import com.electrical.calculationspro.data.SldNodeType
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.pumps.PumpCalculationInput
 import com.electrical.calculationspro.data.pumps.PumpCalculationResult
 
 /**
- * Single application bridge between UI and engineering/project layers.
+ * Central application bridge between the Android UI,
+ * project layer and engineering calculation layer.
  *
  * UI
  *  ↓
  * DesignProjectCoreBridge
  *  ↓
- * Project Engine / Engineering Facades
+ * DesignProjectEngine / Engineering Facades
  *  ↓
  * Calculators / Standards / Catalogs
  *
- * This class contains orchestration only.
- * Engineering formulas remain inside the calculation engines.
+ * No engineering formulas are implemented here.
  */
 object DesignProjectCoreBridge {
 
@@ -112,7 +111,7 @@ object DesignProjectCoreBridge {
         DesignProjectEngine.archive(project)
 
     // ============================================================
-    // PROJECT RECALCULATION
+    // RECALCULATION
     // ============================================================
 
     fun recalculateElectrical(
@@ -160,46 +159,23 @@ object DesignProjectCoreBridge {
 
     fun validateAndSave(
         project: DesignProject
-    ): Pair<
-        DesignProject,
-        DesignProjectValidationResult
-        > =
+    ): Pair<DesignProject, DesignProjectValidationResult> =
         DesignProjectEngine.validateAndSave(project)
 
     // ============================================================
-    // SLD PROJECT WORKFLOW
+    // SLD
     // ============================================================
 
-    /**
-     * Returns the canonical SLD network.
-     *
-     * If the project already contains a saved SLD,
-     * the stored network is returned.
-     *
-     * Otherwise the network is generated from the
-     * actual electrical project entities.
-     */
     fun getProjectSld(
         project: DesignProject
     ): SldNetwork =
         DesignProjectSldBridge.rebuildFromProject(project)
 
-    /**
-     * Returns the active project's SLD.
-     */
     fun getActiveProjectSld(): SldNetwork? {
-
-        val project =
-            getActiveProject()
-                ?: return null
-
+        val project = getActiveProject() ?: return null
         return getProjectSld(project)
     }
 
-    /**
-     * Saves an SLD network into the supplied project
-     * and persists the updated project.
-     */
     fun saveProjectSld(
         project: DesignProject,
         network: SldNetwork,
@@ -218,9 +194,6 @@ object DesignProjectCoreBridge {
         return DesignProjects.save(updatedProject)
     }
 
-    /**
-     * Saves an SLD network into the active project.
-     */
     fun saveActiveProjectSld(
         network: SldNetwork,
         name: String = "Main SLD",
@@ -232,10 +205,6 @@ object DesignProjectCoreBridge {
             source = source
         )
 
-    /**
-     * Builds a new SLD directly from the actual
-     * electrical design entities.
-     */
     fun buildProjectSld(
         project: DesignProject
     ): SldNetwork =
@@ -243,21 +212,6 @@ object DesignProjectCoreBridge {
             project.electrical
         )
 
-    /**
-     * Calculates the complete SLD engineering package.
-     *
-     * Workflow:
-     *
-     * SLD
-     *  ↓
-     * Short Circuit
-     *  ↓
-     * Cable Sizing
-     *  ↓
-     * Protection Coordination
-     *  ↓
-     * Panel Schedule
-     */
     fun calculateProjectSld(
         project: DesignProject,
         panelNodeId: String? = null,
@@ -269,32 +223,21 @@ object DesignProjectCoreBridge {
         val network =
             getProjectSld(project)
 
-        require(network.nodes.isNotEmpty()) {
-            "SLD network is empty."
-        }
-
         val selectedPanel =
             panelNodeId
-                ?: network.nodes
-                    .firstOrNull {
-                        it.type == SldNodeType.PANEL
-                    }
-                    ?.id
+                ?: network.nodes.firstOrNull {
+                    it.type.name.equals("PANEL", ignoreCase = true)
+                }?.id
 
         return SldEngineeringFacade.calculateComplete(
             network = network,
             panelNodeId = selectedPanel,
             voltageFactor = voltageFactor,
-            voltageDropLimitPercent =
-                voltageDropLimitPercent,
-            shortCircuitTimeSeconds =
-                shortCircuitTimeSeconds
+            voltageDropLimitPercent = voltageDropLimitPercent,
+            shortCircuitTimeSeconds = shortCircuitTimeSeconds
         )
     }
 
-    /**
-     * Calculates and saves the supplied SLD network.
-     */
     fun calculateAndSaveProjectSld(
         project: DesignProject,
         network: SldNetwork,
@@ -311,25 +254,21 @@ object DesignProjectCoreBridge {
 
         val selectedPanel =
             panelNodeId
-                ?: network.nodes
-                    .firstOrNull {
-                        it.type == SldNodeType.PANEL
-                    }
-                    ?.id
+                ?: network.nodes.firstOrNull {
+                    it.type.name.equals("PANEL", ignoreCase = true)
+                }?.id
 
         return SldEngineeringFacade.calculateComplete(
             network = network,
             panelNodeId = selectedPanel,
             voltageFactor = voltageFactor,
-            voltageDropLimitPercent =
-                voltageDropLimitPercent,
-            shortCircuitTimeSeconds =
-                shortCircuitTimeSeconds
+            voltageDropLimitPercent = voltageDropLimitPercent,
+            shortCircuitTimeSeconds = shortCircuitTimeSeconds
         )
     }
 
     // ============================================================
-    // PUMP ENGINEERING
+    // PUMP
     // ============================================================
 
     fun calculatePump(
@@ -400,15 +339,13 @@ object DesignProjectCoreBridge {
         ElectricalCalculations.calculateBreakerSelection(
             designCurrentA = designCurrentA,
             cableAmpacityA = cableAmpacityA,
-            prospectiveFaultCurrentKA =
-                prospectiveFaultCurrentKA,
-            breakerBreakingCapacityKA =
-                breakerBreakingCapacityKA,
+            prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
+            breakerBreakingCapacityKA = breakerBreakingCapacityKA,
             standard = standard
         )
 
     // ============================================================
-    // CALCULATION HISTORY
+    // HISTORY
     // ============================================================
 
     fun saveCalculation(
