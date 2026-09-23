@@ -12,13 +12,6 @@ import com.electrical.calculationspro.data.catalog.Manufacturer
 import com.electrical.calculationspro.data.catalog.PanelCatalogItem
 import com.electrical.calculationspro.data.catalog.TransformerCatalogItem
 
-/**
- * Engineering-to-catalog adapter.
- *
- * This layer never invents manufacturer data.
- * A catalog result is considered valid only when the available
- * catalog dataset actually satisfies the requested requirements.
- */
 object EquipmentSelectionCalculator {
 
     data class EquipmentCatalogResult<T>(
@@ -28,10 +21,6 @@ object EquipmentSelectionCalculator {
         val message: String,
         val standard: Standard = Standard.IEC
     )
-
-    // ------------------------------------------------------------------------
-    // BREAKER
-    // ------------------------------------------------------------------------
 
     fun selectBreaker(
         ratedCurrentA: Double,
@@ -54,13 +43,13 @@ object EquipmentSelectionCalculator {
             )
         }
 
-        val result = CatalogSelector.selectBreaker(
-            designCurrentA = ratedCurrentA,
-            shortCircuitKA = breakingCapacityKA,
-            manufacturer = manufacturer
-        )
-
-        return result.toCoreResult(standard)
+        return CatalogSelector
+            .selectBreaker(
+                designCurrentA = ratedCurrentA,
+                shortCircuitKA = breakingCapacityKA,
+                manufacturer = manufacturer
+            )
+            .toCoreResult(standard)
     }
 
     fun selectBreaker(
@@ -75,10 +64,6 @@ object EquipmentSelectionCalculator {
             standard = standard
         )
 
-    // ------------------------------------------------------------------------
-    // CABLE
-    // ------------------------------------------------------------------------
-
     fun selectCable(
         sectionMm2: Double,
         manufacturer: Manufacturer? = null,
@@ -92,12 +77,12 @@ object EquipmentSelectionCalculator {
             )
         }
 
-        val result = CatalogSelector.selectCable(
-            requiredSectionMm2 = sectionMm2,
-            manufacturer = manufacturer
-        )
-
-        return result.toCoreResult(standard)
+        return CatalogSelector
+            .selectCable(
+                requiredSectionMm2 = sectionMm2,
+                manufacturer = manufacturer
+            )
+            .toCoreResult(standard)
     }
 
     fun selectCable(
@@ -145,13 +130,17 @@ object EquipmentSelectionCalculator {
             )
         }
 
-        val result = CatalogSelector.selectCable(
-            requiredSectionMm2 = sectionMm2,
-            manufacturer = manufacturer
-        )
+        val catalogResult =
+            CatalogSelector.selectCable(
+                requiredSectionMm2 = sectionMm2,
+                manufacturer = manufacturer
+            )
 
         val candidates =
-            (listOfNotNull(result.selected) + result.alternatives)
+            buildList {
+                catalogResult.selected?.let(::add)
+                addAll(catalogResult.alternatives)
+            }
                 .asSequence()
                 .filter {
                     it.conductorMaterial.equals(
@@ -190,10 +179,6 @@ object EquipmentSelectionCalculator {
         )
     }
 
-    // ------------------------------------------------------------------------
-    // TRANSFORMER
-    // ------------------------------------------------------------------------
-
     fun selectTransformer(
         requiredKva: Double,
         standard: Standard = Standard.IEC
@@ -210,10 +195,6 @@ object EquipmentSelectionCalculator {
             .selectTransformer(requiredKva)
             .toCoreResult(standard)
     }
-
-    // ------------------------------------------------------------------------
-    // GENERATOR
-    // ------------------------------------------------------------------------
 
     fun selectGenerator(
         requiredKva: Double,
@@ -232,10 +213,6 @@ object EquipmentSelectionCalculator {
             .toCoreResult(standard)
     }
 
-    // ------------------------------------------------------------------------
-    // BUSBAR
-    // ------------------------------------------------------------------------
-
     fun selectBusbar(
         ratedCurrentA: Double,
         standard: Standard = Standard.IEC
@@ -252,10 +229,6 @@ object EquipmentSelectionCalculator {
             .selectBusbar(ratedCurrentA)
             .toCoreResult(standard)
     }
-
-    // ------------------------------------------------------------------------
-    // CONTACTOR
-    // ------------------------------------------------------------------------
 
     fun selectContactor(
         motorCurrentA: Double,
@@ -274,10 +247,6 @@ object EquipmentSelectionCalculator {
             .toCoreResult(standard)
     }
 
-    // ------------------------------------------------------------------------
-    // PANEL
-    // ------------------------------------------------------------------------
-
     fun selectPanel(
         ratedCurrentA: Double,
         standard: Standard = Standard.IEC
@@ -295,38 +264,26 @@ object EquipmentSelectionCalculator {
             .toCoreResult(standard)
     }
 
-    // ------------------------------------------------------------------------
-    // RESULT ADAPTER
-    // ------------------------------------------------------------------------
-
     private fun <T> EquipmentSelectionResult<T>.toCoreResult(
         standard: Standard
-    ): EquipmentCatalogResult<T> {
-
-        return EquipmentCatalogResult(
-            selected = selected,
-            alternatives = alternatives,
-            valid = valid,
-            message = message,
+    ): EquipmentCatalogResult<T> =
+        EquipmentCatalogResult(
+            selected = this.selected,
+            alternatives = this.alternatives,
+            valid = this.valid,
+            message = this.message,
             standard = standard
         )
-    }
-
-    // ------------------------------------------------------------------------
-    // INVALID
-    // ------------------------------------------------------------------------
 
     private fun <T> invalid(
         message: String,
         standard: Standard
-    ): EquipmentCatalogResult<T> {
-
-        return EquipmentCatalogResult(
+    ): EquipmentCatalogResult<T> =
+        EquipmentCatalogResult(
             selected = null,
             alternatives = emptyList(),
             valid = false,
             message = message,
             standard = standard
         )
-    }
 }
