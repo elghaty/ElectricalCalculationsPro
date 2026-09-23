@@ -2,6 +2,7 @@ package com.electrical.calculationspro.data.water
 
 import com.electrical.calculationspro.data.project.DesignCalculationStatus
 import com.electrical.calculationspro.data.project.DesignProject
+import com.electrical.calculationspro.data.project.DesignProjectEngine
 import com.electrical.calculationspro.data.project.DesignProjects
 import com.electrical.calculationspro.data.project.WaterPipe
 import com.electrical.calculationspro.data.project.WaterPump
@@ -100,7 +101,8 @@ object WaterDesignModule {
     fun recalculate(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateWater(project)
+        DesignProjectEngine
+            .recalculateWater(project)
 
     fun updateCalculatedTdh(
         project: DesignProject,
