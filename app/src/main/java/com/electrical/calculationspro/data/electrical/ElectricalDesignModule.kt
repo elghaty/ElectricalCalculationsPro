@@ -3,6 +3,7 @@ package com.electrical.calculationspro.data.electrical
 import com.electrical.calculationspro.data.project.DesignCalculationStatus
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
+import com.electrical.calculationspro.data.project.DesignProjectEngine
 import com.electrical.calculationspro.data.project.DesignProjectValidator
 import com.electrical.calculationspro.data.project.DesignProjects
 import com.electrical.calculationspro.data.project.ElectricalLoad
@@ -54,12 +55,10 @@ object ElectricalDesignModule {
 
     fun calculateLoadCurrent(
         load: ElectricalLoad
-    ): Double {
-
-        return ElectricalDesignEngine
+    ): Double =
+        ElectricalDesignEngine
             .calculateLoadCurrent(load)
             ?: 0.0
-    }
 
     fun updateLoadCalculatedValues(
         project: DesignProject,
@@ -76,24 +75,28 @@ object ElectricalDesignModule {
         val current =
             ElectricalDesignEngine
                 .calculateLoadCurrent(load)
-                ?: return DesignProjects.save(
-                    project.withElectrical(
-                        project.electrical.copy(
-                            loads =
-                                project.electrical.loads.map {
-                                    if (it.id == loadId) {
-                                        it.copy(
-                                            status =
-                                                DesignCalculationStatus
-                                                    .DATA_INCOMPLETE
-                                        )
-                                    } else {
-                                        it
-                                    }
+
+        if (current == null) {
+
+            return DesignProjects.save(
+                project.withElectrical(
+                    project.electrical.copy(
+                        loads =
+                            project.electrical.loads.map {
+                                if (it.id == loadId) {
+                                    it.copy(
+                                        status =
+                                            DesignCalculationStatus
+                                                .DATA_INCOMPLETE
+                                    )
+                                } else {
+                                    it
                                 }
-                        )
+                            }
                     )
                 )
+            )
+        }
 
         val loadKw =
             load.designLoadKw
@@ -117,7 +120,8 @@ object ElectricalDesignModule {
                                     designLoadKw = loadKw,
                                     designCurrentA = finalCurrent,
                                     status =
-                                        DesignCalculationStatus.CALCULATED
+                                        DesignCalculationStatus
+                                            .CALCULATED
                                 )
                             } else {
                                 it
@@ -139,9 +143,8 @@ object ElectricalDesignModule {
     fun recalculateAll(
         project: DesignProject
     ): DesignProject =
-        DesignProjects.save(
-            DesignProjectEngine.recalculateAll(project)
-        )
+        DesignProjectEngine
+            .recalculateAll(project)
 
     fun updatePanelCalculatedValues(
         project: DesignProject,
@@ -233,6 +236,8 @@ object ElectricalDesignModule {
             )
         )
 
-    fun validate(project: DesignProject) =
+    fun validate(
+        project: DesignProject
+    ) =
         DesignProjectValidator.validate(project)
 }
