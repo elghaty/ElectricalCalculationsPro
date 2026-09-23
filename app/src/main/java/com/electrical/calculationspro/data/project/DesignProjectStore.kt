@@ -2,6 +2,13 @@ package com.electrical.calculationspro.data.project
 
 import com.electrical.calculationspro.data.Standard
 
+/**
+ * Temporary project repository.
+ *
+ * This class intentionally isolates storage from the design model.
+ * It can later be replaced by Room/SQLite without changing
+ * engineering engines or UI.
+ */
 class DesignProjectStore {
 
     private val projects =
@@ -20,23 +27,35 @@ class DesignProjectStore {
         electricalStandard: Standard? = Standard.IEC
     ): DesignProject {
 
-        require(projectName.trim().isNotEmpty()) {
+        require(
+            projectName.trim().isNotEmpty()
+        ) {
             "Project name cannot be empty."
         }
 
         val project =
             DesignProject(
-                projectName = projectName.trim(),
-                projectNumber = projectNumber.trim(),
-                clientName = clientName.trim(),
-                consultantName = consultantName.trim(),
-                location = location.trim(),
-                description = description.trim(),
-                electricalStandard = electricalStandard
+                projectName =
+                    projectName.trim(),
+                projectNumber =
+                    projectNumber.trim(),
+                clientName =
+                    clientName.trim(),
+                consultantName =
+                    consultantName.trim(),
+                location =
+                    location.trim(),
+                description =
+                    description.trim(),
+                electricalStandard =
+                    electricalStandard
             )
 
-        projects[project.id] = project
-        activeProjectId = project.id
+        projects[project.id] =
+            project
+
+        activeProjectId =
+            project.id
 
         return project
     }
@@ -46,16 +65,27 @@ class DesignProjectStore {
         project: DesignProject
     ): DesignProject {
 
-        val updated =
-            project.updateTimestamp()
+        val existing =
+            projects[project.id]
 
-        projects[updated.id] = updated
+        val updated =
+            project.copy(
+                createdAtMillis =
+                    existing?.createdAtMillis
+                        ?: project.createdAtMillis,
+                updatedAtMillis =
+                    System.currentTimeMillis()
+            )
+
+        projects[updated.id] =
+            updated
 
         if (
             activeProjectId == null ||
-            projects.containsKey(updated.id)
+            !projects.containsKey(activeProjectId)
         ) {
-            activeProjectId = updated.id
+            activeProjectId =
+                updated.id
         }
 
         return updated
@@ -71,8 +101,15 @@ class DesignProjectStore {
             projects[projectId]
                 ?: return null
 
-        return save(
+        val transformed =
             transform(current)
+
+        return save(
+            transformed.copy(
+                id = current.id,
+                createdAtMillis =
+                    current.createdAtMillis
+            )
         )
     }
 
@@ -100,11 +137,17 @@ class DesignProjectStore {
         projectId: String
     ): Boolean {
 
-        if (!projects.containsKey(projectId)) {
+        if (
+            !projects.containsKey(
+                projectId
+            )
+        ) {
             return false
         }
 
-        activeProjectId = projectId
+        activeProjectId =
+            projectId
+
         return true
     }
 
@@ -114,10 +157,14 @@ class DesignProjectStore {
     ): Boolean {
 
         val removed =
-            projects.remove(projectId) != null
+            projects.remove(
+                projectId
+            ) != null
 
-        if (activeProjectId == projectId) {
-
+        if (
+            activeProjectId ==
+            projectId
+        ) {
             activeProjectId =
                 projects.values
                     .maxByOrNull {
