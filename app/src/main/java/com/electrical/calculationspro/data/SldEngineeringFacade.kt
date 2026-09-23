@@ -3,7 +3,7 @@ package com.electrical.calculationspro.data
 /**
  * ================================================================
  * PROFESSIONAL ENGINEERING CORE
- * SLD FACADE
+ * SLD ENGINEERING FACADE
  * ================================================================
  *
  * UI
@@ -12,12 +12,75 @@ package com.electrical.calculationspro.data
  *  ↓
  * SldEngineeringFacade
  *  ↓
- * SLD Engineering Engines
+ * ┌───────────────────────────────────────────────┐
+ * │ SLD Validation                                │
+ * │ Upstream Engineering                          │
+ * │ Short Circuit                                 │
+ * │ Cable Sizing                                  │
+ * │ Protection Coordination                       │
+ * │ Panel Schedule                                │
+ * └───────────────────────────────────────────────┘
  *
- * The UI must not access SLD engines directly.
+ * The UI must not access engineering engines directly.
+ *
  * ================================================================
  */
 object SldEngineeringFacade {
+
+    /**
+     * ------------------------------------------------------------
+     * VALIDATION
+     * ------------------------------------------------------------
+     */
+    fun validate(
+        network: SldNetwork
+    ): SldDesignValidator.Result {
+
+        return SldDesignValidator.validate(
+            network
+        )
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * UPSTREAM ENGINEERING
+     * ------------------------------------------------------------
+     *
+     * Calculates downstream demand propagated toward the source.
+     *
+     * LOAD
+     *   ↓
+     * FEEDER
+     *   ↓
+     * PANEL
+     *   ↓
+     * BUS
+     *   ↓
+     * MAIN FEEDER
+     *   ↓
+     * TRANSFORMER / GENERATOR
+     *   ↓
+     * SOURCE
+     */
+    fun calculateUpstream(
+        network: SldNetwork
+    ): SldUpstreamEngineering.Result {
+
+        require(network.nodes.isNotEmpty()) {
+            "SLD network is empty."
+        }
+
+        val validation =
+            SldDesignValidator.validate(network)
+
+        require(validation.valid) {
+            buildValidationMessage(validation)
+        }
+
+        return SldUpstreamEngineering.calculate(
+            network
+        )
+    }
 
     /**
      * ------------------------------------------------------------
@@ -31,6 +94,13 @@ object SldEngineeringFacade {
 
         require(network.nodes.isNotEmpty()) {
             "SLD network is empty."
+        }
+
+        val validation =
+            SldDesignValidator.validate(network)
+
+        require(validation.valid) {
+            buildValidationMessage(validation)
         }
 
         return SldShortCircuitEngine.calculate(
@@ -55,11 +125,23 @@ object SldEngineeringFacade {
             "SLD network is empty."
         }
 
+        val validation =
+            SldDesignValidator.validate(network)
+
+        require(validation.valid) {
+            buildValidationMessage(validation)
+        }
+
+        val upstream =
+            calculateUpstream(network)
+
         return SldCableSizingEngine.calculate(
             network = network,
             shortCircuitStudy = shortCircuitStudy,
-            voltageDropLimitPercent = voltageDropLimitPercent,
-            shortCircuitTimeSeconds = shortCircuitTimeSeconds
+            voltageDropLimitPercent =
+                voltageDropLimitPercent,
+            shortCircuitTimeSeconds =
+                shortCircuitTimeSeconds
         )
     }
 
@@ -77,6 +159,13 @@ object SldEngineeringFacade {
 
         require(network.nodes.isNotEmpty()) {
             "SLD network is empty."
+        }
+
+        val validation =
+            SldDesignValidator.validate(network)
+
+        require(validation.valid) {
+            buildValidationMessage(validation)
         }
 
         return SldPanelScheduleEngine.calculate(
@@ -102,6 +191,13 @@ object SldEngineeringFacade {
             "SLD network is empty."
         }
 
+        val validation =
+            SldDesignValidator.validate(network)
+
+        require(validation.valid) {
+            buildValidationMessage(validation)
+        }
+
         return SldProtectionCoordinationEngine.calculate(
             network = network,
             shortCircuitStudy = shortCircuitStudy,
@@ -114,12 +210,17 @@ object SldEngineeringFacade {
      * COMPLETE SLD ENGINEERING STUDY
      * ------------------------------------------------------------
      *
-     * The complete workflow is:
+     * Unified engineering sequence:
      *
-     * 1. Short Circuit
-     * 2. Cable Sizing
-     * 3. Protection Coordination
-     * 4. Panel Schedule when a panel is supplied
+     * 1. Validate topology
+     * 2. Upstream load aggregation
+     * 3. Short circuit
+     * 4. Cable sizing
+     * 5. Protection coordination
+     * 6. Panel schedule
+     *
+     * This makes the SLD a real engineering network rather than
+     * a drawing-only object.
      */
     fun calculateComplete(
         network: SldNetwork,
@@ -133,33 +234,73 @@ object SldEngineeringFacade {
             "SLD network is empty."
         }
 
+        val validation =
+            SldDesignValidator.validate(network)
+
+        require(validation.valid) {
+            buildValidationMessage(validation)
+        }
+
+        /**
+         * --------------------------------------------------------
+         * 1. UPSTREAM
+         * --------------------------------------------------------
+         */
+        val upstream =
+            SldUpstreamEngineering.calculate(
+                network
+            )
+
+        /**
+         * --------------------------------------------------------
+         * 2. SHORT CIRCUIT
+         * --------------------------------------------------------
+         */
         val shortCircuitStudy =
             calculateShortCircuit(
                 network = network,
                 voltageFactor = voltageFactor
             )
 
+        /**
+         * --------------------------------------------------------
+         * 3. CABLE SIZING
+         * --------------------------------------------------------
+         */
         val cableSizingStudy =
-            calculateCableSizing(
+            SldCableSizingEngine.calculate(
                 network = network,
-                shortCircuitStudy = shortCircuitStudy,
+                shortCircuitStudy =
+                    shortCircuitStudy,
                 voltageDropLimitPercent =
                     voltageDropLimitPercent,
                 shortCircuitTimeSeconds =
                     shortCircuitTimeSeconds
             )
 
+        /**
+         * --------------------------------------------------------
+         * 4. PROTECTION
+         * --------------------------------------------------------
+         */
         val protectionStudy =
-            calculateProtectionCoordination(
+            SldProtectionCoordinationEngine.calculate(
                 network = network,
-                shortCircuitStudy = shortCircuitStudy,
-                cableSizingStudy = cableSizingStudy
+                shortCircuitStudy =
+                    shortCircuitStudy,
+                cableSizingStudy =
+                    cableSizingStudy
             )
 
+        /**
+         * --------------------------------------------------------
+         * 5. PANEL SCHEDULE
+         * --------------------------------------------------------
+         */
         val panelSchedule =
             panelNodeId?.let { id ->
 
-                calculatePanelSchedule(
+                SldPanelScheduleEngine.calculate(
                     network = network,
                     panelNodeId = id,
                     cableSizingStudy =
@@ -169,16 +310,67 @@ object SldEngineeringFacade {
                 )
             }
 
+        /**
+         * --------------------------------------------------------
+         * 6. COMPLETE RESULT
+         * --------------------------------------------------------
+         */
         return SldEngineeringPackage(
-            shortCircuit =
-                shortCircuitStudy,
-            cableSizing =
-                cableSizingStudy,
+            upstream = upstream,
+            shortCircuit = shortCircuitStudy,
+            cableSizing = cableSizingStudy,
             protectionCoordination =
                 protectionStudy,
             panelSchedule =
                 panelSchedule
         )
+    }
+
+    /**
+     * ------------------------------------------------------------
+     * VALIDATION MESSAGE
+     * ------------------------------------------------------------
+     */
+    private fun buildValidationMessage(
+        validation: SldDesignValidator.Result
+    ): String {
+
+        return buildString {
+
+            appendLine(
+                "SLD topology validation failed."
+            )
+
+            if (validation.errors.isNotEmpty()) {
+
+                appendLine()
+
+                appendLine(
+                    "Errors:"
+                )
+
+                validation.errors.forEach {
+                    appendLine(
+                        "- [${it.code}] ${it.message}"
+                    )
+                }
+            }
+
+            if (validation.warnings.isNotEmpty()) {
+
+                appendLine()
+
+                appendLine(
+                    "Warnings:"
+                )
+
+                validation.warnings.forEach {
+                    appendLine(
+                        "- [${it.code}] ${it.message}"
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -188,6 +380,7 @@ object SldEngineeringFacade {
  * ================================================================
  */
 data class SldEngineeringPackage(
+    val upstream: SldUpstreamEngineering.Result,
     val shortCircuit: SldShortCircuitStudy,
     val cableSizing: SldCableSizingStudy,
     val protectionCoordination: SldProtectionCoordinationResult,
