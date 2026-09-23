@@ -48,6 +48,15 @@ object DesignProjectCoreBridge {
             transform = transform
         )
 
+    fun updateProject(
+        project: DesignProject,
+        transform: (DesignProject) -> DesignProject
+    ): DesignProject =
+        DesignProjectEngine.updateProject(
+            project = project,
+            transform = transform
+        )
+
     fun selectProject(
         projectId: String
     ): Boolean =
@@ -58,14 +67,20 @@ object DesignProjectCoreBridge {
     ): DesignProject =
         DesignProjectEngine.recalculateElectrical(project)
 
-    fun updateProject(
-        project: DesignProject,
-        transform: (DesignProject) -> DesignProject
+    fun recalculateWater(
+        project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.updateProject(
-            project = project,
-            transform = transform
-        )
+        DesignProjectEngine.recalculateWater(project)
+
+    fun recalculateSewage(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectEngine.recalculateSewage(project)
+
+    fun recalculateAll(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectEngine.recalculateAll(project)
 
     fun validateProject(
         project: DesignProject
@@ -144,8 +159,10 @@ object DesignProjectCoreBridge {
         ElectricalCalculations.calculateBreakerSelection(
             designCurrentA = designCurrentA,
             cableAmpacityA = cableAmpacityA,
-            prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
-            breakerBreakingCapacityKA = breakerBreakingCapacityKA,
+            prospectiveFaultCurrentKA =
+                prospectiveFaultCurrentKA,
+            breakerBreakingCapacityKA =
+                breakerBreakingCapacityKA,
             standard = standard
         )
 
