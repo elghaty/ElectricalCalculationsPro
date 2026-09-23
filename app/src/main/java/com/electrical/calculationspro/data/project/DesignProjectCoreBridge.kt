@@ -1,11 +1,15 @@
 package com.electrical.calculationspro.data.project
 
+import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.CalculationHistory
 import com.electrical.calculationspro.data.CalculationHistoryItem
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.EngineeringCalculationPackage
+import com.electrical.calculationspro.data.SldEngineeringFacade
+import com.electrical.calculationspro.data.SldEngineeringPackage
+import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.pumps.PumpCalculationInput
 import com.electrical.calculationspro.data.pumps.PumpCalculationResult
@@ -13,8 +17,13 @@ import com.electrical.calculationspro.data.pumps.PumpCalculationResult
 /**
  * Single application bridge between UI and engineering/project layers.
  *
- * UI must use this facade instead of directly coordinating
- * discipline engines or individual calculators.
+ * UI
+ *  ↓
+ * DesignProjectCoreBridge
+ *  ↓
+ * Project Engine / Engineering Facades
+ *  ↓
+ * Calculators / Standards / Catalogs
  */
 object DesignProjectCoreBridge {
 
@@ -24,9 +33,7 @@ object DesignProjectCoreBridge {
     fun getProject(
         projectId: String
     ): DesignProject? =
-        DesignProjects.getById(
-            projectId
-        )
+        DesignProjects.getById(projectId)
 
     fun getProjects(): List<DesignProject> =
         DesignProjects.getAll()
@@ -53,9 +60,7 @@ object DesignProjectCoreBridge {
     fun saveProject(
         project: DesignProject
     ): DesignProject =
-        DesignProjects.save(
-            project
-        )
+        DesignProjects.save(project)
 
     fun updateProject(
         projectId: String,
@@ -78,65 +83,47 @@ object DesignProjectCoreBridge {
     fun selectProject(
         projectId: String
     ): Boolean =
-        DesignProjects.setActive(
-            projectId
-        )
+        DesignProjects.setActive(projectId)
 
     fun deleteProject(
         projectId: String
     ): Boolean =
-        DesignProjects.delete(
-            projectId
-        )
+        DesignProjects.delete(projectId)
 
     fun startProject(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.start(
-            project
-        )
+        DesignProjectEngine.start(project)
 
     fun completeProject(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.complete(
-            project
-        )
+        DesignProjectEngine.complete(project)
 
     fun archiveProject(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.archive(
-            project
-        )
+        DesignProjectEngine.archive(project)
 
     fun recalculateElectrical(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateElectrical(
-            project
-        )
+        DesignProjectEngine.recalculateElectrical(project)
 
     fun recalculateWater(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateWater(
-            project
-        )
+        DesignProjectEngine.recalculateWater(project)
 
     fun recalculateSewage(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateSewage(
-            project
-        )
+        DesignProjectEngine.recalculateSewage(project)
 
     fun recalculateAll(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateAll(
-            project
-        )
+        DesignProjectEngine.recalculateAll(project)
 
     fun recalculate(
         project: DesignProject,
@@ -150,16 +137,12 @@ object DesignProjectCoreBridge {
     fun calculateAndValidate(
         project: DesignProject
     ): ProjectCalculationResult =
-        DesignProjectEngine.calculateAndValidate(
-            project
-        )
+        DesignProjectEngine.calculateAndValidate(project)
 
     fun validateProject(
         project: DesignProject
     ): DesignProjectValidationResult =
-        DesignProjectEngine.validate(
-            project
-        )
+        DesignProjectEngine.validate(project)
 
     fun validateAndSave(
         project: DesignProject
@@ -167,16 +150,167 @@ object DesignProjectCoreBridge {
         DesignProject,
         DesignProjectValidationResult
         > =
-        DesignProjectEngine.validateAndSave(
-            project
+        DesignProjectEngine.validateAndSave(project)
+
+    // ============================================================
+    // SLD PROJECT WORKFLOW
+    // ============================================================
+
+    /**
+     * Returns the canonical SLD network stored in the project.
+     *
+     * If the project does not yet contain an SLD, the network is
+     * generated from the actual ElectricalDesign entities.
+     */
+    fun getProjectSld(
+        project: DesignProject
+    ): SldNetwork =
+        DesignProjectSldBridge.rebuildFromProject(project)
+
+    /**
+     * Returns the active project's canonical SLD.
+     */
+    fun getActiveProjectSld(): SldNetwork? {
+
+        val project =
+            getActiveProject()
+                ?: return null
+
+        return getProjectSld(project)
+    }
+
+    /**
+     * Saves the complete SLD network into the active project.
+     */
+    fun saveProjectSld(
+        project: DesignProject,
+        network: SldNetwork,
+        name: String = "Main SLD",
+        source: String = "Electrical Design"
+    ): DesignProject =
+        DesignProjectSldBridge.saveNetwork(
+            project = project,
+            network = network,
+            name = name,
+            source = source
+        ).let {
+            DesignProjects.save(it)
+        }
+
+    /**
+     * Saves the SLD directly to the active project.
+     */
+    fun saveActiveProjectSld(
+        network: SldNetwork,
+        name: String = "Main SLD",
+        source: String = "Electrical Design"
+    ): DesignProject? =
+        DesignProjectSldBridge
+            .saveNetworkToActiveProject(
+                network = network,
+                name = name,
+                source = source
+            )
+
+    /**
+     * Creates an SLD from the project's electrical design.
+     */
+    fun buildProjectSld(
+        project: DesignProject
+    ): SldNetwork =
+        DesignProjectSldBridge
+            .buildFromElectricalDesign(
+                project.electrical
+            )
+
+    /**
+     * Calculates the complete engineering SLD package.
+     *
+     * Workflow:
+     *
+     * SLD
+     *  ↓
+     * Short Circuit
+     *  ↓
+     * Cable Sizing
+     *  ↓
+     * Protection Coordination
+     *  ↓
+     * Panel Schedule
+     */
+    fun calculateProjectSld(
+        project: DesignProject,
+        panelNodeId: String? = null,
+        voltageFactor: Double = 1.05,
+        voltageDropLimitPercent: Double = 3.0,
+        shortCircuitTimeSeconds: Double = 1.0
+    ): SldEngineeringPackage {
+
+        val network =
+            getProjectSld(project)
+
+        val selectedPanel =
+            panelNodeId
+                ?: network.nodes
+                    .firstOrNull {
+                        it.type ==
+                            com.electrical.calculationspro.data.SldNodeType.PANEL
+                    }
+                    ?.id
+
+        return SldEngineeringFacade.calculateComplete(
+            network = network,
+            panelNodeId = selectedPanel,
+            voltageFactor = voltageFactor,
+            voltageDropLimitPercent =
+                voltageDropLimitPercent,
+            shortCircuitTimeSeconds =
+                shortCircuitTimeSeconds
         )
+    }
+
+    /**
+     * Calculates and persists the current SLD.
+     */
+    fun calculateAndSaveProjectSld(
+        project: DesignProject,
+        network: SldNetwork,
+        panelNodeId: String? = null,
+        voltageFactor: Double = 1.05,
+        voltageDropLimitPercent: Double = 3.0,
+        shortCircuitTimeSeconds: Double = 1.0
+    ): SldEngineeringPackage {
+
+        val saved =
+            saveProjectSld(
+                project = project,
+                network = network
+            )
+
+        val selectedPanel =
+            panelNodeId
+                ?: network.nodes
+                    .firstOrNull {
+                        it.type ==
+                            com.electrical.calculationspro.data.SldNodeType.PANEL
+                    }
+                    ?.id
+
+        return SldEngineeringFacade.calculateComplete(
+            network = network,
+            panelNodeId = selectedPanel,
+            voltageFactor = voltageFactor,
+            voltageDropLimitPercent =
+                voltageDropLimitPercent,
+            shortCircuitTimeSeconds =
+                shortCircuitTimeSeconds
+        )
+    }
 
     fun calculatePump(
         input: PumpCalculationInput
     ): PumpCalculationResult =
-        ElectricalCalculations.calculatePump(
-            input
-        )
+        ElectricalCalculations.calculatePump(input)
 
     fun calculateDesignCurrentFromKw(
         loadKw: Double,
