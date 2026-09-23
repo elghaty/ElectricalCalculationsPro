@@ -39,15 +39,46 @@ object DesignProjectCoreBridge {
     ): DesignProject =
         DesignProjects.save(project)
 
+    fun updateProject(
+        projectId: String,
+        transform: (DesignProject) -> DesignProject
+    ): DesignProject? =
+        DesignProjects.update(
+            projectId = projectId,
+            transform = transform
+        )
+
     fun selectProject(
         projectId: String
     ): Boolean =
         DesignProjects.setActive(projectId)
 
+    fun recalculateElectrical(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectEngine.recalculateElectrical(project)
+
+    fun updateProject(
+        project: DesignProject,
+        transform: (DesignProject) -> DesignProject
+    ): DesignProject =
+        DesignProjectEngine.updateProject(
+            project = project,
+            transform = transform
+        )
+
     fun validateProject(
         project: DesignProject
     ): DesignProjectValidationResult =
         DesignProjectValidator.validate(project)
+
+    fun validateAndSave(
+        project: DesignProject
+    ): Pair<
+        DesignProject,
+        DesignProjectValidationResult
+        > =
+        DesignProjectEngine.validateAndSave(project)
 
     fun calculatePump(
         input: PumpCalculationInput
