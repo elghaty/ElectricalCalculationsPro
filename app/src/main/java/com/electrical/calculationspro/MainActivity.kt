@@ -40,7 +40,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,6 +49,7 @@ import androidx.compose.runtime.setValue
 
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,11 +62,11 @@ import com.electrical.calculationspro.ui.screens.AboutScreen
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
 import com.electrical.calculationspro.ui.screens.EngineeringCalculatorScreen
 import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
+import com.electrical.calculationspro.ui.screens.PumpEngineeringScreen
 import com.electrical.calculationspro.ui.screens.sld.SldEditorScreen
 
 import com.electrical.calculationspro.ui.theme.DarkBackground
 import com.electrical.calculationspro.ui.theme.DarkSurface
-import com.electrical.calculationspro.ui.theme.DividerColor
 import com.electrical.calculationspro.ui.theme.PrimaryTeal
 import com.electrical.calculationspro.ui.theme.TextPrimary
 import com.electrical.calculationspro.ui.theme.TextSecondary
@@ -171,6 +171,15 @@ private val calculationItems = listOf(
     ),
 
     CalculationItem(
+        id = "pump_engineering",
+        englishName = "Pump Engineering",
+        arabicName = "حسابات الطلمبات",
+        englishDescription = "Water & sewage flow, head and energy",
+        arabicDescription = "مياه وصرف: تصرف وهيد واستهلاك",
+        icon = Icons.Outlined.Speed
+    ),
+
+    CalculationItem(
         id = "resistance",
         englishName = "Resistance",
         arabicName = "المقاومة",
@@ -253,6 +262,16 @@ private fun ElectricalCalculationsApp() {
             "sld" -> {
 
                 SldEditorScreen(
+                    language = language,
+                    onBack = {
+                        selectedScreen = "home"
+                    }
+                )
+            }
+
+            "pump_engineering" -> {
+
+                PumpEngineeringScreen(
                     language = language,
                     onBack = {
                         selectedScreen = "home"
@@ -539,9 +558,9 @@ private fun HomeScreen(
         Text(
             text =
                 if (arabic)
-                    "أدوات التصميم والحسابات الكهربائية"
+                    "أدوات التصميم والحسابات الكهربائية والمياه والصرف"
                 else
-                    "Electrical design and engineering calculations",
+                    "Electrical, water and sewage engineering design tools",
 
             color = TextSecondary,
 
@@ -595,8 +614,7 @@ private fun HomeScreen(
 
                         contentDescription = null,
 
-                        tint =
-                            androidx.compose.ui.graphics.Color.White,
+                        tint = Color.White,
 
                         modifier = Modifier
                             .width(36.dp)
@@ -764,8 +782,7 @@ private fun CalculationCard(
 
                     contentDescription = null,
 
-                    tint =
-                        androidx.compose.ui.graphics.Color.White,
+                    tint = Color.White,
 
                     modifier = Modifier
                         .width(28.dp)
