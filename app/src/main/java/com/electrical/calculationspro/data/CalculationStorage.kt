@@ -3,49 +3,25 @@ package com.electrical.calculationspro.data
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjects
 
-/**
- * ================================================================
- * PROFESSIONAL ENGINEERING CORE
- * Calculation Storage
- * ================================================================
- *
- * Stores calculation history and links calculations to the
- * currently active professional design project.
- *
- * No UI.
- * No Compose.
- * No engineering formulas.
- * ================================================================
- */
-
 class CalculationStorage {
 
     private val history =
         mutableListOf<CalculationHistoryItem>()
 
-    /**
-     * Add a calculation to history.
-     */
     fun add(
         item: CalculationHistoryItem
     ) {
-
-        history.removeAll {
-            it.id == item.id
-        }
-
+        history.removeAll { it.id == item.id }
         history.add(item)
     }
 
-    /**
-     * Create and add a calculation history item.
-     */
     fun save(
         calculationType: String,
         standard: Standard,
         summary: String,
         result: EngineeringCalculationPackage,
-        timestampMillis: Long = System.currentTimeMillis()
+        timestampMillis: Long = System.currentTimeMillis(),
+        projectId: String? = DesignProjects.getActive()?.id
     ): CalculationHistoryItem {
 
         val item =
@@ -55,7 +31,8 @@ class CalculationStorage {
                 timestampMillis = timestampMillis,
                 standard = standard,
                 summary = summary,
-                result = result
+                result = result,
+                projectId = projectId
             )
 
         add(item)
@@ -63,59 +40,30 @@ class CalculationStorage {
         return item
     }
 
-    /**
-     * Save calculation and associate it with the
-     * active professional design.
-     *
-     * The calculation itself remains represented by
-     * EngineeringCalculationPackage.
-     *
-     * Project association is represented by the project
-     * design state rather than duplicating calculation data.
-     */
     fun saveToActiveProject(
         calculationType: String,
         standard: Standard,
         summary: String,
         result: EngineeringCalculationPackage
-    ): CalculationHistoryItem {
+    ): CalculationHistoryItem =
+        save(
+            calculationType = calculationType,
+            standard = standard,
+            summary = summary,
+            result = result,
+            projectId = DesignProjects.getActive()?.id
+        )
 
-        val item =
-            save(
-                calculationType = calculationType,
-                standard = standard,
-                summary = summary,
-                result = result
-            )
-
-        return item
-    }
-
-    /**
-     * Return all calculations.
-     *
-     * Newest first.
-     */
     fun getAll(): List<CalculationHistoryItem> =
         history
-            .sortedByDescending {
-                it.timestampMillis
-            }
+            .sortedByDescending { it.timestampMillis }
             .toList()
 
-    /**
-     * Find calculation by ID.
-     */
     fun getById(
         id: String
     ): CalculationHistoryItem? =
-        history.firstOrNull {
-            it.id == id
-        }
+        history.firstOrNull { it.id == id }
 
-    /**
-     * Find by calculation type.
-     */
     fun findByType(
         calculationType: String
     ): List<CalculationHistoryItem> =
@@ -130,23 +78,24 @@ class CalculationStorage {
                 it.timestampMillis
             }
 
-    /**
-     * Find by standard.
-     */
     fun findByStandard(
         standard: Standard
     ): List<CalculationHistoryItem> =
         history
-            .filter {
-                it.standard == standard
-            }
+            .filter { it.standard == standard }
             .sortedByDescending {
                 it.timestampMillis
             }
 
-    /**
-     * Delete one calculation.
-     */
+    fun findByProject(
+        projectId: String
+    ): List<CalculationHistoryItem> =
+        history
+            .filter { it.projectId == projectId }
+            .sortedByDescending {
+                it.timestampMillis
+            }
+
     fun delete(
         id: String
     ): Boolean =
@@ -154,44 +103,24 @@ class CalculationStorage {
             it.id == id
         }
 
-    /**
-     * Delete all calculation history.
-     */
     fun clear() {
         history.clear()
     }
 
-    /**
-     * Number of calculations.
-     */
     fun size(): Int =
         history.size
 
-    /**
-     * Whether history is empty.
-     */
     fun isEmpty(): Boolean =
         history.isEmpty()
 
-    /**
-     * Return the currently active design project.
-     */
     fun getActiveProject(): DesignProject? =
         DesignProjects.getActive()
 
-    /**
-     * Associate a project with the current application state.
-     */
     fun setActiveProject(
         projectId: String
     ): Boolean =
-        DesignProjects.setActive(
-            projectId
-        )
+        DesignProjects.setActive(projectId)
 
-    /**
-     * Export calculation history summary.
-     */
     fun exportSummary(): String {
 
         if (history.isEmpty()) {
@@ -212,23 +141,25 @@ class CalculationStorage {
             "PROFESSIONAL ENGINEERING DESIGN"
         )
 
-        if (activeProject != null) {
+        activeProject?.let {
 
             builder.appendLine(
-                "Project: ${activeProject.projectName}"
+                "Project: ${it.projectName}"
             )
 
             builder.appendLine(
-                "Project Number: ${activeProject.projectNumber}"
+                "Project Number: ${it.projectNumber}"
             )
 
             builder.appendLine(
-                "Client: ${activeProject.clientName}"
+                "Client: ${it.clientName}"
             )
 
-            builder.appendLine(
-                "Standard: ${activeProject.standard.displayName}"
-            )
+            it.electricalStandard?.let { standard ->
+                builder.appendLine(
+                    "Electrical Standard: ${standard.displayName}"
+                )
+            }
         }
 
         builder.appendLine(
@@ -243,6 +174,10 @@ class CalculationStorage {
 
             builder.appendLine(
                 "ID: ${item.id}"
+            )
+
+            builder.appendLine(
+                "Project ID: ${item.projectId ?: "-"}"
             )
 
             builder.appendLine(
@@ -271,28 +206,9 @@ class CalculationStorage {
         return builder.toString()
     }
 
-    private fun createId(): String {
-
-        return buildString {
-
-            append(
-                System.currentTimeMillis()
-            )
-
-            append("-")
-
-            append(
-                history.size + 1
-            )
-        }
-    }
+    private fun createId(): String =
+        "${System.currentTimeMillis()}-${history.size + 1}"
 }
-
-/**
- * ================================================================
- * APPLICATION CALCULATION HISTORY
- * ================================================================
- */
 
 object CalculationHistory {
 
@@ -301,9 +217,8 @@ object CalculationHistory {
 
     fun add(
         item: CalculationHistoryItem
-    ) {
+    ) =
         storage.add(item)
-    }
 
     fun save(
         calculationType: String,
@@ -342,25 +257,25 @@ object CalculationHistory {
     fun findByType(
         calculationType: String
     ): List<CalculationHistoryItem> =
-        storage.findByType(
-            calculationType
-        )
+        storage.findByType(calculationType)
 
     fun findByStandard(
         standard: Standard
     ): List<CalculationHistoryItem> =
-        storage.findByStandard(
-            standard
-        )
+        storage.findByStandard(standard)
+
+    fun findByProject(
+        projectId: String
+    ): List<CalculationHistoryItem> =
+        storage.findByProject(projectId)
 
     fun delete(
         id: String
     ): Boolean =
         storage.delete(id)
 
-    fun clear() {
+    fun clear() =
         storage.clear()
-    }
 
     fun size(): Int =
         storage.size()
@@ -374,9 +289,7 @@ object CalculationHistory {
     fun setActiveProject(
         projectId: String
     ): Boolean =
-        storage.setActiveProject(
-            projectId
-        )
+        storage.setActiveProject(projectId)
 
     fun exportSummary(): String =
         storage.exportSummary()
