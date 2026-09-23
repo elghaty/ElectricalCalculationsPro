@@ -1,5 +1,6 @@
 package com.electrical.calculationspro.data.project
 
+import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.Standard
 import java.util.UUID
 
@@ -214,8 +215,22 @@ data class ElectricalSldDesign(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "Main SLD",
     val source: String = "",
+
+    /*
+     * Legacy identifiers retained for compatibility.
+     */
     val nodes: List<String> = emptyList(),
     val connections: List<String> = emptyList(),
+
+    /*
+     * Canonical engineering SLD model.
+     *
+     * This is now the authoritative SLD representation.
+     * UI state must be converted to/from this network through
+     * DesignProjectSldBridge.
+     */
+    val network: SldNetwork? = null,
+
     val status: DesignCalculationStatus =
         DesignCalculationStatus.NOT_STARTED
 )
