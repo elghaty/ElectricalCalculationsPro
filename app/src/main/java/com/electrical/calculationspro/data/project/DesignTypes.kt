@@ -1,18 +1,5 @@
 package com.electrical.calculationspro.data.project
 
-/**
- * ================================================================
- * PROFESSIONAL DESIGN
- * Design Types
- * ================================================================
- *
- * Domain definitions only.
- * No UI.
- * No Compose.
- * No calculation formulas.
- * ================================================================
- */
-
 enum class DesignDiscipline {
     ELECTRICAL,
     WATER,
@@ -37,6 +24,7 @@ enum class DesignCalculationStatus {
 
 enum class DesignElementType {
     PROJECT,
+
     ELECTRICAL_PANEL,
     ELECTRICAL_LOAD,
     CABLE,
@@ -45,10 +33,14 @@ enum class DesignElementType {
     GENERATOR,
     PROTECTION,
     SLD,
+
     WATER_NETWORK,
+    WATER_PIPE,
+    WATER_PUMP,
+
     SEWAGE_NETWORK,
-    PIPE,
-    PUMP,
+    SEWAGE_PIPE,
+    SEWAGE_PUMP,
     WET_WELL,
     RISING_MAIN
 }
