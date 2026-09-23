@@ -2,6 +2,7 @@ package com.electrical.calculationspro.data.sewage
 
 import com.electrical.calculationspro.data.project.DesignCalculationStatus
 import com.electrical.calculationspro.data.project.DesignProject
+import com.electrical.calculationspro.data.project.DesignProjectEngine
 import com.electrical.calculationspro.data.project.DesignProjects
 import com.electrical.calculationspro.data.project.RisingMainDesign
 import com.electrical.calculationspro.data.project.SewagePump
@@ -105,7 +106,8 @@ object SewageDesignModule {
     fun recalculate(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateSewage(project)
+        DesignProjectEngine
+            .recalculateSewage(project)
 
     fun updateRisingMainCalculatedValues(
         project: DesignProject,
@@ -146,7 +148,8 @@ object SewageDesignModule {
                             minorLossHeadM =
                                 minorLossHeadM,
                             status =
-                                DesignCalculationStatus.CALCULATED
+                                DesignCalculationStatus
+                                    .CALCULATED
                         ),
                     status =
                         DesignCalculationStatus.IN_PROGRESS
