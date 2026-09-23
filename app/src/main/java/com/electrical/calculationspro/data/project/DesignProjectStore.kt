@@ -20,6 +20,10 @@ class DesignProjectStore {
         electricalStandard: Standard? = Standard.IEC
     ): DesignProject {
 
+        require(projectName.trim().isNotEmpty()) {
+            "Project name cannot be empty."
+        }
+
         val project =
             DesignProject(
                 projectName = projectName.trim(),
@@ -46,9 +50,30 @@ class DesignProjectStore {
             project.updateTimestamp()
 
         projects[updated.id] = updated
-        activeProjectId = updated.id
+
+        if (
+            activeProjectId == null ||
+            projects.containsKey(updated.id)
+        ) {
+            activeProjectId = updated.id
+        }
 
         return updated
+    }
+
+    @Synchronized
+    fun update(
+        projectId: String,
+        transform: (DesignProject) -> DesignProject
+    ): DesignProject? {
+
+        val current =
+            projects[projectId]
+                ?: return null
+
+        return save(
+            transform(current)
+        )
     }
 
     @Synchronized
@@ -69,7 +94,6 @@ class DesignProjectStore {
             .sortedByDescending {
                 it.updatedAtMillis
             }
-            .toList()
 
     @Synchronized
     fun setActive(
@@ -93,6 +117,7 @@ class DesignProjectStore {
             projects.remove(projectId) != null
 
         if (activeProjectId == projectId) {
+
             activeProjectId =
                 projects.values
                     .maxByOrNull {
@@ -106,6 +131,7 @@ class DesignProjectStore {
 
     @Synchronized
     fun clear() {
+
         projects.clear()
         activeProjectId = null
     }
@@ -147,6 +173,15 @@ object DesignProjects {
         project: DesignProject
     ): DesignProject =
         store.save(project)
+
+    fun update(
+        projectId: String,
+        transform: (DesignProject) -> DesignProject
+    ): DesignProject? =
+        store.update(
+            projectId = projectId,
+            transform = transform
+        )
 
     fun getActive(): DesignProject? =
         store.getActive()
