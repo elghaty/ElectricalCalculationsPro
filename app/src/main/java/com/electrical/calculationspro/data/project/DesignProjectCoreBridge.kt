@@ -10,10 +10,26 @@ import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.pumps.PumpCalculationInput
 import com.electrical.calculationspro.data.pumps.PumpCalculationResult
 
+/**
+ * Single application bridge between UI and engineering/project layers.
+ *
+ * UI must use this facade instead of directly coordinating
+ * discipline engines or individual calculators.
+ */
 object DesignProjectCoreBridge {
 
     fun getActiveProject(): DesignProject? =
         DesignProjects.getActive()
+
+    fun getProject(
+        projectId: String
+    ): DesignProject? =
+        DesignProjects.getById(
+            projectId
+        )
+
+    fun getProjects(): List<DesignProject> =
+        DesignProjects.getAll()
 
     fun createProject(
         projectName: String,
@@ -37,7 +53,9 @@ object DesignProjectCoreBridge {
     fun saveProject(
         project: DesignProject
     ): DesignProject =
-        DesignProjects.save(project)
+        DesignProjects.save(
+            project
+        )
 
     fun updateProject(
         projectId: String,
@@ -60,32 +78,88 @@ object DesignProjectCoreBridge {
     fun selectProject(
         projectId: String
     ): Boolean =
-        DesignProjects.setActive(projectId)
+        DesignProjects.setActive(
+            projectId
+        )
+
+    fun deleteProject(
+        projectId: String
+    ): Boolean =
+        DesignProjects.delete(
+            projectId
+        )
+
+    fun startProject(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectEngine.start(
+            project
+        )
+
+    fun completeProject(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectEngine.complete(
+            project
+        )
+
+    fun archiveProject(
+        project: DesignProject
+    ): DesignProject =
+        DesignProjectEngine.archive(
+            project
+        )
 
     fun recalculateElectrical(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateElectrical(project)
+        DesignProjectEngine.recalculateElectrical(
+            project
+        )
 
     fun recalculateWater(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateWater(project)
+        DesignProjectEngine.recalculateWater(
+            project
+        )
 
     fun recalculateSewage(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateSewage(project)
+        DesignProjectEngine.recalculateSewage(
+            project
+        )
 
     fun recalculateAll(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine.recalculateAll(project)
+        DesignProjectEngine.recalculateAll(
+            project
+        )
+
+    fun recalculate(
+        project: DesignProject,
+        discipline: DesignDiscipline
+    ): DesignProject =
+        DesignProjectEngine.recalculate(
+            project = project,
+            discipline = discipline
+        )
+
+    fun calculateAndValidate(
+        project: DesignProject
+    ): ProjectCalculationResult =
+        DesignProjectEngine.calculateAndValidate(
+            project
+        )
 
     fun validateProject(
         project: DesignProject
     ): DesignProjectValidationResult =
-        DesignProjectValidator.validate(project)
+        DesignProjectEngine.validate(
+            project
+        )
 
     fun validateAndSave(
         project: DesignProject
@@ -93,12 +167,16 @@ object DesignProjectCoreBridge {
         DesignProject,
         DesignProjectValidationResult
         > =
-        DesignProjectEngine.validateAndSave(project)
+        DesignProjectEngine.validateAndSave(
+            project
+        )
 
     fun calculatePump(
         input: PumpCalculationInput
     ): PumpCalculationResult =
-        ElectricalCalculations.calculatePump(input)
+        ElectricalCalculations.calculatePump(
+            input
+        )
 
     fun calculateDesignCurrentFromKw(
         loadKw: Double,
