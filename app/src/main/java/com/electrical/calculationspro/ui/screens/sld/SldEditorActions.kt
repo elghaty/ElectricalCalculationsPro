@@ -30,36 +30,23 @@ class SldEditorActions(
                 ?: return
 
         val projectNetwork =
-            DesignProjectCoreBridge.getProjectSld(
-                project
-            )
+            DesignProjectCoreBridge.getProjectSld(project)
 
         if (projectNetwork.nodes.isEmpty()) {
             return
         }
 
-        state.nodes =
-            projectNetwork.nodes
-
-        state.connections =
-            projectNetwork.connections
-
+        state.nodes = projectNetwork.nodes
+        state.connections = projectNetwork.connections
         state.selectedNodeId =
-            projectNetwork.nodes
-                .firstOrNull()
-                ?.id
-
-        state.selectedConnectionId =
-            null
-
-        state.connectionStartId =
-            null
+            projectNetwork.nodes.firstOrNull()?.id
+        state.selectedConnectionId = null
+        state.connectionStartId = null
     }
 
     fun saveProjectNetwork() {
 
-        val current =
-            network()
+        val current = network()
 
         if (current.nodes.isEmpty()) {
             return
@@ -72,9 +59,8 @@ class SldEditorActions(
         )
     }
 
-    fun resetNodeEditor(
-        type: SldNodeType
-    ) {
+    fun resetNodeEditor(type: SldNodeType) {
+
         state.editingNodeId = null
         state.nodeType = type
         state.name = type.name
@@ -89,9 +75,8 @@ class SldEditorActions(
         state.showNodeDialog = true
     }
 
-    fun editNode(
-        node: SldNode
-    ) {
+    fun editNode(node: SldNode) {
+
         state.editingNodeId = node.id
         state.nodeType = node.type
         state.name = node.name
@@ -100,12 +85,9 @@ class SldEditorActions(
         state.pf = node.powerFactor.toString()
         state.demand = node.demandFactor.toString()
         state.kva = node.ratedKva.toString()
-        state.transformerZ =
-            node.transformerPercentZ.toString()
-        state.generatorXd =
-            node.generatorXdSubtransient.toString()
-        state.sourceMva =
-            node.sourceShortCircuitMva.toString()
+        state.transformerZ = node.transformerPercentZ.toString()
+        state.generatorXd = node.generatorXdSubtransient.toString()
+        state.sourceMva = node.sourceShortCircuitMva.toString()
         state.showNodeDialog = true
     }
 
@@ -159,53 +141,34 @@ class SldEditorActions(
                 ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
-        val existingId =
-            state.editingNodeId
+        val existingId = state.editingNodeId
 
         if (existingId == null) {
 
             val node =
                 SldNode(
-                    id =
-                        "node-${System.currentTimeMillis()}",
-                    name =
-                        state.name.ifBlank {
-                            state.nodeType.name
-                        },
-                    type =
-                        state.nodeType,
-                    x =
-                        120f +
-                            (state.nodes.size % 6) * 260f,
-                    y =
-                        180f +
-                            (state.nodes.size / 6) * 180f,
-                    voltage =
-                        voltage,
-                    loadKw =
-                        load,
-                    powerFactor =
-                        pf,
-                    demandFactor =
-                        demand,
-                    ratedKva =
-                        kva,
-                    transformerPercentZ =
-                        transformerZ,
-                    generatorXdSubtransient =
-                        generatorXd,
-                    sourceShortCircuitMva =
-                        sourceMva
+                    id = "node-${System.currentTimeMillis()}",
+                    name = state.name.ifBlank {
+                        state.nodeType.name
+                    },
+                    type = state.nodeType,
+                    x = 120f +
+                        (state.nodes.size % 6) * 260f,
+                    y = 180f +
+                        (state.nodes.size / 6) * 180f,
+                    voltage = voltage,
+                    loadKw = load,
+                    powerFactor = pf,
+                    demandFactor = demand,
+                    ratedKva = kva,
+                    transformerPercentZ = transformerZ,
+                    generatorXdSubtransient = generatorXd,
+                    sourceShortCircuitMva = sourceMva
                 )
 
-            state.nodes =
-                state.nodes + node
-
-            state.selectedNodeId =
-                node.id
-
-            state.selectedConnectionId =
-                null
+            state.nodes = state.nodes + node
+            state.selectedNodeId = node.id
+            state.selectedConnectionId = null
 
         } else {
 
@@ -215,28 +178,18 @@ class SldEditorActions(
                     if (node.id == existingId) {
 
                         node.copy(
-                            name =
-                                state.name.ifBlank {
-                                    node.name
-                                },
-                            type =
-                                state.nodeType,
-                            voltage =
-                                voltage,
-                            loadKw =
-                                load,
-                            powerFactor =
-                                pf,
-                            demandFactor =
-                                demand,
-                            ratedKva =
-                                kva,
-                            transformerPercentZ =
-                                transformerZ,
-                            generatorXdSubtransient =
-                                generatorXd,
-                            sourceShortCircuitMva =
-                                sourceMva
+                            name = state.name.ifBlank {
+                                node.name
+                            },
+                            type = state.nodeType,
+                            voltage = voltage,
+                            loadKw = load,
+                            powerFactor = pf,
+                            demandFactor = demand,
+                            ratedKva = kva,
+                            transformerPercentZ = transformerZ,
+                            generatorXdSubtransient = generatorXd,
+                            sourceShortCircuitMva = sourceMva
                         )
 
                     } else {
@@ -251,13 +204,10 @@ class SldEditorActions(
         saveProjectNetwork()
     }
 
-    fun editConnection(
-        connection: SldConnection
-    ) {
-        state.editingConnectionId =
-            connection.id
-        state.length =
-            connection.lengthMeters.toString()
+    fun editConnection(connection: SldConnection) {
+
+        state.editingConnectionId = connection.id
+        state.length = connection.lengthMeters.toString()
         state.resistance =
             connection.resistanceOhmPerKm.toString()
         state.reactance =
@@ -309,8 +259,7 @@ class SldEditorActions(
                 ?.takeIf { it >= 0.0 }
                 ?: return
 
-        val editingId =
-            state.editingConnectionId
+        val editingId = state.editingConnectionId
 
         if (editingId != null) {
 
@@ -320,18 +269,12 @@ class SldEditorActions(
                     if (connection.id == editingId) {
 
                         connection.copy(
-                            lengthMeters =
-                                length,
-                            resistanceOhmPerKm =
-                                resistance,
-                            reactanceOhmPerKm =
-                                reactance,
-                            cableSizeMm2 =
-                                cableSize,
-                            parallelRuns =
-                                parallelRuns,
-                            currentCapacityA =
-                                capacity
+                            lengthMeters = length,
+                            resistanceOhmPerKm = resistance,
+                            reactanceOhmPerKm = reactance,
+                            cableSizeMm2 = cableSize,
+                            parallelRuns = parallelRuns,
+                            currentCapacityA = capacity
                         )
 
                     } else {
@@ -341,11 +284,8 @@ class SldEditorActions(
 
         } else {
 
-            val start =
-                state.connectionStartId
-
-            val end =
-                state.selectedNodeId
+            val start = state.connectionStartId
+            val end = state.selectedNodeId
 
             if (
                 start != null &&
@@ -373,22 +313,14 @@ class SldEditorActions(
                             SldConnection(
                                 id =
                                     "connection-${System.currentTimeMillis()}",
-                                fromNodeId =
-                                    start,
-                                toNodeId =
-                                    end,
-                                lengthMeters =
-                                    length,
-                                resistanceOhmPerKm =
-                                    resistance,
-                                reactanceOhmPerKm =
-                                    reactance,
-                                cableSizeMm2 =
-                                    cableSize,
-                                parallelRuns =
-                                    parallelRuns,
-                                currentCapacityA =
-                                    capacity
+                                fromNodeId = start,
+                                toNodeId = end,
+                                lengthMeters = length,
+                                resistanceOhmPerKm = resistance,
+                                reactanceOhmPerKm = reactance,
+                                cableSizeMm2 = cableSize,
+                                parallelRuns = parallelRuns,
+                                currentCapacityA = capacity
                             )
                 }
             }
@@ -409,20 +341,14 @@ class SldEditorActions(
 
         if (state.connectionStartId == null) {
 
-            state.connectionStartId =
-                nodeId
-
-            state.selectedConnectionId =
-                null
-
+            state.connectionStartId = nodeId
+            state.selectedConnectionId = null
             return
         }
 
         if (state.connectionStartId == nodeId) {
 
-            state.connectionStartId =
-                null
-
+            state.connectionStartId = null
             return
         }
 
@@ -443,9 +369,7 @@ class SldEditorActions(
                 }
 
             state.selectedConnectionId = null
-
             saveProjectNetwork()
-
             return
         }
 
@@ -485,19 +409,18 @@ class SldEditorActions(
                     )
 
             val packageResult =
-                DesignProjectCoreBridge
-                    .calculateProjectSld(
-                        project = project,
-                        panelNodeId =
-                            state.nodes
-                                .firstOrNull {
-                                    it.id ==
-                                        state.selectedNodeId &&
-                                        it.type ==
-                                        SldNodeType.PANEL
-                                }
-                                ?.id
-                    )
+                DesignProjectCoreBridge.calculateProjectSld(
+                    project = project,
+                    panelNodeId =
+                        state.nodes
+                            .firstOrNull {
+                                it.id ==
+                                    state.selectedNodeId &&
+                                    it.type ==
+                                    SldNodeType.PANEL
+                            }
+                            ?.id
+                )
 
             state.reportTitle =
                 if (arabic) {
@@ -508,23 +431,17 @@ class SldEditorActions(
 
             state.reportText =
                 buildShortCircuitReport(
-                    study =
-                        packageResult.shortCircuit,
+                    study = packageResult.shortCircuit,
                     arabic = arabic
                 )
 
         } catch (exception: Exception) {
 
             state.reportTitle =
-                if (arabic) {
-                    "خطأ"
-                } else {
-                    "Error"
-                }
+                if (arabic) "خطأ" else "Error"
 
             state.reportText =
-                exception.message
-                    ?: "Calculation error."
+                exception.message ?: "Calculation error."
         }
 
         state.showReport = true
@@ -561,11 +478,10 @@ class SldEditorActions(
                     )
 
             val result =
-                DesignProjectCoreBridge
-                    .calculateProjectSld(
-                        project = project,
-                        panelNodeId = panel.id
-                    )
+                DesignProjectCoreBridge.calculateProjectSld(
+                    project = project,
+                    panelNodeId = panel.id
+                )
 
             state.reportTitle =
                 if (arabic) {
@@ -590,15 +506,10 @@ class SldEditorActions(
         } catch (exception: Exception) {
 
             state.reportTitle =
-                if (arabic) {
-                    "خطأ"
-                } else {
-                    "Error"
-                }
+                if (arabic) "خطأ" else "Error"
 
             state.reportText =
-                exception.message
-                    ?: "Calculation error."
+                exception.message ?: "Calculation error."
         }
 
         state.showReport = true
@@ -619,10 +530,10 @@ class SldEditorActions(
                     )
 
             val generated =
-                DesignProjectCoreBridge
-                    .buildProjectSld(project)
+                DesignProjectCoreBridge.buildProjectSld(project)
 
             if (generated.nodes.isEmpty()) {
+
                 throw IllegalStateException(
                     if (arabic) {
                         "لا توجد بيانات كهربائية كافية لإنشاء SLD."
@@ -632,33 +543,20 @@ class SldEditorActions(
                 )
             }
 
-            state.nodes =
-                generated.nodes
-
-            state.connections =
-                generated.connections
-
+            state.nodes = generated.nodes
+            state.connections = generated.connections
             state.selectedNodeId =
-                generated.nodes
-                    .firstOrNull()
-                    ?.id
+                generated.nodes.firstOrNull()?.id
+            state.selectedConnectionId = null
+            state.connectionStartId = null
 
-            state.selectedConnectionId =
-                null
-
-            state.connectionStartId =
-                null
-
-            DesignProjectCoreBridge
-                .saveActiveProjectSld(
-                    network = generated,
-                    name = "Main SLD",
-                    source = "Electrical Design"
-                )
-
-            runCompleteEngineeringReport(
-                generated
+            DesignProjectCoreBridge.saveActiveProjectSld(
+                network = generated,
+                name = "Main SLD",
+                source = "Electrical Design"
             )
+
+            runCompleteEngineeringReport(generated)
 
         } catch (exception: Exception) {
 
@@ -670,8 +568,7 @@ class SldEditorActions(
                 }
 
             state.reportText =
-                exception.message
-                    ?: "SLD generation error."
+                exception.message ?: "SLD generation error."
 
             state.showReport = true
         }
@@ -690,10 +587,9 @@ class SldEditorActions(
                     )
 
             val result =
-                DesignProjectCoreBridge
-                    .calculateProjectSld(
-                        project = project
-                    )
+                DesignProjectCoreBridge.calculateProjectSld(
+                    project = project
+                )
 
             state.reportTitle =
                 if (arabic) {
@@ -711,11 +607,7 @@ class SldEditorActions(
         } catch (exception: Exception) {
 
             state.reportTitle =
-                if (arabic) {
-                    "خطأ"
-                } else {
-                    "Error"
-                }
+                if (arabic) "خطأ" else "Error"
 
             state.reportText =
                 exception.message
@@ -739,6 +631,9 @@ class SldEditorActions(
         val protection =
             result.protectionCoordination
 
+        val panelSchedule =
+            result.panelSchedule
+
         return buildString {
 
             appendLine(
@@ -753,27 +648,203 @@ class SldEditorActions(
 
             appendLine(
                 if (arabic) {
-                    "حالة تيارات القصر: ${shortCircuit.status}"
+                    "تيار القصر الأقصى: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumFaultCurrentKa
+                        )
                 } else {
-                    "Short Circuit Status: ${shortCircuit.status}"
+                    "Maximum Short Circuit Current: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumFaultCurrentKa
+                        )
                 }
             )
 
             appendLine(
                 if (arabic) {
-                    "حالة اختيار الكابلات: ${cableSizing.status}"
+                    "أقصى تيار قمة: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumPeakCurrentKa
+                        )
                 } else {
-                    "Cable Sizing Status: ${cableSizing.status}"
+                    "Maximum Peak Current: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumPeakCurrentKa
+                        )
+            )
+
+            appendLine(
+                if (arabic) {
+                    "أقصى قدرة قصر: " +
+                        "%.3f MVA".format(
+                            shortCircuit.maximumFaultMva
+                        )
+                } else {
+                    "Maximum Fault Level: " +
+                        "%.3f MVA".format(
+                            shortCircuit.maximumFaultMva
+                        )
+            )
+
+            appendLine()
+
+            appendLine(
+                if (arabic) {
+                    "المغذيات المقبولة: " +
+                        cableSizing.successfulFeeders
+                } else {
+                    "Successful Feeders: " +
+                        cableSizing.successfulFeeders
                 }
             )
 
             appendLine(
                 if (arabic) {
-                    "حالة التنسيق والحماية: ${protection.status}"
+                    "المغذيات التي تحتاج مراجعة: " +
+                        cableSizing.failedFeeders
                 } else {
-                    "Protection Coordination Status: ${protection.status}"
+                    "Feeders Requiring Review: " +
+                        cableSizing.failedFeeders
                 }
             )
+
+            appendLine()
+
+            appendLine(
+                if (arabic) {
+                    "التنسيق المقبول: " +
+                        protection.coordinatedPairs
+                } else {
+                    "Coordinated Pairs: " +
+                        protection.coordinatedPairs
+                }
+            )
+
+            appendLine(
+                if (arabic) {
+                    "تنسيق يحتاج مراجعة: " +
+                        protection.warningPairs
+                } else {
+                    "Pairs Requiring Review: " +
+                        protection.warningPairs
+                }
+            )
+
+            appendLine(
+                if (arabic) {
+                    "تنسيق غير مقبول: " +
+                        protection.failedPairs
+                } else {
+                    "Failed Coordination Pairs: " +
+                        protection.failedPairs
+                }
+            )
+
+            panelSchedule?.let {
+
+                appendLine()
+
+                appendLine(
+                    if (arabic) {
+                        "اللوحة: ${it.panelName}"
+                    } else {
+                        "Panel: ${it.panelName}"
+                    }
+                )
+
+                appendLine(
+                    if (arabic) {
+                        "الحمل المتصل: " +
+                            "%.2f kW".format(
+                                it.totalConnectedLoadKw
+                            )
+                    } else {
+                        "Connected Load: " +
+                            "%.2f kW".format(
+                                it.totalConnectedLoadKw
+                            )
+                    }
+                )
+
+                appendLine(
+                    if (arabic) {
+                        "حمل الطلب: " +
+                            "%.2f kW".format(
+                                it.totalDemandLoadKw
+                            )
+                    } else {
+                        "Demand Load: " +
+                            "%.2f kW".format(
+                                it.totalDemandLoadKw
+                            )
+                    }
+                )
+
+                appendLine(
+                    if (arabic) {
+                        "تيار الطلب: " +
+                            "%.2f A".format(
+                                it.totalDemandCurrentA
+                            )
+                    } else {
+                        "Demand Current: " +
+                            "%.2f A".format(
+                                it.totalDemandCurrentA
+                            )
+                    }
+                )
+            }
+
+            if (shortCircuit.notes.isNotEmpty()) {
+
+                appendLine()
+
+                appendLine(
+                    if (arabic) {
+                        "ملاحظات تيارات القصر:"
+                    } else {
+                        "Short Circuit Notes:"
+                    }
+                )
+
+                shortCircuit.notes.forEach {
+                    appendLine("• $it")
+                }
+            }
+
+            if (cableSizing.notes.isNotEmpty()) {
+
+                appendLine()
+
+                appendLine(
+                    if (arabic) {
+                        "ملاحظات الكابلات:"
+                    } else {
+                        "Cable Sizing Notes:"
+                    }
+                )
+
+                cableSizing.notes.forEach {
+                    appendLine("• $it")
+                }
+            }
+
+            if (protection.notes.isNotEmpty()) {
+
+                appendLine()
+
+                appendLine(
+                    if (arabic) {
+                        "ملاحظات الحماية:"
+                    } else {
+                        "Protection Notes:"
+                    }
+                )
+
+                protection.notes.forEach {
+                    appendLine("• $it")
+                }
+            }
         }
     }
 
@@ -781,6 +852,18 @@ class SldEditorActions(
         result: SldEngineeringPackage,
         arabic: Boolean
     ): String {
+
+        val shortCircuit =
+            result.shortCircuit
+
+        val cableSizing =
+            result.cableSizing
+
+        val protection =
+            result.protectionCoordination
+
+        val panelSchedule =
+            result.panelSchedule
 
         return buildString {
 
@@ -803,7 +886,45 @@ class SldEditorActions(
             )
 
             appendLine(
-                "Status: ${result.shortCircuit.status}"
+                if (arabic) {
+                    "أقصى تيار قصر: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumFaultCurrentKa
+                        )
+                } else {
+                    "Maximum Fault Current: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumFaultCurrentKa
+                        )
+                }
+            )
+
+            appendLine(
+                if (arabic) {
+                    "أقصى تيار قمة: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumPeakCurrentKa
+                        )
+                } else {
+                    "Maximum Peak Current: " +
+                        "%.3f kA".format(
+                            shortCircuit.maximumPeakCurrentKa
+                        )
+                }
+            )
+
+            appendLine(
+                if (arabic) {
+                    "أقصى قدرة قصر: " +
+                        "%.3f MVA".format(
+                            shortCircuit.maximumFaultMva
+                        )
+                } else {
+                    "Maximum Fault Level: " +
+                        "%.3f MVA".format(
+                            shortCircuit.maximumFaultMva
+                        )
+                }
             )
 
             appendLine()
@@ -817,7 +938,23 @@ class SldEditorActions(
             )
 
             appendLine(
-                "Status: ${result.cableSizing.status}"
+                if (arabic) {
+                    "المغذيات المقبولة: " +
+                        cableSizing.successfulFeeders
+                } else {
+                    "Successful Feeders: " +
+                        cableSizing.successfulFeeders
+                }
+            )
+
+            appendLine(
+                if (arabic) {
+                    "المغذيات التي تحتاج مراجعة: " +
+                        cableSizing.failedFeeders
+                } else {
+                    "Feeders Requiring Review: " +
+                        cableSizing.failedFeeders
+                }
             )
 
             appendLine()
@@ -831,10 +968,36 @@ class SldEditorActions(
             )
 
             appendLine(
-                "Status: ${result.protectionCoordination.status}"
+                if (arabic) {
+                    "أزواج التنسيق المقبولة: " +
+                        protection.coordinatedPairs
+                } else {
+                    "Coordinated Pairs: " +
+                        protection.coordinatedPairs
+                }
             )
 
-            result.panelSchedule?.let {
+            appendLine(
+                if (arabic) {
+                    "أزواج تحتاج مراجعة: " +
+                        protection.warningPairs
+                } else {
+                    "Pairs Requiring Review: " +
+                        protection.warningPairs
+                }
+            )
+
+            appendLine(
+                if (arabic) {
+                    "أزواج غير مقبولة: " +
+                        protection.failedPairs
+                } else {
+                    "Failed Coordination Pairs: " +
+                        protection.failedPairs
+                }
+            )
+
+            panelSchedule?.let {
 
                 appendLine()
 
@@ -847,8 +1010,100 @@ class SldEditorActions(
                 )
 
                 appendLine(
-                    "Status: ${it.status}"
+                    if (arabic) {
+                        "اسم اللوحة: ${it.panelName}"
+                    } else {
+                        "Panel Name: ${it.panelName}"
+                    }
                 )
+
+                appendLine(
+                    if (arabic) {
+                        "عدد المغذيات: ${it.rows.size}"
+                    } else {
+                        "Number of Feeders: ${it.rows.size}"
+                    }
+                )
+
+                appendLine(
+                    if (arabic) {
+                        "الحمل المتصل: " +
+                            "%.2f kW".format(
+                                it.totalConnectedLoadKw
+                            )
+                    } else {
+                        "Connected Load: " +
+                            "%.2f kW".format(
+                                it.totalConnectedLoadKw
+                            )
+                    }
+                )
+
+                appendLine(
+                    if (arabic) {
+                        "حمل الطلب: " +
+                            "%.2f kW".format(
+                                it.totalDemandLoadKw
+                            )
+                    } else {
+                        "Demand Load: " +
+                            "%.2f kW".format(
+                                it.totalDemandLoadKw
+                            )
+                    )
+
+                appendLine(
+                    if (arabic) {
+                        "تيار الطلب: " +
+                            "%.2f A".format(
+                                it.totalDemandCurrentA
+                            )
+                    } else {
+                        "Demand Current: " +
+                            "%.2f A".format(
+                                it.totalDemandCurrentA
+                            )
+                    }
+                )
+
+                if (it.notes.isNotEmpty()) {
+
+                    appendLine()
+
+                    appendLine(
+                        if (arabic) {
+                            "ملاحظات جدول اللوحة:"
+                        } else {
+                            "Panel Schedule Notes:"
+                        }
+                    )
+
+                    it.notes.forEach {
+                        appendLine("• $it")
+                    }
+                }
+            }
+
+            appendLine()
+
+            appendLine(
+                if (arabic) {
+                    "ملاحظات عامة:"
+                } else {
+                    "General Notes:"
+                }
+            )
+
+            shortCircuit.notes.forEach {
+                appendLine("• $it")
+            }
+
+            cableSizing.notes.forEach {
+                appendLine("• $it")
+            }
+
+            protection.notes.forEach {
+                appendLine("• $it")
             }
         }
     }
