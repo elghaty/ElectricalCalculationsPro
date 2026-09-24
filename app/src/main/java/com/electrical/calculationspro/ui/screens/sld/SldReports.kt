@@ -3,26 +3,13 @@ package com.electrical.calculationspro.ui.screens.sld
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldShortCircuitStudy
-import java.util.Locale
-
-fun fmt(value: Double): String =
-    if (value.isFinite()) {
-        String.format(
-            Locale.US,
-            "%.2f",
-            value
-        )
-    } else {
-        "0.00"
-    }
 
 fun buildShortCircuitReport(
     study: SldShortCircuitStudy,
     arabic: Boolean
 ): String {
 
-    val result =
-        StringBuilder()
+    val result = StringBuilder()
 
     result.appendLine(
         if (arabic) {
@@ -32,9 +19,7 @@ fun buildShortCircuitReport(
         }
     )
 
-    result.appendLine(
-        "================================"
-    )
+    result.appendLine("================================")
 
     result.appendLine(
         "Maximum symmetrical fault current = " +
@@ -104,16 +89,10 @@ fun buildShortCircuitReport(
         )
 
         if (item.notes.isNotEmpty()) {
-
-            result.appendLine(
-                "Notes:"
-            )
+            result.appendLine("Notes:")
 
             item.notes.forEach { note ->
-
-                result.appendLine(
-                    "  - $note"
-                )
+                result.appendLine("  - $note")
             }
         }
     }
@@ -124,10 +103,7 @@ fun buildShortCircuitReport(
         result.appendLine("Study Notes:")
 
         study.notes.forEach { note ->
-
-            result.appendLine(
-                "  - $note"
-            )
+            result.appendLine("  - $note")
         }
     }
 
@@ -141,8 +117,7 @@ fun buildPanelSchedule(
     arabic: Boolean
 ): String {
 
-    val result =
-        StringBuilder()
+    val result = StringBuilder()
 
     var totalConnected = 0.0
     var totalDemand = 0.0
@@ -156,9 +131,7 @@ fun buildPanelSchedule(
         }
     )
 
-    result.appendLine(
-        "================================"
-    )
+    result.appendLine("================================")
 
     result.appendLine(
         "Panel: ${panel.name}"
@@ -175,16 +148,13 @@ fun buildPanelSchedule(
     result.appendLine()
 
     connections
-        .filter {
-            it.fromNodeId == panel.id
-        }
+        .filter { it.fromNodeId == panel.id }
         .forEach { connection ->
 
             val load =
                 nodes.firstOrNull {
                     it.id == connection.toNodeId
-                }
-                    ?: return@forEach
+                } ?: return@forEach
 
             if (
                 load.type !=
@@ -198,8 +168,10 @@ fun buildPanelSchedule(
 
             val demand =
                 connected *
-                    load.demandFactor
-                        .coerceIn(0.0, 1.0)
+                    load.demandFactor.coerceIn(
+                        0.0,
+                        1.0
+                    )
 
             totalConnected += connected
             totalDemand += demand
@@ -219,8 +191,7 @@ fun buildPanelSchedule(
             )
 
             result.appendLine(
-                "   PF = " +
-                    fmt(load.powerFactor)
+                "   PF = ${fmt(load.powerFactor)}"
             )
 
             result.appendLine(
@@ -229,8 +200,7 @@ fun buildPanelSchedule(
             )
 
             result.appendLine(
-                "   Runs = " +
-                    connection.parallelRuns
+                "   Runs = ${connection.parallelRuns}"
             )
 
             result.appendLine(
@@ -276,8 +246,7 @@ fun buildCompleteSldReport(
     arabic: Boolean
 ): String {
 
-    val result =
-        StringBuilder()
+    val result = StringBuilder()
 
     result.appendLine(
         if (arabic) {
@@ -287,9 +256,7 @@ fun buildCompleteSldReport(
         }
     )
 
-    result.appendLine(
-        "================================"
-    )
+    result.appendLine("================================")
 
     result.appendLine(
         "Nodes = ${nodes.size}"
@@ -405,8 +372,7 @@ fun buildCompleteSldReport(
         )
 
         result.appendLine(
-            "   Runs = " +
-                connection.parallelRuns
+            "   Runs = ${connection.parallelRuns}"
         )
 
         result.appendLine(
