@@ -1,3 +1,6 @@
+المسار:
+"app/src/main/java/com/electrical/calculationspro/ui/screens/sld/SldEditorScreen.kt"
+
 package com.electrical.calculationspro.ui.screens.sld
 
 import androidx.compose.foundation.background
@@ -74,10 +77,6 @@ fun SldEditorScreen(
             .background(Color(0xFFF4F7F9))
     ) {
 
-        /* =========================================================
-         * HEADER
-         * ========================================================= */
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -144,10 +143,6 @@ fun SldEditorScreen(
                 )
             }
         }
-
-        /* =========================================================
-         * TOOLBAR
-         * ========================================================= */
 
         Row(
             modifier = Modifier
@@ -243,10 +238,6 @@ fun SldEditorScreen(
                 }
             )
         }
-
-        /* =========================================================
-         * STATUS BAR
-         * ========================================================= */
 
         Card(
             modifier = Modifier
@@ -384,10 +375,6 @@ fun SldEditorScreen(
             }
         }
 
-        /* =========================================================
-         * SLD CANVAS
-         * ========================================================= */
-
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -399,7 +386,6 @@ fun SldEditorScreen(
                 selectedNodeId = state.selectedNodeId,
                 selectedConnectionId = state.selectedConnectionId,
                 connectionStartId = state.connectionStartId,
-                engineering = state.engineeringPackage,
 
                 onSelectNode = { id ->
                     state.selectedNodeId = id
@@ -443,10 +429,6 @@ fun SldEditorScreen(
             )
         }
     }
-
-    /* =============================================================
-     * NODE DIALOG
-     * ============================================================= */
 
     if (state.showNodeDialog) {
         SldNodeEditorDialog(
@@ -509,10 +491,6 @@ fun SldEditorScreen(
         )
     }
 
-    /* =============================================================
-     * CONNECTION DIALOG
-     * ============================================================= */
-
     if (state.showConnectionDialog) {
         SldConnectionEditorDialog(
             arabic = arabic,
@@ -557,10 +535,6 @@ fun SldEditorScreen(
         )
     }
 
-    /* =============================================================
-     * ENGINEERING REPORT
-     * ============================================================= */
-
     if (state.showReport) {
         SldReportDialog(
             title = state.reportTitle,
@@ -571,10 +545,6 @@ fun SldEditorScreen(
         )
     }
 }
-
-/* =================================================================
- * ADD COMPONENT MENU
- * ================================================================= */
 
 @Composable
 private fun AddComponentMenu(
@@ -643,10 +613,6 @@ private fun AddComponentMenu(
     }
 }
 
-/* =================================================================
- * TOOL BUTTON
- * ================================================================= */
-
 @Composable
 private fun ToolButton(
     icon: ImageVector,
@@ -668,10 +634,6 @@ private fun ToolButton(
         Text(text)
     }
 }
-
-/* =================================================================
- * COMPONENT LABELS
- * ================================================================= */
 
 private fun typeLabel(
     type: SldNodeType,
