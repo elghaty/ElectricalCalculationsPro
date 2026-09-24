@@ -5,24 +5,36 @@ import kotlin.math.sqrt
 /**
  * PROFESSIONAL SLD UPSTREAM ENGINE
  *
- * Calculates the electrical demand propagated from downstream
- * loads toward the source.
+ * The SLD network is calculated from downstream toward the source.
  *
- * Flow:
+ * Engineering rule:
  *
- * LOAD
- *  ↓
- * FEEDER
- *  ↓
- * PANEL
- *  ↓
- * BUSBAR
- *  ↓
- * MAIN FEEDER
- *  ↓
- * TRANSFORMER / GENERATOR
- *  ↓
- * SOURCE
+ * A node contributes its own load only when that node actually
+ * represents a direct electrical load.
+ *
+ * BUS and BREAKER nodes are topology/protection elements and do
+ * not create additional load.
+ *
+ * PANEL / TRANSFORMER / GENERATOR / SOURCE may contain a direct
+ * load only when explicitly entered by the engineer.
+ *
+ * Therefore:
+ *
+ *       LOAD
+ *         ↓
+ *       FEEDER
+ *         ↓
+ *       PANEL
+ *         ↓
+ *       BUS
+ *         ↓
+ *       BREAKER
+ *         ↓
+ *       TRANSFORMER / GENERATOR
+ *         ↓
+ *       SOURCE
+ *
+ * is aggregated without double counting.
  */
 object SldUpstreamEngineering {
 
@@ -148,6 +160,14 @@ object SldUpstreamEngineering {
                 it.id
             }
 
+        /*
+         * Topology:
+         *
+         * fromNode -> toNode
+         *
+         * The downstream nodes are therefore the children of
+         * the current node.
+         */
         val children =
             network.nodes.associate {
                 it.id to
@@ -163,6 +183,16 @@ object SldUpstreamEngineering {
                         }
             }
 
+        /*
+         * Cache contains:
+         *
+         * Pair(
+         *     connected kW,
+         *     demand kW
+         * )
+         *
+         * calculated once per node.
+         */
         val cache =
             mutableMapOf<
                 String,
@@ -184,44 +214,54 @@ object SldUpstreamEngineering {
                 "Circular upstream path at ${node.name}."
             }
 
-            if (
-                node.type ==
-                SldNodeType.LOAD
-            ) {
+            /*
+             * Every node may have a direct load explicitly entered
+             * by the engineer.
+             *
+             * BUS and BREAKER are different: they are passive
+             * topology/protection objects and their direct load is
+             * forcibly ignored to prevent accidental duplication.
+             */
+            val ownLoadKw =
+                when (node.type) {
 
-                val connected =
-                    node.loadKw
-                        .coerceAtLeast(0.0)
+                    SldNodeType.BUS,
+                    SldNodeType.BREAKER ->
+                        0.0
 
-                val demand =
-                    connected *
-                        node.demandFactor
-                            .coerceIn(
-                                0.0,
-                                1.0
-                            )
+                    else ->
+                        node.loadKw
+                            .coerceAtLeast(0.0)
+                }
 
-                val result =
-                    connected to demand
+            val ownDemandKw =
+                when (node.type) {
 
-                cache[node.id] =
-                    result
+                    SldNodeType.BUS,
+                    SldNodeType.BREAKER ->
+                        0.0
 
-                stack.remove(node.id)
+                    else ->
+                        ownLoadKw *
+                            node.demandFactor
+                                .coerceIn(
+                                    0.0,
+                                    1.0
+                                )
+                }
 
-                return result
-            }
-
+            /*
+             * A LOAD is normally a terminal node.
+             *
+             * The same generic aggregation logic is intentionally
+             * retained so the model can support future nested load
+             * groups without introducing another calculation engine.
+             */
             var connected =
-                node.loadKw
-                    .coerceAtLeast(0.0)
+                ownLoadKw
 
             var demand =
-                node.loadKw.coerceAtLeast(0.0) *
-                    node.demandFactor.coerceIn(
-                        0.0,
-                        1.0
-                    )
+                ownDemandKw
 
             children[node.id]
                 .orEmpty()
@@ -264,6 +304,10 @@ object SldUpstreamEngineering {
                 }
                 ?: network.nodes.first()
 
+        /*
+         * Calculate the source first so the complete downstream
+         * network is cached.
+         */
         calculateNode(
             source,
             mutableSetOf()
@@ -333,22 +377,31 @@ object SldUpstreamEngineering {
                 NodeResult(
                     nodeId =
                         node.id,
+
                     nodeName =
                         node.name,
+
                     connectedKw =
                         connected,
+
                     demandKw =
                         demand,
+
                     kva =
                         kva,
+
                     currentA =
                         current,
+
                     recommendedBreakerA =
                         breaker,
+
                     voltageDropPercent =
                         voltageDrop,
+
                     loadingPercent =
                         loading,
+
                     notes =
                         buildList {
 
@@ -464,26 +517,36 @@ object SldUpstreamEngineering {
                 FeederResult(
                     connectionId =
                         connection.id,
+
                     fromNodeId =
                         connection.fromNodeId,
+
                     toNodeId =
                         connection.toNodeId,
+
                     connectedKw =
                         connected,
+
                     demandKw =
                         demand,
+
                     kva =
                         kva,
+
                     currentA =
                         current,
+
                     recommendedBreakerA =
                         nextBreaker(
                             current
                         ),
+
                     voltageDropPercent =
                         voltageDrop,
+
                     cableAdequate =
                         adequate,
+
                     notes =
                         buildList {
 
@@ -580,28 +643,39 @@ object SldUpstreamEngineering {
         return Result(
             sourceNodeId =
                 source.id,
+
             sourceName =
                 source.name,
+
             totalConnectedKw =
                 sourceResult.connectedKw,
+
             totalDemandKw =
                 sourceResult.demandKw,
+
             totalKva =
                 sourceResult.kva,
+
             sourceCurrentA =
                 sourceResult.currentA,
+
             recommendedMainBreakerA =
                 sourceResult.recommendedBreakerA,
+
             recommendedTransformerKva =
                 recommendedTransformer,
+
             maximumVoltageDropPercent =
                 nodeResults.maxOfOrNull {
                     it.voltageDropPercent
                 } ?: 0.0,
+
             nodes =
                 nodeResults,
+
             feeders =
                 feederResults,
+
             warnings =
                 warnings
         )
@@ -637,19 +711,32 @@ object SldUpstreamEngineering {
                     connection.toNodeId
                 ] ?: return@forEach
 
+            /*
+             * Use the complete downstream feeder current when
+             * available rather than only the child's own direct
+             * load.
+             */
+            val childResult =
+                network.nodes
+                    .firstOrNull {
+                        it.id ==
+                            child.id
+                    }
+
             val childCurrent =
                 if (
-                    child.loadKw > 0.0
+                    childResult != null
                 ) {
-                    threePhaseCurrent(
-                        child.loadKw /
-                            child.powerFactor
-                                .coerceIn(
-                                    0.01,
-                                    1.0
-                                ),
-                        child.voltage
-                    )
+
+                    val values =
+                        calculateLocalCurrent(
+                            child,
+                            network,
+                            nodeMap
+                        )
+
+                    values
+
                 } else {
                     currentA
                 }
@@ -669,6 +756,132 @@ object SldUpstreamEngineering {
         }
 
         return maximum
+    }
+
+    /*
+     * Calculates the current carried by one downstream branch.
+     *
+     * This helper intentionally follows the same aggregation rule
+     * as the main engine and contains no separate engineering
+     * calculation model.
+     */
+    private fun calculateLocalCurrent(
+        root: SldNode,
+        network: SldNetwork,
+        nodeMap: Map<String, SldNode>
+    ): Double {
+
+        val children =
+            network.connections
+                .filter {
+                    it.fromNodeId ==
+                        root.id
+                }
+                .mapNotNull {
+                    nodeMap[
+                        it.toNodeId
+                    ]
+                }
+
+        fun loadPair(
+            node: SldNode,
+            stack: MutableSet<String>
+        ): Pair<Double, Double> {
+
+            require(
+                stack.add(node.id)
+            ) {
+                "Circular upstream path at ${node.name}."
+            }
+
+            val ownLoad =
+                when (node.type) {
+
+                    SldNodeType.BUS,
+                    SldNodeType.BREAKER ->
+                        0.0
+
+                    else ->
+                        node.loadKw
+                            .coerceAtLeast(0.0)
+                }
+
+            val ownDemand =
+                when (node.type) {
+
+                    SldNodeType.BUS,
+                    SldNodeType.BREAKER ->
+                        0.0
+
+                    else ->
+                        ownLoad *
+                            node.demandFactor
+                                .coerceIn(
+                                    0.0,
+                                    1.0
+                                )
+                }
+
+            var connected =
+                ownLoad
+
+            var demand =
+                ownDemand
+
+            network.connections
+                .filter {
+                    it.fromNodeId ==
+                        node.id
+                }
+                .mapNotNull {
+                    nodeMap[
+                        it.toNodeId
+                    ]
+                }
+                .forEach { child ->
+
+                    val pair =
+                        loadPair(
+                            child,
+                            stack
+                        )
+
+                    connected +=
+                        pair.first
+
+                    demand +=
+                        pair.second
+                }
+
+            stack.remove(node.id)
+
+            return connected to demand
+        }
+
+        val pair =
+            loadPair(
+                root,
+                mutableSetOf()
+            )
+
+        val pf =
+            root.powerFactor
+                .coerceIn(
+                    0.01,
+                    1.0
+                )
+
+        val kva =
+            if (pair.second > 0.0) {
+                pair.second / pf
+            } else {
+                0.0
+            }
+
+        return threePhaseCurrent(
+            kva,
+            root.voltage
+        )
     }
 
     private fun calculateVoltageDrop(
