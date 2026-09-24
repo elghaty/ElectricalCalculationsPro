@@ -399,6 +399,7 @@ fun SldEditorScreen(
                 selectedNodeId = state.selectedNodeId,
                 selectedConnectionId = state.selectedConnectionId,
                 connectionStartId = state.connectionStartId,
+                engineering = state.engineeringPackage,
 
                 onSelectNode = { id ->
                     state.selectedNodeId = id
@@ -678,24 +679,52 @@ private fun typeLabel(
 ): String {
     return when (type) {
         SldNodeType.SOURCE ->
-            if (arabic) "مصدر الشبكة / Utility" else "Utility Source"
+            if (arabic) {
+                "مصدر الشبكة / Utility"
+            } else {
+                "Utility Source"
+            }
 
         SldNodeType.TRANSFORMER ->
-            if (arabic) "محول قدرة" else "Transformer"
+            if (arabic) {
+                "محول قدرة"
+            } else {
+                "Transformer"
+            }
 
         SldNodeType.GENERATOR ->
-            if (arabic) "مولد" else "Generator"
+            if (arabic) {
+                "مولد"
+            } else {
+                "Generator"
+            }
 
         SldNodeType.BUS ->
-            if (arabic) "قضبان Busbar" else "Busbar"
+            if (arabic) {
+                "قضبان Busbar"
+            } else {
+                "Busbar"
+            }
 
         SldNodeType.BREAKER ->
-            if (arabic) "قاطع ACB / MCCB / MCB" else "Breaker"
+            if (arabic) {
+                "قاطع ACB / MCCB / MCB"
+            } else {
+                "Breaker"
+            }
 
         SldNodeType.PANEL ->
-            if (arabic) "لوحة MDB / MCC / DB" else "Panel"
+            if (arabic) {
+                "لوحة MDB / MCC / DB"
+            } else {
+                "Panel"
+            }
 
         SldNodeType.LOAD ->
-            if (arabic) "حمل / موتور / مضخة" else "Load / Motor / Pump"
+            if (arabic) {
+                "حمل / موتور / مضخة"
+            } else {
+                "Load / Motor / Pump"
+            }
     }
 }
