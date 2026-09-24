@@ -5,20 +5,39 @@ package com.electrical.calculationspro.data
  * PROFESSIONAL SLD AUTO LAYOUT ENGINE
  * ================================================================
  *
- * Produces a readable engineering arrangement from the actual
- * electrical topology.
+ * Layout is derived from electrical topology.
  *
- * It does NOT modify the engineering network.
- * It modifies drawing coordinates only.
+ * Normal engineering calculations MUST NOT call this engine.
+ *
+ * Auto Arrange is an explicit drawing operation.
+ *
+ * Topology direction:
+ *
+ * SOURCE
+ *   ↓
+ * TRANSFORMER / GENERATOR
+ *   ↓
+ * BREAKER
+ *   ↓
+ * BUS
+ *   ↓
+ * PANEL
+ *   ↓
+ * FEEDER BREAKER
+ *   ↓
+ * LOAD
+ *
+ * The engine changes drawing coordinates only.
+ * It does not change engineering connections or calculations.
  * ================================================================
  */
 object SldAutoLayoutEngine {
 
-    private const val START_X = 80f
-    private const val START_Y = 100f
+    private const val START_X = 100f
+    private const val START_Y = 160f
 
-    private const val LEVEL_SPACING = 280f
-    private const val ROW_SPACING = 190f
+    private const val LEVEL_SPACING = 260f
+    private const val ROW_SPACING = 180f
 
     data class LayoutResult(
         val network: SldNetwork,
@@ -29,9 +48,8 @@ object SldAutoLayoutEngine {
         network: SldNetwork
     ): LayoutResult {
 
-        if (
-            network.nodes.isEmpty()
-        ) {
+        if (network.nodes.isEmpty()) {
+
             return LayoutResult(
                 network = network,
                 levels = emptyMap()
@@ -54,27 +72,45 @@ object SldAutoLayoutEngine {
                 mutableListOf()
         }
 
-        network.connections.forEach {
+        network.connections.forEach { connection ->
 
-            children[
-                it.fromNodeId
-            ]?.add(
-                it.toNodeId
-            )
+            if (
+                nodeMap.containsKey(
+                    connection.fromNodeId
+                ) &&
+                nodeMap.containsKey(
+                    connection.toNodeId
+                )
+            ) {
+
+                children[
+                    connection.fromNodeId
+                ]?.add(
+                    connection.toNodeId
+                )
+            }
         }
 
-        val sources =
+        /*
+         * --------------------------------------------------------
+         * ROOTS
+         * --------------------------------------------------------
+         *
+         * Prefer actual electrical sources.
+         */
+        val sourceRoots =
             network.nodes.filter {
                 it.type ==
                     SldNodeType.SOURCE
             }
 
         val roots =
-            if (
-                sources.isNotEmpty()
-            ) {
-                sources
+            if (sourceRoots.isNotEmpty()) {
+
+                sourceRoots
+
             } else {
+
                 network.nodes.filter { node ->
 
                     network.connections.none {
@@ -84,121 +120,203 @@ object SldAutoLayoutEngine {
                 }
             }
 
-        val levelMap =
+        /*
+         * --------------------------------------------------------
+         * LEVEL CALCULATION
+         * --------------------------------------------------------
+         */
+        val levels =
             mutableMapOf<String, Int>()
 
-        fun assignLevel(
+        fun visit(
             id: String,
             level: Int,
             path: MutableSet<String>
         ) {
 
-            if (
-                id in path
-            ) {
+            if (id in path) {
                 return
             }
 
-            val previous =
-                levelMap[id]
+            val old =
+                levels[id]
 
             if (
-                previous == null ||
-                level > previous
+                old == null ||
+                level > old
             ) {
-                levelMap[id] = level
+
+                levels[id] =
+                    level
             }
 
             val nextPath =
-                path +
-                    id
+                path.toMutableSet()
+
+            nextPath += id
 
             children[id]
                 .orEmpty()
                 .forEach { child ->
 
-                    assignLevel(
+                    visit(
                         id = child,
                         level = level + 1,
-                        path = nextPath.toMutableSet()
+                        path = nextPath
                     )
                 }
         }
 
-        roots.forEach {
-            assignLevel(
-                id = it.id,
+        roots.forEach { root ->
+
+            visit(
+                id = root.id,
                 level = 0,
                 path = mutableSetOf()
             )
         }
 
         /*
-         * Any disconnected equipment is placed after the
-         * connected topology rather than being lost.
+         * Disconnected elements are not deleted.
+         * They are placed after the connected topology.
          */
+        var disconnectedLevel =
+            (
+                levels.values.maxOrNull()
+                    ?: 0
+                ) + 1
+
         network.nodes
             .filter {
-                it.id !in levelMap
+                it.id !in levels
             }
+            .sortedWith(
+                compareBy<SldNode> {
+                    typeOrder(it.type)
+                }.thenBy {
+                    it.name
+                }
+            )
             .forEach { node ->
 
-                val maximumLevel =
-                    levelMap.values
-                        .maxOrNull()
-                        ?: 0
+                levels[node.id] =
+                    disconnectedLevel
 
-                levelMap[node.id] =
-                    maximumLevel + 1
+                disconnectedLevel++
             }
 
+        /*
+         * --------------------------------------------------------
+         * GROUP BY ELECTRICAL LEVEL
+         * --------------------------------------------------------
+         */
         val grouped =
             network.nodes
                 .groupBy {
-                    levelMap[it.id]
+                    levels[it.id]
                         ?: 0
                 }
 
         val positions =
-            mutableMapOf<String, Pair<Float, Float>>()
+            mutableMapOf<
+                String,
+                Pair<Float, Float>
+            >()
 
         grouped
             .toSortedMap()
-            .forEach { (level, nodes) ->
+            .forEach { (level, nodesAtLevel) ->
+
+                /*
+                 * Keep a predictable engineering ordering
+                 * inside every level.
+                 */
+                val ordered =
+                    nodesAtLevel.sortedWith(
+                        compareBy<SldNode> {
+                            typeOrder(
+                                it.type
+                            )
+                        }.thenBy {
+                            it.name
+                        }
+                    )
 
                 val totalHeight =
                     (
-                        nodes.size - 1
-                    ) * ROW_SPACING
+                        ordered.size - 1
+                    ) *
+                        ROW_SPACING
 
                 val startY =
                     START_Y -
                         totalHeight / 2f
 
-                nodes
-                    .sortedWith(
-                        compareBy<SldNode> {
-                            it.type.order()
-                        }.thenBy {
-                            it.name
-                        }
-                    )
-                    .forEachIndexed {
-                            index,
-                            node
-                        ->
+                ordered.forEachIndexed {
+                        index,
+                        node
+                    ->
 
-                        positions[node.id] =
-                            Pair(
-                                START_X +
-                                    level *
-                                    LEVEL_SPACING,
-                                startY +
-                                    index *
-                                    ROW_SPACING
-                            )
-                    }
+                    positions[node.id] =
+                        Pair(
+                            START_X +
+                                level *
+                                LEVEL_SPACING,
+                            startY +
+                                index *
+                                ROW_SPACING
+                        )
+                }
             }
+
+        /*
+         * --------------------------------------------------------
+         * ALIGN FEEDER CHAINS
+         * --------------------------------------------------------
+         *
+         * When a breaker feeds one load, keep them visually close
+         * to the same horizontal feeder line.
+         */
+        network.connections.forEach { connection ->
+
+            val from =
+                nodeMap[
+                    connection.fromNodeId
+                ]
+
+            val to =
+                nodeMap[
+                    connection.toNodeId
+                ]
+
+            if (
+                from != null &&
+                to != null
+            ) {
+
+                val fromPosition =
+                    positions[from.id]
+
+                val toPosition =
+                    positions[to.id]
+
+                if (
+                    fromPosition != null &&
+                    toPosition != null &&
+                    from.type ==
+                    SldNodeType.BREAKER &&
+                    to.type ==
+                    SldNodeType.LOAD
+                ) {
+
+                    positions[to.id] =
+                        Pair(
+                            toPosition.first,
+                            fromPosition.second
+                        )
+                }
+            }
+        }
 
         val arrangedNodes =
             network.nodes.map { node ->
@@ -206,11 +324,12 @@ object SldAutoLayoutEngine {
                 val position =
                     positions[node.id]
 
-                if (
-                    position == null
-                ) {
+                if (position == null) {
+
                     node
+
                 } else {
+
                     node.copy(
                         x = position.first,
                         y = position.second
@@ -225,13 +344,15 @@ object SldAutoLayoutEngine {
                         arrangedNodes
                 ),
             levels =
-                levelMap.toMap()
+                levels.toMap()
         )
     }
 
-    private fun SldNodeType.order(): Int {
+    private fun typeOrder(
+        type: SldNodeType
+    ): Int {
 
-        return when (this) {
+        return when (type) {
 
             SldNodeType.SOURCE ->
                 0
@@ -242,10 +363,10 @@ object SldAutoLayoutEngine {
             SldNodeType.GENERATOR ->
                 1
 
-            SldNodeType.BUS ->
+            SldNodeType.BREAKER ->
                 2
 
-            SldNodeType.BREAKER ->
+            SldNodeType.BUS ->
                 3
 
             SldNodeType.PANEL ->
