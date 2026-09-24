@@ -31,44 +31,41 @@ fun SldConnectionEditorDialog(
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
-
     AlertDialog(
-
         onDismissRequest = onCancel,
 
         title = {
             Text(
                 if (arabic) {
-                    "بيانات الكابل"
+                    "بيانات المغذي والكابل"
                 } else {
-                    "Cable Data"
+                    "Feeder & Cable Data"
                 }
             )
         },
 
         text = {
-
             Column(
-                modifier =
-                    Modifier.verticalScroll(
-                        rememberScrollState()
-                    ),
-
-                verticalArrangement =
-                    Arrangement.spacedBy(8.dp)
+                modifier = Modifier.verticalScroll(
+                    rememberScrollState()
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 OutlinedTextField(
                     value = length,
                     onValueChange = onLengthChange,
+                    singleLine = true,
                     label = {
-                        Text("Length (m)")
+                        Text(
+                            if (arabic) "طول الكابل (m)" else "Cable Length (m)"
+                        )
                     }
                 )
 
                 OutlinedTextField(
                     value = resistance,
                     onValueChange = onResistanceChange,
+                    singleLine = true,
                     label = {
                         Text("R (Ω/km)")
                     }
@@ -77,6 +74,7 @@ fun SldConnectionEditorDialog(
                 OutlinedTextField(
                     value = reactance,
                     onValueChange = onReactanceChange,
+                    singleLine = true,
                     label = {
                         Text("X (Ω/km)")
                     }
@@ -85,9 +83,14 @@ fun SldConnectionEditorDialog(
                 OutlinedTextField(
                     value = cableSize,
                     onValueChange = onCableSizeChange,
+                    singleLine = true,
                     label = {
                         Text(
-                            "Cable Section (mm²)"
+                            if (arabic) {
+                                "مقطع الكابل (mm²)"
+                            } else {
+                                "Cable Section (mm²)"
+                            }
                         )
                     }
                 )
@@ -95,47 +98,43 @@ fun SldConnectionEditorDialog(
                 OutlinedTextField(
                     value = parallelRuns,
                     onValueChange = onParallelRunsChange,
+                    singleLine = true,
                     label = {
-                        Text("Parallel Runs")
+                        Text(
+                            if (arabic) "عدد المسارات المتوازية" else "Parallel Runs"
+                        )
                     }
                 )
 
                 OutlinedTextField(
                     value = capacity,
                     onValueChange = onCapacityChange,
+                    singleLine = true,
                     label = {
-                        Text("Capacity (A)")
+                        Text(
+                            if (arabic) "التيار المسموح (A)" else "Current Capacity (A)"
+                        )
                     }
                 )
             }
         },
 
         confirmButton = {
-
             Button(
                 onClick = onSave
             ) {
                 Text(
-                    if (arabic) {
-                        "حفظ"
-                    } else {
-                        "Save"
-                    }
+                    if (arabic) "حفظ" else "Save"
                 )
             }
         },
 
         dismissButton = {
-
             TextButton(
                 onClick = onCancel
             ) {
                 Text(
-                    if (arabic) {
-                        "إلغاء"
-                    } else {
-                        "Cancel"
-                    }
+                    if (arabic) "إلغاء" else "Cancel"
                 )
             }
         }
