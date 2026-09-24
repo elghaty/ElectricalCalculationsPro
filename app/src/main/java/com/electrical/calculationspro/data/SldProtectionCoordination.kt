@@ -1,7 +1,5 @@
 package com.electrical.calculationspro.data
 
-import kotlin.math.max
-
 data class SldProtectionDevice(
     val nodeId: String,
     val nodeName: String,
@@ -72,12 +70,9 @@ object SldProtectionCoordinationEngine {
             "SLD network is empty."
         }
 
-        val nodeMap =
-            network.nodes.associateBy { it.id }
-
-        val upstream =
+        val upstream: SldUpstreamEngineering.Result? =
             try {
-                SldEngineeringEngine.calculateUpstream(network)
+                SldUpstreamEngineering.calculate(network)
             } catch (_: Exception) {
                 null
             }
@@ -110,6 +105,13 @@ object SldProtectionCoordinationEngine {
                     ?.breakerRequiredKa
                     ?: 0.0
 
+            val initialSymmetricalCurrentKa =
+                shortCircuitStudy
+                    ?.results
+                    ?.get(node.id)
+                    ?.initialSymmetricalCurrentKa
+                    ?: 0.0
+
             val longTimePickup =
                 recommendedRating * 0.90
 
@@ -132,13 +134,7 @@ object SldProtectionCoordinationEngine {
 
             if (
                 shortCircuitRating > 0.0 &&
-                shortCircuitRating < (
-                    shortCircuitStudy
-                        ?.results
-                        ?.get(node.id)
-                        ?.initialSymmetricalCurrentKa
-                        ?: 0.0
-                    )
+                shortCircuitRating < initialSymmetricalCurrentKa
             ) {
                 status = ProtectionStatus.FAIL
 
@@ -157,12 +153,14 @@ object SldProtectionCoordinationEngine {
                 cableSizingStudy != null &&
                 node.type != SldNodeType.SOURCE
             ) {
+
                 val downstreamConnections =
                     network.connections.filter {
                         it.toNodeId == node.id
                     }
 
                 downstreamConnections.forEach { connection ->
+
                     val cable =
                         cableSizingStudy.results[connection.id]
 
@@ -172,7 +170,9 @@ object SldProtectionCoordinationEngine {
                         recommendedRating >
                         cable.recommendedCurrentCapacityA
                     ) {
-                        status = ProtectionStatus.FAIL
+
+                        status =
+                            ProtectionStatus.FAIL
 
                         notes.add(
                             "Breaker rating exceeds the recommended cable current capacity."
@@ -229,15 +229,15 @@ object SldProtectionCoordinationEngine {
                 return@forEach
             }
 
-            val minimumRatio =
+            val ratio =
                 upstreamRating / downstreamRating
 
             when {
-                minimumRatio >= 1.60 -> {
+                ratio >= 1.60 -> {
                     coordinatedPairs++
                 }
 
-                minimumRatio >= 1.25 -> {
+                ratio >= 1.25 -> {
                     warningPairs++
                 }
 
@@ -281,15 +281,17 @@ object SldProtectionCoordinationEngine {
 
     private fun determineDownstreamCurrent(
         node: SldNode,
-        upstream: SldCalculationResult?,
+        upstream: SldUpstreamEngineering.Result?,
         cableSizingStudy: SldCableSizingStudy?
     ): Double {
 
         val upstreamCurrent =
             upstream
-                ?.nodeResults
-                ?.get(node.id)
-                ?.feederRequiredCurrentA
+                ?.nodes
+                ?.firstOrNull {
+                    it.nodeId == node.id
+                }
+                ?.currentA
                 ?: 0.0
 
         if (upstreamCurrent > 0.0) {
@@ -303,9 +305,10 @@ object SldProtectionCoordinationEngine {
                 it.toNodeId == node.id
             }
             ?.designCurrentA
-            ?.let {
-                if (it > 0.0) {
-                    return it
+            ?.let { current ->
+
+                if (current > 0.0) {
+                    return current
                 }
             }
 
@@ -314,6 +317,7 @@ object SldProtectionCoordinationEngine {
             node.powerFactor > 0.0 &&
             node.voltage > 0.0
         ) {
+
             return (
                 node.loadKw * 1000.0
                 ) / (
@@ -327,6 +331,7 @@ object SldProtectionCoordinationEngine {
             node.ratedKva > 0.0 &&
             node.voltage > 0.0
         ) {
+
             return (
                 node.ratedKva * 1000.0
                 ) / (
@@ -355,6 +360,7 @@ object SldProtectionCoordinationEngine {
         type: SldNodeType
     ): String =
         when (type) {
+
             SldNodeType.BREAKER ->
                 "ACB/MCCB"
 
