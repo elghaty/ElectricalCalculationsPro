@@ -13,10 +13,10 @@ class SldEditorState {
         listOf(
             SldNode(
                 id = "source-1",
-                name = "MAIN SOURCE",
+                name = "UTILITY SOURCE",
                 type = SldNodeType.SOURCE,
-                x = 80f,
-                y = 280f,
+                x = 900f,
+                y = 60f,
                 voltage = 400.0,
                 sourceShortCircuitMva = 500.0
             )
@@ -42,6 +42,7 @@ class SldEditorState {
     var reportText by mutableStateOf("")
 
     var nodeType by mutableStateOf(SldNodeType.BUS)
+
     var name by mutableStateOf("")
     var voltage by mutableStateOf("400")
     var loadKw by mutableStateOf("100")
@@ -58,4 +59,18 @@ class SldEditorState {
     var cableSize by mutableStateOf("240")
     var parallelRuns by mutableStateOf("1")
     var capacity by mutableStateOf("350")
+
+    fun clearSelection() {
+        selectedNodeId = null
+        selectedConnectionId = null
+        connectionStartId = null
+    }
+
+    fun clearDialogs() {
+        showNodeDialog = false
+        showConnectionDialog = false
+        editingNodeId = null
+        editingConnectionId = null
+        connectionStartId = null
+    }
 }
