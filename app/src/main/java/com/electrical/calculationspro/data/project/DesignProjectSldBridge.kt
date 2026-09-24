@@ -3,13 +3,35 @@ package com.electrical.calculationspro.data.project
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.SldNode
+import com.electrical.calculationspro.data.SldNodeType
+import kotlin.math.sqrt
 
 /**
- * Canonical bridge between the project model and the SLD
- * engineering model.
+ * Canonical bridge between DesignProject and the SLD engineering model.
  *
- * UI does not write directly into DesignProject.
- * SLD data passes through this bridge.
+ * The SLD is a topology representation of the actual electrical design.
+ *
+ * Initial generated topology:
+ *
+ * SOURCE
+ *   ↓
+ * TRANSFORMER / GENERATOR
+ *   ↓
+ * MAIN BREAKER
+ *   ↓
+ * BUS
+ *   ↓
+ * PANEL
+ *   ↓
+ * FEEDER BREAKER
+ *   ↓
+ * LOAD / PUMP
+ *
+ * Important:
+ * - Stored SLD is never rebuilt during normal recalculation.
+ * - Manual node positions are preserved.
+ * - Automatic generation happens only when no SLD exists.
+ * - Engineering calculations remain in the engineering core.
  */
 object DesignProjectSldBridge {
 
@@ -103,6 +125,13 @@ object DesignProjectSldBridge {
             )
         )
 
+    /**
+     * Returns the stored SLD when one exists.
+     *
+     * This is deliberately different from buildFromElectricalDesign().
+     *
+     * Normal project recalculation must not destroy manual SLD editing.
+     */
     fun rebuildFromProject(
         project: DesignProject
     ): SldNetwork {
@@ -120,8 +149,13 @@ object DesignProjectSldBridge {
     }
 
     /**
-     * Creates an initial SLD from the actual project electrical
-     * entities when no manually edited SLD exists yet.
+     * Builds the initial SLD from the actual electrical project.
+     *
+     * This function is used only when there is no stored SLD.
+     *
+     * The generated network contains explicit protection and bus
+     * elements instead of drawing a simple line directly from
+     * panel to load.
      */
     fun buildFromElectricalDesign(
         electrical: ElectricalDesign
@@ -153,25 +187,41 @@ object DesignProjectSldBridge {
                 ?.shortCircuitKA
                 ?.takeIf { it > 0.0 }
                 ?.let {
-                    kotlin.math.sqrt(3.0) *
+                    sqrt(3.0) *
                         sourceVoltage *
                         it /
                         1000.0
                 }
                 ?: 500.0
 
+        /*
+         * ---------------------------------------------------------
+         * SOURCE
+         * ---------------------------------------------------------
+         */
         nodes +=
             SldNode(
                 id = sourceId,
                 name = "MAIN SOURCE",
-                type = com.electrical.calculationspro.data.SldNodeType.SOURCE,
+                type = SldNodeType.SOURCE,
                 x = 80f,
-                y = 300f,
+                y = 400f,
                 voltage = sourceVoltage,
                 sourceShortCircuitMva =
                     sourceShortCircuitMva
             )
 
+        /*
+         * ---------------------------------------------------------
+         * UPSTREAM EQUIPMENT
+         * ---------------------------------------------------------
+         *
+         * Transformer is connected to the source.
+         *
+         * Generator is represented as an independent source-side
+         * equipment element. It is not incorrectly connected
+         * directly to the utility source.
+         */
         electrical.transformers.forEachIndexed {
                 index,
                 transformer
@@ -180,32 +230,39 @@ object DesignProjectSldBridge {
             val nodeId =
                 transformer.id
 
-            nodes +=
-                SldNode(
-                    id = nodeId,
-                    name = transformer.name,
-                    type =
-                        com.electrical.calculationspro.data.SldNodeType.TRANSFORMER,
-                    x = 300f + index * 260f,
-                    y = 300f,
-                    voltage =
-                        transformer.secondaryVoltageV,
-                    ratedKva =
-                        transformer.ratingKva,
-                    transformerPercentZ =
-                        transformer.impedancePercent
-                )
+            if (
+                nodes.none {
+                    it.id == nodeId
+                }
+            ) {
 
-            connections +=
-                SldConnection(
-                    id =
-                        "source-to-$nodeId",
-                    fromNodeId =
-                        sourceId,
-                    toNodeId =
-                        nodeId,
-                    lengthMeters = 0.0
-                )
+                nodes +=
+                    SldNode(
+                        id = nodeId,
+                        name = transformer.name,
+                        type = SldNodeType.TRANSFORMER,
+                        x = 330f,
+                        y =
+                            250f +
+                                index * 240f,
+                        voltage =
+                            transformer.secondaryVoltageV,
+                        ratedKva =
+                            transformer.ratingKva,
+                        transformerPercentZ =
+                            transformer.impedancePercent
+                    )
+
+                connections +=
+                    SldConnection(
+                        id =
+                            "source-to-transformer-$nodeId",
+                        fromNodeId =
+                            sourceId,
+                        toNodeId =
+                            nodeId
+                    )
+            }
         }
 
         electrical.generators.forEachIndexed {
@@ -216,62 +273,97 @@ object DesignProjectSldBridge {
             val nodeId =
                 generator.id
 
-            nodes +=
-                SldNode(
-                    id = nodeId,
-                    name = generator.name,
-                    type =
-                        com.electrical.calculationspro.data.SldNodeType.GENERATOR,
-                    x = 300f + index * 260f,
-                    y = 520f,
-                    voltage =
-                        generator.voltageV,
-                    ratedKva =
-                        generator.ratingKva,
-                    powerFactor =
-                        generator.powerFactor
-                )
+            if (
+                nodes.none {
+                    it.id == nodeId
+                }
+            ) {
+
+                nodes +=
+                    SldNode(
+                        id = nodeId,
+                        name = generator.name,
+                        type = SldNodeType.GENERATOR,
+                        x = 330f,
+                        y =
+                            700f +
+                                index * 240f,
+                        voltage =
+                            generator.voltageV,
+                        ratedKva =
+                            generator.ratingKva,
+                        powerFactor =
+                            generator.powerFactor
+                    )
+            }
         }
 
+        /*
+         * ---------------------------------------------------------
+         * PANELS
+         * ---------------------------------------------------------
+         *
+         * Each panel gets a protection element and a bus element
+         * when it is the first downstream panel.
+         */
         electrical.panels.forEachIndexed {
                 index,
                 panel
             ->
 
-            val nodeId =
+            val panelId =
                 panel.id
 
-            nodes +=
-                SldNode(
-                    id = nodeId,
-                    name = panel.name,
-                    type =
-                        com.electrical.calculationspro.data.SldNodeType.PANEL,
-                    x = 560f + index * 260f,
-                    y = 300f,
-                    voltage =
-                        panel.voltageV,
-                    loadKw =
-                        panel.designLoadKw,
-                    sourceShortCircuitMva =
-                        if (panel.shortCircuitKA > 0.0) {
-                            kotlin.math.sqrt(3.0) *
-                                panel.voltageV *
-                                panel.shortCircuitKA /
-                                1000.0
-                        } else {
-                            0.0
-                        }
-                )
+            val panelVoltage =
+                panel.voltageV
+                    .takeIf { it > 0.0 }
+                    ?: sourceVoltage
 
-            val sourcePanel =
+            val panelFaultMva =
+                if (
+                    panel.shortCircuitKA > 0.0
+                ) {
+                    sqrt(3.0) *
+                        panelVoltage *
+                        panel.shortCircuitKA /
+                        1000.0
+                } else {
+                    0.0
+                }
+
+            if (
+                nodes.none {
+                    it.id == panelId
+                }
+            ) {
+
+                nodes +=
+                    SldNode(
+                        id = panelId,
+                        name = panel.name,
+                        type = SldNodeType.PANEL,
+                        x =
+                            1120f,
+                        y =
+                            250f +
+                                index * 220f,
+                        voltage =
+                            panelVoltage,
+                        loadKw =
+                            panel.designLoadKw,
+                        sourceShortCircuitMva =
+                            panelFaultMva
+                    )
+            }
+
+            val sourcePanelId =
                 panel.sourceId
 
-            val parent =
-                sourcePanel
-                    ?.takeIf {
-                        nodes.any { node ->
-                            node.id == it
+            val upstream =
+                sourcePanelId
+                    ?.takeIf { parentId ->
+                        nodes.any {
+                            it.id == parentId
                         }
                     }
                     ?: electrical.transformers
@@ -279,80 +371,261 @@ object DesignProjectSldBridge {
                         ?.id
                     ?: sourceId
 
-            if (parent != nodeId) {
-                connections +=
-                    SldConnection(
-                        id =
-                            "feeder-$parent-$nodeId",
-                        fromNodeId =
-                            parent,
-                        toNodeId =
-                            nodeId
+            /*
+             * Main protection for the panel.
+             */
+            val breakerId =
+                "main-breaker-$panelId"
+
+            if (
+                nodes.none {
+                    it.id == breakerId
+                }
+            ) {
+
+                nodes +=
+                    SldNode(
+                        id = breakerId,
+                        name = "${panel.name} MAIN BREAKER",
+                        type = SldNodeType.BREAKER,
+                        x = 720f,
+                        y =
+                            250f +
+                                index * 220f,
+                        voltage =
+                            panelVoltage,
+                        ratedKva =
+                            panel.designLoadKw
                     )
             }
+
+            val busId =
+                "bus-$panelId"
+
+            if (
+                nodes.none {
+                    it.id == busId
+                }
+            ) {
+
+                nodes +=
+                    SldNode(
+                        id = busId,
+                        name = "${panel.name} BUS",
+                        type = SldNodeType.BUS,
+                        x = 930f,
+                        y =
+                            250f +
+                                index * 220f,
+                        voltage =
+                            panelVoltage,
+                        loadKw =
+                            panel.designLoadKw
+                    )
+            }
+
+            addConnectionIfMissing(
+                connections,
+                id =
+                    "upstream-to-breaker-$panelId",
+                from =
+                    upstream,
+                to =
+                    breakerId
+            )
+
+            addConnectionIfMissing(
+                connections,
+                id =
+                    "breaker-to-bus-$panelId",
+                from =
+                    breakerId,
+                to =
+                    busId
+            )
+
+            addConnectionIfMissing(
+                connections,
+                id =
+                    "bus-to-panel-$panelId",
+                from =
+                    busId,
+                to =
+                    panelId
+            )
         }
 
+        /*
+         * ---------------------------------------------------------
+         * LOADS
+         * ---------------------------------------------------------
+         *
+         * Loads are attached to their source panel where available.
+         * Otherwise they are attached to the first project panel.
+         */
         electrical.loads.forEachIndexed {
                 index,
                 load
             ->
 
-            val nodeId =
+            val loadId =
                 load.id
 
-            nodes +=
-                SldNode(
-                    id = nodeId,
-                    name = load.name,
-                    type =
-                        com.electrical.calculationspro.data.SldNodeType.LOAD,
-                    x = 820f + index * 220f,
-                    y = 300f +
-                        (index % 4) * 160f,
-                    voltage =
-                        load.voltageV,
-                    loadKw =
-                        load.designLoadKw
-                            .takeIf { it > 0.0 }
-                            ?: load.connectedLoadKw *
-                                load.quantity,
-                    powerFactor =
-                        load.powerFactor,
-                    demandFactor =
-                        load.demandFactor
-                )
+            if (
+                nodes.none {
+                    it.id == loadId
+                }
+            ) {
 
-            val parent =
+                val loadVoltage =
+                    load.voltageV
+                        .takeIf { it > 0.0 }
+                        ?: sourceVoltage
+
+                val calculatedLoadKw =
+                    load.designLoadKw
+                        .takeIf { it > 0.0 }
+                        ?: (
+                            load.connectedLoadKw *
+                                load.quantity
+                            )
+
+                nodes +=
+                    SldNode(
+                        id = loadId,
+                        name = load.name,
+                        type = SldNodeType.LOAD,
+                        x = 1580f,
+                        y =
+                            180f +
+                                (index % 5) *
+                                180f,
+                        voltage =
+                            loadVoltage,
+                        loadKw =
+                            calculatedLoadKw,
+                        powerFactor =
+                            load.powerFactor,
+                        demandFactor =
+                            load.demandFactor
+                    )
+            }
+
+            val panelId =
                 load.sourcePanelId
-                    ?.takeIf {
-                        nodes.any { node ->
-                            node.id == it
+                    ?.takeIf { source ->
+                        nodes.any {
+                            it.id == source &&
+                                it.type ==
+                                SldNodeType.PANEL
                         }
                     }
                     ?: electrical.panels
                         .firstOrNull()
                         ?.id
+
+            val parent =
+                panelId
                     ?: electrical.transformers
                         .firstOrNull()
                         ?.id
                     ?: sourceId
 
-            if (parent != nodeId) {
-                connections +=
-                    SldConnection(
-                        id =
-                            "load-feeder-$parent-$nodeId",
-                        fromNodeId =
-                            parent,
-                        toNodeId =
-                            nodeId
+            val breakerId =
+                "feeder-breaker-$loadId"
+
+            if (
+                nodes.none {
+                    it.id == breakerId
+                }
+            ) {
+
+                val loadNode =
+                    nodes.firstOrNull {
+                        it.id == loadId
+                    }
+
+                nodes +=
+                    SldNode(
+                        id = breakerId,
+                        name =
+                            "${load.name} FEEDER BREAKER",
+                        type =
+                            SldNodeType.BREAKER,
+                        x = 1350f,
+                        y =
+                            loadNode?.y
+                                ?: 180f,
+                        voltage =
+                            loadNode?.voltage
+                                ?: sourceVoltage,
+                        ratedKva =
+                            loadNode?.loadKw
+                                ?: 0.0
                     )
             }
+
+            addConnectionIfMissing(
+                connections,
+                id =
+                    "feeder-breaker-input-$loadId",
+                from =
+                    parent,
+                to =
+                    breakerId
+            )
+
+            addConnectionIfMissing(
+                connections,
+                id =
+                    "feeder-to-load-$loadId",
+                from =
+                    breakerId,
+                to =
+                    loadId
+            )
         }
 
+        /*
+         * ---------------------------------------------------------
+         * PUMP LOADS
+         * ---------------------------------------------------------
+         *
+         * PumpElectricalIntegration already converts pumps into
+         * ElectricalLoad objects. Therefore pumps automatically
+         * enter the SLD through electrical.loads.
+         */
         return SldNetwork(
             nodes = nodes,
             connections = connections
         )
+    }
+
+    private fun addConnectionIfMissing(
+        connections: MutableList<SldConnection>,
+        id: String,
+        from: String,
+        to: String
+    ) {
+
+        if (from == to) {
+            return
+        }
+
+        val exists =
+            connections.any {
+                it.fromNodeId == from &&
+                    it.toNodeId == to
+            }
+
+        if (!exists) {
+
+            connections +=
+                SldConnection(
+                    id = id,
+                    fromNodeId = from,
+                    toNodeId = to
+                )
+        }
     }
 }
