@@ -34,100 +34,48 @@ fun DrawScope.drawConnection(
     selected: Boolean,
     textMeasurer: TextMeasurer
 ) {
+    val from = nodes.firstOrNull {
+        it.id == connection.fromNodeId
+    } ?: return
 
-    val from =
-        nodes.firstOrNull {
-            it.id == connection.fromNodeId
-        } ?: return
+    val to = nodes.firstOrNull {
+        it.id == connection.toNodeId
+    } ?: return
 
-    val to =
-        nodes.firstOrNull {
-            it.id == connection.toNodeId
-        } ?: return
-
-    val start =
-        connectionStart(
-            from,
-            to
-        )
-
-    val end =
-        connectionEnd(
-            from,
-            to
-        )
+    val start = connectionStart(from, to)
+    val end = connectionEnd(from, to)
 
     val horizontal =
-        abs(end.x - start.x) >=
-            abs(end.y - start.y)
+        abs(end.x - start.x) >= abs(end.y - start.y)
 
-    val path =
-        Path()
+    val path = Path()
 
     if (horizontal) {
+        val middleX = (start.x + end.x) / 2f
 
-        val middleX =
-            (start.x + end.x) / 2f
-
-        path.moveTo(
-            start.x,
-            start.y
-        )
-
-        path.lineTo(
-            middleX,
-            start.y
-        )
-
-        path.lineTo(
-            middleX,
-            end.y
-        )
-
-        path.lineTo(
-            end.x,
-            end.y
-        )
-
+        path.moveTo(start.x, start.y)
+        path.lineTo(middleX, start.y)
+        path.lineTo(middleX, end.y)
+        path.lineTo(end.x, end.y)
     } else {
+        val middleY = (start.y + end.y) / 2f
 
-        val middleY =
-            (start.y + end.y) / 2f
-
-        path.moveTo(
-            start.x,
-            start.y
-        )
-
-        path.lineTo(
-            start.x,
-            middleY
-        )
-
-        path.lineTo(
-            end.x,
-            middleY
-        )
-
-        path.lineTo(
-            end.x,
-            end.y
-        )
+        path.moveTo(start.x, start.y)
+        path.lineTo(start.x, middleY)
+        path.lineTo(end.x, middleY)
+        path.lineTo(end.x, end.y)
     }
 
     drawPath(
         path = path,
-        color =
-            if (selected) {
-                SelectedColor
-            } else {
-                ConnectionColor
-            },
-        style =
-            Stroke(
-                width =
-                    if (selected) 7f else 4f
-            )
+        color = if (selected) {
+            SelectedColor
+        } else {
+            ConnectionColor
+        },
+        style = Stroke(
+            width = if (selected) 7f else 4f
+        )
     )
 
     drawConnectionArrow(
@@ -137,87 +85,61 @@ fun DrawScope.drawConnection(
         selected = selected
     )
 
-    val label =
-        buildString {
+    val label = buildString {
+        if (connection.cableSizeMm2 > 0.0) {
+            append(fmtCanvas(connection.cableSizeMm2))
+            append(" mm²")
 
-            if (connection.cableSizeMm2 > 0.0) {
-
-                append(
-                    fmt(connection.cableSizeMm2)
-                )
-
-                append(" mm²")
-
-                if (connection.parallelRuns > 1) {
-                    append(" × ")
-                    append(connection.parallelRuns)
-                }
-            }
-
-            if (connection.lengthMeters > 0.0) {
-
-                if (isNotEmpty()) {
-                    append(" | ")
-                }
-
-                append(
-                    fmt(connection.lengthMeters)
-                )
-
-                append(" m")
-            }
-
-            if (connection.currentCapacityA > 0.0) {
-
-                if (isNotEmpty()) {
-                    append(" | ")
-                }
-
-                append(
-                    fmt(connection.currentCapacityA)
-                )
-
-                append(" A")
-            }
-
-            if (connection.voltageDropPercent > 0.0) {
-
-                if (isNotEmpty()) {
-                    append(" | ")
-                }
-
-                append(
-                    "ΔV="
-                )
-
-                append(
-                    fmt(
-                        connection.voltageDropPercent
-                    )
-                )
-
-                append("%")
+            if (connection.parallelRuns > 1) {
+                append(" × ")
+                append(connection.parallelRuns)
             }
         }
 
-    if (label.isNotBlank()) {
+        if (connection.lengthMeters > 0.0) {
+            if (isNotEmpty()) {
+                append(" | ")
+            }
 
+            append(fmtCanvas(connection.lengthMeters))
+            append(" m")
+        }
+
+        if (connection.currentCapacityA > 0.0) {
+            if (isNotEmpty()) {
+                append(" | ")
+            }
+
+            append(fmtCanvas(connection.currentCapacityA))
+            append(" A")
+        }
+
+        if (connection.voltageDropPercent > 0.0) {
+            if (isNotEmpty()) {
+                append(" | ")
+            }
+
+            append("ΔV=")
+            append(fmtCanvas(connection.voltageDropPercent))
+            append("%")
+        }
+    }
+
+    if (label.isNotBlank()) {
         drawText(
             textMeasurer = textMeasurer,
             text = label,
-            topLeft =
-                Offset(
-                    min(start.x, end.x) +
-                        abs(end.x - start.x) / 2f -
-                        65f,
-                    min(start.y, end.y) - 26f
-                ),
-            style =
-                TextStyle(
-                    color = SecondaryColor,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium
-                )
+            topLeft = Offset(
+                min(start.x, end.x) +
+                    abs(end.x - start.x) / 2f -
+                    65f,
+                min(start.y, end.y) - 26f
+            ),
+            style = TextStyle(
+                color = SecondaryColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium
+            )
         )
     }
 }
@@ -228,30 +150,25 @@ private fun DrawScope.drawConnectionArrow(
     horizontal: Boolean,
     selected: Boolean
 ) {
+    val color = if (selected) {
+        SelectedColor
+    } else {
+        ConnectionColor
+    }
 
-    val color =
-        if (selected) {
-            SelectedColor
-        } else {
-            ConnectionColor
-        }
+    val x = if (horizontal) {
+        (start.x + end.x) / 2f
+    } else {
+        end.x
+    }
 
-    val x =
-        if (horizontal) {
-            (start.x + end.x) / 2f
-        } else {
-            end.x
-        }
-
-    val y =
-        if (horizontal) {
-            end.y
-        } else {
-            (start.y + end.y) / 2f
-        }
+    val y = if (horizontal) {
+        end.y
+    } else {
+        (start.y + end.y) / 2f
+    }
 
     if (horizontal) {
-
         val direction =
             if (end.x >= start.x) 1f else -1f
 
@@ -261,10 +178,7 @@ private fun DrawScope.drawConnectionArrow(
                 x - direction * 9f,
                 y - 7f
             ),
-            end = Offset(
-                x,
-                y
-            ),
+            end = Offset(x, y),
             strokeWidth = 3f
         )
 
@@ -274,15 +188,10 @@ private fun DrawScope.drawConnectionArrow(
                 x - direction * 9f,
                 y + 7f
             ),
-            end = Offset(
-                x,
-                y
-            ),
+            end = Offset(x, y),
             strokeWidth = 3f
         )
-
     } else {
-
         val direction =
             if (end.y >= start.y) 1f else -1f
 
@@ -292,10 +201,7 @@ private fun DrawScope.drawConnectionArrow(
                 x - 7f,
                 y - direction * 9f
             ),
-            end = Offset(
-                x,
-                y
-            ),
+            end = Offset(x, y),
             strokeWidth = 3f
         )
 
@@ -305,10 +211,7 @@ private fun DrawScope.drawConnectionArrow(
                 x + 7f,
                 y - direction * 9f
             ),
-            end = Offset(
-                x,
-                y
-            ),
+            end = Offset(x, y),
             strokeWidth = 3f
         )
     }
@@ -320,49 +223,35 @@ fun DrawScope.drawNode(
     connectionStart: Boolean,
     textMeasurer: TextMeasurer
 ) {
-
     if (selected || connectionStart) {
-
         drawRect(
-            color =
-                if (connectionStart) {
-                    StartColor
-                } else {
-                    SelectedColor
-                },
-            topLeft =
-                Offset(
-                    node.x - 7f,
-                    node.y - 7f
-                ),
-            size =
-                Size(
-                    NODE_WIDTH + 14f,
-                    NODE_HEIGHT + 14f
-                ),
-            style =
-                Stroke(
-                    width = 4f
-                )
+            color = if (connectionStart) {
+                StartColor
+            } else {
+                SelectedColor
+            },
+            topLeft = Offset(
+                node.x - 7f,
+                node.y - 7f
+            ),
+            size = Size(
+                NODE_WIDTH + 14f,
+                NODE_HEIGHT + 14f
+            ),
+            style = Stroke(width = 4f)
         )
     }
 
     drawRect(
         color = BackgroundColor,
-        topLeft =
-            Offset(
-                node.x,
-                node.y
-            ),
-        size =
-            Size(
-                NODE_WIDTH,
-                NODE_HEIGHT
-            )
+        topLeft = Offset(node.x, node.y),
+        size = Size(
+            NODE_WIDTH,
+            NODE_HEIGHT
+        )
     )
 
     when (node.type) {
-
         SldNodeType.SOURCE ->
             drawSourceSymbol(
                 node.x + NODE_WIDTH / 2f,
@@ -409,71 +298,61 @@ fun DrawScope.drawNode(
     drawText(
         textMeasurer = textMeasurer,
         text = node.name,
-        topLeft =
-            Offset(
-                node.x + 8f,
-                node.y + 84f
-            ),
-        style =
-            TextStyle(
-                color = PrimaryColor,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
+        topLeft = Offset(
+            node.x + 8f,
+            node.y + 84f
+        ),
+        style = TextStyle(
+            color = PrimaryColor,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
     )
 
     drawText(
         textMeasurer = textMeasurer,
         text = engineeringText(node),
-        topLeft =
-            Offset(
-                node.x + 8f,
-                node.y + 102f
-            ),
-        style =
-            TextStyle(
-                color = SecondaryColor,
-                fontSize = 10.sp
-            )
+        topLeft = Offset(
+            node.x + 8f,
+            node.y + 102f
+        ),
+        style = TextStyle(
+            color = SecondaryColor,
+            fontSize = 10.sp
+        )
     )
 
     drawText(
         textMeasurer = textMeasurer,
         text = equipmentTypeLabel(node.type),
-        topLeft =
-            Offset(
-                node.x + 8f,
-                node.y + 116f
-            ),
-        style =
-            TextStyle(
-                color = SecondaryColor,
-                fontSize = 9.sp
-            )
+        topLeft = Offset(
+            node.x + 8f,
+            node.y + 116f
+        ),
+        style = TextStyle(
+            color = SecondaryColor,
+            fontSize = 9.sp
+        )
     )
 }
 
 private fun engineeringText(
     node: SldNode
 ): String {
-
     return buildString {
-
         append("V=")
-        append(fmt(node.voltage))
+        append(fmtCanvas(node.voltage))
         append(" V")
 
         if (node.loadKw > 0.0) {
-
             append("   P=")
-            append(fmt(node.loadKw))
+            append(fmtCanvas(node.loadKw))
             append(" kW")
         }
 
         if (node.ratedKva > 0.0) {
-
             append("   S=")
-            append(fmt(node.ratedKva))
+            append(fmtCanvas(node.ratedKva))
             append(" kVA")
         }
     }
@@ -483,7 +362,6 @@ private fun DrawScope.drawSourceSymbol(
     x: Float,
     y: Float
 ) {
-
     drawLine(
         SymbolColor,
         Offset(x, y - 45f),
@@ -524,7 +402,6 @@ private fun DrawScope.drawTransformerSymbol(
     x: Float,
     y: Float
 ) {
-
     drawLine(
         SymbolColor,
         Offset(x, y - 48f),
@@ -537,12 +414,12 @@ private fun DrawScope.drawTransformerSymbol(
         startAngle = -90f,
         sweepAngle = 180f,
         useCenter = false,
-        topLeft =
-            Offset(x - 29f, y - 29f),
-        size =
-            Size(58f, 58f),
-        style =
-            Stroke(3.5f)
+        topLeft = Offset(
+            x - 29f,
+            y - 29f
+        ),
+        size = Size(58f, 58f),
+        style = Stroke(3.5f)
     )
 
     drawArc(
@@ -550,12 +427,12 @@ private fun DrawScope.drawTransformerSymbol(
         startAngle = 90f,
         sweepAngle = 180f,
         useCenter = false,
-        topLeft =
-            Offset(x + 1f, y - 29f),
-        size =
-            Size(58f, 58f),
-        style =
-            Stroke(3.5f)
+        topLeft = Offset(
+            x + 1f,
+            y - 29f
+        ),
+        size = Size(58f, 58f),
+        style = Stroke(3.5f)
     )
 
     drawLine(
@@ -570,7 +447,6 @@ private fun DrawScope.drawGeneratorSymbol(
     x: Float,
     y: Float
 ) {
-
     drawLine(
         SymbolColor,
         Offset(x, y - 48f),
@@ -590,12 +466,12 @@ private fun DrawScope.drawGeneratorSymbol(
         startAngle = 25f,
         sweepAngle = 130f,
         useCenter = false,
-        topLeft =
-            Offset(x - 15f, y - 15f),
-        size =
-            Size(30f, 30f),
-        style =
-            Stroke(3f)
+        topLeft = Offset(
+            x - 15f,
+            y - 15f
+        ),
+        size = Size(30f, 30f),
+        style = Stroke(3f)
     )
 
     drawLine(
@@ -610,7 +486,6 @@ private fun DrawScope.drawBusbarSymbol(
     x: Float,
     y: Float
 ) {
-
     drawLine(
         SymbolColor,
         Offset(x - 58f, y),
@@ -649,15 +524,14 @@ private fun DrawScope.drawPanelSymbol(
     x: Float,
     y: Float
 ) {
-
     drawRect(
         color = BackgroundColor,
-        topLeft =
-            Offset(x - 38f, y - 30f),
-        size =
-            Size(76f, 60f),
-        style =
-            Stroke(3.5f)
+        topLeft = Offset(
+            x - 38f,
+            y - 30f
+        ),
+        size = Size(76f, 60f),
+        style = Stroke(3.5f)
     )
 
     drawLine(
@@ -686,7 +560,6 @@ private fun DrawScope.drawBreakerSymbol(
     x: Float,
     y: Float
 ) {
-
     drawLine(
         SymbolColor,
         Offset(x, y - 48f),
@@ -696,12 +569,12 @@ private fun DrawScope.drawBreakerSymbol(
 
     drawRect(
         color = BackgroundColor,
-        topLeft =
-            Offset(x - 24f, y - 24f),
-        size =
-            Size(48f, 48f),
-        style =
-            Stroke(3.5f)
+        topLeft = Offset(
+            x - 24f,
+            y - 24f
+        ),
+        size = Size(48f, 48f),
+        style = Stroke(3.5f)
     )
 
     drawLine(
@@ -723,7 +596,6 @@ private fun DrawScope.drawLoadSymbol(
     x: Float,
     y: Float
 ) {
-
     drawLine(
         SymbolColor,
         Offset(x, y - 48f),
@@ -763,9 +635,7 @@ private fun DrawScope.drawLoadSymbol(
 private fun equipmentTypeLabel(
     type: SldNodeType
 ): String {
-
     return when (type) {
-
         SldNodeType.SOURCE ->
             "UTILITY SOURCE"
 
@@ -793,9 +663,7 @@ fun findNode(
     point: Offset,
     nodes: List<SldNode>
 ): SldNode? {
-
     return nodes.lastOrNull { node ->
-
         point.x >= node.x &&
             point.x <= node.x + NODE_WIDTH &&
             point.y >= node.y &&
@@ -808,27 +676,20 @@ fun findConnection(
     nodes: List<SldNode>,
     connections: List<SldConnection>
 ): SldConnection? {
-
     var best: SldConnection? = null
     var distance = Float.MAX_VALUE
 
     connections.forEach { connection ->
+        val from = nodes.firstOrNull {
+            it.id == connection.fromNodeId
+        } ?: return@forEach
 
-        val from =
-            nodes.firstOrNull {
-                it.id == connection.fromNodeId
-            } ?: return@forEach
+        val to = nodes.firstOrNull {
+            it.id == connection.toNodeId
+        } ?: return@forEach
 
-        val to =
-            nodes.firstOrNull {
-                it.id == connection.toNodeId
-            } ?: return@forEach
-
-        val start =
-            connectionStart(from, to)
-
-        val end =
-            connectionEnd(from, to)
+        val start = connectionStart(from, to)
+        val end = connectionEnd(from, to)
 
         val horizontal =
             abs(end.x - start.x) >=
@@ -836,7 +697,6 @@ fun findConnection(
 
         val d =
             if (horizontal) {
-
                 val middleX =
                     (start.x + end.x) / 2f
 
@@ -871,9 +731,7 @@ fun findConnection(
                         end
                     )
                 )
-
             } else {
-
                 val middleY =
                     (start.y + end.y) / 2f
 
@@ -925,10 +783,7 @@ private fun connectionStart(
     from: SldNode,
     to: SldNode
 ): Offset {
-
-    return if (
-        to.x >= from.x
-    ) {
+    return if (to.x >= from.x) {
         Offset(
             from.x + NODE_WIDTH,
             from.y + NODE_HEIGHT / 2f
@@ -945,10 +800,7 @@ private fun connectionEnd(
     from: SldNode,
     to: SldNode
 ): Offset {
-
-    return if (
-        to.x >= from.x
-    ) {
+    return if (to.x >= from.x) {
         Offset(
             to.x,
             to.y + NODE_HEIGHT / 2f
@@ -966,15 +818,11 @@ private fun segmentDistance(
     a: Offset,
     b: Offset
 ): Float {
-
     val dx = b.x - a.x
     val dy = b.y - a.y
 
     if (dx == 0f && dy == 0f) {
-        return distance(
-            point,
-            a
-        )
+        return distance(point, a)
     }
 
     val t =
@@ -984,17 +832,12 @@ private fun segmentDistance(
             ) /
             (dx * dx + dy * dy)
 
-    val clamped =
-        t.coerceIn(
-            0f,
-            1f
-        )
+    val clamped = t.coerceIn(0f, 1f)
 
-    val projection =
-        Offset(
-            a.x + clamped * dx,
-            a.y + clamped * dy
-        )
+    val projection = Offset(
+        a.x + clamped * dx,
+        a.y + clamped * dy
+    )
 
     return distance(
         point,
@@ -1006,7 +849,6 @@ private fun distance(
     a: Offset,
     b: Offset
 ): Float {
-
     val dx = a.x - b.x
     val dy = a.y - b.y
 
@@ -1015,18 +857,18 @@ private fun distance(
     )
 }
 
-private fun fmt(
+/*
+ * SLD canvas has its own formatter so it does not collide
+ * with the report formatter in SldReports.kt.
+ */
+private fun fmtCanvas(
     value: Double
 ): String {
-
     return when {
-
-        value == 0.0 ->
-            "0"
-
+        !value.isFinite() -> "0"
+        value == 0.0 -> "0"
         value % 1.0 == 0.0 ->
             value.toInt().toString()
-
         else ->
             "%.2f".format(value)
     }
