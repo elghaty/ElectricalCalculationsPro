@@ -27,24 +27,32 @@ class SldEditorActions(
         )
 
     fun loadProjectNetwork() {
-        val project = DesignProjects.getActive() ?: return
 
-        val projectNetwork =
-            DesignProjectCoreBridge.getProjectSld(project)
+        val project =
+            DesignProjects.getActive()
+                ?: return
 
-        if (projectNetwork.nodes.isEmpty()) {
+        val stored =
+            DesignProjectCoreBridge.getProjectSld(
+                project
+            )
+
+        if (stored.nodes.isEmpty()) {
             return
         }
 
-        state.nodes = projectNetwork.nodes
-        state.connections = projectNetwork.connections
+        state.nodes = stored.nodes
+        state.connections = stored.connections
+
         state.selectedNodeId =
-            projectNetwork.nodes.firstOrNull()?.id
+            stored.nodes.firstOrNull()?.id
+
         state.selectedConnectionId = null
         state.connectionStartId = null
     }
 
     fun saveProjectNetwork() {
+
         val current = network()
 
         if (current.nodes.isEmpty()) {
@@ -54,15 +62,16 @@ class SldEditorActions(
         DesignProjectCoreBridge.saveActiveProjectSld(
             network = current,
             name = "Main SLD",
-            source = "Electrical Design"
+            source = "Electrical Design - Manual Layout"
         )
     }
 
     fun validateDesign() {
-        val current = network()
 
         val result =
-            SldDesignValidator.validate(current)
+            SldDesignValidator.validate(
+                network()
+            )
 
         state.reportTitle =
             if (arabic) {
@@ -91,7 +100,6 @@ class SldEditorActions(
                 )
 
                 appendLine()
-
                 appendLine(
                     if (arabic) {
                         "الأخطاء: ${result.errors.size}"
@@ -107,7 +115,6 @@ class SldEditorActions(
                 }
 
                 appendLine()
-
                 appendLine(
                     if (arabic) {
                         "التحذيرات: ${result.warnings.size}"
@@ -154,7 +161,9 @@ class SldEditorActions(
         }
 
         val validation =
-            SldDesignValidator.validate(current)
+            SldDesignValidator.validate(
+                current
+            )
 
         if (!validation.valid) {
             validateDesign()
@@ -166,16 +175,11 @@ class SldEditorActions(
                 .arrange(current)
                 .network
 
-        state.nodes =
-            arranged.nodes
-
-        state.connections =
-            arranged.connections
+        state.nodes = arranged.nodes
+        state.connections = arranged.connections
 
         state.selectedNodeId =
-            arranged.nodes
-                .firstOrNull()
-                ?.id
+            arranged.nodes.firstOrNull()?.id
 
         state.selectedConnectionId = null
         state.connectionStartId = null
@@ -187,66 +191,38 @@ class SldEditorActions(
         )
     }
 
-    fun resetNodeEditor(
-        type: SldNodeType
-    ) {
+    fun resetNodeEditor(type: SldNodeType) {
 
         state.editingNodeId = null
-
         state.nodeType = type
-
         state.name = type.name
 
         state.voltage = "400"
-
         state.loadKw = "100"
-
         state.pf = "0.90"
-
         state.demand = "0.80"
-
         state.kva = "500"
-
         state.transformerZ = "6"
-
         state.generatorXd = "15"
-
         state.sourceMva = "500"
 
         state.showNodeDialog = true
     }
 
-    fun editNode(
-        node: SldNode
-    ) {
+    fun editNode(node: SldNode) {
 
         state.editingNodeId = node.id
-
         state.nodeType = node.type
-
         state.name = node.name
-
-        state.voltage =
-            node.voltage.toString()
-
-        state.loadKw =
-            node.loadKw.toString()
-
-        state.pf =
-            node.powerFactor.toString()
-
-        state.demand =
-            node.demandFactor.toString()
-
-        state.kva =
-            node.ratedKva.toString()
-
+        state.voltage = node.voltage.toString()
+        state.loadKw = node.loadKw.toString()
+        state.pf = node.powerFactor.toString()
+        state.demand = node.demandFactor.toString()
+        state.kva = node.ratedKva.toString()
         state.transformerZ =
             node.transformerPercentZ.toString()
-
         state.generatorXd =
             node.generatorXdSubtransient.toString()
-
         state.sourceMva =
             node.sourceShortCircuitMva.toString()
 
@@ -258,114 +234,82 @@ class SldEditorActions(
         val voltage =
             state.voltage
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it > 0.0
-                }
+                ?.takeIf { it > 0.0 }
                 ?: return
 
         val load =
             state.loadKw
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val pf =
             state.pf
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it in 0.01..1.0
-                }
+                ?.takeIf { it in 0.01..1.0 }
                 ?: 0.90
 
         val demand =
             state.demand
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it in 0.0..1.0
-                }
+                ?.takeIf { it in 0.0..1.0 }
                 ?: 0.80
 
         val kva =
             state.kva
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val transformerZ =
             state.transformerZ
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val generatorXd =
             state.generatorXd
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
         val sourceMva =
             state.sourceMva
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: 0.0
 
-        val existingId =
-            state.editingNodeId
+        val id = state.editingNodeId
 
-        if (existingId == null) {
+        if (id == null) {
 
             val node =
                 SldNode(
-                    id =
-                        "node-${System.currentTimeMillis()}",
-                    name =
-                        state.name.ifBlank {
-                            state.nodeType.name
-                        },
-                    type =
-                        state.nodeType,
+                    id = "node-${System.currentTimeMillis()}",
+                    name = state.name.ifBlank {
+                        state.nodeType.name
+                    },
+                    type = state.nodeType,
                     x =
                         120f +
-                            (state.nodes.size % 6) *
-                            260f,
+                            (state.nodes.size % 6) * 260f,
                     y =
                         180f +
-                            (state.nodes.size / 6) *
-                            180f,
-                    voltage =
-                        voltage,
-                    loadKw =
-                        load,
-                    powerFactor =
-                        pf,
-                    demandFactor =
-                        demand,
-                    ratedKva =
-                        kva,
-                    transformerPercentZ =
-                        transformerZ,
-                    generatorXdSubtransient =
-                        generatorXd,
-                    sourceShortCircuitMva =
-                        sourceMva
+                            (state.nodes.size / 6) * 180f,
+                    voltage = voltage,
+                    loadKw = load,
+                    powerFactor = pf,
+                    demandFactor = demand,
+                    ratedKva = kva,
+                    transformerPercentZ = transformerZ,
+                    generatorXdSubtransient = generatorXd,
+                    sourceShortCircuitMva = sourceMva
                 )
 
             state.nodes =
                 state.nodes + node
 
-            state.selectedNodeId =
-                node.id
-
+            state.selectedNodeId = node.id
             state.selectedConnectionId = null
 
         } else {
@@ -373,52 +317,36 @@ class SldEditorActions(
             state.nodes =
                 state.nodes.map { node ->
 
-                    if (node.id == existingId) {
-
-                        node.copy(
-                            name =
-                                state.name.ifBlank {
-                                    node.name
-                                },
-                            type =
-                                state.nodeType,
-                            voltage =
-                                voltage,
-                            loadKw =
-                                load,
-                            powerFactor =
-                                pf,
-                            demandFactor =
-                                demand,
-                            ratedKva =
-                                kva,
-                            transformerPercentZ =
-                                transformerZ,
-                            generatorXdSubtransient =
-                                generatorXd,
-                            sourceShortCircuitMva =
-                                sourceMva
-                        )
-
-                    } else {
+                    if (node.id != id) {
                         node
+                    } else {
+                        node.copy(
+                            name = state.name.ifBlank {
+                                node.name
+                            },
+                            type = state.nodeType,
+                            voltage = voltage,
+                            loadKw = load,
+                            powerFactor = pf,
+                            demandFactor = demand,
+                            ratedKva = kva,
+                            transformerPercentZ = transformerZ,
+                            generatorXdSubtransient = generatorXd,
+                            sourceShortCircuitMva = sourceMva
+                        )
                     }
                 }
         }
 
         state.showNodeDialog = false
-
         state.editingNodeId = null
 
         saveProjectNetwork()
     }
 
-    fun editConnection(
-        connection: SldConnection
-    ) {
+    fun editConnection(connection: SldConnection) {
 
-        state.editingConnectionId =
-            connection.id
+        state.editingConnectionId = connection.id
 
         state.length =
             connection.lengthMeters.toString()
@@ -446,49 +374,37 @@ class SldEditorActions(
         val length =
             state.length
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: return
 
         val resistance =
             state.resistance
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: return
 
         val reactance =
             state.reactance
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: return
 
         val cableSize =
             state.cableSize
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it > 0.0
-                }
+                ?.takeIf { it > 0.0 }
                 ?: return
 
         val parallelRuns =
             state.parallelRuns
                 .toIntOrNull()
-                ?.takeIf {
-                    it > 0
-                }
+                ?.takeIf { it > 0 }
                 ?: return
 
         val capacity =
             state.capacity
                 .toDoubleOrNull()
-                ?.takeIf {
-                    it >= 0.0
-                }
+                ?.takeIf { it >= 0.0 }
                 ?: return
 
         val editingId =
@@ -502,18 +418,12 @@ class SldEditorActions(
                     if (connection.id == editingId) {
 
                         connection.copy(
-                            lengthMeters =
-                                length,
-                            resistanceOhmPerKm =
-                                resistance,
-                            reactanceOhmPerKm =
-                                reactance,
-                            cableSizeMm2 =
-                                cableSize,
-                            parallelRuns =
-                                parallelRuns,
-                            currentCapacityA =
-                                capacity
+                            lengthMeters = length,
+                            resistanceOhmPerKm = resistance,
+                            reactanceOhmPerKm = reactance,
+                            cableSizeMm2 = cableSize,
+                            parallelRuns = parallelRuns,
+                            currentCapacityA = capacity
                         )
 
                     } else {
@@ -536,8 +446,7 @@ class SldEditorActions(
             ) {
 
                 val duplicate =
-                    state.connections.any {
-                        connection ->
+                    state.connections.any { connection ->
 
                         (
                             connection.fromNodeId == start &&
@@ -556,31 +465,21 @@ class SldEditorActions(
                             SldConnection(
                                 id =
                                     "connection-${System.currentTimeMillis()}",
-                                fromNodeId =
-                                    start,
-                                toNodeId =
-                                    end,
-                                lengthMeters =
-                                    length,
-                                resistanceOhmPerKm =
-                                    resistance,
-                                reactanceOhmPerKm =
-                                    reactance,
-                                cableSizeMm2 =
-                                    cableSize,
-                                parallelRuns =
-                                    parallelRuns,
-                                currentCapacityA =
-                                    capacity
+                                fromNodeId = start,
+                                toNodeId = end,
+                                lengthMeters = length,
+                                resistanceOhmPerKm = resistance,
+                                reactanceOhmPerKm = reactance,
+                                cableSizeMm2 = cableSize,
+                                parallelRuns = parallelRuns,
+                                currentCapacityA = capacity
                             )
                 }
             }
         }
 
         state.editingConnectionId = null
-
         state.connectionStartId = null
-
         state.showConnectionDialog = false
 
         saveProjectNetwork()
@@ -592,49 +491,33 @@ class SldEditorActions(
             state.selectedNodeId
                 ?: return
 
-        if (
-            state.connectionStartId == null
-        ) {
+        if (state.connectionStartId == null) {
 
-            state.connectionStartId =
-                nodeId
-
-            state.selectedConnectionId =
-                null
-
+            state.connectionStartId = nodeId
+            state.selectedConnectionId = null
             return
         }
 
-        if (
-            state.connectionStartId == nodeId
-        ) {
-
+        if (state.connectionStartId == nodeId) {
             state.connectionStartId = null
-
             return
         }
 
         state.editingConnectionId = null
-
         state.showConnectionDialog = true
     }
 
     fun deleteSelected() {
 
-        val connectionId =
-            state.selectedConnectionId
-
-        if (connectionId != null) {
+        state.selectedConnectionId?.let { id ->
 
             state.connections =
                 state.connections.filter {
-                    it.id != connectionId
+                    it.id != id
                 }
 
             state.selectedConnectionId = null
-
             saveProjectNetwork()
-
             return
         }
 
@@ -654,7 +537,6 @@ class SldEditorActions(
             }
 
         state.selectedNodeId = null
-
         state.connectionStartId = null
 
         saveProjectNetwork()
@@ -674,31 +556,28 @@ class SldEditorActions(
                         }
                     )
 
-            val current =
-                network()
+            val current = network()
 
             val validation =
-                SldDesignValidator.validate(
-                    current
-                )
+                SldDesignValidator.validate(current)
 
             if (!validation.valid) {
                 validateDesign()
                 return
             }
 
-            val packageResult =
+            val panelId =
+                state.nodes
+                    .firstOrNull {
+                        it.id == state.selectedNodeId &&
+                            it.type == SldNodeType.PANEL
+                    }
+                    ?.id
+
+            val result =
                 DesignProjectCoreBridge.calculateProjectSld(
                     project = project,
-                    panelNodeId =
-                        state.nodes
-                            .firstOrNull {
-                                it.id ==
-                                    state.selectedNodeId &&
-                                    it.type ==
-                                    SldNodeType.PANEL
-                            }
-                            ?.id
+                    panelNodeId = panelId
                 )
 
             state.reportTitle =
@@ -709,21 +588,12 @@ class SldEditorActions(
                 }
 
             state.reportText =
-                buildShortCircuitReport(
-                    study =
-                        packageResult.shortCircuit,
-                    arabic =
-                        arabic
-                )
+                result.shortCircuit.toString()
 
         } catch (exception: Exception) {
 
             state.reportTitle =
-                if (arabic) {
-                    "خطأ"
-                } else {
-                    "Error"
-                }
+                if (arabic) "خطأ" else "Error"
 
             state.reportText =
                 exception.message
@@ -749,14 +619,11 @@ class SldEditorActions(
 
             val panel =
                 state.nodes.firstOrNull {
-                    it.id ==
-                        state.selectedNodeId &&
-                        it.type ==
-                        SldNodeType.PANEL
+                    it.id == state.selectedNodeId &&
+                        it.type == SldNodeType.PANEL
                 }
                     ?: state.nodes.firstOrNull {
-                        it.type ==
-                            SldNodeType.PANEL
+                        it.type == SldNodeType.PANEL
                     }
                     ?: throw IllegalStateException(
                         if (arabic) {
@@ -766,12 +633,9 @@ class SldEditorActions(
                         }
                     )
 
-            val current =
-                network()
-
             val validation =
                 SldDesignValidator.validate(
-                    current
+                    network()
                 )
 
             if (!validation.valid) {
@@ -782,44 +646,29 @@ class SldEditorActions(
             val result =
                 DesignProjectCoreBridge.calculateProjectSld(
                     project = project,
-                    panelNodeId =
-                        panel.id
+                    panelNodeId = panel.id
                 )
 
             state.reportTitle =
-                if (arabic) {
-                    "جدول اللوحة"
-                } else {
-                    "Panel Schedule"
-                }
+                if (arabic) "جدول اللوحة" else "Panel Schedule"
 
             state.reportText =
                 buildPanelSchedule(
-                    panel =
-                        panel,
-                    nodes =
-                        state.nodes,
-                    connections =
-                        state.connections,
-                    arabic =
-                        arabic
+                    panel,
+                    state.nodes,
+                    state.connections,
+                    arabic
                 ) +
                     "\n\n" +
                     buildPanelEngineeringSummary(
-                        result =
-                            result,
-                        arabic =
-                            arabic
+                        result,
+                        arabic
                     )
 
         } catch (exception: Exception) {
 
             state.reportTitle =
-                if (arabic) {
-                    "خطأ"
-                } else {
-                    "Error"
-                }
+                if (arabic) "خطأ" else "Error"
 
             state.reportText =
                 exception.message
@@ -843,72 +692,77 @@ class SldEditorActions(
                         }
                     )
 
-            val generated =
-                DesignProjectCoreBridge.buildProjectSld(
+            /*
+             * Existing SLD is the engineer's drawing.
+             * Never replace its coordinates during calculation.
+             */
+            val stored =
+                DesignProjectCoreBridge.getProjectSld(
                     project
                 )
 
+            val current =
+                if (stored.nodes.isNotEmpty()) {
+
+                    stored
+
+                } else {
+
+                    val generated =
+                        DesignProjectCoreBridge.buildProjectSld(
+                            project
+                        )
+
+                    if (generated.nodes.isEmpty()) {
+                        throw IllegalStateException(
+                            if (arabic) {
+                                "لا توجد بيانات كهربائية كافية لإنشاء SLD."
+                            } else {
+                                "There is not enough electrical project data to build the SLD."
+                            }
+                        )
+                    }
+
+                    /*
+                     * Initial layout only.
+                     * Later calculations never auto-arrange.
+                     */
+                    SldAutoLayoutEngine
+                        .arrange(generated)
+                        .network
+                }
+
+            state.nodes = current.nodes
+            state.connections = current.connections
+
+            state.selectedNodeId =
+                current.nodes.firstOrNull()?.id
+
+            state.selectedConnectionId = null
+            state.connectionStartId = null
+
             val validation =
-                SldDesignValidator.validate(
-                    generated
-                )
+                SldDesignValidator.validate(current)
 
             if (!validation.valid) {
 
-                state.nodes =
-                    generated.nodes
-
-                state.connections =
-                    generated.connections
-
                 validateDesignNetwork(
-                    generated,
+                    current,
                     validation
                 )
 
                 return
             }
 
-            val arranged =
-                SldAutoLayoutEngine
-                    .arrange(
-                        generated
-                    )
-                    .network
-
-            if (arranged.nodes.isEmpty()) {
-
-                throw IllegalStateException(
-                    if (arabic) {
-                        "لا توجد بيانات كهربائية كافية لإنشاء SLD."
-                    } else {
-                        "There is not enough electrical project data to build the SLD."
-                    }
-                )
-            }
-
-            state.nodes =
-                arranged.nodes
-
-            state.connections =
-                arranged.connections
-
-            state.selectedNodeId =
-                arranged.nodes
-                    .firstOrNull()
-                    ?.id
-
-            state.selectedConnectionId = null
-
-            state.connectionStartId = null
-
             DesignProjectCoreBridge.saveActiveProjectSld(
-                network =
-                    arranged,
-                name =
-                    "Main SLD",
+                network = current,
+                name = "Main SLD",
                 source =
-                    "Electrical Design - Auto Layout"
+                    if (stored.nodes.isEmpty()) {
+                        "Electrical Design - Initial Auto Layout"
+                    } else {
+                        "Electrical Design - Manual Layout"
+                    }
             )
 
             runCompleteEngineeringReport()
@@ -936,11 +790,8 @@ class SldEditorActions(
     ) {
 
         state.reportTitle =
-            if (arabic) {
-                "أخطاء تصميم SLD"
-            } else {
-                "SLD Design Errors"
-            }
+            if (arabic) "أخطاء تصميم SLD"
+            else "SLD Design Errors"
 
         state.reportText =
             buildString {
@@ -961,9 +812,7 @@ class SldEditorActions(
                     )
                 }
 
-                if (
-                    validation.warnings.isNotEmpty()
-                ) {
+                if (validation.warnings.isNotEmpty()) {
 
                     appendLine()
 
@@ -990,8 +839,7 @@ class SldEditorActions(
 
             val result =
                 DesignProjectCoreBridge.calculateProjectSld(
-                    project =
-                        project
+                    project
                 )
 
             val projectNetwork =
@@ -1016,10 +864,8 @@ class SldEditorActions(
 
             val report =
                 SldEngineeringReportEngine.build(
-                    network =
-                        projectNetwork,
-                    engineering =
-                        result
+                    network = projectNetwork,
+                    engineering = result
                 )
 
             state.reportTitle =
@@ -1035,11 +881,7 @@ class SldEditorActions(
         } catch (exception: Exception) {
 
             state.reportTitle =
-                if (arabic) {
-                    "خطأ"
-                } else {
-                    "Error"
-                }
+                if (arabic) "خطأ" else "Error"
 
             state.reportText =
                 exception.message
@@ -1054,17 +896,10 @@ class SldEditorActions(
         arabic: Boolean
     ): String {
 
-        val shortCircuit =
-            result.shortCircuit
-
-        val cableSizing =
-            result.cableSizing
-
-        val protection =
-            result.protectionCoordination
-
-        val panelSchedule =
-            result.panelSchedule
+        val sc = result.shortCircuit
+        val cable = result.cableSizing
+        val protection = result.protectionCoordination
+        val schedule = result.panelSchedule
 
         return buildString {
 
@@ -1080,49 +915,43 @@ class SldEditorActions(
 
             appendLine(
                 if (arabic) {
-                    "تيار القصر الأقصى: " +
-                        "%.3f kA".format(
-                            shortCircuit
-                                .maximumFaultCurrentKa
-                        )
+                    "تيار القصر الأقصى: %.3f kA"
                 } else {
-                    "Maximum Short Circuit Current: " +
-                        "%.3f kA".format(
-                            shortCircuit
-                                .maximumFaultCurrentKa
-                        )
+                    "Maximum Short Circuit Current: %.3f kA"
+                }.format(sc.maximumFaultCurrentKa)
+            )
+
+            appendLine(
+                if (arabic) {
+                    "أقصى تيار قمة: %.3f kA"
+                } else {
+                    "Maximum Peak Current: %.3f kA"
+                }.format(sc.maximumPeakCurrentKa)
+            )
+
+            appendLine(
+                if (arabic) {
+                    "أقصى قدرة قصر: %.3f MVA"
+                } else {
+                    "Maximum Fault Level: %.3f MVA"
+                }.format(sc.maximumFaultMva)
+            )
+
+            appendLine()
+
+            appendLine(
+                if (arabic) {
+                    "المغذيات المقبولة: ${cable.successfulFeeders}"
+                } else {
+                    "Successful Feeders: ${cable.successfulFeeders}"
                 }
             )
 
             appendLine(
                 if (arabic) {
-                    "أقصى تيار قمة: " +
-                        "%.3f kA".format(
-                            shortCircuit
-                                .maximumPeakCurrentKa
-                        )
+                    "المغذيات التي تحتاج مراجعة: ${cable.failedFeeders}"
                 } else {
-                    "Maximum Peak Current: " +
-                        "%.3f kA".format(
-                            shortCircuit
-                                .maximumPeakCurrentKa
-                        )
-                }
-            )
-
-            appendLine(
-                if (arabic) {
-                    "أقصى قدرة قصر: " +
-                        "%.3f MVA".format(
-                            shortCircuit
-                                .maximumFaultMva
-                        )
-                } else {
-                    "Maximum Fault Level: " +
-                        "%.3f MVA".format(
-                            shortCircuit
-                                .maximumFaultMva
-                        )
+                    "Feeders Requiring Review: ${cable.failedFeeders}"
                 }
             )
 
@@ -1130,67 +959,29 @@ class SldEditorActions(
 
             appendLine(
                 if (arabic) {
-                    "المغذيات المقبولة: " +
-                        cableSizing
-                            .successfulFeeders
+                    "أزواج التنسيق المقبولة: ${protection.coordinatedPairs}"
                 } else {
-                    "Successful Feeders: " +
-                        cableSizing
-                            .successfulFeeders
+                    "Coordinated Pairs: ${protection.coordinatedPairs}"
                 }
             )
 
             appendLine(
                 if (arabic) {
-                    "المغذيات التي تحتاج مراجعة: " +
-                        cableSizing
-                            .failedFeeders
+                    "أزواج تحتاج مراجعة: ${protection.warningPairs}"
                 } else {
-                    "Feeders Requiring Review: " +
-                        cableSizing
-                            .failedFeeders
-                }
-            )
-
-            appendLine()
-
-            appendLine(
-                if (arabic) {
-                    "أزواج التنسيق المقبولة: " +
-                        protection
-                            .coordinatedPairs
-                } else {
-                    "Coordinated Pairs: " +
-                        protection
-                            .coordinatedPairs
+                    "Pairs Requiring Review: ${protection.warningPairs}"
                 }
             )
 
             appendLine(
                 if (arabic) {
-                    "أزواج تحتاج مراجعة: " +
-                        protection
-                            .warningPairs
+                    "أزواج غير مقبولة: ${protection.failedPairs}"
                 } else {
-                    "Pairs Requiring Review: " +
-                        protection
-                            .warningPairs
+                    "Failed Coordination Pairs: ${protection.failedPairs}"
                 }
             )
 
-            appendLine(
-                if (arabic) {
-                    "أزواج غير مقبولة: " +
-                        protection
-                            .failedPairs
-                } else {
-                    "Failed Coordination Pairs: " +
-                        protection
-                            .failedPairs
-                }
-            )
-
-            panelSchedule?.let {
+            schedule?.let {
 
                 appendLine()
 
@@ -1212,65 +1003,38 @@ class SldEditorActions(
 
                 appendLine(
                     if (arabic) {
-                        "الحمل المتصل: " +
-                            "%.2f kW".format(
-                                it.totalConnectedLoadKw
-                            )
+                        "الحمل المتصل: %.2f kW"
                     } else {
-                        "Connected Load: " +
-                            "%.2f kW".format(
-                                it.totalConnectedLoadKw
-                            )
-                    }
+                        "Connected Load: %.2f kW"
+                    }.format(it.totalConnectedLoadKw)
                 )
 
                 appendLine(
                     if (arabic) {
-                        "حمل الطلب: " +
-                            "%.2f kW".format(
-                                it.totalDemandLoadKw
-                            )
+                        "حمل الطلب: %.2f kW"
                     } else {
-                        "Demand Load: " +
-                            "%.2f kW".format(
-                                it.totalDemandLoadKw
-                            )
-                    }
+                        "Demand Load: %.2f kW"
+                    }.format(it.totalDemandLoadKw)
                 )
 
                 appendLine(
                     if (arabic) {
-                        "تيار الطلب: " +
-                            "%.2f A".format(
-                                it.totalDemandCurrentA
-                            )
+                        "تيار الطلب: %.2f A"
                     } else {
-                        "Demand Current: " +
-                            "%.2f A".format(
-                                it.totalDemandCurrentA
-                            )
-                    }
+                        "Demand Current: %.2f A"
+                    }.format(it.totalDemandCurrentA)
                 )
 
-                if (it.notes.isNotEmpty()) {
-
-                    appendLine()
-
-                    it.notes.forEach { note ->
-                        appendLine(
-                            "• $note"
-                        )
-                    }
+                it.notes.forEach {
+                    appendLine("• $it")
                 }
             }
 
-            appendLine()
-
-            shortCircuit.notes.forEach {
+            sc.notes.forEach {
                 appendLine("• $it")
             }
 
-            cableSizing.notes.forEach {
+            cable.notes.forEach {
                 appendLine("• $it")
             }
 
@@ -1278,14 +1042,6 @@ class SldEditorActions(
                 appendLine("• $it")
             }
         }
-    }
-
-    private fun buildShortCircuitReport(
-        study: Any,
-        arabic: Boolean
-    ): String {
-
-        return study.toString()
     }
 
     private fun buildPanelSchedule(
@@ -1296,10 +1052,9 @@ class SldEditorActions(
     ): String {
 
         val children =
-            connections
-                .filter {
-                    it.fromNodeId == panel.id
-                }
+            connections.filter {
+                it.fromNodeId == panel.id
+            }
 
         return buildString {
 
@@ -1315,18 +1070,17 @@ class SldEditorActions(
 
             children.forEachIndexed { index, connection ->
 
-                val node =
+                val child =
                     nodes.firstOrNull {
-                        it.id ==
-                            connection.toNodeId
+                        it.id == connection.toNodeId
                     }
 
                 appendLine(
                     "${index + 1}. " +
-                        (node?.name ?: connection.toNodeId) +
+                        (child?.name ?: connection.toNodeId) +
                         " | " +
                         "%.2f kW".format(
-                            node?.loadKw ?: 0.0
+                            child?.loadKw ?: 0.0
                         ) +
                         " | " +
                         "%.1f A".format(
@@ -1335,18 +1089,5 @@ class SldEditorActions(
                 )
             }
         }
-    }
-
-    private fun buildCompleteEngineeringReport(
-        result: SldEngineeringPackage,
-        arabic: Boolean
-    ): String {
-
-        return SldEngineeringReportEngine
-            .build(
-                network(),
-                result
-            )
-            .asText()
     }
 }
