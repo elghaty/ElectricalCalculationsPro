@@ -34,81 +34,123 @@ onEditNode: (SldNode) -> Unit,
 onEditConnection: (SldConnection) -> Unit
 ) {
 val textMeasurer = rememberTextMeasurer()
-val horizontalScrollState = rememberScrollState()
-val verticalScrollState = rememberScrollState()
+
+val horizontalScrollState =
+    rememberScrollState()
+
+val verticalScrollState =
+    rememberScrollState()
 
 Box(
     modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFFF7F9FA))
-        .horizontalScroll(horizontalScrollState)
-        .verticalScroll(verticalScrollState)
+        .background(
+            Color(0xFFF7F9FA)
+        )
+        .horizontalScroll(
+            horizontalScrollState
+        )
+        .verticalScroll(
+            verticalScrollState
+        )
 ) {
     Canvas(
         modifier = Modifier
             .width(3000.dp)
             .height(1800.dp)
-            .pointerInput(nodes, connections) {
+            .pointerInput(
+                nodes,
+                connections
+            ) {
                 detectTapGestures(
                     onTap = { point ->
-                        val node = findNode(
-                            point = point,
-                            nodes = nodes
-                        )
+
+                        val node =
+                            findNode(
+                                point = point,
+                                nodes = nodes
+                            )
 
                         if (node != null) {
-                            onSelectNode(node.id)
+                            onSelectNode(
+                                node.id
+                            )
                             return@detectTapGestures
                         }
 
-                        val connection = findConnection(
-                            point = point,
-                            nodes = nodes,
-                            connections = connections
-                        )
+                        val connection =
+                            findConnection(
+                                point = point,
+                                nodes = nodes,
+                                connections = connections
+                            )
 
                         if (connection != null) {
-                            onSelectConnection(connection.id)
+                            onSelectConnection(
+                                connection.id
+                            )
                         }
                     },
+
                     onDoubleTap = { point ->
-                        val node = findNode(
-                            point = point,
-                            nodes = nodes
-                        )
+
+                        val node =
+                            findNode(
+                                point = point,
+                                nodes = nodes
+                            )
 
                         if (node != null) {
-                            onEditNode(node)
+                            onSelectNode(
+                                node.id
+                            )
+                            onEditNode(
+                                node
+                            )
                             return@detectTapGestures
                         }
 
-                        val connection = findConnection(
-                            point = point,
-                            nodes = nodes,
-                            connections = connections
-                        )
+                        val connection =
+                            findConnection(
+                                point = point,
+                                nodes = nodes,
+                                connections = connections
+                            )
 
                         if (connection != null) {
-                            onEditConnection(connection)
+                            onSelectConnection(
+                                connection.id
+                            )
+                            onEditConnection(
+                                connection
+                            )
                         }
                     }
                 )
             }
             .pointerInput(nodes) {
-                var draggingNodeId: String? = null
+
+                var draggingNodeId: String? =
+                    null
 
                 detectDragGestures(
+
                     onDragStart = { point ->
-                        draggingNodeId = findNode(
-                            point = point,
-                            nodes = nodes
-                        )?.id
+
+                        draggingNodeId =
+                            findNode(
+                                point = point,
+                                nodes = nodes
+                            )?.id
                     },
+
                     onDrag = { change, dragAmount ->
+
                         change.consume()
 
-                        val nodeId = draggingNodeId
-                            ?: return@detectDragGestures
+                        val nodeId =
+                            draggingNodeId
+                                ?: return@detectDragGestures
 
                         onMoveNode(
                             nodeId,
@@ -116,30 +158,45 @@ Box(
                             dragAmount.y
                         )
                     },
+
                     onDragEnd = {
                         draggingNodeId = null
                     },
+
                     onDragCancel = {
                         draggingNodeId = null
                     }
                 )
             }
     ) {
+
+        drawGrid()
+
         connections.forEach { connection ->
+
             drawConnection(
                 connection = connection,
                 nodes = nodes,
-                selected = connection.id == selectedConnectionId,
-                textMeasurer = textMeasurer
+                selected =
+                    connection.id ==
+                        selectedConnectionId,
+                textMeasurer =
+                    textMeasurer
             )
         }
 
         nodes.forEach { node ->
+
             drawNode(
                 node = node,
-                selected = node.id == selectedNodeId,
-                connectionStart = node.id == connectionStartId,
-                textMeasurer = textMeasurer
+                selected =
+                    node.id ==
+                        selectedNodeId,
+                connectionStart =
+                    node.id ==
+                        connectionStartId,
+                textMeasurer =
+                    textMeasurer
             )
         }
     }
