@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.electrical.calculationspro.data.SldConnection
+import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
 
@@ -41,7 +42,24 @@ class SldEditorState {
     var reportTitle by mutableStateOf("")
     var reportText by mutableStateOf("")
 
-    var nodeType by mutableStateOf(SldNodeType.BUS)
+    /*
+     * Latest engineering result calculated from the current
+     * SLD network.
+     *
+     * This is intentionally kept in the editor state so the
+     * SLD can become the live engineering workspace.
+     */
+    var engineeringPackage by mutableStateOf<SldEngineeringPackage?>(null)
+
+    /*
+     * If the current topology cannot be calculated, the error
+     * is stored here without destroying the editable SLD.
+     */
+    var engineeringError by mutableStateOf<String?>(null)
+
+    var nodeType by mutableStateOf(
+        SldNodeType.BUS
+    )
 
     var name by mutableStateOf("")
     var voltage by mutableStateOf("400")
