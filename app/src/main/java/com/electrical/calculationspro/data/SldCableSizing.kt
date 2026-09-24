@@ -103,9 +103,9 @@ object SldCableSizingEngine {
 
         val nodeMap = network.nodes.associateBy { it.id }
 
-        val upstream =
+        val upstream: SldUpstreamEngineering.Result? =
             try {
-                SldEngineeringEngine.calculateUpstream(network)
+                SldUpstreamEngineering.calculate(network)
             } catch (_: Exception) {
                 null
             }
@@ -126,8 +126,7 @@ object SldCableSizingEngine {
                         designCurrentA = 0.0,
                         shortCircuitCurrentKa = 0.0,
                         requiredCurrentCapacityA = 0.0,
-                        maximumVoltageDropPercent =
-                            voltageDropLimitPercent,
+                        maximumVoltageDropPercent = voltageDropLimitPercent,
                         recommendedSizeMm2 = 0.0,
                         recommendedParallelRuns = 0,
                         recommendedMaterial = "N/A",
@@ -182,9 +181,7 @@ object SldCableSizingEngine {
                         val totalCapacity =
                             baseCapacity * runs
 
-                        if (totalCapacity + 0.001 <
-                            requiredCurrent
-                        ) {
+                        if (totalCapacity + 0.001 < requiredCurrent) {
                             continue
                         }
 
@@ -204,30 +201,22 @@ object SldCableSizingEngine {
                         val voltageDrop =
                             calculateVoltageDropPercent(
                                 currentA = designCurrent,
-                                resistanceOhmPerKm =
-                                    effectiveR,
-                                reactanceOhmPerKm =
-                                    effectiveX,
-                                lengthMeters =
-                                    connection.lengthMeters,
-                                voltageV =
-                                    toNode.voltage
+                                resistanceOhmPerKm = effectiveR,
+                                reactanceOhmPerKm = effectiveX,
+                                lengthMeters = connection.lengthMeters,
+                                voltageV = toNode.voltage
                             )
 
                         val shortCircuitWithstandKa =
                             calculateShortCircuitWithstand(
                                 sizeMm2 = entry.sizeMm2 * runs,
                                 material = material,
-                                durationSeconds =
-                                    shortCircuitTimeSeconds
+                                durationSeconds = shortCircuitTimeSeconds
                             )
 
                         val reasons = mutableListOf<String>()
 
-                        if (
-                            voltageDrop >
-                            voltageDropLimitPercent
-                        ) {
+                        if (voltageDrop > voltageDropLimitPercent) {
                             reasons.add(
                                 "Voltage drop exceeds the permitted limit."
                             )
@@ -235,8 +224,7 @@ object SldCableSizingEngine {
 
                         if (
                             faultCurrentKa > 0.0 &&
-                            shortCircuitWithstandKa <
-                            faultCurrentKa
+                            shortCircuitWithstandKa < faultCurrentKa
                         ) {
                             reasons.add(
                                 "Short-circuit thermal withstand is insufficient."
@@ -245,12 +233,10 @@ object SldCableSizingEngine {
 
                         val acceptable =
                             totalCapacity >= requiredCurrent &&
-                                voltageDrop <=
-                                voltageDropLimitPercent &&
+                                voltageDrop <= voltageDropLimitPercent &&
                                 (
                                     faultCurrentKa <= 0.0 ||
-                                        shortCircuitWithstandKa >=
-                                        faultCurrentKa
+                                        shortCircuitWithstandKa >= faultCurrentKa
                                     )
 
                         options.add(
@@ -258,19 +244,13 @@ object SldCableSizingEngine {
                                 sizeMm2 = entry.sizeMm2,
                                 material = material,
                                 cores = 3,
-                                currentCapacityA =
-                                    baseCapacity,
-                                resistanceOhmPerKm =
-                                    resistance,
-                                reactanceOhmPerKm =
-                                    entry.x,
-                                voltageDropPercent =
-                                    voltageDrop,
-                                shortCircuitWithstandKa =
-                                    shortCircuitWithstandKa,
+                                currentCapacityA = baseCapacity,
+                                resistanceOhmPerKm = resistance,
+                                reactanceOhmPerKm = entry.x,
+                                voltageDropPercent = voltageDrop,
+                                shortCircuitWithstandKa = shortCircuitWithstandKa,
                                 parallelRuns = runs,
-                                totalCurrentCapacityA =
-                                    totalCapacity,
+                                totalCurrentCapacityA = totalCapacity,
                                 acceptable = acceptable,
                                 reasons = reasons
                             )
@@ -286,13 +266,10 @@ object SldCableSizingEngine {
                 acceptableOptions.minWithOrNull(
                     compareBy<SldCableOption>(
                         {
-                            it.sizeMm2 *
-                                it.parallelRuns
+                            it.sizeMm2 * it.parallelRuns
                         },
                         {
-                            if (
-                                it.material == "Copper"
-                            ) 0 else 1
+                            if (it.material == "Copper") 0 else 1
                         },
                         {
                             it.voltageDropPercent
@@ -308,9 +285,7 @@ object SldCableSizingEngine {
                 )
             }
 
-            if (
-                connection.lengthMeters <= 0.0
-            ) {
+            if (connection.lengthMeters <= 0.0) {
                 notes.add(
                     "Feeder length is zero; enter the actual cable length."
                 )
@@ -328,8 +303,7 @@ object SldCableSizingEngine {
                 )
             }
 
-            val selected =
-                recommended
+            val selected = recommended
 
             results[connection.id] =
                 SldCableSizingResult(
@@ -337,20 +311,13 @@ object SldCableSizingEngine {
                     fromNodeId = connection.fromNodeId,
                     toNodeId = connection.toNodeId,
                     designCurrentA = designCurrent,
-                    shortCircuitCurrentKa =
-                        faultCurrentKa,
-                    requiredCurrentCapacityA =
-                        requiredCurrent,
-                    maximumVoltageDropPercent =
-                        voltageDropLimitPercent,
-                    recommendedSizeMm2 =
-                        selected?.sizeMm2 ?: 0.0,
-                    recommendedParallelRuns =
-                        selected?.parallelRuns ?: 0,
-                    recommendedMaterial =
-                        selected?.material ?: "N/A",
-                    recommendedCores =
-                        selected?.cores ?: 0,
+                    shortCircuitCurrentKa = faultCurrentKa,
+                    requiredCurrentCapacityA = requiredCurrent,
+                    maximumVoltageDropPercent = voltageDropLimitPercent,
+                    recommendedSizeMm2 = selected?.sizeMm2 ?: 0.0,
+                    recommendedParallelRuns = selected?.parallelRuns ?: 0,
+                    recommendedMaterial = selected?.material ?: "N/A",
+                    recommendedCores = selected?.cores ?: 0,
                     recommendedCurrentCapacityA =
                         selected?.totalCurrentCapacityA ?: 0.0,
                     recommendedVoltageDropPercent =
@@ -397,14 +364,16 @@ object SldCableSizingEngine {
     private fun calculateDesignCurrent(
         connection: SldConnection,
         toNode: SldNode,
-        upstream: SldCalculationResult?
+        upstream: SldUpstreamEngineering.Result?
     ): Double {
 
         val upstreamCurrent =
             upstream
-                ?.nodeResults
-                ?.get(toNode.id)
-                ?.feederRequiredCurrentA
+                ?.feeders
+                ?.firstOrNull {
+                    it.connectionId == connection.id
+                }
+                ?.currentA
                 ?: 0.0
 
         if (upstreamCurrent > 0.0) {
@@ -423,8 +392,7 @@ object SldCableSizingEngine {
             }
 
         if (kva <= 0.0) {
-            return connection.currentCapacityA
-                .coerceAtLeast(0.0)
+            return connection.currentCapacityA.coerceAtLeast(0.0)
         }
 
         return (
@@ -454,20 +422,15 @@ object SldCableSizingEngine {
         val lengthKm =
             lengthMeters / 1000.0
 
+        val r =
+            resistanceOhmPerKm * lengthKm
+
+        val x =
+            reactanceOhmPerKm * lengthKm
+
         val impedance =
             sqrt(
-                (
-                    resistanceOhmPerKm *
-                        lengthKm
-                    ).let {
-                        it * it
-                    } +
-                    (
-                        reactanceOhmPerKm *
-                            lengthKm
-                        ).let {
-                            it * it
-                        }
+                r * r + x * x
             )
 
         return (
