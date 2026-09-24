@@ -40,51 +40,33 @@ fun SldNodeEditorDialog(
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
-
     AlertDialog(
-
         onDismissRequest = onCancel,
 
         title = {
             Text(
                 if (editing) {
-                    if (arabic) {
-                        "تعديل العنصر"
-                    } else {
-                        "Edit Element"
-                    }
+                    if (arabic) "تعديل العنصر" else "Edit Component"
                 } else {
-                    if (arabic) {
-                        "إضافة عنصر"
-                    } else {
-                        "Add Element"
-                    }
+                    if (arabic) "إضافة عنصر" else "Add Component"
                 }
             )
         },
 
         text = {
-
             Column(
-                modifier =
-                    Modifier.verticalScroll(
-                        rememberScrollState()
-                    ),
-
-                verticalArrangement =
-                    Arrangement.spacedBy(8.dp)
+                modifier = Modifier.verticalScroll(
+                    rememberScrollState()
+                ),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-
                 OutlinedTextField(
                     value = name,
                     onValueChange = onNameChange,
+                    singleLine = true,
                     label = {
                         Text(
-                            if (arabic) {
-                                "اسم العنصر"
-                            } else {
-                                "Name"
-                            }
+                            if (arabic) "اسم العنصر" else "Component Name"
                         )
                     }
                 )
@@ -92,93 +74,101 @@ fun SldNodeEditorDialog(
                 OutlinedTextField(
                     value = voltage,
                     onValueChange = onVoltageChange,
+                    singleLine = true,
                     label = {
-                        Text("Voltage (V)")
+                        Text(
+                            if (arabic) "الجهد (V)" else "Voltage (V)"
+                        )
                     }
                 )
 
                 when (type) {
-
                     SldNodeType.SOURCE -> {
-
                         OutlinedTextField(
                             value = sourceMva,
                             onValueChange = onSourceMvaChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Source Fault MVA"
+                                    if (arabic) {
+                                        "قدرة القصر للمصدر (MVA)"
+                                    } else {
+                                        "Source Fault Level (MVA)"
+                                    }
                                 )
                             }
                         )
                     }
 
                     SldNodeType.TRANSFORMER -> {
-
                         OutlinedTextField(
                             value = kva,
                             onValueChange = onKvaChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Rating (kVA)"
+                                    if (arabic) "قدرة المحول (kVA)" else "Transformer Rating (kVA)"
                                 )
                             }
                         )
 
                         OutlinedTextField(
                             value = transformerZ,
-                            onValueChange =
-                                onTransformerZChange,
+                            onValueChange = onTransformerZChange,
+                            singleLine = true,
                             label = {
-                                Text("%Z")
+                                Text(
+                                    if (arabic) "ممانعة المحول (%Z)" else "Transformer Impedance (%Z)"
+                                )
                             }
                         )
                     }
 
                     SldNodeType.GENERATOR -> {
-
                         OutlinedTextField(
                             value = kva,
                             onValueChange = onKvaChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Rating (kVA)"
+                                    if (arabic) "قدرة المولد (kVA)" else "Generator Rating (kVA)"
                                 )
                             }
                         )
 
                         OutlinedTextField(
                             value = generatorXd,
-                            onValueChange =
-                                onGeneratorXdChange,
+                            onValueChange = onGeneratorXdChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Xd'' (%)"
+                                    if (arabic) "Xd'' (%)" else "Subtransient Reactance Xd'' (%)"
                                 )
                             }
                         )
                     }
 
                     SldNodeType.PANEL -> {
-
                         OutlinedTextField(
                             value = kva,
                             onValueChange = onKvaChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Rating (kVA)"
+                                    if (arabic) "قدرة اللوحة (kVA)" else "Panel Rating (kVA)"
                                 )
                             }
                         )
                     }
 
                     SldNodeType.LOAD -> {
-
                         OutlinedTextField(
                             value = loadKw,
                             onValueChange = onLoadKwChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Load (kW)"
+                                    if (arabic) "الحمل (kW)" else "Load (kW)"
                                 )
                             }
                         )
@@ -186,9 +176,10 @@ fun SldNodeEditorDialog(
                         OutlinedTextField(
                             value = pf,
                             onValueChange = onPfChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Power Factor"
+                                    if (arabic) "معامل القدرة" else "Power Factor"
                                 )
                             }
                         )
@@ -196,9 +187,10 @@ fun SldNodeEditorDialog(
                         OutlinedTextField(
                             value = demand,
                             onValueChange = onDemandChange,
+                            singleLine = true,
                             label = {
                                 Text(
-                                    "Demand Factor"
+                                    if (arabic) "معامل الطلب" else "Demand Factor"
                                 )
                             }
                         )
@@ -211,31 +203,21 @@ fun SldNodeEditorDialog(
         },
 
         confirmButton = {
-
             Button(
                 onClick = onSave
             ) {
                 Text(
-                    if (arabic) {
-                        "حفظ"
-                    } else {
-                        "Save"
-                    }
+                    if (arabic) "حفظ" else "Save"
                 )
             }
         },
 
         dismissButton = {
-
             TextButton(
                 onClick = onCancel
             ) {
                 Text(
-                    if (arabic) {
-                        "إلغاء"
-                    } else {
-                        "Cancel"
-                    }
+                    if (arabic) "إلغاء" else "Cancel"
                 )
             }
         }
