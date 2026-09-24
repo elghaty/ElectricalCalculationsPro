@@ -606,10 +606,3 @@ data class SewagePump(
     val status: DesignCalculationStatus =
         DesignCalculationStatus.NOT_STARTED
 )
-
-[/writing]
-
-المسار: "app/src/main/java/com/electrical/calculationspro/data/project/DesignProject.kt"
-
-بعد استبدال الملف بالكامل، اعمل Run جديد.
-الـ Run 426 والـ Run 427 كانا يفشلان بنفس الخطأ عند السطر 658، والملف أعلاه يعالج الخطأ الموجود فعليًا. "ElectricalCalculationsPro على GitHub" (https://github.com/elghaty/ElectricalCalculationsPro?utm_source=chatgpt.com)
