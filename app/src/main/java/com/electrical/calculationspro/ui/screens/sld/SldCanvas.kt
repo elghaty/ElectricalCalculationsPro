@@ -16,12 +16,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
-import com.electrical.calculationspro.data.SldNodeType
 
 private const val CANVAS_WIDTH_DP = 3000
 private const val CANVAS_HEIGHT_DP = 1600
@@ -74,6 +77,7 @@ fun SldCanvas(
                     nodes,
                     connections
                 ) {
+
                     detectTapGestures(
 
                         onDoubleTap = { point ->
@@ -90,11 +94,14 @@ fun SldCanvas(
 
                             } else {
 
-                                findConnection(
-                                    point = point,
-                                    nodes = nodes,
-                                    connections = connections
-                                )?.let { connection ->
+                                val connection =
+                                    findConnection(
+                                        point = point,
+                                        nodes = nodes,
+                                        connections = connections
+                                    )
+
+                                if (connection != null) {
 
                                     onEditConnection(
                                         connection
@@ -136,9 +143,7 @@ fun SldCanvas(
                         }
                     )
                 }
-                .pointerInput(
-                    nodes
-                ) {
+                .pointerInput(nodes) {
 
                     var draggingNodeId: String? =
                         null
@@ -192,7 +197,7 @@ fun SldCanvas(
 
             /*
              * =====================================================
-             * CONNECTIONS FIRST
+             * CONNECTIONS
              * =====================================================
              */
 
@@ -251,7 +256,7 @@ fun SldCanvas(
 
             /*
              * =====================================================
-             * ENGINEERING TITLE
+             * TITLE / ENGINEERING HEADER
              * =====================================================
              */
 
@@ -273,7 +278,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
     )
 
     /*
-     * Major engineering grid.
+     * Major grid.
      */
     var x = 0f
 
@@ -281,8 +286,14 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
         drawLine(
             color = Color(0xFFE1E7EB),
-            start = Offset(x, 0f),
-            end = Offset(x, size.height),
+            start = Offset(
+                x,
+                0f
+            ),
+            end = Offset(
+                x,
+                size.height
+            ),
             strokeWidth = 1f
         )
 
@@ -295,8 +306,14 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
         drawLine(
             color = Color(0xFFE1E7EB),
-            start = Offset(0f, y),
-            end = Offset(size.width, y),
+            start = Offset(
+                0f,
+                y
+            ),
+            end = Offset(
+                size.width,
+                y
+            ),
             strokeWidth = 1f
         )
 
@@ -312,8 +329,14 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
         drawLine(
             color = Color(0xFFEEF2F4),
-            start = Offset(x, 0f),
-            end = Offset(x, size.height),
+            start = Offset(
+                x,
+                0f
+            ),
+            end = Offset(
+                x,
+                size.height
+            ),
             strokeWidth = 1f
         )
 
@@ -326,8 +349,14 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
         drawLine(
             color = Color(0xFFEEF2F4),
-            start = Offset(0f, y),
-            end = Offset(size.width, y),
+            start = Offset(
+                0f,
+                y
+            ),
+            end = Offset(
+                size.width,
+                y
+            ),
             strokeWidth = 1f
         )
 
@@ -337,17 +366,15 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope
     .drawSldTitleBlock(
-        textMeasurer: androidx.compose.ui.text.TextMeasurer,
+        textMeasurer:
+            androidx.compose.ui.text.TextMeasurer,
         nodes: List<SldNode>,
         connections: List<SldConnection>,
         engineering: SldEngineeringPackage?
     ) {
 
-    val left =
-        60f
-
-    val top =
-        60f
+    val left = 60f
+    val top = 60f
 
     drawText(
         textMeasurer = textMeasurer,
@@ -356,25 +383,23 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
             left,
             top
         ),
-        style = androidx.compose.ui.text.TextStyle(
+        style = TextStyle(
             color = Color(0xFF172027),
-            fontSize = androidx.compose.ui.unit.sp(20),
-            fontWeight =
-                androidx.compose.ui.text.font.FontWeight.Bold
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
         )
     )
 
     drawText(
         textMeasurer = textMeasurer,
-        text =
-            "PROFESSIONAL ELECTRICAL DESIGN",
+        text = "PROFESSIONAL ELECTRICAL DESIGN",
         topLeft = Offset(
             left,
             top + 30f
         ),
-        style = androidx.compose.ui.text.TextStyle(
+        style = TextStyle(
             color = Color(0xFF60717A),
-            fontSize = androidx.compose.ui.unit.sp(11)
+            fontSize = 11.sp
         )
     )
 
@@ -391,9 +416,6 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
         strokeWidth = 2f
     )
 
-    /*
-     * Drawing information.
-     */
     drawText(
         textMeasurer = textMeasurer,
         text =
@@ -402,27 +424,25 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
             left,
             top + 68f
         ),
-        style = androidx.compose.ui.text.TextStyle(
+        style = TextStyle(
             color = Color(0xFF60717A),
-            fontSize = androidx.compose.ui.unit.sp(10)
+            fontSize = 10.sp
         )
     )
 
-    engineering?.let { packageResult ->
+    if (engineering != null) {
 
         drawText(
             textMeasurer = textMeasurer,
-            text =
-                "Engineering study available",
+            text = "ENGINEERING STUDY AVAILABLE",
             topLeft = Offset(
                 left,
                 top + 86f
             ),
-            style = androidx.compose.ui.text.TextStyle(
+            style = TextStyle(
                 color = Color(0xFF1976D2),
-                fontSize = androidx.compose.ui.unit.sp(10),
-                fontWeight =
-                    androidx.compose.ui.text.font.FontWeight.Bold
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
             )
         )
     }
