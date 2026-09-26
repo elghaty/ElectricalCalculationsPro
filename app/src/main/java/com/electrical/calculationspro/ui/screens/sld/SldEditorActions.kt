@@ -40,6 +40,13 @@ class SldEditorActions(
             }
 
             state.engineeringError = null
+
+            /*
+             * The editor must open with a valid engineering state.
+             * Do not wait for the user to press Calculate.
+             */
+            recalculateEngineering()
+
         } catch (e: Exception) {
             state.engineeringError =
                 e.message ?: "Unable to load SLD project"
@@ -62,13 +69,49 @@ class SldEditorActions(
         }
     }
 
-    fun recalculateEngineering() {
+    /**
+     * Single live-engineering entry point.
+     *
+     * Every structural or electrical edit must pass through this
+     * method after it has been committed to the editor state.
+     *
+     * Flow:
+     *
+     * Editor state
+     *      ↓
+     * SldNetwork
+     *      ↓
+     * Persist project
+     *      ↓
+     * DesignProjectCoreBridge
+     *      ↓
+     * SLD engineering engine
+     *      ↓
+     * Topology normalization
+     *      ↓
+     * Downstream aggregation
+     *      ↓
+     * Upstream propagation
+     *      ↓
+     * Current / kVA / breaker / voltage drop
+     *      ↓
+     * Engineering overlay/report state
+     */
+    fun saveAndRecalculate() {
+
         try {
+
             state.engineeringError = null
 
-            val project = DesignProjects.getActive()
+            saveProjectNetwork()
+
+            val project =
+                DesignProjects.getActive()
 
             if (project == null) {
+
+                state.engineeringPackage = null
+
                 state.engineeringError =
                     if (arabic) {
                         "لا يوجد مشروع نشط."
@@ -85,8 +128,57 @@ class SldEditorActions(
                     network = network()
                 )
 
-            state.engineeringPackage = result
+            state.engineeringPackage =
+                result
+
         } catch (e: Exception) {
+
+            state.engineeringPackage = null
+
+            state.engineeringError =
+                e.message
+                    ?: if (arabic) {
+                        "تعذر تحديث الحسابات الهندسية."
+                    } else {
+                        "Engineering recalculation failed."
+                    }
+        }
+    }
+
+    fun recalculateEngineering() {
+
+        try {
+
+            state.engineeringError = null
+
+            val project =
+                DesignProjects.getActive()
+
+            if (project == null) {
+
+                state.engineeringPackage = null
+
+                state.engineeringError =
+                    if (arabic) {
+                        "لا يوجد مشروع نشط."
+                    } else {
+                        "No active design project."
+                    }
+
+                return
+            }
+
+            val result =
+                DesignProjectCoreBridge.calculateCurrentProjectSld(
+                    project = project,
+                    network = network()
+                )
+
+            state.engineeringPackage =
+                result
+
+        } catch (e: Exception) {
+
             state.engineeringPackage = null
 
             state.engineeringError =
@@ -100,7 +192,9 @@ class SldEditorActions(
     }
 
     fun validateDesign() {
+
         try {
+
             val result =
                 SldDesignValidator.validate(
                     network()
@@ -117,7 +211,9 @@ class SldEditorActions(
                 buildValidationReport(result)
 
             state.showReport = true
+
         } catch (e: Exception) {
+
             state.engineeringError =
                 e.message ?: "Validation failed"
         }
@@ -130,7 +226,9 @@ class SldEditorActions(
     }
 
     fun autoLayout() {
+
         try {
+
             val result =
                 SldAutoLayoutEngine.arrange(
                     network()
@@ -142,8 +240,15 @@ class SldEditorActions(
             state.connections =
                 result.network.connections
 
-            saveProjectNetwork()
+            /*
+             * Layout changes do not normally change engineering
+             * values, but they do change the active network state.
+             * Keep persistence and engineering state synchronized.
+             */
+            saveAndRecalculate()
+
         } catch (e: Exception) {
+
             state.engineeringError =
                 e.message ?: "Auto layout failed"
         }
@@ -152,11 +257,13 @@ class SldEditorActions(
     fun resetNodeEditor(
         type: SldNodeType
     ) {
+
         state.editingNodeId = null
         state.nodeType = type
 
         state.name =
             when (type) {
+
                 SldNodeType.SOURCE ->
                     "Utility Source"
 
@@ -194,6 +301,7 @@ class SldEditorActions(
     fun editNode(
         node: SldNode
     ) {
+
         state.editingNodeId = node.id
         state.nodeType = node.type
 
@@ -203,10 +311,13 @@ class SldEditorActions(
         state.pf = node.powerFactor.toString()
         state.demand = node.demandFactor.toString()
         state.kva = node.ratedKva.toString()
+
         state.transformerZ =
             node.transformerPercentZ.toString()
+
         state.generatorXd =
             node.generatorXdSubtransient.toString()
+
         state.sourceMva =
             node.sourceShortCircuitMva.toString()
 
@@ -365,12 +476,18 @@ class SldEditorActions(
 
         state.clearDialogs()
 
-        saveProjectNetwork()
+        /*
+         * Critical:
+         * changing a load, transformer, source, panel or breaker
+         * immediately invalidates the upstream engineering state.
+         */
+        saveAndRecalculate()
     }
 
     fun editConnection(
         connection: SldConnection
     ) {
+
         state.editingConnectionId =
             connection.id
 
@@ -518,7 +635,14 @@ class SldEditorActions(
 
         state.clearDialogs()
 
-        saveProjectNetwork()
+        /*
+         * Connection edits affect:
+         * cable adequacy,
+         * voltage drop,
+         * feeder current,
+         * and every upstream node carrying the feeder load.
+         */
+        saveAndRecalculate()
     }
 
     fun startOrCompleteConnection() {
@@ -592,7 +716,11 @@ class SldEditorActions(
 
         state.clearSelection()
 
-        saveProjectNetwork()
+        /*
+         * Deleting a downstream node or feeder changes
+         * all upstream loading calculations.
+         */
+        saveAndRecalculate()
     }
 
     fun runShortCircuit() {
