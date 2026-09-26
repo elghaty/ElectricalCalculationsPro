@@ -26,6 +26,26 @@ import com.electrical.calculationspro.data.pumps.PumpCalculationResult
  * Calculators / Standards / Catalogs
  *
  * No engineering formulas are implemented here.
+ *
+ * IMPORTANT:
+ *
+ * The interactive SLD network is authoritative while the
+ * engineer is editing the SLD.
+ *
+ * Therefore:
+ *
+ * SLD Editor
+ *     ↓
+ * current SldNetwork
+ *     ↓
+ * this bridge
+ *     ↓
+ * SldEngineeringFacade
+ *     ↓
+ * Engineering Package
+ *
+ * The bridge must not rebuild the SLD from project.electrical
+ * when the engineer is calculating the currently edited SLD.
  */
 object DesignProjectCoreBridge {
 
@@ -163,19 +183,37 @@ object DesignProjectCoreBridge {
         DesignProjectEngine.validateAndSave(project)
 
     // ============================================================
-    // SLD
+    // SLD ACCESS
     // ============================================================
 
+    /**
+     * Returns the stored SLD when available.
+     *
+     * If the project has no stored SLD, the initial SLD is generated
+     * from the electrical project data.
+     */
     fun getProjectSld(
         project: DesignProject
     ): SldNetwork =
-        DesignProjectSldBridge.rebuildFromProject(project)
+        DesignProjectSldBridge.rebuildFromProject(
+            project
+        )
 
     fun getActiveProjectSld(): SldNetwork? {
-        val project = getActiveProject() ?: return null
-        return getProjectSld(project)
+        val project =
+            getActiveProject()
+                ?: return null
+
+        return getProjectSld(
+            project
+        )
     }
 
+    /**
+     * Saves the exact network currently used by the interactive SLD.
+     *
+     * This is the authoritative network for the SLD editor.
+     */
     fun saveProjectSld(
         project: DesignProject,
         network: SldNetwork,
@@ -191,7 +229,9 @@ object DesignProjectCoreBridge {
                 source = source
             )
 
-        return DesignProjects.save(updatedProject)
+        return DesignProjects.save(
+            updatedProject
+        )
     }
 
     fun saveActiveProjectSld(
@@ -205,6 +245,11 @@ object DesignProjectCoreBridge {
             source = source
         )
 
+    /**
+     * Builds the initial SLD from the electrical project.
+     *
+     * This should be used when no manually edited SLD exists yet.
+     */
     fun buildProjectSld(
         project: DesignProject
     ): SldNetwork =
@@ -212,6 +257,98 @@ object DesignProjectCoreBridge {
             project.electrical
         )
 
+    // ============================================================
+    // CURRENT INTERACTIVE SLD ENGINEERING
+    // ============================================================
+
+    /**
+     * Calculates the exact SLD network supplied by the interactive
+     * editor.
+     *
+     * IMPORTANT:
+     *
+     * This method does NOT call getProjectSld().
+     *
+     * The supplied network is considered the current authoritative
+     * engineering model.
+     *
+     * Therefore, if the engineer changes:
+     *
+     * LOAD = 45 kW
+     *
+     * to:
+     *
+     * LOAD = 55 kW
+     *
+     * the calculation immediately uses 55 kW and propagates the
+     * change upstream through the current topology.
+     */
+    fun calculateCurrentProjectSld(
+        project: DesignProject,
+        network: SldNetwork,
+        panelNodeId: String? = null,
+        voltageFactor: Double = 1.05,
+        voltageDropLimitPercent: Double = 3.0,
+        shortCircuitTimeSeconds: Double = 1.0
+    ): SldEngineeringPackage {
+
+        require(
+            network.nodes.isNotEmpty()
+        ) {
+            "SLD network is empty."
+        }
+
+        /*
+         * Persist the exact network being edited.
+         *
+         * This preserves manual SLD modifications and makes the
+         * project and editor use the same topology.
+         */
+        saveProjectSld(
+            project = project,
+            network = network,
+            name = "Main SLD",
+            source = "Electrical Design - Interactive SLD"
+        )
+
+        /*
+         * Use the selected panel when available.
+         *
+         * Otherwise use the first PANEL in the current network.
+         */
+        val selectedPanel =
+            panelNodeId
+                ?: network.nodes.firstOrNull {
+                    it.type.name.equals(
+                        "PANEL",
+                        ignoreCase = true
+                    )
+                }?.id
+
+        /*
+         * CRITICAL:
+         *
+         * Calculate directly from the current interactive network.
+         *
+         * Do NOT rebuild the network from project.electrical here.
+         */
+        return SldEngineeringFacade.calculateComplete(
+            network = network,
+            panelNodeId = selectedPanel,
+            voltageFactor = voltageFactor,
+            voltageDropLimitPercent =
+                voltageDropLimitPercent,
+            shortCircuitTimeSeconds =
+                shortCircuitTimeSeconds
+        )
+    }
+
+    /**
+     * Calculates the project's stored SLD.
+     *
+     * This method is retained for reports or operations where the
+     * stored project SLD is intentionally requested.
+     */
     fun calculateProjectSld(
         project: DesignProject,
         panelNodeId: String? = null,
@@ -221,23 +358,37 @@ object DesignProjectCoreBridge {
     ): SldEngineeringPackage {
 
         val network =
-            getProjectSld(project)
+            getProjectSld(
+                project
+            )
 
         val selectedPanel =
             panelNodeId
                 ?: network.nodes.firstOrNull {
-                    it.type.name.equals("PANEL", ignoreCase = true)
+                    it.type.name.equals(
+                        "PANEL",
+                        ignoreCase = true
+                    )
                 }?.id
 
         return SldEngineeringFacade.calculateComplete(
             network = network,
             panelNodeId = selectedPanel,
             voltageFactor = voltageFactor,
-            voltageDropLimitPercent = voltageDropLimitPercent,
-            shortCircuitTimeSeconds = shortCircuitTimeSeconds
+            voltageDropLimitPercent =
+                voltageDropLimitPercent,
+            shortCircuitTimeSeconds =
+                shortCircuitTimeSeconds
         )
     }
 
+    /**
+     * Saves and calculates an explicitly supplied SLD network.
+     *
+     * This method is useful when a caller has already modified the
+     * network and wants both persistence and a complete engineering
+     * study in one operation.
+     */
     fun calculateAndSaveProjectSld(
         project: DesignProject,
         network: SldNetwork,
@@ -247,23 +398,15 @@ object DesignProjectCoreBridge {
         shortCircuitTimeSeconds: Double = 1.0
     ): SldEngineeringPackage {
 
-        saveProjectSld(
+        return calculateCurrentProjectSld(
             project = project,
-            network = network
-        )
-
-        val selectedPanel =
-            panelNodeId
-                ?: network.nodes.firstOrNull {
-                    it.type.name.equals("PANEL", ignoreCase = true)
-                }?.id
-
-        return SldEngineeringFacade.calculateComplete(
             network = network,
-            panelNodeId = selectedPanel,
+            panelNodeId = panelNodeId,
             voltageFactor = voltageFactor,
-            voltageDropLimitPercent = voltageDropLimitPercent,
-            shortCircuitTimeSeconds = shortCircuitTimeSeconds
+            voltageDropLimitPercent =
+                voltageDropLimitPercent,
+            shortCircuitTimeSeconds =
+                shortCircuitTimeSeconds
         )
     }
 
@@ -274,7 +417,9 @@ object DesignProjectCoreBridge {
     fun calculatePump(
         input: PumpCalculationInput
     ): PumpCalculationResult =
-        ElectricalCalculations.calculatePump(input)
+        ElectricalCalculations.calculatePump(
+            input
+        )
 
     // ============================================================
     // ELECTRICAL CALCULATIONS
@@ -339,8 +484,10 @@ object DesignProjectCoreBridge {
         ElectricalCalculations.calculateBreakerSelection(
             designCurrentA = designCurrentA,
             cableAmpacityA = cableAmpacityA,
-            prospectiveFaultCurrentKA = prospectiveFaultCurrentKA,
-            breakerBreakingCapacityKA = breakerBreakingCapacityKA,
+            prospectiveFaultCurrentKA =
+                prospectiveFaultCurrentKA,
+            breakerBreakingCapacityKA =
+                breakerBreakingCapacityKA,
             standard = standard
         )
 
