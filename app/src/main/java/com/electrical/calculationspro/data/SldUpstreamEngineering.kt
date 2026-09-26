@@ -5,36 +5,20 @@ import kotlin.math.sqrt
 /**
  * PROFESSIONAL SLD UPSTREAM ENGINE
  *
- * The SLD network is calculated from downstream toward the source.
+ * The topology is first normalized by SldTopologyEngine.
  *
- * Engineering rule:
+ * Therefore calculations do not depend on the direction in which
+ * the engineer happened to draw the connection.
  *
- * A node contributes its own load only when that node actually
- * represents a direct electrical load.
+ * SOURCE
+ *   ↓
+ * TRANSFORMER
+ *   ↓
+ * PANEL
+ *   ↓
+ * LOAD
  *
- * BUS and BREAKER nodes are topology/protection elements and do
- * not create additional load.
- *
- * PANEL / TRANSFORMER / GENERATOR / SOURCE may contain a direct
- * load only when explicitly entered by the engineer.
- *
- * Therefore:
- *
- *       LOAD
- *         ↓
- *       FEEDER
- *         ↓
- *       PANEL
- *         ↓
- *       BUS
- *         ↓
- *       BREAKER
- *         ↓
- *       TRANSFORMER / GENERATOR
- *         ↓
- *       SOURCE
- *
- * is aggregated without double counting.
+ * Downstream load is aggregated upstream automatically.
  */
 object SldUpstreamEngineering {
 
@@ -147,51 +131,28 @@ object SldUpstreamEngineering {
         network: SldNetwork
     ): Result {
 
-        require(
-            network.nodes.isNotEmpty()
-        ) {
+        require(network.nodes.isNotEmpty()) {
             "SLD network is empty."
         }
 
         validate(network)
+
+        val topology =
+            SldTopologyEngine.build(network)
 
         val nodeMap =
             network.nodes.associateBy {
                 it.id
             }
 
-        /*
-         * Topology:
-         *
-         * fromNode -> toNode
-         *
-         * The downstream nodes are therefore the children of
-         * the current node.
-         */
         val children =
-            network.nodes.associate {
-                it.id to
-                    network.connections
-                        .filter { connection ->
-                            connection.fromNodeId ==
-                                it.id
-                        }
-                        .mapNotNull { connection ->
-                            nodeMap[
-                                connection.toNodeId
-                            ]
-                        }
-            }
+            topology.children
 
         /*
-         * Cache contains:
+         * Cache:
          *
-         * Pair(
-         *     connected kW,
-         *     demand kW
-         * )
-         *
-         * calculated once per node.
+         * nodeId ->
+         * connected kW + demand kW
          */
         val cache =
             mutableMapOf<
@@ -214,14 +175,6 @@ object SldUpstreamEngineering {
                 "Circular upstream path at ${node.name}."
             }
 
-            /*
-             * Every node may have a direct load explicitly entered
-             * by the engineer.
-             *
-             * BUS and BREAKER are different: they are passive
-             * topology/protection objects and their direct load is
-             * forcibly ignored to prevent accidental duplication.
-             */
             val ownLoadKw =
                 when (node.type) {
 
@@ -230,8 +183,7 @@ object SldUpstreamEngineering {
                         0.0
 
                     else ->
-                        node.loadKw
-                            .coerceAtLeast(0.0)
+                        node.loadKw.coerceAtLeast(0.0)
                 }
 
             val ownDemandKw =
@@ -243,20 +195,12 @@ object SldUpstreamEngineering {
 
                     else ->
                         ownLoadKw *
-                            node.demandFactor
-                                .coerceIn(
-                                    0.0,
-                                    1.0
-                                )
+                            node.demandFactor.coerceIn(
+                                0.0,
+                                1.0
+                            )
                 }
 
-            /*
-             * A LOAD is normally a terminal node.
-             *
-             * The same generic aggregation logic is intentionally
-             * retained so the model can support future nested load
-             * groups without introducing another calculation engine.
-             */
             var connected =
                 ownLoadKw
 
@@ -280,36 +224,24 @@ object SldUpstreamEngineering {
                         childResult.second
                 }
 
+            stack.remove(node.id)
+
             val result =
                 connected to demand
 
             cache[node.id] =
                 result
 
-            stack.remove(node.id)
-
             return result
         }
 
-        val source =
-            network.nodes.firstOrNull {
-                it.type ==
-                    SldNodeType.SOURCE
-            }
-                ?: network.nodes.firstOrNull {
-                    network.connections.none { connection ->
-                        connection.toNodeId ==
-                            it.id
-                    }
-                }
-                ?: network.nodes.first()
-
         /*
-         * Calculate the source first so the complete downstream
-         * network is cached.
+         * Calculate from source downward.
+         *
+         * This fills the complete upstream cache.
          */
         calculateNode(
-            source,
+            topology.source,
             mutableSetOf()
         )
 
@@ -329,16 +261,13 @@ object SldUpstreamEngineering {
                     values.second
 
                 val pf =
-                    node.powerFactor
-                        .coerceIn(
-                            0.01,
-                            1.0
-                        )
+                    node.powerFactor.coerceIn(
+                        0.01,
+                        1.0
+                    )
 
                 val kva =
-                    if (
-                        demand > 0.0
-                    ) {
+                    if (demand > 0.0) {
                         demand / pf
                     } else {
                         0.0
@@ -351,22 +280,18 @@ object SldUpstreamEngineering {
                     )
 
                 val breaker =
-                    nextBreaker(
-                        current
-                    )
+                    nextBreaker(current)
 
                 val voltageDrop =
                     downstreamVoltageDrop(
-                        node,
-                        current,
-                        network,
-                        nodeMap
+                        node = node,
+                        network = network,
+                        topology = topology,
+                        cache = cache
                     )
 
                 val loading =
-                    if (
-                        node.ratedKva > 0.0
-                    ) {
+                    if (node.ratedKva > 0.0) {
                         kva /
                             node.ratedKva *
                             100.0
@@ -407,69 +332,60 @@ object SldUpstreamEngineering {
 
                             add(
                                 "Connected load = " +
-                                    "%.2f kW"
-                                        .format(
-                                            connected
-                                        )
+                                    "%.2f kW".format(
+                                        connected
+                                    )
                             )
 
                             add(
                                 "Demand load = " +
-                                    "%.2f kW"
-                                        .format(
-                                            demand
-                                        )
+                                    "%.2f kW".format(
+                                        demand
+                                    )
                             )
 
                             add(
                                 "Required apparent power = " +
-                                    "%.2f kVA"
-                                        .format(
-                                            kva
-                                        )
+                                    "%.2f kVA".format(
+                                        kva
+                                    )
                             )
 
                             add(
                                 "Design current = " +
-                                    "%.2f A"
-                                        .format(
-                                            current
-                                        )
+                                    "%.2f A".format(
+                                        current
+                                    )
                             )
 
                             add(
                                 "Recommended breaker = " +
-                                    "%.0f A"
-                                        .format(
-                                            breaker
-                                        )
+                                    "%.0f A".format(
+                                        breaker
+                                    )
                             )
 
-                            if (
-                                node.ratedKva > 0.0
-                            ) {
+                            if (node.ratedKva > 0.0) {
                                 add(
                                     "Equipment loading = " +
-                                        "%.1f %%"
-                                            .format(
-                                                loading
-                                            )
+                                        "%.1f %%".format(
+                                            loading
+                                        )
                                 )
                             }
 
                             add(
                                 "Downstream voltage drop = " +
-                                    "%.2f %%"
-                                        .format(
-                                            voltageDrop
-                                        )
+                                    "%.2f %%".format(
+                                        voltageDrop
+                                    )
                             )
                         }
                 )
             }
 
         val feederResults =
-            network.connections.map { connection ->
+            topology.connections.map { connection ->
 
                 val child =
                     nodeMap[
@@ -483,24 +399,19 @@ object SldUpstreamEngineering {
                     }
 
                 val connected =
-                    childResult?.connectedKw
-                        ?: 0.0
+                    childResult?.connectedKw ?: 0.0
 
                 val demand =
-                    childResult?.demandKw
-                        ?: 0.0
+                    childResult?.demandKw ?: 0.0
 
                 val kva =
-                    childResult?.kva
-                        ?: 0.0
+                    childResult?.kva ?: 0.0
 
                 val current =
-                    childResult?.currentA
-                        ?: 0.0
+                    childResult?.currentA ?: 0.0
 
                 val voltage =
-                    child?.voltage
-                        ?: 400.0
+                    child?.voltage ?: 400.0
 
                 val voltageDrop =
                     calculateVoltageDrop(
@@ -511,8 +422,7 @@ object SldUpstreamEngineering {
 
                 val adequate =
                     connection.currentCapacityA <= 0.0 ||
-                        connection.currentCapacityA >=
-                        current
+                        connection.currentCapacityA >= current
 
                 FeederResult(
                     connectionId =
@@ -537,9 +447,7 @@ object SldUpstreamEngineering {
                         current,
 
                     recommendedBreakerA =
-                        nextBreaker(
-                            current
-                        ),
+                        nextBreaker(current),
 
                     voltageDropPercent =
                         voltageDrop,
@@ -552,10 +460,9 @@ object SldUpstreamEngineering {
 
                             add(
                                 "Design current = " +
-                                    "%.2f A"
-                                        .format(
-                                            current
-                                        )
+                                    "%.2f A".format(
+                                        current
+                                    )
                             )
 
                             if (
@@ -563,19 +470,17 @@ object SldUpstreamEngineering {
                             ) {
                                 add(
                                     "Cable capacity = " +
-                                        "%.2f A"
-                                            .format(
-                                                connection.currentCapacityA
-                                            )
+                                        "%.2f A".format(
+                                            connection.currentCapacityA
+                                        )
                                 )
                             }
 
                             add(
                                 "Voltage drop = " +
-                                    "%.2f %%"
-                                        .format(
-                                            voltageDrop
-                                        )
+                                    "%.2f %%".format(
+                                        voltageDrop
+                                    )
                             )
 
                             if (!adequate) {
@@ -590,16 +495,16 @@ object SldUpstreamEngineering {
         val sourceResult =
             nodeResults.first {
                 it.nodeId ==
-                    source.id
+                    topology.source.id
             }
 
         val recommendedTransformer =
             if (
-                source.type ==
-                SldNodeType.TRANSFORMER &&
-                source.ratedKva > 0.0
+                topology.source.type ==
+                    SldNodeType.TRANSFORMER &&
+                topology.source.ratedKva > 0.0
             ) {
-                source.ratedKva
+                topology.source.ratedKva
             } else {
                 nextTransformer(
                     sourceResult.kva
@@ -642,10 +547,10 @@ object SldUpstreamEngineering {
 
         return Result(
             sourceNodeId =
-                source.id,
+                topology.source.id,
 
             sourceName =
-                source.name,
+                topology.source.name,
 
             totalConnectedKw =
                 sourceResult.connectedKw,
@@ -683,68 +588,58 @@ object SldUpstreamEngineering {
 
     private fun downstreamVoltageDrop(
         node: SldNode,
-        currentA: Double,
         network: SldNetwork,
-        nodeMap: Map<String, SldNode>
+        topology: SldTopologyEngine.Topology,
+        cache: Map<String, Pair<Double, Double>>
     ): Double {
 
         val direct =
-            network.connections
-                .filter {
-                    it.fromNodeId ==
-                        node.id
-                }
+            topology.connections.filter {
+                it.fromNodeId == node.id
+            }
 
-        if (
-            direct.isEmpty()
-        ) {
+        if (direct.isEmpty()) {
             return 0.0
         }
 
-        var maximum =
-            0.0
+        var maximum = 0.0
 
         direct.forEach { connection ->
 
             val child =
-                nodeMap[
-                    connection.toNodeId
+                network.nodes.firstOrNull {
+                    it.id ==
+                        connection.toNodeId
+                } ?: return@forEach
+
+            val childPair =
+                cache[
+                    child.id
                 ] ?: return@forEach
 
-            /*
-             * Use the complete downstream feeder current when
-             * available rather than only the child's own direct
-             * load.
-             */
-            val childResult =
-                network.nodes
-                    .firstOrNull {
-                        it.id ==
-                            child.id
-                    }
+            val pf =
+                child.powerFactor.coerceIn(
+                    0.01,
+                    1.0
+                )
 
-            val childCurrent =
-                if (
-                    childResult != null
-                ) {
-
-                    val values =
-                        calculateLocalCurrent(
-                            child,
-                            network,
-                            nodeMap
-                        )
-
-                    values
-
+            val kva =
+                if (childPair.second > 0.0) {
+                    childPair.second / pf
                 } else {
-                    currentA
+                    0.0
                 }
+
+            val current =
+                threePhaseCurrent(
+                    kva,
+                    child.voltage
+                )
 
             val drop =
                 calculateVoltageDrop(
                     connection,
-                    childCurrent,
+                    current,
                     node.voltage
                 )
 
@@ -756,132 +651,6 @@ object SldUpstreamEngineering {
         }
 
         return maximum
-    }
-
-    /*
-     * Calculates the current carried by one downstream branch.
-     *
-     * This helper intentionally follows the same aggregation rule
-     * as the main engine and contains no separate engineering
-     * calculation model.
-     */
-    private fun calculateLocalCurrent(
-        root: SldNode,
-        network: SldNetwork,
-        nodeMap: Map<String, SldNode>
-    ): Double {
-
-        val children =
-            network.connections
-                .filter {
-                    it.fromNodeId ==
-                        root.id
-                }
-                .mapNotNull {
-                    nodeMap[
-                        it.toNodeId
-                    ]
-                }
-
-        fun loadPair(
-            node: SldNode,
-            stack: MutableSet<String>
-        ): Pair<Double, Double> {
-
-            require(
-                stack.add(node.id)
-            ) {
-                "Circular upstream path at ${node.name}."
-            }
-
-            val ownLoad =
-                when (node.type) {
-
-                    SldNodeType.BUS,
-                    SldNodeType.BREAKER ->
-                        0.0
-
-                    else ->
-                        node.loadKw
-                            .coerceAtLeast(0.0)
-                }
-
-            val ownDemand =
-                when (node.type) {
-
-                    SldNodeType.BUS,
-                    SldNodeType.BREAKER ->
-                        0.0
-
-                    else ->
-                        ownLoad *
-                            node.demandFactor
-                                .coerceIn(
-                                    0.0,
-                                    1.0
-                                )
-                }
-
-            var connected =
-                ownLoad
-
-            var demand =
-                ownDemand
-
-            network.connections
-                .filter {
-                    it.fromNodeId ==
-                        node.id
-                }
-                .mapNotNull {
-                    nodeMap[
-                        it.toNodeId
-                    ]
-                }
-                .forEach { child ->
-
-                    val pair =
-                        loadPair(
-                            child,
-                            stack
-                        )
-
-                    connected +=
-                        pair.first
-
-                    demand +=
-                        pair.second
-                }
-
-            stack.remove(node.id)
-
-            return connected to demand
-        }
-
-        val pair =
-            loadPair(
-                root,
-                mutableSetOf()
-            )
-
-        val pf =
-            root.powerFactor
-                .coerceIn(
-                    0.01,
-                    1.0
-                )
-
-        val kva =
-            if (pair.second > 0.0) {
-                pair.second / pf
-            } else {
-                0.0
-            }
-
-        return threePhaseCurrent(
-            kva,
-            root.voltage
-        )
     }
 
     private fun calculateVoltageDrop(
@@ -899,17 +668,14 @@ object SldUpstreamEngineering {
         }
 
         val runs =
-            connection.parallelRuns
-                .coerceAtLeast(1)
+            connection.parallelRuns.coerceAtLeast(1)
 
         val r =
-            connection.resistanceOhmPerKm
-                .coerceAtLeast(0.0) /
+            connection.resistanceOhmPerKm.coerceAtLeast(0.0) /
                 runs
 
         val x =
-            connection.reactanceOhmPerKm
-                .coerceAtLeast(0.0) /
+            connection.reactanceOhmPerKm.coerceAtLeast(0.0) /
                 runs
 
         val z =
@@ -955,22 +721,18 @@ object SldUpstreamEngineering {
         current: Double
     ): Double {
 
-        return breakerRatings
-            .firstOrNull {
-                it >= current
-            }
-            ?: breakerRatings.last()
+        return breakerRatings.firstOrNull {
+            it >= current
+        } ?: breakerRatings.last()
     }
 
     private fun nextTransformer(
         kva: Double
     ): Double {
 
-        return transformerRatings
-            .firstOrNull {
-                it >= kva
-            }
-            ?: transformerRatings.last()
+        return transformerRatings.firstOrNull {
+            it >= kva
+        } ?: transformerRatings.last()
     }
 
     private fun validate(
