@@ -17,7 +17,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.rememberTextMeasurer
 import com.electrical.calculationspro.data.SldConnection
+import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
 
 @Composable
@@ -27,14 +29,14 @@ fun SldCanvas(
     selectedNodeId: String?,
     selectedConnectionId: String?,
     connectionStartId: String?,
+    engineering: SldEngineeringPackage? = null,
     onSelectNode: (String) -> Unit,
     onMoveNode: (String, Float, Float) -> Unit,
     onSelectConnection: (String) -> Unit,
     onEditNode: (SldNode) -> Unit,
     onEditConnection: (SldConnection) -> Unit
 ) {
-    val textMeasurer =
-        androidx.compose.ui.text.rememberTextMeasurer()
+    val textMeasurer = rememberTextMeasurer()
 
     Box(
         modifier = Modifier
@@ -57,7 +59,10 @@ fun SldCanvas(
                     detectTapGestures(
                         onDoubleTap = { point ->
                             val node =
-                                findNode(point, nodes)
+                                findNode(
+                                    point,
+                                    nodes
+                                )
 
                             if (node != null) {
                                 onEditNode(node)
@@ -73,7 +78,10 @@ fun SldCanvas(
                         },
                         onTap = { point ->
                             val node =
-                                findNode(point, nodes)
+                                findNode(
+                                    point,
+                                    nodes
+                                )
 
                             if (node != null) {
                                 onSelectNode(node.id)
@@ -121,17 +129,38 @@ fun SldCanvas(
             drawSldGrid()
 
             connections.forEach { connection ->
+
+                val feederResult =
+                    engineering
+                        ?.upstream
+                        ?.feeders
+                        ?.firstOrNull {
+                            it.connectionId ==
+                                connection.id
+                        }
+
                 drawConnection(
                     connection = connection,
                     nodes = nodes,
                     selected =
                         connection.id ==
                             selectedConnectionId,
-                    textMeasurer = textMeasurer
+                    textMeasurer = textMeasurer,
+                    feederResult = feederResult
                 )
             }
 
             nodes.forEach { node ->
+
+                val nodeResult =
+                    engineering
+                        ?.upstream
+                        ?.nodes
+                        ?.firstOrNull {
+                            it.nodeId ==
+                                node.id
+                        }
+
                 drawNode(
                     node = node,
                     selected =
@@ -140,7 +169,8 @@ fun SldCanvas(
                     connectionStart =
                         node.id ==
                             connectionStartId,
-                    textMeasurer = textMeasurer
+                    textMeasurer = textMeasurer,
+                    engineeringResult = nodeResult
                 )
             }
         }
