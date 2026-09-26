@@ -1,6 +1,3 @@
-المسار:
-"app/src/main/java/com/electrical/calculationspro/ui/screens/sld/SldEditorScreen.kt"
-
 package com.electrical.calculationspro.ui.screens.sld
 
 import androidx.compose.foundation.background
