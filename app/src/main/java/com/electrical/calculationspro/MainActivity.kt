@@ -45,12 +45,14 @@ import com.electrical.calculationspro.ui.project.FourColumnDesignGrid
 import com.electrical.calculationspro.ui.project.ProjectDashboardScreen
 
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
+import com.electrical.calculationspro.ui.screens.CurrentCalculationScreen
 import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
 import com.electrical.calculationspro.ui.screens.PumpEngineeringScreen
 
 import com.electrical.calculationspro.ui.screens.sld.SldEditorScreen
 
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
+
 
 class MainActivity : ComponentActivity() {
 
@@ -74,6 +76,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 
 @Composable
 private fun EngineeringDesignApp() {
@@ -102,10 +105,6 @@ private fun EngineeringDesignApp() {
         )
     }
 
-    /*
-     * The active project is the single source of truth.
-     * UI only refreshes its reference here.
-     */
     LaunchedEffect(screen) {
 
         val project =
@@ -123,11 +122,9 @@ private fun EngineeringDesignApp() {
 
     when (screen) {
 
-        /*
-         * --------------------------------------------------
-         * PROJECT DASHBOARD
-         * --------------------------------------------------
-         */
+        // ======================================================
+        // PROJECT DASHBOARD
+        // ======================================================
 
         "projects" -> {
 
@@ -156,11 +153,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * ACTIVE PROJECT
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // ACTIVE PROJECT
+        // ======================================================
 
         "active" -> {
 
@@ -208,11 +204,10 @@ private fun EngineeringDesignApp() {
             }
         }
 
-        /*
-         * --------------------------------------------------
-         * ELECTRICAL DESIGN
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // ELECTRICAL DESIGN DASHBOARD
+        // ======================================================
 
         "electrical" -> {
 
@@ -286,11 +281,27 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * CABLE
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // CURRENT CALCULATION
+        // ======================================================
+
+        "current" -> {
+
+            CurrentCalculationScreen(
+                language = language,
+
+                onBack = {
+                    screen =
+                        "electrical"
+                }
+            )
+        }
+
+
+        // ======================================================
+        // CABLE
+        // ======================================================
 
         "cable" -> {
 
@@ -305,11 +316,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * VOLTAGE DROP
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // VOLTAGE DROP
+        // ======================================================
 
         "voltage_drop" -> {
 
@@ -324,15 +334,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * SHORT CIRCUIT
-         *
-         * The actual project SLD editor is used as the
-         * engineering entry point. It uses the project
-         * network instead of a duplicated calculation UI.
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // SHORT CIRCUIT
+        // ======================================================
 
         "short_circuit" -> {
 
@@ -346,11 +351,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * PROTECTION
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // PROTECTION
+        // ======================================================
 
         "protection" -> {
 
@@ -364,11 +368,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * PANEL
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // PANEL
+        // ======================================================
 
         "panel" -> {
 
@@ -382,11 +385,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * SLD
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // SLD
+        // ======================================================
 
         "sld" -> {
 
@@ -400,11 +402,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * WATER
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // WATER
+        // ======================================================
 
         "water" -> {
 
@@ -418,11 +419,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * SEWAGE
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // SEWAGE
+        // ======================================================
 
         "sewage" -> {
 
@@ -436,18 +436,12 @@ private fun EngineeringDesignApp() {
             )
         }
 
-        /*
-         * --------------------------------------------------
-         * TEMPORARY ENGINEERING ROUTES
-         *
-         * No fake calculation is placed in MainActivity.
-         * These routes are kept isolated until their
-         * project-backed screens are connected to the Core.
-         * --------------------------------------------------
-         */
+
+        // ======================================================
+        // TEMPORARY ENGINEERING ROUTES
+        // ======================================================
 
         "load",
-        "current",
         "breaker",
         "transformer",
         "generator",
@@ -464,6 +458,11 @@ private fun EngineeringDesignApp() {
             )
         }
 
+
+        // ======================================================
+        // FALLBACK
+        // ======================================================
+
         else -> {
 
             screen =
@@ -472,11 +471,10 @@ private fun EngineeringDesignApp() {
     }
 }
 
-/*
- * ==========================================================
- * ELECTRICAL DESIGN DASHBOARD
- * ==========================================================
- */
+
+// ==========================================================
+// ELECTRICAL DESIGN DASHBOARD
+// ==========================================================
 
 @Composable
 private fun ElectricalDesignScreen(
@@ -873,14 +871,10 @@ private fun ElectricalDesignScreen(
     }
 }
 
-/*
- * ==========================================================
- * TEMPORARY ROUTE PLACEHOLDER
- *
- * Contains no engineering formula and no duplicated Core.
- * It will be replaced by project-backed modules.
- * ==========================================================
- */
+
+// ==========================================================
+// TEMPORARY ROUTE PLACEHOLDER
+// ==========================================================
 
 @Composable
 private fun EngineeringModulePlaceholder(
@@ -901,12 +895,6 @@ private fun EngineeringModulePlaceholder(
                     "الأحمال الكهربائية"
                 else
                     "Electrical Loads"
-
-            "current" ->
-                if (arabic)
-                    "حساب التيار"
-                else
-                    "Design Current"
 
             "breaker" ->
                 if (arabic)
@@ -993,3 +981,5 @@ private fun EngineeringModulePlaceholder(
         }
     }
 }
+
+التعديل الأساسي هنا مؤكد من "DesignProjectCoreBridge": الدالة "calculateDesignCurrentFromKw(...)" موجودة فعلًا، لذلك ربط "CurrentCalculationScreen" بها صحيح ولن يكون بسبب اسم API متخيل.
