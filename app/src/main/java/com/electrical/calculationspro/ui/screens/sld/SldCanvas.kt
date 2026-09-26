@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
@@ -44,99 +45,64 @@ fun SldCanvas(
 ) {
     val textMeasurer = rememberTextMeasurer()
 
-    val horizontalScrollState =
-        rememberScrollState()
-
-    val verticalScrollState =
-        rememberScrollState()
+    val horizontalScrollState = rememberScrollState()
+    val verticalScrollState = rememberScrollState()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Color(0xFFF4F7F9)
-            )
-            .horizontalScroll(
-                horizontalScrollState
-            )
-            .verticalScroll(
-                verticalScrollState
-            )
+            .background(Color(0xFFF4F7F9))
+            .horizontalScroll(horizontalScrollState)
+            .verticalScroll(verticalScrollState)
     ) {
-
         Canvas(
             modifier = Modifier
-                .width(
-                    CANVAS_WIDTH_DP.dp
-                )
-                .height(
-                    CANVAS_HEIGHT_DP.dp
-                )
-                .pointerInput(
-                    nodes,
-                    connections
-                ) {
+                .width(CANVAS_WIDTH_DP.dp)
+                .height(CANVAS_HEIGHT_DP.dp)
+                .pointerInput(nodes, connections) {
 
                     detectTapGestures(
-
                         onDoubleTap = { point ->
 
-                            val node =
-                                findNode(
-                                    point = point,
-                                    nodes = nodes
-                                )
+                            val node = findNode(
+                                point = point,
+                                nodes = nodes
+                            )
 
                             if (node != null) {
-
                                 onEditNode(node)
-
                             } else {
-
-                                val connection =
-                                    findConnection(
-                                        point = point,
-                                        nodes = nodes,
-                                        connections = connections
-                                    )
+                                val connection = findConnection(
+                                    point = point,
+                                    nodes = nodes,
+                                    connections = connections
+                                )
 
                                 if (connection != null) {
-
-                                    onEditConnection(
-                                        connection
-                                    )
+                                    onEditConnection(connection)
                                 }
                             }
                         },
 
                         onTap = { point ->
 
-                            val node =
-                                findNode(
-                                    point = point,
-                                    nodes = nodes
-                                )
+                            val node = findNode(
+                                point = point,
+                                nodes = nodes
+                            )
 
                             if (node != null) {
-
-                                onSelectNode(
-                                    node.id
-                                )
-
+                                onSelectNode(node.id)
                             } else {
 
-                                val connection =
-                                    findConnection(
-                                        point = point,
-                                        nodes = nodes,
-                                        connections = connections
-                                    )
+                                val connection = findConnection(
+                                    point = point,
+                                    nodes = nodes,
+                                    connections = connections
+                                )
 
                                 if (connection != null) {
-
-                                    onSelectConnection(
-                                        connection.id
-                                    )
+                                    onSelectConnection(connection.id)
                                 }
                             }
                         }
@@ -144,13 +110,11 @@ fun SldCanvas(
                 }
                 .pointerInput(nodes) {
 
-                    var draggingNodeId: String? =
-                        null
+                    var draggingNodeId: String? = null
 
                     detectDragGestures(
 
                         onDragStart = { point ->
-
                             draggingNodeId =
                                 findNode(
                                     point = point,
@@ -159,15 +123,11 @@ fun SldCanvas(
                         },
 
                         onDragEnd = {
-
-                            draggingNodeId =
-                                null
+                            draggingNodeId = null
                         },
 
                         onDragCancel = {
-
-                            draggingNodeId =
-                                null
+                            draggingNodeId = null
                         },
 
                         onDrag = { _, dragAmount ->
@@ -195,16 +155,14 @@ fun SldCanvas(
                         ?.upstream
                         ?.feeders
                         ?.firstOrNull {
-                            it.connectionId ==
-                                connection.id
+                            it.connectionId == connection.id
                         }
 
                 drawConnection(
                     connection = connection,
                     nodes = nodes,
                     selected =
-                        connection.id ==
-                            selectedConnectionId,
+                        connection.id == selectedConnectionId,
                     textMeasurer = textMeasurer,
                     feederResult = feederResult
                 )
@@ -217,21 +175,17 @@ fun SldCanvas(
                         ?.upstream
                         ?.nodes
                         ?.firstOrNull {
-                            it.nodeId ==
-                                node.id
+                            it.nodeId == node.id
                         }
 
                 drawNode(
                     node = node,
                     selected =
-                        node.id ==
-                            selectedNodeId,
+                        node.id == selectedNodeId,
                     connectionStart =
-                        node.id ==
-                            connectionStartId,
+                        node.id == connectionStartId,
                     textMeasurer = textMeasurer,
-                    engineeringResult =
-                        engineeringResult
+                    engineeringResult = engineeringResult
                 )
             }
 
@@ -258,14 +212,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
         drawLine(
             color = Color(0xFFE1E7EB),
-            start = Offset(
-                x,
-                0f
-            ),
-            end = Offset(
-                x,
-                size.height
-            ),
+            start = Offset(x, 0f),
+            end = Offset(x, size.height),
             strokeWidth = 1f
         )
 
@@ -278,54 +226,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
         drawLine(
             color = Color(0xFFE1E7EB),
-            start = Offset(
-                0f,
-                y
-            ),
-            end = Offset(
-                size.width,
-                y
-            ),
-            strokeWidth = 1f
-        )
-
-        y += 50f
-    }
-
-    x = 25f
-
-    while (x <= size.width) {
-
-        drawLine(
-            color = Color(0xFFEEF2F4),
-            start = Offset(
-                x,
-                0f
-            ),
-                end = Offset(
-                x,
-                size.height
-            ),
-            strokeWidth = 1f
-        )
-
-        x += 50f
-    }
-
-    y = 25f
-
-    while (y <= size.height) {
-
-        drawLine(
-            color = Color(0xFFEEF2F4),
-            start = Offset(
-                0f,
-                y
-            ),
-            end = Offset(
-                size.width,
-                y
-            ),
+            start = Offset(0f, y),
+            end = Offset(size.width, y),
             strokeWidth = 1f
         )
 
@@ -335,8 +237,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope
     .drawSldTitleBlock(
-        textMeasurer:
-            androidx.compose.ui.text.TextMeasurer,
+        textMeasurer: androidx.compose.ui.text.TextMeasurer,
         nodes: List<SldNode>,
         connections: List<SldConnection>,
         engineering: SldEngineeringPackage?
@@ -348,10 +249,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
     drawText(
         textMeasurer = textMeasurer,
         text = "SINGLE LINE DIAGRAM",
-        topLeft = Offset(
-            left,
-            top
-        ),
+        topLeft = Offset(left, top),
         style = TextStyle(
             color = Color(0xFF172027),
             fontSize = 20.sp,
@@ -362,10 +260,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
     drawText(
         textMeasurer = textMeasurer,
         text = "PROFESSIONAL ELECTRICAL DESIGN",
-        topLeft = Offset(
-            left,
-            top + 30f
-        ),
+        topLeft = Offset(left, top + 30f),
         style = TextStyle(
             color = Color(0xFF60717A),
             fontSize = 11.sp
@@ -374,14 +269,8 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 
     drawLine(
         color = Color(0xFF60717A),
-        start = Offset(
-            left,
-            top + 50f
-        ),
-        end = Offset(
-            left + 360f,
-            top + 50f
-        ),
+        start = Offset(left, top + 50f),
+        end = Offset(left + 360f, top + 50f),
         strokeWidth = 2f
     )
 
@@ -389,30 +278,31 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
         textMeasurer = textMeasurer,
         text =
             "Nodes: ${nodes.size}    Feeders: ${connections.size}",
-        topLeft = Offset(
-            left,
-            top + 68f
-        ),
+        topLeft = Offset(left, top + 68f),
         style = TextStyle(
             color = Color(0xFF60717A),
             fontSize = 10.sp
         )
     )
 
-    if (engineering != null) {
-
-        drawText(
-            textMeasurer = textMeasurer,
-            text = "ENGINEERING STUDY AVAILABLE",
-            topLeft = Offset(
-                left,
-                top + 86f
-            ),
-            style = TextStyle(
-                color = Color(0xFF1976D2),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
+    drawText(
+        textMeasurer = textMeasurer,
+        text =
+            if (engineering != null) {
+                "ENGINEERING STUDY AVAILABLE"
+            } else {
+                "ENGINEERING STUDY NOT CALCULATED"
+            },
+        topLeft = Offset(left, top + 86f),
+        style = TextStyle(
+            color =
+                if (engineering != null) {
+                    Color(0xFF1976D2)
+                } else {
+                    Color(0xFF996C00)
+                },
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
         )
-    }
+    )
 }
