@@ -35,6 +35,7 @@ fun SldCanvas(
     engineering: SldEngineeringPackage? = null,
     onSelectNode: (String) -> Unit,
     onMoveNode: (String, Float, Float) -> Unit,
+    onMoveNodeEnd: () -> Unit,
     onSelectConnection: (String) -> Unit,
     onEditNode: (SldNode) -> Unit,
     onEditConnection: (SldConnection) -> Unit
@@ -42,22 +43,6 @@ fun SldCanvas(
 
     val textMeasurer =
         rememberTextMeasurer()
-
-    /*
-     * ============================================================
-     * VIRTUAL CANVAS POSITION
-     *
-     * The old implementation depended on ScrollState.
-     * That made node dragging compete with the scroll gesture.
-     *
-     * Now:
-     *
-     * 1. Drag a node  -> move the node.
-     * 2. Drag empty area -> move/pan the SLD workspace.
-     * 3. Tap -> select.
-     * 4. Double tap -> edit.
-     * ============================================================
-     */
 
     var panX by remember {
         mutableFloatStateOf(0f)
@@ -80,13 +65,6 @@ fun SldCanvas(
             modifier =
                 Modifier
                     .fillMaxSize()
-
-                    /*
-                     * ====================================================
-                     * TAP / DOUBLE TAP
-                     * ====================================================
-                     */
-
                     .pointerInput(
                         nodes,
                         connections,
@@ -101,47 +79,32 @@ fun SldCanvas(
                                 val logicalPoint =
                                     Offset(
                                         x =
-                                            point.x -
-                                                panX,
+                                            point.x - panX,
                                         y =
-                                            point.y -
-                                                panY
+                                            point.y - panY
                                     )
 
                                 val node =
                                     findNode(
-                                        point =
-                                            logicalPoint,
-                                        nodes =
-                                            nodes
+                                        point = logicalPoint,
+                                        nodes = nodes
                                     )
 
                                 if (node != null) {
 
-                                    onEditNode(
-                                        node
-                                    )
+                                    onEditNode(node)
 
                                 } else {
 
                                     val connection =
                                         findConnection(
-                                            point =
-                                                logicalPoint,
-                                            nodes =
-                                                nodes,
-                                            connections =
-                                                connections
+                                            point = logicalPoint,
+                                            nodes = nodes,
+                                            connections = connections
                                         )
 
-                                    if (
-                                        connection !=
-                                        null
-                                    ) {
-
-                                        onEditConnection(
-                                            connection
-                                        )
+                                    if (connection != null) {
+                                        onEditConnection(connection)
                                     }
                                 }
                             },
@@ -151,70 +114,45 @@ fun SldCanvas(
                                 val logicalPoint =
                                     Offset(
                                         x =
-                                            point.x -
-                                                panX,
+                                            point.x - panX,
                                         y =
-                                            point.y -
-                                                panY
+                                            point.y - panY
                                     )
 
                                 val node =
                                     findNode(
-                                        point =
-                                            logicalPoint,
-                                        nodes =
-                                            nodes
+                                        point = logicalPoint,
+                                        nodes = nodes
                                     )
 
                                 if (node != null) {
 
-                                    onSelectNode(
-                                        node.id
-                                    )
+                                    onSelectNode(node.id)
 
                                 } else {
 
                                     val connection =
                                         findConnection(
-                                            point =
-                                                logicalPoint,
-                                            nodes =
-                                                nodes,
-                                            connections =
-                                                connections
+                                            point = logicalPoint,
+                                            nodes = nodes,
+                                            connections = connections
                                         )
 
-                                    if (
-                                        connection !=
-                                        null
-                                    ) {
-
-                                        onSelectConnection(
-                                            connection.id
-                                        )
+                                    if (connection != null) {
+                                        onSelectConnection(connection.id)
                                     }
                                 }
                             }
                         )
                     }
-
-                    /*
-                     * ====================================================
-                     * DRAG
-                     * ====================================================
-                     */
-
                     .pointerInput(
                         nodes,
                         panX,
                         panY
                     ) {
 
-                        var draggingNodeId:
-                            String? = null
-
-                        var draggingNode =
-                            false
+                        var draggingNodeId: String? = null
+                        var draggingNode = false
 
                         detectDragGestures(
 
@@ -223,66 +161,62 @@ fun SldCanvas(
                                 val logicalPoint =
                                     Offset(
                                         x =
-                                            point.x -
-                                                panX,
+                                            point.x - panX,
                                         y =
-                                            point.y -
-                                                panY
+                                            point.y - panY
                                     )
 
                                 draggingNodeId =
                                     findNode(
-                                        point =
-                                            logicalPoint,
-                                        nodes =
-                                            nodes
+                                        point = logicalPoint,
+                                        nodes = nodes
                                     )?.id
 
                                 draggingNode =
-                                    draggingNodeId !=
-                                        null
+                                    draggingNodeId != null
+
+                                if (draggingNode) {
+
+                                    draggingNodeId?.let {
+                                        onSelectNode(it)
+                                    }
+                                }
                             },
 
                             onDragEnd = {
 
-                                draggingNodeId =
-                                    null
+                                if (draggingNode) {
+                                    onMoveNodeEnd()
+                                }
 
-                                draggingNode =
-                                    false
+                                draggingNodeId = null
+                                draggingNode = false
                             },
 
                             onDragCancel = {
 
-                                draggingNodeId =
-                                    null
+                                if (draggingNode) {
+                                    onMoveNodeEnd()
+                                }
 
-                                draggingNode =
-                                    false
+                                draggingNodeId = null
+                                draggingNode = false
                             },
 
                             onDrag = {
                                     change,
                                     dragAmount ->
 
-                                /*
-                                 * Consume the gesture so the
-                                 * SLD drag owns the movement.
-                                 */
                                 change.consume()
 
                                 val nodeId =
                                     draggingNodeId
 
                                 if (
-                                    nodeId !=
-                                    null &&
+                                    nodeId != null &&
                                     draggingNode
                                 ) {
 
-                                    /*
-                                     * NODE MOVEMENT
-                                     */
                                     onMoveNode(
                                         nodeId,
                                         dragAmount.x,
@@ -291,38 +225,15 @@ fun SldCanvas(
 
                                 } else {
 
-                                    /*
-                                     * EMPTY CANVAS MOVEMENT
-                                     */
-                                    panX +=
-                                        dragAmount.x
-
-                                    panY +=
-                                        dragAmount.y
+                                    panX += dragAmount.x
+                                    panY += dragAmount.y
                                 }
                             }
                         )
                     }
         ) {
 
-            /*
-             * ============================================================
-             * BACKGROUND
-             *
-             * The grid stays attached to the workspace.
-             * ============================================================
-             */
-
             drawSldEngineeringBackground()
-
-            /*
-             * ============================================================
-             * SLD WORKSPACE
-             *
-             * Everything belonging to the diagram is translated by
-             * panX / panY.
-             * ============================================================
-             */
 
             withTransform({
 
@@ -333,12 +244,6 @@ fun SldCanvas(
 
             }) {
 
-                /*
-                 * ========================================================
-                 * CONNECTIONS FIRST
-                 * ========================================================
-                 */
-
                 connections.forEach { connection ->
 
                     val feederResult =
@@ -346,34 +251,19 @@ fun SldCanvas(
                             ?.upstream
                             ?.feeders
                             ?.firstOrNull {
-                                it.connectionId ==
-                                    connection.id
+                                it.connectionId == connection.id
                             }
 
                     drawConnection(
-                        connection =
-                            connection,
-
-                        nodes =
-                            nodes,
-
+                        connection = connection,
+                        nodes = nodes,
                         selected =
                             connection.id ==
                                 selectedConnectionId,
-
-                        textMeasurer =
-                            textMeasurer,
-
-                        feederResult =
-                            feederResult
+                        textMeasurer = textMeasurer,
+                        feederResult = feederResult
                     )
                 }
-
-                /*
-                 * ========================================================
-                 * NODES
-                 * ========================================================
-                 */
 
                 nodes.forEach { node ->
 
@@ -382,59 +272,33 @@ fun SldCanvas(
                             ?.upstream
                             ?.nodes
                             ?.firstOrNull {
-                                it.nodeId ==
-                                    node.id
+                                it.nodeId == node.id
                             }
 
                     drawNode(
-                        node =
-                            node,
-
+                        node = node,
                         selected =
                             node.id ==
                                 selectedNodeId,
-
                         connectionStart =
                             node.id ==
                                 connectionStartId,
-
-                        textMeasurer =
-                            textMeasurer,
-
+                        textMeasurer = textMeasurer,
                         engineeringResult =
                             engineeringResult
                     )
                 }
 
-                /*
-                 * ========================================================
-                 * TITLE BLOCK
-                 * ========================================================
-                 */
-
                 drawSldTitleBlock(
-                    textMeasurer =
-                        textMeasurer,
-
-                    nodes =
-                        nodes,
-
-                    connections =
-                        connections,
-
-                    engineering =
-                        engineering
+                    textMeasurer = textMeasurer,
+                    nodes = nodes,
+                    connections = connections,
+                    engineering = engineering
                 )
             }
         }
     }
 }
-
-/*
- * ================================================================
- * ENGINEERING BACKGROUND
- * ================================================================
- */
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope
     .drawSldEngineeringBackground() {
@@ -444,223 +308,108 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
             Color(0xFFF4F7F9)
     )
 
-    var x =
-        0f
+    var x = 0f
 
-    while (
-        x <= size.width
-    ) {
+    while (x <= size.width) {
 
         drawLine(
-            color =
-                Color(0xFFE1E7EB),
-
-            start =
-                Offset(
-                    x,
-                    0f
-                ),
-
-            end =
-                Offset(
-                    x,
-                    size.height
-                ),
-
-            strokeWidth =
-                1f
+            color = Color(0xFFE1E7EB),
+            start = Offset(x, 0f),
+            end = Offset(x, size.height),
+            strokeWidth = 1f
         )
 
-        x +=
-            50f
+        x += 50f
     }
 
-    var y =
-        0f
+    var y = 0f
 
-    while (
-        y <= size.height
-    ) {
+    while (y <= size.height) {
 
         drawLine(
-            color =
-                Color(0xFFE1E7EB),
-
-            start =
-                Offset(
-                    0f,
-                    y
-                ),
-
-            end =
-                Offset(
-                    size.width,
-                    y
-                ),
-
-            strokeWidth =
-                1f
+            color = Color(0xFFE1E7EB),
+            start = Offset(0f, y),
+            end = Offset(size.width, y),
+            strokeWidth = 1f
         )
 
-        y +=
-            50f
+        y += 50f
     }
 }
-
-/*
- * ================================================================
- * TITLE BLOCK
- * ================================================================
- */
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope
     .drawSldTitleBlock(
         textMeasurer:
             androidx.compose.ui.text.TextMeasurer,
-
-        nodes:
-            List<SldNode>,
-
-        connections:
-            List<SldConnection>,
-
-        engineering:
-            SldEngineeringPackage?
+        nodes: List<SldNode>,
+        connections: List<SldConnection>,
+        engineering: SldEngineeringPackage?
     ) {
 
-    val left =
-        60f
-
-    val top =
-        60f
+    val left = 60f
+    val top = 60f
 
     drawText(
-        textMeasurer =
-            textMeasurer,
-
-        text =
-            "SINGLE LINE DIAGRAM",
-
-        topLeft =
-            Offset(
-                left,
-                top
-            ),
-
+        textMeasurer = textMeasurer,
+        text = "SINGLE LINE DIAGRAM",
+        topLeft = Offset(left, top),
         style =
             TextStyle(
-                color =
-                    Color(0xFF172027),
-
-                fontSize =
-                    20.sp,
-
-                fontWeight =
-                    FontWeight.Bold
+                color = Color(0xFF172027),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
             )
     )
 
     drawText(
-        textMeasurer =
-            textMeasurer,
-
-        text =
-            "PROFESSIONAL ELECTRICAL DESIGN",
-
-        topLeft =
-            Offset(
-                left,
-                top + 30f
-            ),
-
+        textMeasurer = textMeasurer,
+        text = "PROFESSIONAL ELECTRICAL DESIGN",
+        topLeft = Offset(left, top + 30f),
         style =
             TextStyle(
-                color =
-                    Color(0xFF60717A),
-
-                fontSize =
-                    11.sp
+                color = Color(0xFF60717A),
+                fontSize = 11.sp
             )
     )
 
     drawLine(
-        color =
-            Color(0xFF60717A),
-
-        start =
-            Offset(
-                left,
-                top + 50f
-            ),
-
-        end =
-            Offset(
-                left + 360f,
-                top + 50f
-            ),
-
-        strokeWidth =
-            2f
+        color = Color(0xFF60717A),
+        start = Offset(left, top + 50f),
+        end = Offset(left + 360f, top + 50f),
+        strokeWidth = 2f
     )
 
     drawText(
-        textMeasurer =
-            textMeasurer,
-
+        textMeasurer = textMeasurer,
         text =
             "Nodes: ${nodes.size}    Feeders: ${connections.size}",
-
-        topLeft =
-            Offset(
-                left,
-                top + 68f
-            ),
-
+        topLeft = Offset(left, top + 68f),
         style =
             TextStyle(
-                color =
-                    Color(0xFF60717A),
-
-                fontSize =
-                    10.sp
+                color = Color(0xFF60717A),
+                fontSize = 10.sp
             )
     )
 
     drawText(
-        textMeasurer =
-            textMeasurer,
-
+        textMeasurer = textMeasurer,
         text =
-            if (
-                engineering != null
-            ) {
+            if (engineering != null) {
                 "ENGINEERING STUDY AVAILABLE"
             } else {
                 "ENGINEERING STUDY NOT CALCULATED"
             },
-
-        topLeft =
-            Offset(
-                left,
-                top + 86f
-            ),
-
+        topLeft = Offset(left, top + 86f),
         style =
             TextStyle(
                 color =
-                    if (
-                        engineering != null
-                    ) {
+                    if (engineering != null) {
                         Color(0xFF1976D2)
                     } else {
                         Color(0xFF996C00)
                     },
-
-                fontSize =
-                    10.sp,
-
-                fontWeight =
-                    FontWeight.Bold
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
             )
     )
 }
