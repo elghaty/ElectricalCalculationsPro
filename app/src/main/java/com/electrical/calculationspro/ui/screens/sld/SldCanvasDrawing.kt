@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
+import com.electrical.calculationspro.data.SldShortCircuitResult
 import com.electrical.calculationspro.data.SldUpstreamEngineering
 import kotlin.math.max
 import kotlin.math.min
@@ -34,6 +35,10 @@ private val SelectedColor = Color(0xFF00E676)
 private val ConnectionSelectedColor = Color(0xFF00BCD4)
 private val SymbolBackground = Color(0xFF0C141A)
 
+/**
+ * Draws one SLD feeder connection and exposes the engineering
+ * information calculated upstream by the SLD engineering engines.
+ */
 fun DrawScope.drawConnection(
     connection: SldConnection,
     nodes: List<SldNode>,
@@ -109,16 +114,52 @@ fun DrawScope.drawConnection(
             width =
                 when {
                     selected -> 7f
+
                     feederResult != null &&
-                        !feederResult.cableAdequate -> 6f
-                    else -> 4f
+                        !feederResult.cableAdequate ->
+                        6f
+
+                    else ->
+                        4f
                 }
         )
     )
 
     /*
      * ============================================================
-     * CABLE / FEEDER DATA
+     * FEEDER IDENTIFICATION
+     * ============================================================
+     */
+
+    val feederName =
+        connection.name
+            .takeIf {
+                it.isNotBlank()
+            }
+            ?: "FEEDER"
+
+    drawText(
+        textMeasurer = textMeasurer,
+        text = feederName,
+        topLeft =
+            Offset(
+                middleX - 85f,
+                min(
+                    start.y,
+                    end.y
+                ) - 49f
+            ),
+        style =
+            TextStyle(
+                color = PrimaryColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+    )
+
+    /*
+     * ============================================================
+     * CABLE DATA
      * ============================================================
      */
 
@@ -126,6 +167,7 @@ fun DrawScope.drawConnection(
         buildString {
 
             if (connection.cableSizeMm2 > 0.0) {
+
                 append(
                     fmt(
                         connection.cableSizeMm2
@@ -135,7 +177,9 @@ fun DrawScope.drawConnection(
                 append(" mm²")
 
                 if (connection.parallelRuns > 1) {
+
                     append(" × ")
+
                     append(
                         connection.parallelRuns
                     )
@@ -149,6 +193,10 @@ fun DrawScope.drawConnection(
                 }
 
                 append(
+                    "L="
+                )
+
+                append(
                     fmt(
                         connection.lengthMeters
                     )
@@ -157,30 +205,17 @@ fun DrawScope.drawConnection(
                 append(" m")
             }
 
-            if (feederResult != null) {
-
-                if (isNotEmpty()) {
-                    append(" | ")
-                }
-
-                append(
-                    "Ib="
-                )
-
-                append(
-                    fmt(
-                        feederResult.currentA
-                    )
-                )
-
-                append(" A")
-            } else if (
+            if (
                 connection.currentCapacityA > 0.0
             ) {
 
                 if (isNotEmpty()) {
                     append(" | ")
                 }
+
+                append(
+                    "Iz="
+                )
 
                 append(
                     fmt(
@@ -203,7 +238,7 @@ fun DrawScope.drawConnection(
                     min(
                         start.y,
                         end.y
-                    ) - 31f
+                    ) - 32f
                 ),
             style =
                 TextStyle(
@@ -230,10 +265,17 @@ fun DrawScope.drawConnection(
         )
     }
 
+    /*
+     * ============================================================
+     * LIVE FEEDER ENGINEERING
+     * ============================================================
+     */
+
     if (feederResult != null) {
 
         val engineeringLabel =
-            "S=${fmt(feederResult.kva)} kVA  " +
+            "Ib=${fmt(feederResult.currentA)} A  " +
+                "S=${fmt(feederResult.kva)} kVA  " +
                 "ΔV=${fmt(feederResult.voltageDropPercent)}%"
 
         drawText(
@@ -245,7 +287,7 @@ fun DrawScope.drawConnection(
                     min(
                         start.y,
                         end.y
-                    ) - 14f
+                    ) - 15f
                 ),
             style =
                 TextStyle(
@@ -261,16 +303,54 @@ fun DrawScope.drawConnection(
                     fontWeight = FontWeight.Bold
                 )
         )
+
+        val adequacyText =
+            if (feederResult.cableAdequate) {
+                "CABLE OK"
+            } else {
+                "CABLE UNDERSIZED"
+            }
+
+        drawText(
+            textMeasurer = textMeasurer,
+            text = adequacyText,
+            topLeft =
+                Offset(
+                    middleX - 85f,
+                    max(
+                        start.y,
+                        end.y
+                    ) + 12f
+                ),
+            style =
+                TextStyle(
+                    color =
+                        if (
+                            feederResult.cableAdequate
+                        ) {
+                            SuccessColor
+                        } else {
+                            FaultColor
+                        },
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+        )
     }
 }
 
+/**
+ * Draws one equipment node and its engineering information.
+ */
 fun DrawScope.drawNode(
     node: SldNode,
     selected: Boolean,
     connectionStart: Boolean,
     textMeasurer: TextMeasurer,
     engineeringResult:
-        SldUpstreamEngineering.NodeResult? = null
+        SldUpstreamEngineering.NodeResult? = null,
+    shortCircuitResult:
+        SldShortCircuitResult? = null
 ) {
     val centerX =
         node.x +
@@ -376,30 +456,38 @@ fun DrawScope.drawNode(
         buildString {
 
             append("V=")
+
             append(
                 fmt(
                     node.voltage
                 )
             )
+
             append(" V")
 
             if (node.loadKw > 0.0) {
+
                 append("   P=")
+
                 append(
                     fmt(
                         node.loadKw
                     )
                 )
+
                 append(" kW")
             }
 
             if (node.ratedKva > 0.0) {
+
                 append("   S=")
+
                 append(
                     fmt(
                         node.ratedKva
                     )
                 )
+
                 append(" kVA")
             }
         }
@@ -421,7 +509,7 @@ fun DrawScope.drawNode(
 
     /*
      * ============================================================
-     * LIVE ENGINEERING OVERLAY
+     * UPSTREAM ENGINEERING
      * ============================================================
      */
 
@@ -443,6 +531,7 @@ fun DrawScope.drawNode(
                 TextStyle(
                     color =
                         when {
+
                             engineeringResult.loadingPercent >
                                 100.0 ->
                                 FaultColor
@@ -459,17 +548,12 @@ fun DrawScope.drawNode(
                 )
         )
 
-        /*
-         * Second engineering line is intentionally drawn just
-         * below the standard node area. This keeps the main
-         * equipment label readable while exposing live data.
-         */
-        val secondLine =
+        val demandText =
             "Pdem=${fmt(engineeringResult.demandKw)} kW"
 
         drawText(
             textMeasurer = textMeasurer,
-            text = secondLine,
+            text = demandText,
             topLeft =
                 Offset(
                     node.x,
@@ -477,15 +561,12 @@ fun DrawScope.drawNode(
                 ),
             style =
                 TextStyle(
-                    color =
-                        SecondaryColor,
+                    color = SecondaryColor,
                     fontSize = 9.sp
                 )
         )
 
-        if (
-            node.ratedKva > 0.0
-        ) {
+        if (node.ratedKva > 0.0) {
 
             val loadingText =
                 "Loading=" +
@@ -506,6 +587,7 @@ fun DrawScope.drawNode(
                     TextStyle(
                         color =
                             when {
+
                                 engineeringResult.loadingPercent >
                                     100.0 ->
                                     FaultColor
@@ -518,8 +600,7 @@ fun DrawScope.drawNode(
                                     SuccessColor
                             },
                         fontSize = 9.sp,
-                        fontWeight =
-                            FontWeight.Bold
+                        fontWeight = FontWeight.Bold
                     )
             )
         }
@@ -546,8 +627,7 @@ fun DrawScope.drawNode(
                     ),
                 style =
                     TextStyle(
-                        color =
-                            SecondaryColor,
+                        color = SecondaryColor,
                         fontSize = 9.sp
                     )
             )
@@ -572,7 +652,77 @@ fun DrawScope.drawNode(
                 )
         )
     }
+
+    /*
+     * ============================================================
+     * SHORT-CIRCUIT ENGINEERING
+     * ============================================================
+     */
+
+    if (shortCircuitResult != null) {
+
+        val faultText =
+            "Ik''=" +
+                fmt(
+                    shortCircuitResult.initialSymmetricalCurrentKa
+                ) +
+                " kA  Ipk=" +
+                fmt(
+                    shortCircuitResult.peakCurrentKa
+                ) +
+                " kA"
+
+        drawText(
+            textMeasurer = textMeasurer,
+            text = faultText,
+            topLeft =
+                Offset(
+                    node.x,
+                    node.y + NODE_HEIGHT + 60f
+                ),
+            style =
+                TextStyle(
+                    color =
+                        FaultColor,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+        )
+
+        val faultLevelText =
+            "Scc=" +
+                fmt(
+                    shortCircuitResult.shortCircuitMva
+                ) +
+                " MVA  Icu≥" +
+                fmt(
+                    shortCircuitResult.breakerRequiredKa
+                ) +
+                " kA"
+
+        drawText(
+            textMeasurer = textMeasurer,
+            text = faultLevelText,
+            topLeft =
+                Offset(
+                    node.x,
+                    node.y + NODE_HEIGHT + 76f
+                ),
+            style =
+                TextStyle(
+                    color = WarningColor,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+        )
+    }
 }
+
+/*
+ * ================================================================
+ * SLD SYMBOLS
+ * ================================================================
+ */
 
 private fun DrawScope.drawSourceSymbol(
     x: Float,
@@ -580,75 +730,36 @@ private fun DrawScope.drawSourceSymbol(
 ) {
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 45f
-            ),
-        end =
-            Offset(
-                x,
-                y - 20f
-            ),
+        start = Offset(x, y - 45f),
+        end = Offset(x, y - 20f),
         strokeWidth = 4f
     )
 
     drawCircle(
         color = SymbolBackground,
         radius = 22f,
-        center =
-            Offset(
-                x,
-                y
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
+        center = Offset(x, y),
+        style = Stroke(width = 3.5f)
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 12f,
-                y + 12f
-            ),
-        end =
-            Offset(
-                x + 12f,
-                y - 12f
-            ),
+        start = Offset(x - 12f, y + 12f),
+        end = Offset(x + 12f, y - 12f),
         strokeWidth = 3f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 12f,
-                y - 12f
-            ),
-        end =
-            Offset(
-                x + 12f,
-                y + 12f
-            ),
+        start = Offset(x - 12f, y - 12f),
+        end = Offset(x + 12f, y + 12f),
         strokeWidth = 3f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 22f
-            ),
-        end =
-            Offset(
-                x,
-                y + 45f
-            ),
+        start = Offset(x, y + 22f),
+        end = Offset(x, y + 45f),
         strokeWidth = 4f
     )
 }
@@ -659,31 +770,15 @@ private fun DrawScope.drawTransformerSymbol(
 ) {
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 50f
-            ),
-        end =
-            Offset(
-                x,
-                y - 30f
-            ),
+        start = Offset(x, y - 50f),
+        end = Offset(x, y - 30f),
         strokeWidth = 4f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 30f
-            ),
-        end =
-            Offset(
-                x,
-                y + 50f
-            ),
+        start = Offset(x, y + 30f),
+        end = Offset(x, y + 50f),
         strokeWidth = 4f
     )
 
@@ -692,20 +787,9 @@ private fun DrawScope.drawTransformerSymbol(
         startAngle = -90f,
         sweepAngle = 180f,
         useCenter = false,
-        topLeft =
-            Offset(
-                x - 28f,
-                y - 28f
-            ),
-        size =
-            Size(
-                56f,
-                56f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
+        topLeft = Offset(x - 28f, y - 28f),
+        size = Size(56f, 56f),
+        style = Stroke(width = 3.5f)
     )
 
     drawArc(
@@ -713,20 +797,9 @@ private fun DrawScope.drawTransformerSymbol(
         startAngle = 90f,
         sweepAngle = 180f,
         useCenter = false,
-        topLeft =
-            Offset(
-                x + 2f,
-                y - 28f
-            ),
-        size =
-            Size(
-                56f,
-                56f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
+        topLeft = Offset(x + 2f, y - 28f),
+        size = Size(56f, 56f),
+        style = Stroke(width = 3.5f)
     )
 }
 
@@ -736,31 +809,16 @@ private fun DrawScope.drawGeneratorSymbol(
 ) {
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 48f
-            ),
-        end =
-            Offset(
-                x,
-                y - 24f
-            ),
+        start = Offset(x, y - 48f),
+        end = Offset(x, y - 24f),
         strokeWidth = 4f
     )
 
     drawCircle(
         color = SymbolBackground,
         radius = 25f,
-        center =
-            Offset(
-                x,
-                y
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
+        center = Offset(x, y),
+        style = Stroke(width = 3.5f)
     )
 
     drawArc(
@@ -768,34 +826,15 @@ private fun DrawScope.drawGeneratorSymbol(
         startAngle = 25f,
         sweepAngle = 130f,
         useCenter = false,
-        topLeft =
-            Offset(
-                x - 15f,
-                y - 15f
-            ),
-        size =
-            Size(
-                30f,
-                30f
-            ),
-        style =
-            Stroke(
-                width = 3f
-            )
+        topLeft = Offset(x - 15f, y - 15f),
+        size = Size(30f, 30f),
+        style = Stroke(width = 3f)
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 25f
-            ),
-        end =
-            Offset(
-                x,
-                y + 48f
-            ),
+        start = Offset(x, y + 25f),
+        end = Offset(x, y + 48f),
         strokeWidth = 4f
     )
 }
@@ -806,67 +845,35 @@ private fun DrawScope.drawBusbarSymbol(
 ) {
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 58f,
-                y
-            ),
-        end =
-            Offset(
-                x + 58f,
-                y
-            ),
+        start = Offset(x - 58f, y),
+        end = Offset(x + 58f, y),
         strokeWidth = 8f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 45f
-            ),
-        end =
-            Offset(
-                x,
-                y
-            ),
+        start = Offset(x, y - 45f),
+        end = Offset(x, y),
         strokeWidth = 4f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y
-            ),
-        end =
-            Offset(
-                x,
-                y + 45f
-            ),
+        start = Offset(x, y),
+        end = Offset(x, y + 45f),
         strokeWidth = 4f
     )
 
     drawCircle(
         color = SymbolColor,
         radius = 5f,
-        center =
-            Offset(
-                x,
-                y - 45f
-            )
+        center = Offset(x, y - 45f)
     )
 
     drawCircle(
         color = SymbolColor,
         radius = 5f,
-        center =
-            Offset(
-                x,
-                y + 45f
-            )
+        center = Offset(x, y + 45f)
     )
 }
 
@@ -876,64 +883,29 @@ private fun DrawScope.drawPanelSymbol(
 ) {
     drawRect(
         color = SymbolBackground,
-        topLeft =
-            Offset(
-                x - 38f,
-                y - 30f
-            ),
-        size =
-            Size(
-                76f,
-                60f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
+        topLeft = Offset(x - 38f, y - 30f),
+        size = Size(76f, 60f),
+        style = Stroke(width = 3.5f)
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 30f
-            ),
-        end =
-            Offset(
-                x,
-                y + 30f
-            ),
+        start = Offset(x, y - 30f),
+        end = Offset(x, y + 30f),
         strokeWidth = 2.5f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 38f,
-                y - 10f
-            ),
-        end =
-            Offset(
-                x + 38f,
-                y - 10f
-            ),
+        start = Offset(x - 38f, y - 10f),
+        end = Offset(x + 38f, y - 10f),
         strokeWidth = 2f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 38f,
-                y + 10f
-            ),
-        end =
-            Offset(
-                x + 38f,
-                y + 10f
-            ),
+        start = Offset(x - 38f, y + 10f),
+        end = Offset(x + 38f, y + 10f),
         strokeWidth = 2f
     )
 }
@@ -944,64 +916,29 @@ private fun DrawScope.drawBreakerSymbol(
 ) {
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 48f
-            ),
-        end =
-            Offset(
-                x,
-                y - 23f
-            ),
+        start = Offset(x, y - 48f),
+        end = Offset(x, y - 23f),
         strokeWidth = 4f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 23f
-            ),
-        end =
-            Offset(
-                x,
-                y + 48f
-            ),
+        start = Offset(x, y + 23f),
+        end = Offset(x, y + 48f),
         strokeWidth = 4f
     )
 
     drawRect(
         color = SymbolBackground,
-        topLeft =
-            Offset(
-                x - 24f,
-                y - 24f
-            ),
-        size =
-            Size(
-                48f,
-                48f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
+        topLeft = Offset(x - 24f, y - 24f),
+        size = Size(48f, 48f),
+        style = Stroke(width = 3.5f)
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 14f,
-                y + 12f
-            ),
-        end =
-            Offset(
-                x + 13f,
-                y - 12f
-            ),
+        start = Offset(x - 14f, y + 12f),
+        end = Offset(x + 13f, y - 12f),
         strokeWidth = 4f
     )
 }
@@ -1012,83 +949,51 @@ private fun DrawScope.drawLoadSymbol(
 ) {
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 48f
-            ),
-        end =
-            Offset(
-                x,
-                y - 23f
-            ),
+        start = Offset(x, y - 48f),
+        end = Offset(x, y - 23f),
         strokeWidth = 4f
     )
 
     drawCircle(
         color = SymbolBackground,
         radius = 23f,
-        center =
-            Offset(
-                x,
-                y
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
+        center = Offset(x, y),
+        style = Stroke(width = 3.5f)
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 14f,
-                y + 14f
-            ),
-        end =
-            Offset(
-                x + 14f,
-                y - 14f
-            ),
+        start = Offset(x - 14f, y + 14f),
+        end = Offset(x + 14f, y - 14f),
         strokeWidth = 3f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x - 8f,
-                y + 20f
-            ),
-        end =
-            Offset(
-                x + 20f,
-                y - 8f
-            ),
+        start = Offset(x - 8f, y + 20f),
+        end = Offset(x + 20f, y - 8f),
         strokeWidth = 2f
     )
 
     drawLine(
         color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 23f
-            ),
-        end =
-            Offset(
-                x,
-                y + 48f
-            ),
+        start = Offset(x, y + 23f),
+        end = Offset(x, y + 48f),
         strokeWidth = 4f
     )
 }
+
+/*
+ * ================================================================
+ * LABELS / HIT TESTING
+ * ================================================================
+ */
 
 private fun equipmentTypeLabel(
     type: SldNodeType
 ): String {
     return when (type) {
+
         SldNodeType.SOURCE ->
             "UTILITY SOURCE"
 
@@ -1117,6 +1022,7 @@ fun findNode(
     nodes: List<SldNode>
 ): SldNode? {
     return nodes.lastOrNull { node ->
+
         point.x >= node.x &&
             point.x <=
             node.x + NODE_WIDTH &&
@@ -1256,10 +1162,8 @@ private fun segmentDistance(
 
     val t =
         (
-            (point.x - start.x) *
-                dx +
-                (point.y - start.y) *
-                dy
+            (point.x - start.x) * dx +
+                (point.y - start.y) * dy
             ) /
             (
                 dx * dx +
@@ -1289,4 +1193,37 @@ private fun segmentDistance(
             (point.y - closestY) *
             (point.y - closestY)
     )
+}
+
+/*
+ * ================================================================
+ * FORMATTER
+ * ================================================================
+ *
+ * This is deliberately local to the SLD drawing package.
+ * It avoids creating another global formatter and prevents
+ * conflicts with other SLD files.
+ */
+private fun fmt(
+    value: Double
+): String {
+
+    if (!value.isFinite()) {
+        return "—"
+    }
+
+    return when {
+
+        kotlin.math.abs(value) >= 1000.0 ->
+            "%.0f".format(value)
+
+        kotlin.math.abs(value) >= 100.0 ->
+            "%.1f".format(value)
+
+        kotlin.math.abs(value) >= 10.0 ->
+            "%.2f".format(value)
+
+        else ->
+            "%.3f".format(value)
+    }
 }
