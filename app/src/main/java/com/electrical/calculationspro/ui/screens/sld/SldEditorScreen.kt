@@ -48,38 +48,23 @@ fun SldEditorScreen(
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-
-        /*
-         * ============================================================
-         * TOP TOOLBAR
-         * ============================================================
-         */
+        var addMenuExpanded by remember {
+            mutableStateOf(false)
+        }
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    horizontal = 8.dp,
-                    vertical = 6.dp
-                ),
+                .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-
-            var addMenuExpanded by remember {
-                mutableStateOf(false)
-            }
-
             Button(
                 onClick = {
                     addMenuExpanded = true
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "إضافة"
-                    } else {
-                        "Add"
-                    }
+                    if (arabic) "إضافة" else "Add"
                 )
             }
 
@@ -89,15 +74,13 @@ fun SldEditorScreen(
                     addMenuExpanded = false
                 }
             ) {
-
                 SldNodeType.values().forEach { type ->
-
                     DropdownMenuItem(
                         text = {
                             Text(
                                 nodeTypeTitle(
-                                    type = type,
-                                    arabic = arabic
+                                    type,
+                                    arabic
                                 )
                             )
                         },
@@ -116,11 +99,7 @@ fun SldEditorScreen(
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "توصيل"
-                    } else {
-                        "Connect"
-                    }
+                    if (arabic) "توصيل" else "Connect"
                 )
             }
 
@@ -133,11 +112,7 @@ fun SldEditorScreen(
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "حذف"
-                    } else {
-                        "Delete"
-                    }
+                    if (arabic) "حذف" else "Delete"
                 )
             }
 
@@ -147,11 +122,7 @@ fun SldEditorScreen(
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "حساب"
-                    } else {
-                        "Calculate"
-                    }
+                    if (arabic) "حساب" else "Calculate"
                 )
             }
 
@@ -161,41 +132,18 @@ fun SldEditorScreen(
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "فحص"
-                    } else {
-                        "Validate"
-                    }
+                    if (arabic) "فحص" else "Validate"
                 )
             }
         }
 
-        /*
-         * ============================================================
-         * ENGINEERING ERROR
-         * ============================================================
-         */
-
-        state.engineeringError?.let { error ->
-
+        state.engineeringError?.let {
             Text(
-                text = error,
+                text = it,
                 color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = 12.dp,
-                        vertical = 4.dp
-                    )
+                modifier = Modifier.padding(8.dp)
             )
         }
-
-        /*
-         * ============================================================
-         * SLD CANVAS
-         * ============================================================
-         */
 
         SldCanvas(
             nodes = state.nodes,
@@ -204,17 +152,13 @@ fun SldEditorScreen(
             selectedConnectionId = state.selectedConnectionId,
             connectionStartId = state.connectionStartId,
             engineering = state.engineeringPackage,
-
-            onSelectNode = { nodeId ->
-                state.selectedNodeId = nodeId
+            onSelectNode = {
+                state.selectedNodeId = it
                 state.selectedConnectionId = null
             },
-
             onMoveNode = { id, dx, dy ->
-
                 state.nodes =
                     state.nodes.map { node ->
-
                         if (node.id == id) {
                             node.copy(
                                 x = node.x + dx,
@@ -225,30 +169,20 @@ fun SldEditorScreen(
                         }
                     }
             },
-
             onMoveNodeEnd = {
                 actions.saveProjectNetwork()
             },
-
-            onSelectConnection = { connectionId ->
-                state.selectedConnectionId = connectionId
+            onSelectConnection = {
+                state.selectedConnectionId = it
                 state.selectedNodeId = null
             },
-
-            onEditNode = { node ->
-                actions.editNode(node)
+            onEditNode = {
+                actions.editNode(it)
             },
-
-            onEditConnection = { connection ->
-                actions.editConnection(connection)
+            onEditConnection = {
+                actions.editConnection(it)
             }
         )
-
-        /*
-         * ============================================================
-         * ENGINEERING ACTION BAR
-         * ============================================================
-         */
 
         Row(
             modifier = Modifier
@@ -256,26 +190,13 @@ fun SldEditorScreen(
                 .padding(8.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-
-            OutlinedButton(
-                onClick = {
-                    actions.recalculateEngineering()
-                }
-            ) {
-                Text("Upstream")
-            }
-
             OutlinedButton(
                 onClick = {
                     actions.runShortCircuit()
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "تيار القصر"
-                    } else {
-                        "Short Circuit"
-                    }
+                    if (arabic) "تيار القصر" else "Short Circuit"
                 )
             }
 
@@ -285,11 +206,7 @@ fun SldEditorScreen(
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "جدول اللوحة"
-                    } else {
-                        "Panel Schedule"
-                    }
+                    if (arabic) "جدول اللوحة" else "Panel Schedule"
                 )
             }
 
@@ -299,11 +216,7 @@ fun SldEditorScreen(
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "ترتيب تلقائي"
-                    } else {
-                        "Auto Layout"
-                    }
+                    if (arabic) "ترتيب تلقائي" else "Auto Layout"
                 )
             }
 
@@ -313,176 +226,107 @@ fun SldEditorScreen(
                 }
             ) {
                 Text(
-                    if (arabic) {
-                        "دراسة كاملة"
-                    } else {
-                        "Full Study"
-                    }
+                    if (arabic) "دراسة كاملة" else "Full Study"
                 )
             }
 
-            onBack?.let { back ->
-
-                OutlinedButton(
-                    onClick = back
-                ) {
+            onBack?.let {
+                OutlinedButton(onClick = it) {
                     Text(
-                        if (arabic) {
-                            "رجوع"
-                        } else {
-                            "Back"
-                        }
+                        if (arabic) "رجوع" else "Back"
                     )
                 }
             }
         }
     }
 
-    /*
-     * ================================================================
-     * NODE EDITOR
-     * ================================================================
-     */
-
     if (state.showNodeDialog) {
-
         SldNodeEditorDialog(
             arabic = arabic,
-
-            editing =
-                state.editingNodeId != null,
-
+            editing = state.editingNodeId != null,
             type = state.nodeType,
-
             name = state.name,
-
             voltage = state.voltage,
-
             loadKw = state.loadKw,
-
             pf = state.pf,
-
             demand = state.demand,
-
             kva = state.kva,
-
             transformerZ = state.transformerZ,
-
             generatorXd = state.generatorXd,
-
             sourceMva = state.sourceMva,
-
             onNameChange = {
                 state.name = it
             },
-
             onVoltageChange = {
                 state.voltage = it
             },
-
             onLoadKwChange = {
                 state.loadKw = it
             },
-
             onPfChange = {
                 state.pf = it
             },
-
             onDemandChange = {
                 state.demand = it
             },
-
             onKvaChange = {
                 state.kva = it
             },
-
             onTransformerZChange = {
                 state.transformerZ = it
             },
-
             onGeneratorXdChange = {
                 state.generatorXd = it
             },
-
             onSourceMvaChange = {
                 state.sourceMva = it
             },
-
             onSave = {
                 actions.saveNode()
             },
-
             onCancel = {
                 state.clearDialogs()
             }
         )
     }
 
-    /*
-     * ================================================================
-     * CONNECTION EDITOR
-     * ================================================================
-     */
-
     if (state.showConnectionDialog) {
-
         SldConnectionEditorDialog(
             arabic = arabic,
-
             length = state.length,
-
             resistance = state.resistance,
-
             reactance = state.reactance,
-
             cableSize = state.cableSize,
-
             parallelRuns = state.parallelRuns,
-
             capacity = state.capacity,
-
             onLengthChange = {
                 state.length = it
             },
-
             onResistanceChange = {
                 state.resistance = it
             },
-
             onReactanceChange = {
                 state.reactance = it
             },
-
             onCableSizeChange = {
                 state.cableSize = it
             },
-
             onParallelRunsChange = {
                 state.parallelRuns = it
             },
-
             onCapacityChange = {
                 state.capacity = it
             },
-
             onSave = {
                 actions.saveConnection()
             },
-
             onCancel = {
                 state.clearDialogs()
             }
         )
     }
 
-    /*
-     * ================================================================
-     * ENGINEERING REPORT
-     * ================================================================
-     */
-
     if (state.showReport) {
-
         SldReportDialog(
             title = state.reportTitle,
             text = state.reportText,
@@ -493,66 +337,29 @@ fun SldEditorScreen(
     }
 }
 
-/*
- * ====================================================================
- * NODE TYPE LABEL
- * ====================================================================
- */
-
 private fun nodeTypeTitle(
     type: SldNodeType,
     arabic: Boolean
-): String {
-
-    return when (type) {
-
+): String =
+    when (type) {
         SldNodeType.SOURCE ->
-            if (arabic) {
-                "مصدر تغذية"
-            } else {
-                "Source"
-            }
+            if (arabic) "مصدر تغذية" else "Source"
 
         SldNodeType.TRANSFORMER ->
-            if (arabic) {
-                "محول"
-            } else {
-                "Transformer"
-            }
+            if (arabic) "محول" else "Transformer"
 
         SldNodeType.GENERATOR ->
-            if (arabic) {
-                "مولد"
-            } else {
-                "Generator"
-            }
+            if (arabic) "مولد" else "Generator"
 
         SldNodeType.BUS ->
-            if (arabic) {
-                "قضبان Bus"
-            } else {
-                "Bus"
-            }
+            if (arabic) "قضبان Bus" else "Bus"
 
         SldNodeType.PANEL ->
-            if (arabic) {
-                "لوحة"
-            } else {
-                "Panel"
-            }
+            if (arabic) "لوحة" else "Panel"
 
         SldNodeType.BREAKER ->
-            if (arabic) {
-                "قاطع"
-            } else {
-                "Breaker"
-            }
+            if (arabic) "قاطع" else "Breaker"
 
         SldNodeType.LOAD ->
-            if (arabic) {
-                "حمل"
-            } else {
-                "Load"
-            }
+            if (arabic) "حمل" else "Load"
     }
-}
