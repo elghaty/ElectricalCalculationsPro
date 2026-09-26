@@ -30,6 +30,13 @@ data class SldProtectionCoordinationResult(
 
 object SldProtectionCoordinationEngine {
 
+    private const val SQRT_3 = 1.7320508075688772
+    private const val BREAKER_MARGIN = 1.15
+    private const val LONG_TIME_FACTOR = 0.90
+    private const val INSTANTANEOUS_FACTOR = 8.0
+    private const val COORDINATED_RATIO = 1.60
+    private const val WARNING_RATIO = 1.25
+
     private val breakerRatings = listOf(
         16.0,
         20.0,
@@ -70,12 +77,17 @@ object SldProtectionCoordinationEngine {
             "SLD network is empty."
         }
 
-        val upstream: SldUpstreamEngineering.Result? =
-            try {
-                SldUpstreamEngineering.calculate(network)
-            } catch (_: Exception) {
-                null
-            }
+        /*
+         * The physical drawing direction is never trusted.
+         *
+         * All protection relationships are calculated using
+         * the electrically oriented topology.
+         */
+        val topology =
+            SldTopologyEngine.build(network)
+
+        val upstream =
+            SldUpstreamEngineering.calculate(network)
 
         val devices =
             linkedMapOf<String, SldProtectionDevice>()
@@ -95,28 +107,32 @@ object SldProtectionCoordinationEngine {
 
             val recommendedRating =
                 selectBreakerRating(
-                    currentA = downstreamCurrent * 1.15
+                    downstreamCurrent *
+                        BREAKER_MARGIN
                 )
 
-            val shortCircuitRating =
+            val shortCircuitResult =
                 shortCircuitStudy
                     ?.results
                     ?.get(node.id)
+
+            val shortCircuitRating =
+                shortCircuitResult
                     ?.breakerRequiredKa
                     ?: 0.0
 
             val initialSymmetricalCurrentKa =
-                shortCircuitStudy
-                    ?.results
-                    ?.get(node.id)
+                shortCircuitResult
                     ?.initialSymmetricalCurrentKa
                     ?: 0.0
 
             val longTimePickup =
-                recommendedRating * 0.90
+                recommendedRating *
+                    LONG_TIME_FACTOR
 
             val instantaneousPickup =
-                recommendedRating * 8.0
+                recommendedRating *
+                    INSTANTANEOUS_FACTOR
 
             val notes =
                 mutableListOf<String>()
@@ -124,19 +140,29 @@ object SldProtectionCoordinationEngine {
             var status =
                 ProtectionStatus.PASS
 
-            if (recommendedRating <= downstreamCurrent) {
-                status = ProtectionStatus.WARNING
+            if (
+                recommendedRating <=
+                downstreamCurrent
+            ) {
+                status =
+                    ProtectionStatus.WARNING
 
                 notes.add(
-                    "Breaker rating is close to the calculated feeder current."
+                    "Selected breaker rating is not above the calculated design current."
                 )
             }
 
+            /*
+             * Interrupting capacity check.
+             */
             if (
                 shortCircuitRating > 0.0 &&
-                shortCircuitRating < initialSymmetricalCurrentKa
+                initialSymmetricalCurrentKa > 0.0 &&
+                shortCircuitRating <
+                initialSymmetricalCurrentKa
             ) {
-                status = ProtectionStatus.FAIL
+                status =
+                    ProtectionStatus.FAIL
 
                 notes.add(
                     "Required short-circuit breaking capacity is not satisfied."
@@ -149,20 +175,28 @@ object SldProtectionCoordinationEngine {
                 )
             }
 
+            /*
+             * Cable protection check.
+             *
+             * Incoming feeder is determined from topology rather
+             * than the stored drawing direction.
+             */
             if (
                 cableSizingStudy != null &&
                 node.type != SldNodeType.SOURCE
             ) {
 
-                val downstreamConnections =
-                    network.connections.filter {
+                val incomingConnections =
+                    topology.connections.filter {
                         it.toNodeId == node.id
                     }
 
-                downstreamConnections.forEach { connection ->
+                incomingConnections.forEach { connection ->
 
                     val cable =
-                        cableSizingStudy.results[connection.id]
+                        cableSizingStudy.results[
+                            connection.id
+                        ]
 
                     if (
                         cable != null &&
@@ -175,7 +209,7 @@ object SldProtectionCoordinationEngine {
                             ProtectionStatus.FAIL
 
                         notes.add(
-                            "Breaker rating exceeds the recommended cable current capacity."
+                            "Breaker rating exceeds the selected cable current capacity."
                         )
                     }
                 }
@@ -183,17 +217,40 @@ object SldProtectionCoordinationEngine {
 
             devices[node.id] =
                 SldProtectionDevice(
-                    nodeId = node.id,
-                    nodeName = node.name,
-                    deviceType = protectionDeviceType(node.type),
-                    downstreamCurrentA = downstreamCurrent,
-                    recommendedRatingA = recommendedRating,
-                    shortCircuitRatingKa = shortCircuitRating,
-                    longTimePickupA = longTimePickup,
-                    instantaneousPickupA = instantaneousPickup,
-                    selectivityMarginA = 0.0,
-                    status = status,
-                    notes = notes
+                    nodeId =
+                        node.id,
+
+                    nodeName =
+                        node.name,
+
+                    deviceType =
+                        protectionDeviceType(
+                            node.type
+                        ),
+
+                    downstreamCurrentA =
+                        downstreamCurrent,
+
+                    recommendedRatingA =
+                        recommendedRating,
+
+                    shortCircuitRatingKa =
+                        shortCircuitRating,
+
+                    longTimePickupA =
+                        longTimePickup,
+
+                    instantaneousPickupA =
+                        instantaneousPickup,
+
+                    selectivityMarginA =
+                        0.0,
+
+                    status =
+                        status,
+
+                    notes =
+                        notes
                 )
         }
 
@@ -201,13 +258,20 @@ object SldProtectionCoordinationEngine {
         var warningPairs = 0
         var failedPairs = 0
 
-        network.connections.forEach { connection ->
+        /*
+         * Coordination is always SOURCE -> DOWNSTREAM.
+         */
+        topology.connections.forEach { connection ->
 
             val upstreamDevice =
-                devices[connection.fromNodeId]
+                devices[
+                    connection.fromNodeId
+                ]
 
             val downstreamDevice =
-                devices[connection.toNodeId]
+                devices[
+                    connection.toNodeId
+                ]
 
             if (
                 upstreamDevice == null ||
@@ -230,14 +294,18 @@ object SldProtectionCoordinationEngine {
             }
 
             val ratio =
-                upstreamRating / downstreamRating
+                upstreamRating /
+                    downstreamRating
 
             when {
-                ratio >= 1.60 -> {
+
+                ratio >=
+                    COORDINATED_RATIO -> {
                     coordinatedPairs++
                 }
 
-                ratio >= 1.25 -> {
+                ratio >=
+                    WARNING_RATIO -> {
                     warningPairs++
                 }
 
@@ -255,7 +323,23 @@ object SldProtectionCoordinationEngine {
         )
 
         notes.add(
-            "Final selectivity requires manufacturer time-current curves and actual trip-unit settings."
+            "Electrical feeder direction is determined by SldTopologyEngine."
+        )
+
+        notes.add(
+            "Breaker ratings are selected from the standard rating sequence above the calculated design current."
+        )
+
+        notes.add(
+            "Long-time pickup is preliminarily set to 90% of breaker rating."
+        )
+
+        notes.add(
+            "Instantaneous pickup is preliminarily set to 8 × breaker rating."
+        )
+
+        notes.add(
+            "Final selectivity requires manufacturer time-current curves, trip-unit settings and actual device characteristics."
         )
 
         if (warningPairs > 0) {
@@ -271,25 +355,38 @@ object SldProtectionCoordinationEngine {
         }
 
         return SldProtectionCoordinationResult(
-            devices = devices,
-            coordinatedPairs = coordinatedPairs,
-            warningPairs = warningPairs,
-            failedPairs = failedPairs,
-            notes = notes
+            devices =
+                devices,
+
+            coordinatedPairs =
+                coordinatedPairs,
+
+            warningPairs =
+                warningPairs,
+
+            failedPairs =
+                failedPairs,
+
+            notes =
+                notes
         )
     }
 
     private fun determineDownstreamCurrent(
         node: SldNode,
-        upstream: SldUpstreamEngineering.Result?,
+        upstream: SldUpstreamEngineering.Result,
         cableSizingStudy: SldCableSizingStudy?
     ): Double {
 
+        /*
+         * Upstream engineering is the primary source.
+         */
         val upstreamCurrent =
             upstream
-                ?.nodes
-                ?.firstOrNull {
-                    it.nodeId == node.id
+                .nodes
+                .firstOrNull {
+                    it.nodeId ==
+                        node.id
                 }
                 ?.currentA
                 ?: 0.0
@@ -298,11 +395,16 @@ object SldProtectionCoordinationEngine {
             return upstreamCurrent
         }
 
+        /*
+         * Cable study is only a secondary source for cases where
+         * the node itself has no upstream current result.
+         */
         cableSizingStudy
             ?.results
             ?.values
             ?.firstOrNull {
-                it.toNodeId == node.id
+                it.toNodeId ==
+                    node.id
             }
             ?.designCurrentA
             ?.let { current ->
@@ -312,16 +414,18 @@ object SldProtectionCoordinationEngine {
                 }
             }
 
+        /*
+         * Final local-load fallback.
+         */
         if (
             node.loadKw > 0.0 &&
             node.powerFactor > 0.0 &&
             node.voltage > 0.0
         ) {
-
             return (
                 node.loadKw * 1000.0
                 ) / (
-                1.7320508075688772 *
+                SQRT_3 *
                     node.voltage *
                     node.powerFactor
                 )
@@ -331,11 +435,10 @@ object SldProtectionCoordinationEngine {
             node.ratedKva > 0.0 &&
             node.voltage > 0.0
         ) {
-
             return (
                 node.ratedKva * 1000.0
                 ) / (
-                1.7320508075688772 *
+                SQRT_3 *
                     node.voltage
                 )
         }
