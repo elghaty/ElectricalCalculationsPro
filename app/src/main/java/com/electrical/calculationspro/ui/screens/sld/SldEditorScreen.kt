@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -212,10 +210,7 @@ fun SldEditorScreen(
                 state.selectedConnectionId = null
             },
 
-            onMoveNode = {
-                    id,
-                    dx,
-                    dy ->
+            onMoveNode = { id, dx, dy ->
 
                 state.nodes =
                     state.nodes.map { node ->
@@ -267,13 +262,7 @@ fun SldEditorScreen(
                     actions.recalculateEngineering()
                 }
             ) {
-                Text(
-                    if (arabic) {
-                        "Upstream"
-                    } else {
-                        "Upstream"
-                    }
-                )
+                Text("Upstream")
             }
 
             OutlinedButton(
@@ -538,6 +527,13 @@ private fun nodeTypeTitle(
                 "Generator"
             }
 
+        SldNodeType.BUS ->
+            if (arabic) {
+                "قضبان Bus"
+            } else {
+                "Bus"
+            }
+
         SldNodeType.PANEL ->
             if (arabic) {
                 "لوحة"
@@ -545,39 +541,18 @@ private fun nodeTypeTitle(
                 "Panel"
             }
 
+        SldNodeType.BREAKER ->
+            if (arabic) {
+                "قاطع"
+            } else {
+                "Breaker"
+            }
+
         SldNodeType.LOAD ->
             if (arabic) {
                 "حمل"
             } else {
                 "Load"
-            }
-
-        SldNodeType.BUS ->
-            if (arabic) {
-                "قضبان / Bus"
-            } else {
-                "Bus"
-            }
-
-        SldNodeType.UPS ->
-            if (arabic) {
-                "UPS"
-            } else {
-                "UPS"
-            }
-
-        SldNodeType.MOTOR ->
-            if (arabic) {
-                "محرك"
-            } else {
-                "Motor"
-            }
-
-        SldNodeType.PUMP ->
-            if (arabic) {
-                "مضخة"
-            } else {
-                "Pump"
             }
     }
 }
