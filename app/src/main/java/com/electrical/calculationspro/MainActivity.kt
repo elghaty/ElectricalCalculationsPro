@@ -122,10 +122,6 @@ private fun EngineeringDesignApp() {
 
     when (screen) {
 
-        // ======================================================
-        // PROJECT DASHBOARD
-        // ======================================================
-
         "projects" -> {
 
             ProjectDashboardScreen(
@@ -153,10 +149,6 @@ private fun EngineeringDesignApp() {
             )
         }
 
-
-        // ======================================================
-        // ACTIVE PROJECT
-        // ======================================================
 
         "active" -> {
 
@@ -204,10 +196,6 @@ private fun EngineeringDesignApp() {
             }
         }
 
-
-        // ======================================================
-        // ELECTRICAL DESIGN DASHBOARD
-        // ======================================================
 
         "electrical" -> {
 
@@ -282,10 +270,6 @@ private fun EngineeringDesignApp() {
         }
 
 
-        // ======================================================
-        // CURRENT CALCULATION
-        // ======================================================
-
         "current" -> {
 
             CurrentCalculationScreen(
@@ -298,10 +282,6 @@ private fun EngineeringDesignApp() {
             )
         }
 
-
-        // ======================================================
-        // CABLE
-        // ======================================================
 
         "cable" -> {
 
@@ -317,10 +297,6 @@ private fun EngineeringDesignApp() {
         }
 
 
-        // ======================================================
-        // VOLTAGE DROP
-        // ======================================================
-
         "voltage_drop" -> {
 
             ProfessionalVoltageDropScreen(
@@ -335,10 +311,6 @@ private fun EngineeringDesignApp() {
         }
 
 
-        // ======================================================
-        // SHORT CIRCUIT
-        // ======================================================
-
         "short_circuit" -> {
 
             SldEditorScreen(
@@ -351,10 +323,6 @@ private fun EngineeringDesignApp() {
             )
         }
 
-
-        // ======================================================
-        // PROTECTION
-        // ======================================================
 
         "protection" -> {
 
@@ -369,10 +337,6 @@ private fun EngineeringDesignApp() {
         }
 
 
-        // ======================================================
-        // PANEL
-        // ======================================================
-
         "panel" -> {
 
             SldEditorScreen(
@@ -385,10 +349,6 @@ private fun EngineeringDesignApp() {
             )
         }
 
-
-        // ======================================================
-        // SLD
-        // ======================================================
 
         "sld" -> {
 
@@ -403,10 +363,6 @@ private fun EngineeringDesignApp() {
         }
 
 
-        // ======================================================
-        // WATER
-        // ======================================================
-
         "water" -> {
 
             PumpEngineeringScreen(
@@ -420,10 +376,6 @@ private fun EngineeringDesignApp() {
         }
 
 
-        // ======================================================
-        // SEWAGE
-        // ======================================================
-
         "sewage" -> {
 
             PumpEngineeringScreen(
@@ -436,10 +388,6 @@ private fun EngineeringDesignApp() {
             )
         }
 
-
-        // ======================================================
-        // TEMPORARY ENGINEERING ROUTES
-        // ======================================================
 
         "load",
         "breaker",
@@ -459,10 +407,6 @@ private fun EngineeringDesignApp() {
         }
 
 
-        // ======================================================
-        // FALLBACK
-        // ======================================================
-
         else -> {
 
             screen =
@@ -471,10 +415,6 @@ private fun EngineeringDesignApp() {
     }
 }
 
-
-// ==========================================================
-// ELECTRICAL DESIGN DASHBOARD
-// ==========================================================
 
 @Composable
 private fun ElectricalDesignScreen(
@@ -872,10 +812,6 @@ private fun ElectricalDesignScreen(
 }
 
 
-// ==========================================================
-// TEMPORARY ROUTE PLACEHOLDER
-// ==========================================================
-
 @Composable
 private fun EngineeringModulePlaceholder(
     language: AppLanguage,
@@ -981,5 +917,3 @@ private fun EngineeringModulePlaceholder(
         }
     }
 }
-
-التعديل الأساسي هنا مؤكد من "DesignProjectCoreBridge": الدالة "calculateDesignCurrentFromKw(...)" موجودة فعلًا، لذلك ربط "CurrentCalculationScreen" بها صحيح ولن يكون بسبب اسم API متخيل.
