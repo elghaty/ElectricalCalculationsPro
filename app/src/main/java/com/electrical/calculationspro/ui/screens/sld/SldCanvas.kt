@@ -3,31 +3,25 @@ package com.electrical.calculationspro.ui.screens.sld
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.consume
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
-
-private const val CANVAS_WIDTH_DP = 3000
-private const val CANVAS_HEIGHT_DP = 1600
 
 @Composable
 fun SldCanvas(
@@ -40,410 +34,288 @@ fun SldCanvas(
     onSelectNode: (String) -> Unit,
     onMoveNode: (String, Float, Float) -> Unit,
     onSelectConnection: (String) -> Unit,
-    onEditNode: (SldNode) -> Unit,
-    onEditConnection: (SldConnection) -> Unit
+    onEditNode: (String) -> Unit,
+    onEditConnection: (String) -> Unit
 ) {
+    val horizontalScroll = rememberScrollState()
+    val verticalScroll = rememberScrollState()
+
     val textMeasurer = rememberTextMeasurer()
 
-    val horizontalScrollState =
-        rememberScrollState()
-
-    val verticalScrollState =
-        rememberScrollState()
+    val canvasWidth = 3000.dp
+    val canvasHeight = 1600.dp
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Color(0xFFF4F7F9)
-            )
-            .horizontalScroll(
-                horizontalScrollState
-            )
-            .verticalScroll(
-                verticalScrollState
-            )
+            .background(Color(0xFFF4F6F8))
+            .horizontalScroll(horizontalScroll)
+            .verticalScroll(verticalScroll)
     ) {
-
         Canvas(
             modifier = Modifier
-                .width(
-                    CANVAS_WIDTH_DP.dp
-                )
-                .height(
-                    CANVAS_HEIGHT_DP.dp
-                )
-                .pointerInput(
-                    nodes,
-                    connections
-                ) {
+                .fillMaxSize()
+                .then(
+                    Modifier.pointerInput(
+                        nodes,
+                        connections,
+                        selectedNodeId,
+                        selectedConnectionId
+                    ) {
+                        detectDragGestures(
+                            onDragStart = { offset ->
 
-                    detectTapGestures(
-
-                        onDoubleTap = { point ->
-
-                            val node =
-                                findNode(
-                                    point = point,
-                                    nodes = nodes
+                                val node = findNode(
+                                    nodes = nodes,
+                                    offset = offset
                                 )
 
-                            if (node != null) {
-
-                                onEditNode(node)
-
-                            } else {
-
-                                val connection =
-                                    findConnection(
-                                        point = point,
-                                        nodes = nodes,
-                                        connections = connections
+                                if (node != null) {
+                                    onSelectNode(node.id)
+                                    onMoveNode(
+                                        node.id,
+                                        offset.x,
+                                        offset.y
                                     )
+                                    return@detectDragGestures
+                                }
+
+                                val connection = findConnection(
+                                    connections = connections,
+                                    nodes = nodes,
+                                    offset = offset
+                                )
 
                                 if (connection != null) {
-
-                                    onEditConnection(
-                                        connection
-                                    )
+                                    onSelectConnection(connection.id)
                                 }
-                            }
-                        },
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
 
-                        onTap = { point ->
-
-                            val node =
-                                findNode(
-                                    point = point,
-                                    nodes = nodes
+                                val node = findNode(
+                                    nodes = nodes,
+                                    offset = change.position
                                 )
 
-                            if (node != null) {
-
-                                onSelectNode(
-                                    node.id
-                                )
-
-                            } else {
-
-                                val connection =
-                                    findConnection(
-                                        point = point,
-                                        nodes = nodes,
-                                        connections = connections
-                                    )
-
-                                if (connection != null) {
-
-                                    onSelectConnection(
-                                        connection.id
+                                if (node != null) {
+                                    onMoveNode(
+                                        node.id,
+                                        node.x + dragAmount.x,
+                                        node.y + dragAmount.y
                                     )
                                 }
-                            }
-                        }
-                    )
-                }
-                .pointerInput(nodes) {
-
-                    var draggingNodeId: String? =
-                        null
-
-                    detectDragGestures(
-
-                        onDragStart = { point ->
-
-                            draggingNodeId =
-                                findNode(
-                                    point = point,
-                                    nodes = nodes
-                                )?.id
-                        },
-
-                        onDragEnd = {
-
-                            draggingNodeId =
-                                null
-                        },
-
-                        onDragCancel = {
-
-                            draggingNodeId =
-                                null
-                        },
-
-                        onDrag = { _, dragAmount ->
-
-                            val id =
-                                draggingNodeId
-                                    ?: return@detectDragGestures
-
-                            onMoveNode(
-                                id,
-                                dragAmount.x,
-                                dragAmount.y
-                            )
-                        }
-                    )
-                }
+                            },
+                            onDragEnd = {},
+                            onDragCancel = {}
+                        )
+                    }
+                )
         ) {
-
-            /*
-             * =====================================================
-             * ENGINEERING DRAWING BACKGROUND
-             * =====================================================
-             */
-
-            drawSldEngineeringBackground()
-
-            /*
-             * =====================================================
-             * CONNECTIONS
-             * =====================================================
-             */
+            drawSldEngineeringBackground(
+                width = size.width,
+                height = size.height
+            )
 
             connections.forEach { connection ->
 
                 val feederResult =
                     engineering
-                        ?.upstream
+                        ?.cableSizing
                         ?.feeders
-                        ?.firstOrNull {
-                            it.connectionId ==
-                                connection.id
-                        }
+                        ?.get(connection.id)
 
                 drawConnection(
                     connection = connection,
                     nodes = nodes,
-                    selected =
-                        connection.id ==
-                            selectedConnectionId,
+                    selected = connection.id == selectedConnectionId,
                     textMeasurer = textMeasurer,
                     feederResult = feederResult
                 )
             }
-
-            /*
-             * =====================================================
-             * NODES
-             * =====================================================
-             */
 
             nodes.forEach { node ->
 
                 val engineeringResult =
                     engineering
                         ?.upstream
-                        ?.nodes
-                        ?.firstOrNull {
-                            it.nodeId ==
-                                node.id
-                        }
+                        ?.nodeResults
+                        ?.get(node.id)
+
+                val protectionDevice =
+                    engineering
+                        ?.protectionCoordination
+                        ?.devices
+                        ?.get(node.id)
+
+                val shortCircuitResult =
+                    engineering
+                        ?.shortCircuit
+                        ?.results
+                        ?.get(node.id)
 
                 drawNode(
                     node = node,
-                    selected =
-                        node.id ==
-                            selectedNodeId,
-                    connectionStart =
-                        node.id ==
-                            connectionStartId,
+                    selected = node.id == selectedNodeId,
+                    connectionStart = node.id == connectionStartId,
                     textMeasurer = textMeasurer,
-                    engineeringResult =
-                        engineeringResult
+                    engineeringResult = engineeringResult,
+                    protectionDevice = protectionDevice,
+                    shortCircuitResult = shortCircuitResult
                 )
             }
 
-            /*
-             * =====================================================
-             * TITLE / ENGINEERING HEADER
-             * =====================================================
-             */
-
             drawSldTitleBlock(
-                textMeasurer = textMeasurer,
-                nodes = nodes,
-                connections = connections,
-                engineering = engineering
+                width = size.width,
+                height = size.height,
+                nodeCount = nodes.size,
+                feederCount = connections.size,
+                engineeringAvailable = engineering != null
             )
         }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope
-    .drawSldEngineeringBackground() {
+private fun findNode(
+    nodes: List<SldNode>,
+    offset: Offset
+): SldNode? {
+    return nodes
+        .asSequence()
+        .mapNotNull { node ->
+            val left = node.x
+            val top = node.y
+            val right = node.x + NODE_WIDTH
+            val bottom = node.y + NODE_HEIGHT
 
-    drawRect(
-        color = Color(0xFFF4F7F9)
-    )
-
-    /*
-     * Major grid.
-     */
-    var x = 0f
-
-    while (x <= size.width) {
-
-        drawLine(
-            color = Color(0xFFE1E7EB),
-            start = Offset(
-                x,
-                0f
-            ),
-            end = Offset(
-                x,
-                size.height
-            ),
-            strokeWidth = 1f
-        )
-
-        x += 50f
-    }
-
-    var y = 0f
-
-    while (y <= size.height) {
-
-        drawLine(
-            color = Color(0xFFE1E7EB),
-            start = Offset(
-                0f,
-                y
-            ),
-            end = Offset(
-                size.width,
-                y
-            ),
-            strokeWidth = 1f
-        )
-
-        y += 50f
-    }
-
-    /*
-     * Minor grid.
-     */
-    x = 25f
-
-    while (x <= size.width) {
-
-        drawLine(
-            color = Color(0xFFEEF2F4),
-            start = Offset(
-                x,
-                0f
-            ),
-            end = Offset(
-                x,
-                size.height
-            ),
-            strokeWidth = 1f
-        )
-
-        x += 50f
-    }
-
-    y = 25f
-
-    while (y <= size.height) {
-
-        drawLine(
-            color = Color(0xFFEEF2F4),
-            start = Offset(
-                0f,
-                y
-            ),
-            end = Offset(
-                size.width,
-                y
-            ),
-            strokeWidth = 1f
-        )
-
-        y += 50f
-    }
+            if (
+                offset.x in left..right &&
+                offset.y in top..bottom
+            ) {
+                node
+            } else {
+                null
+            }
+        }
+        .firstOrNull()
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope
-    .drawSldTitleBlock(
-        textMeasurer:
-            androidx.compose.ui.text.TextMeasurer,
-        nodes: List<SldNode>,
-        connections: List<SldConnection>,
-        engineering: SldEngineeringPackage?
-    ) {
+private fun findConnection(
+    connections: List<SldConnection>,
+    nodes: List<SldNode>,
+    offset: Offset
+): SldConnection? {
 
-    val left = 60f
-    val top = 60f
+    connections.forEach { connection ->
 
-    drawText(
-        textMeasurer = textMeasurer,
-        text = "SINGLE LINE DIAGRAM",
-        topLeft = Offset(
-            left,
-            top
-        ),
-        style = TextStyle(
-            color = Color(0xFF172027),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold
+        val from = nodes.firstOrNull {
+            it.id == connection.fromNodeId
+        }
+
+        val to = nodes.firstOrNull {
+            it.id == connection.toNodeId
+        }
+
+        if (from == null || to == null) {
+            return@forEach
+        }
+
+        val start = Offset(
+            from.x + NODE_WIDTH,
+            from.y + NODE_HEIGHT / 2f
         )
-    )
 
-    drawText(
-        textMeasurer = textMeasurer,
-        text = "PROFESSIONAL ELECTRICAL DESIGN",
-        topLeft = Offset(
-            left,
-            top + 30f
-        ),
-        style = TextStyle(
-            color = Color(0xFF60717A),
-            fontSize = 11.sp
+        val end = Offset(
+            to.x,
+            to.y + NODE_HEIGHT / 2f
         )
-    )
 
-    drawLine(
-        color = Color(0xFF60717A),
-        start = Offset(
-            left,
-            top + 50f
-        ),
-        end = Offset(
-            left + 360f,
-            top + 50f
-        ),
-        strokeWidth = 2f
-    )
+        val middleX = (start.x + end.x) / 2f
 
-    drawText(
-        textMeasurer = textMeasurer,
-        text =
-            "Nodes: ${nodes.size}    Feeders: ${connections.size}",
-        topLeft = Offset(
-            left,
-            top + 68f
-        ),
-        style = TextStyle(
-            color = Color(0xFF60717A),
-            fontSize = 10.sp
+        val p1 = Offset(
+            middleX,
+            start.y
         )
-    )
 
-    if (engineering != null) {
+        val p2 = Offset(
+            middleX,
+            end.y
+        )
 
-        drawText(
-            textMeasurer = textMeasurer,
-            text = "ENGINEERING STUDY AVAILABLE",
-            topLeft = Offset(
-                left,
-                top + 86f
-            ),
-            style = TextStyle(
-                color = Color(0xFF1976D2),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
+        val d1 = segmentDistance(
+            point = offset,
+            start = start,
+            end = p1
+        )
+
+        val d2 = segmentDistance(
+            point = offset,
+            start = p1,
+            end = p2
+        )
+
+        val d3 = segmentDistance(
+            point = offset,
+            start = p2,
+            end = end
+        )
+
+        if (
+            minOf(d1, d2, d3) <= 22f
+        ) {
+            return connection
+        }
+    }
+
+    return null
+}
+
+private fun segmentDistance(
+    point: Offset,
+    start: Offset,
+    end: Offset
+): Float {
+
+    val dx = end.x - start.x
+    val dy = end.y - start.y
+
+    if (dx == 0f && dy == 0f) {
+        return distance(
+            point,
+            start
         )
     }
+
+    val t = (
+        (point.x - start.x) * dx +
+            (point.y - start.y) * dy
+        ) / (
+            dx * dx +
+                dy * dy
+            )
+
+    val clamped = t.coerceIn(0f, 1f)
+
+    val projection = Offset(
+        start.x + clamped * dx,
+        start.y + clamped * dy
+    )
+
+    return distance(
+        point,
+        projection
+    )
+}
+
+private fun distance(
+    a: Offset,
+    b: Offset
+): Float {
+
+    val dx = a.x - b.x
+    val dy = a.y - b.y
+
+    return kotlin.math.sqrt(
+        dx * dx + dy * dy
+    )
 }
