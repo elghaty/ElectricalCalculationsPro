@@ -72,29 +72,18 @@ fun SldEditorScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Color(0xFFF4F7F9)
-            )
+            .background(Color(0xFFF4F7F9))
     ) {
-
-        /*
-         * ========================================================
-         * HEADER
-         * ========================================================
-         */
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Color.White
-                )
+                .background(Color.White)
                 .padding(
                     horizontal = 8.dp,
                     vertical = 6.dp
                 ),
-            verticalAlignment =
-                Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
             onBack?.let { back ->
@@ -106,11 +95,7 @@ fun SldEditorScreen(
                         imageVector =
                             Icons.Outlined.ArrowBack,
                         contentDescription =
-                            if (arabic) {
-                                "رجوع"
-                            } else {
-                                "Back"
-                            },
+                            if (arabic) "رجوع" else "Back",
                         tint =
                             Color(0xFF263238)
                     )
@@ -167,18 +152,10 @@ fun SldEditorScreen(
             }
         }
 
-        /*
-         * ========================================================
-         * TOOLBAR
-         * ========================================================
-         */
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Color(0xFFEAF0F4)
-                )
+                .background(Color(0xFFEAF0F4))
                 .horizontalScroll(
                     rememberScrollState()
                 )
@@ -195,8 +172,7 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon =
-                    Icons.Outlined.AutoFixHigh,
+                icon = Icons.Outlined.AutoFixHigh,
                 text =
                     if (arabic) {
                         "ترتيب تلقائي"
@@ -209,18 +185,10 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon =
-                    Icons.Outlined.Link,
+                icon = Icons.Outlined.Link,
                 text =
-                    if (
-                        state.connectionStartId ==
-                        null
-                    ) {
-                        if (arabic) {
-                            "توصيل"
-                        } else {
-                            "Connect"
-                        }
+                    if (state.connectionStartId == null) {
+                        if (arabic) "توصيل" else "Connect"
                     } else {
                         if (arabic) {
                             "اختر الطرف الآخر"
@@ -234,22 +202,16 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon =
-                    Icons.Outlined.Delete,
+                icon = Icons.Outlined.Delete,
                 text =
-                    if (arabic) {
-                        "حذف"
-                    } else {
-                        "Delete"
-                    },
+                    if (arabic) "حذف" else "Delete",
                 onClick = {
                     actions.deleteSelected()
                 }
             )
 
             ToolButton(
-                icon =
-                    Icons.Outlined.Calculate,
+                icon = Icons.Outlined.Calculate,
                 text =
                     if (arabic) {
                         "تيارات القصر"
@@ -262,8 +224,7 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon =
-                    Icons.Outlined.TableView,
+                icon = Icons.Outlined.TableView,
                 text =
                     if (arabic) {
                         "جدول اللوحة"
@@ -276,8 +237,7 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon =
-                    Icons.Outlined.Settings,
+                icon = Icons.Outlined.Settings,
                 text =
                     if (arabic) {
                         "الدراسة الكاملة"
@@ -290,12 +250,6 @@ fun SldEditorScreen(
             )
         }
 
-        /*
-         * ========================================================
-         * STATUS / CONTEXT BAR
-         * ========================================================
-         */
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -305,8 +259,7 @@ fun SldEditorScreen(
                 ),
             colors =
                 CardDefaults.cardColors(
-                    containerColor =
-                        Color.White
+                    containerColor = Color.White
                 )
         ) {
 
@@ -327,24 +280,21 @@ fun SldEditorScreen(
                         text =
                             when {
 
-                                state.connectionStartId !=
-                                    null ->
+                                state.connectionStartId != null ->
                                     if (arabic) {
                                         "بدء توصيل"
                                     } else {
                                         "Connection Started"
                                     }
 
-                                state.selectedNodeId !=
-                                    null ->
+                                state.selectedNodeId != null ->
                                     if (arabic) {
                                         "عنصر محدد"
                                     } else {
                                         "Component Selected"
                                     }
 
-                                state.selectedConnectionId !=
-                                    null ->
+                                state.selectedConnectionId != null ->
                                     if (arabic) {
                                         "وصلة محددة"
                                     } else {
@@ -367,24 +317,21 @@ fun SldEditorScreen(
                         text =
                             when {
 
-                                state.connectionStartId !=
-                                    null ->
+                                state.connectionStartId != null ->
                                     if (arabic) {
                                         "اضغط على العنصر الآخر لإكمال المسار"
                                     } else {
                                         "Select the destination component to complete the feeder"
                                     }
 
-                                state.selectedNodeId !=
-                                    null ->
+                                state.selectedNodeId != null ->
                                     if (arabic) {
                                         "اسحب للتحريك • اضغط مرتين للتعديل"
                                     } else {
                                         "Drag to move • Double tap to edit"
                                     }
 
-                                state.selectedConnectionId !=
-                                    null ->
+                                state.selectedConnectionId != null ->
                                     if (arabic) {
                                         "اضغط مرتين على الوصلة لتعديل بيانات الكابل"
                                     } else {
@@ -404,90 +351,55 @@ fun SldEditorScreen(
                     )
                 }
 
-                if (
-                    state.selectedNodeId !=
-                    null
-                ) {
+                state.selectedNodeId?.let { id ->
 
                     OutlinedButton(
                         onClick = {
 
-                            state.selectedNodeId
-                                ?.let { id ->
-
-                                    state.nodes
-                                        .firstOrNull {
-                                            it.id == id
-                                        }
-                                        ?.let { node ->
-
-                                            actions.editNode(
-                                                node
-                                            )
-                                        }
+                            state.nodes
+                                .firstOrNull {
+                                    it.id == id
+                                }
+                                ?.let {
+                                    actions.editNode(it)
                                 }
                         }
                     ) {
-
                         Text(
-                            text =
-                                if (arabic) {
-                                    "خصائص"
-                                } else {
-                                    "Properties"
-                                }
+                            if (arabic) {
+                                "خصائص"
+                            } else {
+                                "Properties"
+                            }
                         )
                     }
                 }
 
-                if (
-                    state.selectedConnectionId !=
-                    null
-                ) {
+                state.selectedConnectionId?.let { id ->
 
                     OutlinedButton(
                         onClick = {
 
-                            state.selectedConnectionId
-                                ?.let { id ->
-
-                                    state.connections
-                                        .firstOrNull {
-                                            it.id == id
-                                        }
-                                        ?.let {
-                                            connection ->
-
-                                            actions.editConnection(
-                                                connection
-                                            )
-                                        }
+                            state.connections
+                                .firstOrNull {
+                                    it.id == id
+                                }
+                                ?.let {
+                                    actions.editConnection(it)
                                 }
                         }
                     ) {
-
                         Text(
-                            text =
-                                if (arabic) {
-                                    "الكابل"
-                                } else {
-                                    "Cable"
-                                }
+                            if (arabic) {
+                                "الكابل"
+                            } else {
+                                "Cable"
+                            }
                         )
                     }
                 }
             }
         }
-
-        /*
-         * ========================================================
-         * INTERACTIVE SLD CANVAS
-         *
-         * engineeringPackage is passed to the canvas so that
-         * calculated upstream results are rendered directly
-         * beside the SLD equipment and feeders.
-         * ========================================================
-         */
 
         Box(
             modifier = Modifier
@@ -496,15 +408,16 @@ fun SldEditorScreen(
         ) {
 
             SldCanvas(
-                nodes = state.nodes,
-                connections = state.connections,
+                nodes =
+                    state.nodes,
+                connections =
+                    state.connections,
                 selectedNodeId =
                     state.selectedNodeId,
                 selectedConnectionId =
                     state.selectedConnectionId,
                 connectionStartId =
                     state.connectionStartId,
-
                 engineering =
                     state.engineeringPackage,
 
@@ -522,9 +435,7 @@ fun SldEditorScreen(
                     state.nodes =
                         state.nodes.map { node ->
 
-                            if (
-                                node.id == id
-                            ) {
+                            if (node.id == id) {
 
                                 node.copy(
                                     x =
@@ -543,11 +454,9 @@ fun SldEditorScreen(
                                 node
                             }
                         }
+                },
 
-                    /*
-                     * Moving an SLD node is a project mutation.
-                     * Persist it through the existing project layer.
-                     */
+                onMoveNodeEnd = {
                     actions.saveProjectNetwork()
                 },
 
@@ -564,34 +473,21 @@ fun SldEditorScreen(
                 },
 
                 onEditNode = { node ->
-
-                    actions.editNode(
-                        node
-                    )
+                    actions.editNode(node)
                 },
 
                 onEditConnection = { connection ->
-
-                    actions.editConnection(
-                        connection
-                    )
+                    actions.editConnection(connection)
                 }
             )
         }
     }
 
-    /*
-     * ============================================================
-     * NODE EDITOR
-     * ============================================================
-     */
-
-    if (
-        state.showNodeDialog
-    ) {
+    if (state.showNodeDialog) {
 
         SldNodeEditorDialog(
-            arabic = arabic,
+            arabic =
+                arabic,
             editing =
                 state.editingNodeId != null,
             type =
@@ -661,18 +557,11 @@ fun SldEditorScreen(
         )
     }
 
-    /*
-     * ============================================================
-     * CONNECTION / CABLE EDITOR
-     * ============================================================
-     */
-
-    if (
-        state.showConnectionDialog
-    ) {
+    if (state.showConnectionDialog) {
 
         SldConnectionEditorDialog(
-            arabic = arabic,
+            arabic =
+                arabic,
             length =
                 state.length,
             resistance =
@@ -720,15 +609,7 @@ fun SldEditorScreen(
         )
     }
 
-    /*
-     * ============================================================
-     * ENGINEERING REPORT
-     * ============================================================
-     */
-
-    if (
-        state.showReport
-    ) {
+    if (state.showReport) {
 
         SldReportDialog(
             title =
@@ -736,18 +617,11 @@ fun SldEditorScreen(
             text =
                 state.reportText,
             onClose = {
-                state.showReport =
-                    false
+                state.showReport = false
             }
         )
     }
 }
-
-/*
- * ================================================================
- * ADD COMPONENT MENU
- * ================================================================
- */
 
 @Composable
 private fun AddComponentMenu(
@@ -770,8 +644,7 @@ private fun AddComponentMenu(
             Icon(
                 imageVector =
                     Icons.Outlined.Add,
-                contentDescription =
-                    null
+                contentDescription = null
             )
 
             Spacer(
@@ -780,12 +653,11 @@ private fun AddComponentMenu(
             )
 
             Text(
-                text =
-                    if (arabic) {
-                        "إضافة عنصر"
-                    } else {
-                        "Add Component"
-                    }
+                if (arabic) {
+                    "إضافة عنصر"
+                } else {
+                    "Add Component"
+                }
             )
         }
 
@@ -809,37 +681,24 @@ private fun AddComponentMenu(
 
                 DropdownMenuItem(
                     text = {
-
                         Text(
                             typeLabel(
-                                type =
-                                    type,
-                                arabic =
-                                    arabic
+                                type,
+                                arabic
                             )
                         )
                     },
-
                     onClick = {
 
-                        expanded =
-                            false
+                        expanded = false
 
-                        onType(
-                            type
-                        )
+                        onType(type)
                     }
                 )
             }
         }
     }
 }
-
-/*
- * ================================================================
- * TOOL BUTTON
- * ================================================================
- */
 
 @Composable
 private fun ToolButton(
@@ -862,17 +721,9 @@ private fun ToolButton(
                 Modifier.width(5.dp)
         )
 
-        Text(
-            text
-        )
+        Text(text)
     }
 }
-
-/*
- * ================================================================
- * NODE TYPE LABEL
- * ================================================================
- */
 
 private fun typeLabel(
     type: SldNodeType,
