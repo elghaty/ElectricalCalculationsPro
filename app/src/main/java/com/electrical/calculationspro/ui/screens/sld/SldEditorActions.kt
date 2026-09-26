@@ -26,18 +26,6 @@ class SldEditorActions(
             connections = state.connections
         )
 
-    /*
-     * ============================================================
-     * LIVE ENGINEERING RECALCULATION
-     * ============================================================
-     *
-     * The SLD is the editable engineering network.
-     *
-     * Any structural or load change is saved first and then
-     * recalculated through the central project/Core bridge.
-     *
-     * No engineering formulas are implemented here.
-     */
     fun recalculateEngineering() {
 
         val project =
@@ -96,8 +84,12 @@ class SldEditorActions(
         try {
 
             /*
-             * The current editable network has already been saved
-             * before this method is normally called.
+             * IMPORTANT:
+             *
+             * The calculation must use the current editable SLD
+             * network, not a previously stored copy.
+             *
+             * This is what makes the SLD a live engineering model.
              */
             val panelId =
                 state.nodes
@@ -113,17 +105,22 @@ class SldEditorActions(
                         ?.id
 
             val result =
-                DesignProjectCoreBridge.calculateProjectSld(
+                DesignProjectCoreBridge.calculateCurrentProjectSld(
                     project = project,
+                    network = current,
                     panelNodeId = panelId
                 )
 
-            state.engineeringPackage = result
-            state.engineeringError = null
+            state.engineeringPackage =
+                result
+
+            state.engineeringError =
+                null
 
         } catch (exception: Exception) {
 
-            state.engineeringPackage = null
+            state.engineeringPackage =
+                null
 
             state.engineeringError =
                 exception.message
@@ -165,9 +162,6 @@ class SldEditorActions(
         state.connectionStartId =
             null
 
-        /*
-         * Calculate the current stored network immediately.
-         */
         recalculateEngineering()
     }
 
@@ -186,9 +180,6 @@ class SldEditorActions(
             source = "Electrical Design - Manual Layout"
         )
 
-        /*
-         * Recalculate after persistence.
-         */
         recalculateEngineering()
     }
 
@@ -280,7 +271,8 @@ class SldEditorActions(
                 }
             }
 
-        state.showReport = true
+        state.showReport =
+            true
     }
 
     fun autoLayout() {
@@ -351,7 +343,8 @@ class SldEditorActions(
         state.generatorXd = "15"
         state.sourceMva = "500"
 
-        state.showNodeDialog = true
+        state.showNodeDialog =
+            true
     }
 
     fun editNode(
@@ -991,11 +984,6 @@ class SldEditorActions(
                         }
                     )
 
-            /*
-             * The engineer's existing SLD is the authoritative
-             * drawing. Engineering calculations never overwrite
-             * its coordinates.
-             */
             val stored =
                 DesignProjectCoreBridge.getProjectSld(
                     project
@@ -1024,10 +1012,6 @@ class SldEditorActions(
                         )
                     }
 
-                    /*
-                     * Auto-layout is used only for the first
-                     * generated drawing.
-                     */
                     SldAutoLayoutEngine
                         .arrange(generated)
                         .network
