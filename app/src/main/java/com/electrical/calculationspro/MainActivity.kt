@@ -46,6 +46,8 @@ import com.electrical.calculationspro.ui.project.ProjectDashboardScreen
 
 import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
 import com.electrical.calculationspro.ui.screens.CurrentCalculationScreen
+import com.electrical.calculationspro.ui.screens.EngineeringModule
+import com.electrical.calculationspro.ui.screens.EngineeringModuleScreen
 import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
 import com.electrical.calculationspro.ui.screens.PumpEngineeringScreen
 
@@ -120,7 +122,12 @@ private fun EngineeringDesignApp() {
                 ?: Standard.IEC
     }
 
+
     when (screen) {
+
+        // ========================================================
+        // PROJECTS
+        // ========================================================
 
         "projects" -> {
 
@@ -149,6 +156,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
+
+        // ========================================================
+        // ACTIVE PROJECT
+        // ========================================================
 
         "active" -> {
 
@@ -196,6 +207,10 @@ private fun EngineeringDesignApp() {
             }
         }
 
+
+        // ========================================================
+        // ELECTRICAL DASHBOARD
+        // ========================================================
 
         "electrical" -> {
 
@@ -270,6 +285,10 @@ private fun EngineeringDesignApp() {
         }
 
 
+        // ========================================================
+        // CURRENT
+        // ========================================================
+
         "current" -> {
 
             CurrentCalculationScreen(
@@ -282,6 +301,10 @@ private fun EngineeringDesignApp() {
             )
         }
 
+
+        // ========================================================
+        // CABLE
+        // ========================================================
 
         "cable" -> {
 
@@ -297,6 +320,10 @@ private fun EngineeringDesignApp() {
         }
 
 
+        // ========================================================
+        // VOLTAGE DROP
+        // ========================================================
+
         "voltage_drop" -> {
 
             ProfessionalVoltageDropScreen(
@@ -311,10 +338,45 @@ private fun EngineeringDesignApp() {
         }
 
 
-        "short_circuit" -> {
+        // ========================================================
+        // LOAD
+        // ========================================================
 
-            SldEditorScreen(
-                language = language,
+        "load" -> {
+
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.LOAD,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
+
+                onBack = {
+                    screen =
+                        "electrical"
+                }
+            )
+        }
+
+
+        // ========================================================
+        // BREAKER
+        // ========================================================
+
+        "breaker" -> {
+
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.BREAKER,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
 
                 onBack = {
                     screen =
@@ -324,10 +386,21 @@ private fun EngineeringDesignApp() {
         }
 
 
-        "protection" -> {
+        // ========================================================
+        // TRANSFORMER
+        // ========================================================
 
-            SldEditorScreen(
-                language = language,
+        "transformer" -> {
+
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.TRANSFORMER,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
 
                 onBack = {
                     screen =
@@ -336,11 +409,75 @@ private fun EngineeringDesignApp() {
             )
         }
 
+
+        // ========================================================
+        // GENERATOR
+        // ========================================================
+
+        "generator" -> {
+
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.GENERATOR,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
+
+                onBack = {
+                    screen =
+                        "electrical"
+                }
+            )
+        }
+
+
+        // ========================================================
+        // PANEL
+        // ========================================================
 
         "panel" -> {
 
-            SldEditorScreen(
-                language = language,
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.PANEL,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
+
+                onBack = {
+                    screen =
+                        "electrical"
+                },
+
+                onOpenSld = {
+                    screen =
+                        "sld"
+                }
+            )
+        }
+
+
+        // ========================================================
+        // SHORT CIRCUIT
+        // ========================================================
+
+        "short_circuit" -> {
+
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.SHORT_CIRCUIT,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
 
                 onBack = {
                     screen =
@@ -349,11 +486,64 @@ private fun EngineeringDesignApp() {
             )
         }
 
+
+        // ========================================================
+        // PROTECTION
+        // ========================================================
+
+        "protection" -> {
+
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.PROTECTION,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
+
+                onBack = {
+                    screen =
+                        "electrical"
+                }
+            )
+        }
+
+
+        // ========================================================
+        // REPORT
+        // ========================================================
+
+        "report" -> {
+
+            EngineeringModuleScreen(
+                module =
+                    EngineeringModule.REPORT,
+
+                language =
+                    language,
+
+                standard =
+                    standard,
+
+                onBack = {
+                    screen =
+                        "electrical"
+                }
+            )
+        }
+
+
+        // ========================================================
+        // SLD
+        // ========================================================
 
         "sld" -> {
 
             SldEditorScreen(
-                language = language,
+                language =
+                    language,
 
                 onBack = {
                     screen =
@@ -362,11 +552,16 @@ private fun EngineeringDesignApp() {
             )
         }
 
+
+        // ========================================================
+        // WATER
+        // ========================================================
 
         "water" -> {
 
             PumpEngineeringScreen(
-                language = language,
+                language =
+                    language,
 
                 onBack = {
                     screen =
@@ -375,11 +570,16 @@ private fun EngineeringDesignApp() {
             )
         }
 
+
+        // ========================================================
+        // SEWAGE
+        // ========================================================
 
         "sewage" -> {
 
             PumpEngineeringScreen(
-                language = language,
+                language =
+                    language,
 
                 onBack = {
                     screen =
@@ -389,23 +589,9 @@ private fun EngineeringDesignApp() {
         }
 
 
-        "load",
-        "breaker",
-        "transformer",
-        "generator",
-        "report" -> {
-
-            EngineeringModulePlaceholder(
-                language = language,
-                module = screen,
-
-                onBack = {
-                    screen =
-                        "electrical"
-                }
-            )
-        }
-
+        // ========================================================
+        // FALLBACK
+        // ========================================================
 
         else -> {
 
@@ -415,6 +601,10 @@ private fun EngineeringDesignApp() {
     }
 }
 
+
+// ==================================================================
+// ELECTRICAL DESIGN DASHBOARD
+// ==================================================================
 
 @Composable
 private fun ElectricalDesignScreen(
@@ -440,6 +630,7 @@ private fun ElectricalDesignScreen(
         language ==
             AppLanguage.ARABIC
 
+
     Column(
         modifier =
             Modifier
@@ -461,10 +652,12 @@ private fun ElectricalDesignScreen(
                     .headlineMedium
         )
 
+
         Spacer(
             modifier =
                 Modifier.height(6.dp)
         )
+
 
         Text(
             text =
@@ -475,10 +668,12 @@ private fun ElectricalDesignScreen(
                 }
         )
 
+
         Spacer(
             modifier =
                 Modifier.height(16.dp)
         )
+
 
         FourColumnDesignGrid(
 
@@ -488,8 +683,13 @@ private fun ElectricalDesignScreen(
             items =
                 listOf(
 
+                    // ------------------------------------------------
+                    // LOAD
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "load",
+                        id =
+                            "load",
 
                         title =
                             if (arabic)
@@ -501,9 +701,11 @@ private fun ElectricalDesignScreen(
                             "Load Schedule",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Power,
+
                                 contentDescription =
                                     null
                             )
@@ -513,8 +715,14 @@ private fun ElectricalDesignScreen(
                             onLoad
                     ),
 
+
+                    // ------------------------------------------------
+                    // CURRENT
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "current",
+                        id =
+                            "current",
 
                         title =
                             if (arabic)
@@ -526,9 +734,11 @@ private fun ElectricalDesignScreen(
                             "Design Current",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Calculate,
+
                                 contentDescription =
                                     null
                             )
@@ -538,8 +748,14 @@ private fun ElectricalDesignScreen(
                             onCurrent
                     ),
 
+
+                    // ------------------------------------------------
+                    // CABLE
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "cable",
+                        id =
+                            "cable",
 
                         title =
                             if (arabic)
@@ -551,9 +767,11 @@ private fun ElectricalDesignScreen(
                             "Conductor Sizing",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Cable,
+
                                 contentDescription =
                                     null
                             )
@@ -563,8 +781,14 @@ private fun ElectricalDesignScreen(
                             onCable
                     ),
 
+
+                    // ------------------------------------------------
+                    // VOLTAGE DROP
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "voltage_drop",
+                        id =
+                            "voltage_drop",
 
                         title =
                             if (arabic)
@@ -576,9 +800,11 @@ private fun ElectricalDesignScreen(
                             "Voltage Drop Study",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Bolt,
+
                                 contentDescription =
                                     null
                             )
@@ -588,8 +814,14 @@ private fun ElectricalDesignScreen(
                             onVoltageDrop
                     ),
 
+
+                    // ------------------------------------------------
+                    // BREAKER
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "breaker",
+                        id =
+                            "breaker",
 
                         title =
                             if (arabic)
@@ -601,9 +833,11 @@ private fun ElectricalDesignScreen(
                             "Breaker Selection",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.ElectricalServices,
+
                                 contentDescription =
                                     null
                             )
@@ -613,8 +847,14 @@ private fun ElectricalDesignScreen(
                             onBreaker
                     ),
 
+
+                    // ------------------------------------------------
+                    // SHORT CIRCUIT
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "short_circuit",
+                        id =
+                            "short_circuit",
 
                         title =
                             if (arabic)
@@ -626,9 +866,11 @@ private fun ElectricalDesignScreen(
                             "Fault Study",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Calculate,
+
                                 contentDescription =
                                     null
                             )
@@ -638,8 +880,14 @@ private fun ElectricalDesignScreen(
                             onShortCircuit
                     ),
 
+
+                    // ------------------------------------------------
+                    // PROTECTION
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "protection",
+                        id =
+                            "protection",
 
                         title =
                             if (arabic)
@@ -651,9 +899,11 @@ private fun ElectricalDesignScreen(
                             "Protection & Coordination",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Settings,
+
                                 contentDescription =
                                     null
                             )
@@ -663,8 +913,14 @@ private fun ElectricalDesignScreen(
                             onProtection
                     ),
 
+
+                    // ------------------------------------------------
+                    // TRANSFORMER
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "transformer",
+                        id =
+                            "transformer",
 
                         title =
                             if (arabic)
@@ -676,9 +932,11 @@ private fun ElectricalDesignScreen(
                             "Transformer Sizing",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Power,
+
                                 contentDescription =
                                     null
                             )
@@ -688,8 +946,14 @@ private fun ElectricalDesignScreen(
                             onTransformer
                     ),
 
+
+                    // ------------------------------------------------
+                    // GENERATOR
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "generator",
+                        id =
+                            "generator",
 
                         title =
                             if (arabic)
@@ -701,9 +965,11 @@ private fun ElectricalDesignScreen(
                             "Generator Sizing",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Power,
+
                                 contentDescription =
                                     null
                             )
@@ -713,8 +979,14 @@ private fun ElectricalDesignScreen(
                             onGenerator
                     ),
 
+
+                    // ------------------------------------------------
+                    // PANEL
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "panel",
+                        id =
+                            "panel",
 
                         title =
                             if (arabic)
@@ -726,9 +998,11 @@ private fun ElectricalDesignScreen(
                             "Panel Design",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.ElectricalServices,
+
                                 contentDescription =
                                     null
                             )
@@ -738,8 +1012,14 @@ private fun ElectricalDesignScreen(
                             onPanel
                     ),
 
+
+                    // ------------------------------------------------
+                    // SLD
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "sld",
+                        id =
+                            "sld",
 
                         title =
                             "SLD",
@@ -751,9 +1031,11 @@ private fun ElectricalDesignScreen(
                                 "Single Line Diagram",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.AccountTree,
+
                                 contentDescription =
                                     null
                             )
@@ -763,8 +1045,14 @@ private fun ElectricalDesignScreen(
                             onSld
                     ),
 
+
+                    // ------------------------------------------------
+                    // REPORT
+                    // ------------------------------------------------
+
                     DesignGridItem(
-                        id = "report",
+                        id =
+                            "report",
 
                         title =
                             if (arabic)
@@ -776,9 +1064,11 @@ private fun ElectricalDesignScreen(
                             "Engineering Report",
 
                         icon = {
+
                             Icon(
                                 imageVector =
                                     Icons.Outlined.Description,
+
                                 contentDescription =
                                     null
                             )
@@ -790,117 +1080,12 @@ private fun ElectricalDesignScreen(
                 )
         )
 
+
         Spacer(
             modifier =
                 Modifier.height(10.dp)
         )
 
-        OutlinedButton(
-            onClick =
-                onBack
-        ) {
-
-            Text(
-                text =
-                    if (arabic)
-                        "رجوع"
-                    else
-                        "Back"
-            )
-        }
-    }
-}
-
-
-@Composable
-private fun EngineeringModulePlaceholder(
-    language: AppLanguage,
-    module: String,
-    onBack: () -> Unit
-) {
-
-    val arabic =
-        language ==
-            AppLanguage.ARABIC
-
-    val title =
-        when (module) {
-
-            "load" ->
-                if (arabic)
-                    "الأحمال الكهربائية"
-                else
-                    "Electrical Loads"
-
-            "breaker" ->
-                if (arabic)
-                    "اختيار القواطع"
-                else
-                    "Breaker Selection"
-
-            "transformer" ->
-                if (arabic)
-                    "حساب المحول"
-                else
-                    "Transformer Sizing"
-
-            "generator" ->
-                if (arabic)
-                    "حساب المولد"
-                else
-                    "Generator Sizing"
-
-            "report" ->
-                if (arabic)
-                    "التقرير الهندسي"
-                else
-                    "Engineering Report"
-
-            else ->
-                if (arabic)
-                    "وحدة التصميم"
-                else
-                    "Design Module"
-        }
-
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-
-        verticalArrangement =
-            Arrangement.Center
-    ) {
-
-        Text(
-            text =
-                title,
-
-            style =
-                MaterialTheme
-                    .typography
-                    .headlineMedium
-        )
-
-        Spacer(
-            modifier =
-                Modifier.height(12.dp)
-        )
-
-        Text(
-            text =
-                if (arabic) {
-                    "هذه الوحدة محفوظة كمسار مستقل لحين ربط واجهتها بمحرك المشروع والـ Core."
-                } else {
-                    "This module remains isolated until its UI is connected to the project engine and Core."
-                }
-        )
-
-        Spacer(
-            modifier =
-                Modifier.height(20.dp)
-        )
 
         OutlinedButton(
             onClick =
