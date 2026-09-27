@@ -209,7 +209,7 @@ private fun EngineeringDesignApp() {
 
 
         // ========================================================
-        // ELECTRICAL DASHBOARD
+        // ELECTRICAL DESIGN DASHBOARD
         // ========================================================
 
         "electrical" -> {
@@ -546,8 +546,15 @@ private fun EngineeringDesignApp() {
                     language,
 
                 onBack = {
+                    /*
+                     * SLD is an independent screen under the
+                     * Electrical Design dashboard.
+                     *
+                     * It must NOT return to the Active Project
+                     * screen.
+                     */
                     screen =
-                        "active"
+                        "electrical"
                 }
             )
         }
