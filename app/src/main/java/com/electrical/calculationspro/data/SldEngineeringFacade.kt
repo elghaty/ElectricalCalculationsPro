@@ -15,8 +15,6 @@ package com.electrical.calculationspro.data
 * ↓
 * Validation
 * ↓
-* Topology
-* ↓
 * Upstream Engineering
 * ↓
 * Short Circuit
@@ -99,7 +97,8 @@ fun calculateCableSizing(
     network: SldNetwork,
     shortCircuitStudy: SldShortCircuitStudy? = null,
     voltageDropLimitPercent: Double = 3.0,
-    shortCircuitTimeSeconds: Double = 1.0
+    shortCircuitTimeSeconds: Double = 1.0,
+    upstreamEngineering: SldUpstreamEngineering.Result? = null
 ): SldCableSizingStudy {
 
     validateNetwork(
@@ -118,6 +117,12 @@ fun calculateCableSizing(
         "Short-circuit clearing time must be greater than zero."
     }
 
+    val upstream =
+        upstreamEngineering
+            ?: SldUpstreamEngineering.calculate(
+                network
+            )
+
     val shortCircuit =
         shortCircuitStudy
             ?: SldShortCircuitEngine.calculate(
@@ -126,12 +131,13 @@ fun calculateCableSizing(
 
     return SldCableSizingEngine.calculate(
         network = network,
-        shortCircuitStudy =
-            shortCircuit,
+        shortCircuitStudy = shortCircuit,
         voltageDropLimitPercent =
             voltageDropLimitPercent,
         shortCircuitTimeSeconds =
-            shortCircuitTimeSeconds
+            shortCircuitTimeSeconds,
+        upstreamEngineering =
+            upstream
     )
 }
 
@@ -176,12 +182,19 @@ fun calculatePanelSchedule(
 fun calculateProtectionCoordination(
     network: SldNetwork,
     shortCircuitStudy: SldShortCircuitStudy? = null,
-    cableSizingStudy: SldCableSizingStudy? = null
+    cableSizingStudy: SldCableSizingStudy? = null,
+    upstreamEngineering: SldUpstreamEngineering.Result? = null
 ): SldProtectionCoordinationResult {
 
     validateNetwork(
         network
     )
+
+    val upstream =
+        upstreamEngineering
+            ?: SldUpstreamEngineering.calculate(
+                network
+            )
 
     val shortCircuit =
         shortCircuitStudy
@@ -194,7 +207,9 @@ fun calculateProtectionCoordination(
             ?: SldCableSizingEngine.calculate(
                 network = network,
                 shortCircuitStudy =
-                    shortCircuit
+                    shortCircuit,
+                upstreamEngineering =
+                    upstream
             )
 
     return SldProtectionCoordinationEngine.calculate(
@@ -202,7 +217,9 @@ fun calculateProtectionCoordination(
         shortCircuitStudy =
             shortCircuit,
         cableSizingStudy =
-            cableSizing
+            cableSizing,
+        upstreamEngineering =
+            upstream
     )
 }
 
@@ -213,6 +230,9 @@ fun calculateProtectionCoordination(
 /**
  * Performs one complete engineering calculation cycle.
  *
+ * The upstream result is calculated exactly once and then shared
+ * with cable sizing and protection coordination.
+ *
  * Calculation order:
  *
  * 1. Validation
@@ -221,12 +241,6 @@ fun calculateProtectionCoordination(
  * 4. Cable sizing
  * 5. Protection coordination
  * 6. Panel schedule
- *
- * The resulting studies are assembled into one immutable
- * SldEngineeringPackage.
- *
- * This function is the preferred entry point for the SLD editor
- * after a node, connection, cable, source or load is modified.
  */
 fun calculateComplete(
     network: SldNetwork,
@@ -239,6 +253,24 @@ fun calculateComplete(
     validateNetwork(
         network
     )
+
+    require(
+        voltageFactor > 0.0
+    ) {
+        "Voltage factor must be greater than zero."
+    }
+
+    require(
+        voltageDropLimitPercent > 0.0
+    ) {
+        "Voltage drop limit must be greater than zero."
+    }
+
+    require(
+        shortCircuitTimeSeconds > 0.0
+    ) {
+        "Short-circuit clearing time must be greater than zero."
+    }
 
     // --------------------------------------------------------
     // 1. UPSTREAM ENGINEERING
@@ -272,7 +304,9 @@ fun calculateComplete(
             voltageDropLimitPercent =
                 voltageDropLimitPercent,
             shortCircuitTimeSeconds =
-                shortCircuitTimeSeconds
+                shortCircuitTimeSeconds,
+            upstreamEngineering =
+                upstream
         )
 
     // --------------------------------------------------------
@@ -285,7 +319,9 @@ fun calculateComplete(
             shortCircuitStudy =
                 shortCircuit,
             cableSizingStudy =
-                cableSizing
+                cableSizing,
+            upstreamEngineering =
+                upstream
         )
 
     // --------------------------------------------------------
@@ -310,6 +346,7 @@ fun calculateComplete(
     // --------------------------------------------------------
 
     return SldEngineeringPackage(
+
         upstream =
             upstream,
 
@@ -414,11 +451,12 @@ private fun buildValidationMessage(
 * COMPLETE SLD ENGINEERING RESULT
 * ================================================================
 * 
-* This is the single engineering package consumed by the SLD UI,
-* reports and project bridge.
+* Single engineering package consumed by:
 * 
-* Do not rename or remove these fields without updating every
-* consumer in the same change.
+* - SLD UI
+* - Engineering overlay
+* - Reports
+* - Project bridge
 * 
 * ================================================================
   */
