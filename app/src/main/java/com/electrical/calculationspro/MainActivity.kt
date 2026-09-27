@@ -4,7 +4,6 @@ import android.os.Bundle
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Bolt
@@ -26,9 +24,7 @@ import androidx.compose.material.icons.outlined.Factory
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.WaterDrop
-
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,14 +35,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -56,7 +50,6 @@ import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
-import com.electrical.calculationspro.data.project.DesignProjects
 
 import com.electrical.calculationspro.ui.project.DesignGridItem
 import com.electrical.calculationspro.ui.project.FourColumnDesignGrid
@@ -92,23 +85,6 @@ class MainActivity : ComponentActivity() {
 }
 
 
-/**
- * ============================================================
- * MAIN APPLICATION
- * ============================================================
- *
- * Navigation hierarchy:
- *
- * Main
- * ├── Project
- * ├── Electromechanical Calculators
- * └── SLD Design
- *
- * Calculators and SLD are separate top-level destinations.
- *
- * No calculator is embedded inside the SLD screen.
- * No SLD screen is embedded inside the calculator dashboard.
- */
 @Composable
 private fun ElectricalCalculationsProApp() {
 
@@ -149,13 +125,41 @@ private fun ElectricalCalculationsProApp() {
 
     /*
      * ----------------------------------------------------------
-     * FULL SCREEN DESTINATIONS
+     * FULL SCREEN NAVIGATION
      * ----------------------------------------------------------
-     *
-     * These screens replace the main shell completely.
      */
 
     when (screen) {
+
+        AppScreen.PROJECT_MANAGEMENT -> {
+
+            ProjectManagementScreen(
+                language = language,
+                onBack = {
+                    screen = AppScreen.HOME
+                    mainTab = MainTab.PROJECT
+                },
+                onOpenProject = { project ->
+
+                    DesignProjectCoreBridge
+                        .selectProject(project.id)
+
+                    activeProject =
+                        DesignProjectCoreBridge
+                            .getActiveProject()
+
+                    standard =
+                        activeProject
+                            ?.electricalStandard
+                            ?: Standard.IEC
+
+                    screen = AppScreen.HOME
+                    mainTab = MainTab.PROJECT
+                }
+            )
+
+            return
+        }
 
         AppScreen.LOAD -> {
 
@@ -348,7 +352,7 @@ private fun ElectricalCalculationsProApp() {
         }
 
         AppScreen.HOME -> {
-            // Continue to the main shell.
+            // Main shell
         }
     }
 
@@ -387,23 +391,7 @@ private fun ElectricalCalculationsProApp() {
                     },
 
                     onOpenProjectManagement = {
-                        ProjectManagementTab(
-                            language = language,
-                            onOpenProject = { project ->
-
-                                DesignProjectCoreBridge
-                                    .selectProject(project.id)
-
-                                activeProject =
-                                    DesignProjectCoreBridge
-                                        .getActiveProject()
-
-                                standard =
-                                    activeProject
-                                        ?.electricalStandard
-                                        ?: Standard.IEC
-                            }
-                        )
+                        screen = AppScreen.PROJECT_MANAGEMENT
                     }
                 )
             }
@@ -489,23 +477,20 @@ private fun ElectricalCalculationsProApp() {
 
 /**
  * ============================================================
- * MAIN TABS
+ * MAIN TAB
  * ============================================================
  */
 
 private enum class MainTab {
-
     PROJECT,
-
     CALCULATORS,
-
     SLD
 }
 
 
 /**
  * ============================================================
- * APPLICATION SCREENS
+ * APP SCREEN
  * ============================================================
  */
 
@@ -513,28 +498,19 @@ private enum class AppScreen {
 
     HOME,
 
+    PROJECT_MANAGEMENT,
+
     LOAD,
-
     CURRENT,
-
     CABLE,
-
     VOLTAGE_DROP,
-
     BREAKER,
-
     SHORT_CIRCUIT,
-
     PROTECTION,
-
     TRANSFORMER,
-
     GENERATOR,
-
     PANEL,
-
     REPORT,
-
     PUMP,
 
     SLD
@@ -564,11 +540,7 @@ private fun ProjectHeader(
                 end = 14.dp,
                 top = 12.dp,
                 bottom = 6.dp
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme.colorScheme.surface
-        )
+            )
     ) {
 
         Column(
@@ -690,18 +662,10 @@ private fun HeaderField(
 
 /**
  * ============================================================
- * PROJECT HOME
+ * FIRST PROJECT SCREEN
  * ============================================================
- *
- * This is now the real first screen.
- *
- * It does NOT embed ProjectDashboardScreen.
- * It shows the project information once and then provides
- * two clear engineering entry points:
- *
- * 1. Electromechanical Calculators
- * 2. SLD Design
  */
+
 @Composable
 private fun ProjectHomeTab(
     language: AppLanguage,
@@ -724,11 +688,7 @@ private fun ProjectHomeTab(
     ) {
 
         Text(
-            text =
-                if (arabic)
-                    "Engineering Design"
-                else
-                    "Engineering Design",
+            text = "Engineering Design",
             style =
                 MaterialTheme.typography.titleLarge
         )
@@ -756,19 +716,15 @@ private fun ProjectHomeTab(
             MainWorkspaceCard(
                 modifier =
                     Modifier.weight(1f),
-
                 icon =
                     Icons.Outlined.ElectricalServices,
-
                 title =
                     "Electromechanical Calculators",
-
                 subtitle =
                     if (arabic)
                         "الحسابات والتصميم"
                     else
                         "Calculations & Design",
-
                 onClick =
                     onOpenCalculators
             )
@@ -776,19 +732,15 @@ private fun ProjectHomeTab(
             MainWorkspaceCard(
                 modifier =
                     Modifier.weight(1f),
-
                 icon =
                     Icons.Outlined.AccountTree,
-
                 title =
                     "SLD Design",
-
                 subtitle =
                     if (arabic)
-                        "Single Line Diagram"
+                        "المخطط الأحادي"
                     else
                         "Single Line Diagram",
-
                 onClick =
                     onOpenSld
             )
@@ -875,23 +827,64 @@ private fun ProjectHomeTab(
 
 /**
  * ============================================================
- * PROJECT MANAGEMENT
+ * PROJECT MANAGEMENT SCREEN
  * ============================================================
- *
- * The existing ProjectDashboardScreen is retained.
- * It is opened explicitly instead of being nested inside
- * the first screen.
  */
+
 @Composable
-private fun ProjectManagementTab(
+private fun ProjectManagementScreen(
     language: AppLanguage,
+    onBack: () -> Unit,
     onOpenProject: (DesignProject) -> Unit
 ) {
 
-    ProjectDashboardScreen(
-        language = language,
-        onOpenProject = onOpenProject
-    )
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ) {
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 8.dp
+                ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+
+            OutlinedButton(
+                onClick = onBack
+            ) {
+                Text(
+                    text =
+                        if (language == AppLanguage.ARABIC)
+                            "رجوع"
+                        else
+                            "Back"
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.width(12.dp)
+            )
+
+            Text(
+                text =
+                    if (language == AppLanguage.ARABIC)
+                        "إدارة المشروعات"
+                    else
+                        "Project Management",
+                style =
+                    MaterialTheme.typography.titleLarge
+            )
+        }
+
+        ProjectDashboardScreen(
+            language = language,
+            onOpenProject = onOpenProject
+        )
+    }
 }
 
 
@@ -912,11 +905,11 @@ private fun MainWorkspaceCard(
 
     Card(
         modifier = modifier,
-        onClick = onClick,
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme.colorScheme.surface
-        )
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    MaterialTheme.colorScheme.surface
+            )
     ) {
 
         Column(
@@ -927,14 +920,20 @@ private fun MainWorkspaceCard(
                 Alignment.CenterHorizontally
         ) {
 
-            Icon(
-                imageVector = icon,
-                contentDescription = title,
-                modifier = Modifier.size(58.dp)
-            )
+            Button(
+                onClick = onClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    modifier = Modifier.size(42.dp)
+                )
+            }
 
             Spacer(
-                modifier = Modifier.height(12.dp)
+                modifier = Modifier.height(10.dp)
             )
 
             Text(
@@ -944,7 +943,7 @@ private fun MainWorkspaceCard(
             )
 
             Spacer(
-                modifier = Modifier.height(5.dp)
+                modifier = Modifier.height(4.dp)
             )
 
             Text(
@@ -959,14 +958,13 @@ private fun MainWorkspaceCard(
 
 /**
  * ============================================================
- * CALCULATORS TAB
+ * CALCULATORS
  * ============================================================
  */
 
 @Composable
 private fun CalculatorTab(
     language: AppLanguage,
-
     onLoad: () -> Unit,
     onCurrent: () -> Unit,
     onCable: () -> Unit,
@@ -987,9 +985,7 @@ private fun CalculatorTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(
-                horizontal = 14.dp
-            )
+            .padding(horizontal = 14.dp)
     ) {
 
         Text(
@@ -1019,10 +1015,7 @@ private fun CalculatorTab(
                 DesignGridItem(
                     id = "load",
                     title =
-                        if (arabic)
-                            "الأحمال"
-                        else
-                            "Loads",
+                        if (arabic) "الأحمال" else "Loads",
                     subtitle = "Load Schedule",
                     icon = {
                         AppIcon(Icons.Outlined.Power)
@@ -1033,10 +1026,7 @@ private fun CalculatorTab(
                 DesignGridItem(
                     id = "current",
                     title =
-                        if (arabic)
-                            "التيار"
-                        else
-                            "Current",
+                        if (arabic) "التيار" else "Current",
                     subtitle = "Design Current",
                     icon = {
                         AppIcon(Icons.Outlined.Calculate)
@@ -1047,10 +1037,7 @@ private fun CalculatorTab(
                 DesignGridItem(
                     id = "cable",
                     title =
-                        if (arabic)
-                            "الكابلات"
-                        else
-                            "Cables",
+                        if (arabic) "الكابلات" else "Cables",
                     subtitle = "Conductor Sizing",
                     icon = {
                         AppIcon(Icons.Outlined.Bolt)
@@ -1191,14 +1178,10 @@ private fun CalculatorTab(
 
 /**
  * ============================================================
- * SLD HOME TAB
+ * SLD HOME
  * ============================================================
- *
- * This is only the entry screen.
- * The actual SLD editor remains in:
- *
- * ui/screens/sld/SldEditorScreen.kt
  */
+
 @Composable
 private fun SldHomeTab(
     language: AppLanguage,
@@ -1217,7 +1200,7 @@ private fun SldHomeTab(
     ) {
 
         Spacer(
-            modifier = Modifier.height(16.dp)
+            modifier = Modifier.height(20.dp)
         )
 
         Icon(
@@ -1270,7 +1253,11 @@ private fun SldHomeTab(
             )
 
             Text(
-                text = "Open SLD Design"
+                text =
+                    if (arabic)
+                        "فتح SLD"
+                    else
+                        "Open SLD"
             )
         }
     }
@@ -1279,11 +1266,10 @@ private fun SldHomeTab(
 
 /**
  * ============================================================
- * MAIN NAVIGATION
+ * NAVIGATION BAR
  * ============================================================
- *
- * Exactly three top-level tabs.
  */
+
 @Composable
 private fun MainNavigationBar(
     selected: MainTab,
@@ -1299,11 +1285,9 @@ private fun MainNavigationBar(
         NavigationBarItem(
             selected =
                 selected == MainTab.PROJECT,
-
             onClick = {
                 onSelect(MainTab.PROJECT)
             },
-
             icon = {
                 Icon(
                     imageVector =
@@ -1311,7 +1295,6 @@ private fun MainNavigationBar(
                     contentDescription = null
                 )
             },
-
             label = {
                 Text(
                     text =
@@ -1326,11 +1309,9 @@ private fun MainNavigationBar(
         NavigationBarItem(
             selected =
                 selected == MainTab.CALCULATORS,
-
             onClick = {
                 onSelect(MainTab.CALCULATORS)
             },
-
             icon = {
                 Icon(
                     imageVector =
@@ -1338,7 +1319,6 @@ private fun MainNavigationBar(
                     contentDescription = null
                 )
             },
-
             label = {
                 Text(
                     text =
@@ -1353,11 +1333,9 @@ private fun MainNavigationBar(
         NavigationBarItem(
             selected =
                 selected == MainTab.SLD,
-
             onClick = {
                 onSelect(MainTab.SLD)
             },
-
             icon = {
                 Icon(
                     imageVector =
@@ -1365,11 +1343,8 @@ private fun MainNavigationBar(
                     contentDescription = null
                 )
             },
-
             label = {
-                Text(
-                    text = "SLD Design"
-                )
+                Text(text = "SLD Design")
             }
         )
     }
