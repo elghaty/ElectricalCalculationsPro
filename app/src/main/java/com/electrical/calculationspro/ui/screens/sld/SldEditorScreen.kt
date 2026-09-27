@@ -1,11 +1,14 @@
 package com.electrical.calculationspro.ui.screens.sld
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -14,9 +17,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -49,25 +52,62 @@ LaunchedEffect(Unit) {
 }
 
 Column(
-    modifier = Modifier.fillMaxSize()
+    modifier =
+        Modifier.fillMaxSize()
 ) {
-
-    var addMenuExpanded by remember {
-        mutableStateOf(false)
-    }
 
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(
+                    horizontal = 10.dp,
+                    vertical = 7.dp
+                )
+                .horizontalScroll(
+                    rememberScrollState()
+                ),
         horizontalArrangement =
-            Arrangement.spacedBy(6.dp)
+            Arrangement.spacedBy(8.dp)
     ) {
 
         Button(
             onClick = {
-                addMenuExpanded = true
+                state.clearSelection()
+                state.showNodeDialog = false
+                state.showConnectionDialog = false
+                state.editingNodeId = null
+                state.editingConnectionId = null
+            }
+        ) {
+            Text(
+                if (arabic) {
+                    "مخطط كهربائي"
+                } else {
+                    "Electrical SLD"
+                }
+            )
+        }
+
+        Button(
+            onClick = {
+                state.showNodeDialog = false
+                state.showConnectionDialog = false
+            }
+        ) {
+            Text(
+                if (arabic) {
+                    "عرض"
+                } else {
+                    "View"
+                }
+            )
+        }
+
+        Button(
+            onClick = {
+                state.showNodeDialog = false
+                state.showConnectionDialog = false
             }
         ) {
             Text(
@@ -79,32 +119,9 @@ Column(
             )
         }
 
-        DropdownMenu(
-            expanded = addMenuExpanded,
-            onDismissRequest = {
-                addMenuExpanded = false
-            }
-        ) {
-            SldNodeType.values().forEach { type ->
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            nodeTypeTitle(
-                                type = type,
-                                arabic = arabic
-                            )
-                        )
-                    },
-                    onClick = {
-                        addMenuExpanded = false
-                        actions.resetNodeEditor(type)
-                    }
-                )
-            }
-        }
-
         Button(
-            enabled = state.selectedNodeId != null,
+            enabled =
+                state.selectedNodeId != null,
             onClick = {
                 actions.startOrCompleteConnection()
             }
@@ -170,11 +187,33 @@ Column(
             color =
                 MaterialTheme.colorScheme.error,
             modifier =
-                Modifier.padding(8.dp)
+                Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 4.dp
+                )
         )
     }
 
+    Text(
+        text =
+            if (arabic) {
+                "Single Line Diagram — اسحب العناصر لتحريكها • اضغط مرتين للتعديل"
+            } else {
+                "Single Line Diagram — Drag equipment to move • Double tap to edit"
+            },
+        style =
+            MaterialTheme.typography.labelMedium,
+        modifier =
+            Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 4.dp
+            )
+    )
+
     SldCanvas(
+        modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth(),
         nodes = state.nodes,
         connections = state.connections,
         selectedNodeId = state.selectedNodeId,
@@ -223,9 +262,15 @@ Column(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(
+                    horizontal = 10.dp,
+                    vertical = 7.dp
+                )
+                .horizontalScroll(
+                    rememberScrollState()
+                ),
         horizontalArrangement =
-            Arrangement.spacedBy(6.dp)
+            Arrangement.spacedBy(8.dp)
     ) {
 
         OutlinedButton(
@@ -281,7 +326,7 @@ Column(
                 } else {
                     "Full Study"
                 }
-            )
+            }
         }
 
         onBack?.let { back ->
@@ -364,45 +409,19 @@ if (state.showNodeDialog) {
 if (state.showConnectionDialog) {
     SldConnectionEditorDialog(
         arabic = arabic,
-
-        connectionType =
-            state.connectionType,
-
-        conductorMaterial =
-            state.conductorMaterial,
-
-        insulationType =
-            state.insulationType,
-
-        installationMethodCode =
-            state.installationMethodCode,
-
-        busbarMaterial =
-            state.busbarMaterial,
-
-        busbarRatedCurrent =
-            state.busbarRatedCurrent,
-
-        busbarShortCircuit =
-            state.busbarShortCircuit,
-
-        length =
-            state.length,
-
-        resistance =
-            state.resistance,
-
-        reactance =
-            state.reactance,
-
-        cableSize =
-            state.cableSize,
-
-        parallelRuns =
-            state.parallelRuns,
-
-        capacity =
-            state.capacity,
+        connectionType = state.connectionType,
+        conductorMaterial = state.conductorMaterial,
+        insulationType = state.insulationType,
+        installationMethodCode = state.installationMethodCode,
+        busbarMaterial = state.busbarMaterial,
+        busbarRatedCurrent = state.busbarRatedCurrent,
+        busbarShortCircuit = state.busbarShortCircuit,
+        length = state.length,
+        resistance = state.resistance,
+        reactance = state.reactance,
+        cableSize = state.cableSize,
+        parallelRuns = state.parallelRuns,
+        capacity = state.capacity,
 
         onConnectionTypeChange = {
             state.connectionType = it
@@ -476,31 +495,4 @@ if (state.showReport) {
     )
 }
 
-}
-
-private fun nodeTypeTitle(
-type: SldNodeType,
-arabic: Boolean
-): String =
-when (type) {
-SldNodeType.SOURCE ->
-if (arabic) "مصدر تغذية" else "Source"
-
-    SldNodeType.TRANSFORMER ->
-        if (arabic) "محول" else "Transformer"
-
-    SldNodeType.GENERATOR ->
-        if (arabic) "مولد" else "Generator"
-
-    SldNodeType.BUS ->
-        if (arabic) "قضبان Bus" else "Bus"
-
-    SldNodeType.PANEL ->
-        if (arabic) "لوحة" else "Panel"
-
-    SldNodeType.BREAKER ->
-        if (arabic) "قاطع" else "Breaker"
-
-    SldNodeType.LOAD ->
-        if (arabic) "حمل" else "Load"
 }
