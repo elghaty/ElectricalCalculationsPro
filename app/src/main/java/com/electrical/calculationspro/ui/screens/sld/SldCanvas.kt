@@ -27,335 +27,388 @@ import kotlin.math.min
 
 @Composable
 fun SldCanvas(
-nodes: List<SldNode>,
-connections: List<SldConnection>,
-selectedNodeId: String?,
-selectedConnectionId: String?,
-connectionStartId: String?,
-engineering: SldEngineeringPackage? = null,
-onSelectNode: (String) -> Unit,
-onMoveNode: (String, Float, Float) -> Unit,
-onMoveNodeEnd: () -> Unit,
-onSelectConnection: (String) -> Unit,
-onEditNode: (SldNode) -> Unit,
-onEditConnection: (SldConnection) -> Unit
+    modifier: Modifier = Modifier,
+    nodes: List<SldNode>,
+    connections: List<SldConnection>,
+    selectedNodeId: String?,
+    selectedConnectionId: String?,
+    connectionStartId: String?,
+    engineering: SldEngineeringPackage? = null,
+    onSelectNode: (String) -> Unit,
+    onMoveNode: (String, Float, Float) -> Unit,
+    onMoveNodeEnd: () -> Unit,
+    onSelectConnection: (String) -> Unit,
+    onEditNode: (SldNode) -> Unit,
+    onEditConnection: (SldConnection) -> Unit
 ) {
-val textMeasurer = rememberTextMeasurer()
+    val textMeasurer = rememberTextMeasurer()
 
-val currentNodes = rememberUpdatedState(nodes)
-val currentConnections = rememberUpdatedState(connections)
-val currentSelectedNodeId = rememberUpdatedState(selectedNodeId)
-val currentSelectedConnectionId = rememberUpdatedState(selectedConnectionId)
-val currentConnectionStartId = rememberUpdatedState(connectionStartId)
-val currentEngineering = rememberUpdatedState(engineering)
+    val currentNodes = rememberUpdatedState(nodes)
+    val currentConnections = rememberUpdatedState(connections)
+    val currentSelectedNodeId = rememberUpdatedState(selectedNodeId)
+    val currentSelectedConnectionId =
+        rememberUpdatedState(selectedConnectionId)
+    val currentConnectionStartId =
+        rememberUpdatedState(connectionStartId)
+    val currentEngineering =
+        rememberUpdatedState(engineering)
 
-val currentOnSelectNode = rememberUpdatedState(onSelectNode)
-val currentOnMoveNode = rememberUpdatedState(onMoveNode)
-val currentOnMoveNodeEnd = rememberUpdatedState(onMoveNodeEnd)
-val currentOnSelectConnection = rememberUpdatedState(onSelectConnection)
-val currentOnEditNode = rememberUpdatedState(onEditNode)
-val currentOnEditConnection = rememberUpdatedState(onEditConnection)
+    val currentOnSelectNode =
+        rememberUpdatedState(onSelectNode)
+    val currentOnMoveNode =
+        rememberUpdatedState(onMoveNode)
+    val currentOnMoveNodeEnd =
+        rememberUpdatedState(onMoveNodeEnd)
+    val currentOnSelectConnection =
+        rememberUpdatedState(onSelectConnection)
+    val currentOnEditNode =
+        rememberUpdatedState(onEditNode)
+    val currentOnEditConnection =
+        rememberUpdatedState(onEditConnection)
 
-var panX by remember { mutableFloatStateOf(0f) }
-var panY by remember { mutableFloatStateOf(0f) }
-var zoom by remember { mutableFloatStateOf(1f) }
+    var panX by remember {
+        mutableFloatStateOf(0f)
+    }
 
-var fitted by remember { mutableStateOf(false) }
+    var panY by remember {
+        mutableFloatStateOf(0f)
+    }
 
-Box(
-    modifier =
-        Modifier
-            .fillMaxSize()
-            .background(Color(0xFFF6F8FA))
-) {
-    Canvas(
+    var zoom by remember {
+        mutableFloatStateOf(1f)
+    }
+
+    var fitted by remember {
+        mutableStateOf(false)
+    }
+
+    Box(
         modifier =
-            Modifier
+            modifier
                 .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onDoubleTap = { point ->
-                            val logical =
-                                screenToLogical(
-                                    point = point,
-                                    panX = panX,
-                                    panY = panY,
-                                    zoom = zoom
-                                )
-
-                            val node =
-                                findNode(
-                                    point = logical,
-                                    nodes = currentNodes.value
-                                )
-
-                            if (node != null) {
-                                currentOnEditNode.value(node)
-                            } else {
-                                val connection =
-                                    findConnection(
-                                        point = logical,
-                                        nodes = currentNodes.value,
-                                        connections = currentConnections.value
-                                    )
-
-                                if (connection != null) {
-                                    currentOnEditConnection.value(connection)
-                                }
-                            }
-                        },
-                        onTap = { point ->
-                            val logical =
-                                screenToLogical(
-                                    point = point,
-                                    panX = panX,
-                                    panY = panY,
-                                    zoom = zoom
-                                )
-
-                            val node =
-                                findNode(
-                                    point = logical,
-                                    nodes = currentNodes.value
-                                )
-
-                            if (node != null) {
-                                currentOnSelectNode.value(node.id)
-                            } else {
-                                val connection =
-                                    findConnection(
-                                        point = logical,
-                                        nodes = currentNodes.value,
-                                        connections = currentConnections.value
-                                    )
-
-                                if (connection != null) {
-                                    currentOnSelectConnection.value(
-                                        connection.id
-                                    )
-                                }
-                            }
-                        }
-                    )
-                }
-                .pointerInput(Unit) {
-                    var draggingNodeId: String? = null
-                    var draggingNode = false
-
-                    detectDragGestures(
-                        onDragStart = { point ->
-                            val logical =
-                                screenToLogical(
-                                    point = point,
-                                    panX = panX,
-                                    panY = panY,
-                                    zoom = zoom
-                                )
-
-                            val node =
-                                findNode(
-                                    point = logical,
-                                    nodes = currentNodes.value
-                                )
-
-                            draggingNodeId = node?.id
-                            draggingNode = node != null
-
-                            if (node != null) {
-                                currentOnSelectNode.value(node.id)
-                            }
-                        },
-                        onDrag = { change, amount ->
-                            change.consume()
-
-                            val nodeId = draggingNodeId
-
-                            if (
-                                draggingNode &&
-                                nodeId != null
-                            ) {
-                                currentOnMoveNode.value(
-                                    nodeId,
-                                    amount.x / zoom,
-                                    amount.y / zoom
-                                )
-                            } else {
-                                panX += amount.x
-                                panY += amount.y
-                            }
-                        },
-                        onDragEnd = {
-                            if (draggingNode) {
-                                currentOnMoveNodeEnd.value()
-                            }
-
-                            draggingNodeId = null
-                            draggingNode = false
-                        },
-                        onDragCancel = {
-                            draggingNodeId = null
-                            draggingNode = false
-                        }
-                    )
-                }
+                .background(
+                    Color(0xFFF6F8FA)
+                )
     ) {
-        drawSldEngineeringBackground()
+        Canvas(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onDoubleTap = { point ->
+                                val logical =
+                                    screenToLogical(
+                                        point = point,
+                                        panX = panX,
+                                        panY = panY,
+                                        zoom = zoom
+                                    )
 
-        if (!fitted && currentNodes.value.isNotEmpty()) {
-            val bounds =
-                calculateNodeBounds(
-                    currentNodes.value
-                )
+                                val node =
+                                    findNode(
+                                        point = logical,
+                                        nodes = currentNodes.value
+                                    )
 
-            val contentWidth =
-                max(
-                    bounds.width,
-                    NODE_WIDTH
-                )
+                                if (node != null) {
+                                    currentOnEditNode.value(node)
+                                } else {
+                                    val connection =
+                                        findConnection(
+                                            point = logical,
+                                            nodes =
+                                                currentNodes.value,
+                                            connections =
+                                                currentConnections.value
+                                        )
 
-            val contentHeight =
-                max(
-                    bounds.height,
-                    NODE_HEIGHT
-                )
+                                    if (connection != null) {
+                                        currentOnEditConnection
+                                            .value(connection)
+                                    }
+                                }
+                            },
 
-            val availableWidth =
-                size.width - 80f
+                            onTap = { point ->
+                                val logical =
+                                    screenToLogical(
+                                        point = point,
+                                        panX = panX,
+                                        panY = panY,
+                                        zoom = zoom
+                                    )
 
-            val availableHeight =
-                size.height - 80f
+                                val node =
+                                    findNode(
+                                        point = logical,
+                                        nodes = currentNodes.value
+                                    )
 
-            val fittedZoom =
-                min(
-                    availableWidth / contentWidth,
-                    availableHeight / contentHeight
-                ).coerceIn(
-                    0.45f,
-                    1.0f
-                )
+                                if (node != null) {
+                                    currentOnSelectNode
+                                        .value(node.id)
+                                } else {
+                                    val connection =
+                                        findConnection(
+                                            point = logical,
+                                            nodes =
+                                                currentNodes.value,
+                                            connections =
+                                                currentConnections.value
+                                        )
 
-            zoom = fittedZoom
+                                    if (connection != null) {
+                                        currentOnSelectConnection
+                                            .value(connection.id)
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        var draggingNodeId: String? = null
+                        var draggingNode = false
 
-            panX =
-                size.width / 2f -
-                    (bounds.left + bounds.right) /
-                    2f *
-                    zoom
+                        detectDragGestures(
+                            onDragStart = { point ->
+                                val logical =
+                                    screenToLogical(
+                                        point = point,
+                                        panX = panX,
+                                        panY = panY,
+                                        zoom = zoom
+                                    )
 
-            panY =
-                size.height / 2f -
-                    (bounds.top + bounds.bottom) /
-                    2f *
-                    zoom
+                                val node =
+                                    findNode(
+                                        point = logical,
+                                        nodes = currentNodes.value
+                                    )
 
-            fitted = true
-        }
+                                draggingNodeId =
+                                    node?.id
 
-        withTransform({
-            translate(
-                left = panX,
-                top = panY
-            )
-            scale(
-                scale = zoom,
-                pivot = Offset.Zero
-            )
-        }) {
-            currentConnections.value.forEach { connection ->
-                val feederResult =
-                    currentEngineering
-                        .value
-                        ?.upstream
-                        ?.feeders
-                        ?.firstOrNull {
-                            it.connectionId == connection.id
-                        }
+                                draggingNode =
+                                    node != null
 
-                drawConnection(
-                    connection = connection,
-                    nodes = currentNodes.value,
-                    selected =
-                        connection.id ==
-                            currentSelectedConnectionId.value,
-                    textMeasurer = textMeasurer,
-                    feederResult = feederResult
-                )
+                                if (node != null) {
+                                    currentOnSelectNode
+                                        .value(node.id)
+                                }
+                            },
+
+                            onDrag = { change, amount ->
+                                change.consume()
+
+                                val nodeId =
+                                    draggingNodeId
+
+                                if (
+                                    draggingNode &&
+                                    nodeId != null
+                                ) {
+                                    currentOnMoveNode.value(
+                                        nodeId,
+                                        amount.x / zoom,
+                                        amount.y / zoom
+                                    )
+                                } else {
+                                    panX += amount.x
+                                    panY += amount.y
+                                }
+                            },
+
+                            onDragEnd = {
+                                if (draggingNode) {
+                                    currentOnMoveNodeEnd.value()
+                                }
+
+                                draggingNodeId = null
+                                draggingNode = false
+                            },
+
+                            onDragCancel = {
+                                draggingNodeId = null
+                                draggingNode = false
+                            }
+                        )
+                    }
+        ) {
+            drawSldEngineeringBackground()
+
+            if (
+                !fitted &&
+                currentNodes.value.isNotEmpty()
+            ) {
+                val bounds =
+                    calculateNodeBounds(
+                        currentNodes.value
+                    )
+
+                val contentWidth =
+                    max(
+                        bounds.width,
+                        NODE_WIDTH
+                    )
+
+                val contentHeight =
+                    max(
+                        bounds.height,
+                        NODE_HEIGHT
+                    )
+
+                val availableWidth =
+                    size.width - 80f
+
+                val availableHeight =
+                    size.height - 80f
+
+                val fittedZoom =
+                    min(
+                        availableWidth / contentWidth,
+                        availableHeight / contentHeight
+                    ).coerceIn(
+                        0.45f,
+                        1.0f
+                    )
+
+                zoom = fittedZoom
+
+                panX =
+                    size.width / 2f -
+                        (
+                            bounds.left +
+                                bounds.right
+                            ) /
+                            2f *
+                            zoom
+
+                panY =
+                    size.height / 2f -
+                        (
+                            bounds.top +
+                                bounds.bottom
+                            ) /
+                            2f *
+                            zoom
+
+                fitted = true
             }
 
-            currentNodes.value.forEach { node ->
-                val engineeringResult =
-                    currentEngineering
-                        .value
-                        ?.upstream
-                        ?.nodes
-                        ?.firstOrNull {
-                            it.nodeId == node.id
-                        }
-
-                drawNode(
-                    node = node,
-                    selected =
-                        node.id ==
-                            currentSelectedNodeId.value,
-                    connectionStart =
-                        node.id ==
-                            currentConnectionStartId.value,
-                    textMeasurer = textMeasurer,
-                    engineeringResult = engineeringResult
+            withTransform({
+                translate(
+                    left = panX,
+                    top = panY
                 )
+
+                scale(
+                    scaleX = zoom,
+                    scaleY = zoom,
+                    pivot = Offset.Zero
+                )
+            }) {
+                currentConnections.value.forEach { connection ->
+                    val feederResult =
+                        currentEngineering
+                            .value
+                            ?.upstream
+                            ?.feeders
+                            ?.firstOrNull {
+                                it.connectionId ==
+                                    connection.id
+                            }
+
+                    drawConnection(
+                        connection = connection,
+                        nodes = currentNodes.value,
+                        selected =
+                            connection.id ==
+                                currentSelectedConnectionId
+                                    .value,
+                        textMeasurer = textMeasurer,
+                        feederResult = feederResult
+                    )
+                }
+
+                currentNodes.value.forEach { node ->
+                    val engineeringResult =
+                        currentEngineering
+                            .value
+                            ?.upstream
+                            ?.nodes
+                            ?.firstOrNull {
+                                it.nodeId == node.id
+                            }
+
+                    drawNode(
+                        node = node,
+                        selected =
+                            node.id ==
+                                currentSelectedNodeId.value,
+                        connectionStart =
+                            node.id ==
+                                currentConnectionStartId.value,
+                        textMeasurer = textMeasurer,
+                        engineeringResult =
+                            engineeringResult
+                    )
+                }
             }
         }
     }
 }
 
-}
-
 private data class NodeBounds(
-val left: Float,
-val top: Float,
-val right: Float,
-val bottom: Float
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float
 ) {
-val width: Float
-get() = right - left
+    val width: Float
+        get() = right - left
 
-val height: Float
-    get() = bottom - top
-
+    val height: Float
+        get() = bottom - top
 }
 
 private fun calculateNodeBounds(
-nodes: List<SldNode>
+    nodes: List<SldNode>
 ): NodeBounds {
-val left =
-nodes.minOf { it.x }
+    val left =
+        nodes.minOf { it.x }
 
-val top =
-    nodes.minOf { it.y }
+    val top =
+        nodes.minOf { it.y }
 
-val right =
-    nodes.maxOf { it.x + NODE_WIDTH }
+    val right =
+        nodes.maxOf {
+            it.x + NODE_WIDTH
+        }
 
-val bottom =
-    nodes.maxOf { it.y + NODE_HEIGHT + 55f }
+    val bottom =
+        nodes.maxOf {
+            it.y +
+                NODE_HEIGHT +
+                55f
+        }
 
-return NodeBounds(
-    left = left,
-    top = top,
-    right = right,
-    bottom = bottom
-)
-
+    return NodeBounds(
+        left = left,
+        top = top,
+        right = right,
+        bottom = bottom
+    )
 }
 
 private fun screenToLogical(
-point: Offset,
-panX: Float,
-panY: Float,
-zoom: Float
+    point: Offset,
+    panX: Float,
+    panY: Float,
+    zoom: Float
 ): Offset {
-return Offset(
-x = (point.x - panX) / zoom,
-y = (point.y - panY) / zoom
-)
+    return Offset(
+        x = (point.x - panX) / zoom,
+        y = (point.y - panY) / zoom
+    )
 }
