@@ -12,6 +12,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
+import com.electrical.calculationspro.data.SldConnectionType
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
 import com.electrical.calculationspro.data.SldUpstreamEngineering
@@ -22,34 +23,817 @@ import kotlin.math.sqrt
 const val NODE_WIDTH = 190f
 const val NODE_HEIGHT = 126f
 
-private val PrimaryColor = Color(0xFFF2F5F7)
-private val SecondaryColor = Color(0xFF9BA8B2)
-private val EngineeringColor = Color(0xFF7DD3FC)
-private val WarningColor = Color(0xFFFFC857)
-private val FaultColor = Color(0xFFFF6B6B)
-private val SuccessColor = Color(0xFF66E3A4)
-private val SymbolColor = Color(0xFFE8EEF2)
-private val ConnectionColor = Color(0xFFB8C4CC)
-private val SelectedColor = Color(0xFF00E676)
-private val ConnectionSelectedColor = Color(0xFF00BCD4)
-private val SymbolBackground = Color(0xFF0C141A)
+private val BackgroundGrid = Color(0xFFE1E7EB)
+private val NodeFill = Color(0xFFFFFFFF)
+private val NodeBorder = Color(0xFF263238)
+private val TextPrimary = Color(0xFF172027)
+private val TextSecondary = Color(0xFF60717A)
+private val CableColor = Color(0xFF455A64)
+private val BusbarColor = Color(0xFF00838F)
+private val SelectedColor = Color(0xFF00838F)
+private val StartColor = Color(0xFF1565C0)
+private val EngineeringColor = Color(0xFF0277BD)
+private val WarningColor = Color(0xFFEF6C00)
+private val FaultColor = Color(0xFFC62828)
+private val SuccessColor = Color(0xFF2E7D32)
+
+fun DrawScope.drawSldEngineeringBackground() {
+drawRect(
+color = Color(0xFFF6F8FA)
+)
+
+var x = 0f
+
+while (x <= size.width) {
+    drawLine(
+        color = BackgroundGrid,
+        start = Offset(x, 0f),
+        end = Offset(x, size.height),
+        strokeWidth = 1f
+    )
+
+    x += 40f
+}
+
+var y = 0f
+
+while (y <= size.height) {
+    drawLine(
+        color = BackgroundGrid,
+        start = Offset(0f, y),
+        end = Offset(size.width, y),
+        strokeWidth = 1f
+    )
+
+    y += 40f
+}
+
+}
 
 fun DrawScope.drawConnection(
-    connection: SldConnection,
-    nodes: List<SldNode>,
-    selected: Boolean,
-    textMeasurer: TextMeasurer,
-    feederResult: SldUpstreamEngineering.FeederResult? = null
+connection: SldConnection,
+nodes: List<SldNode>,
+selected: Boolean,
+textMeasurer: TextMeasurer,
+feederResult: SldUpstreamEngineering.FeederResult? = null
 ) {
+val from =
+nodes.firstOrNull {
+it.id == connection.fromNodeId
+} ?: return
+
+val to =
+    nodes.firstOrNull {
+        it.id == connection.toNodeId
+    } ?: return
+
+val start =
+    Offset(
+        from.x + NODE_WIDTH,
+        from.y + NODE_HEIGHT / 2f
+    )
+
+val end =
+    Offset(
+        to.x,
+        to.y + NODE_HEIGHT / 2f
+    )
+
+val middleX =
+    (start.x + end.x) / 2f
+
+val path =
+    Path().apply {
+        moveTo(
+            start.x,
+            start.y
+        )
+
+        lineTo(
+            middleX,
+            start.y
+        )
+
+        lineTo(
+            middleX,
+            end.y
+        )
+
+        lineTo(
+            end.x,
+            end.y
+        )
+    }
+
+val isBusbar =
+    connection.connectionType ==
+        SldConnectionType.BUSBAR
+
+val lineColor =
+    when {
+        selected ->
+            SelectedColor
+
+        isBusbar ->
+            BusbarColor
+
+        feederResult != null &&
+            !feederResult.cableAdequate ->
+            FaultColor
+
+        else ->
+            CableColor
+    }
+
+drawPath(
+    path = path,
+    color = lineColor,
+    style =
+        Stroke(
+            width =
+                when {
+                    selected -> 7f
+                    isBusbar -> 9f
+                    else -> 4f
+                }
+        )
+)
+
+if (isBusbar) {
+    drawBusbarConnectionLabel(
+        textMeasurer = textMeasurer,
+        x = middleX,
+        y = min(start.y, end.y) - 28f,
+        connection = connection
+    )
+} else {
+    drawCableConnectionLabel(
+        textMeasurer = textMeasurer,
+        x = middleX,
+        y = min(start.y, end.y) - 30f,
+        connection = connection,
+        feederResult = feederResult
+    )
+}
+
+}
+
+private fun DrawScope.drawBusbarConnectionLabel(
+textMeasurer: TextMeasurer,
+x: Float,
+y: Float,
+connection: SldConnection
+) {
+val text =
+buildString {
+append("BUSBAR")
+
+        if (connection.busbarRatedCurrentA > 0.0) {
+            append(
+                "  ${fmt(connection.busbarRatedCurrentA)} A"
+            )
+        }
+
+        if (connection.busbarShortCircuitKA > 0.0) {
+            append(
+                "  ${fmt(connection.busbarShortCircuitKA)} kA"
+            )
+        }
+    }
+
+drawText(
+    textMeasurer = textMeasurer,
+    text = text,
+    topLeft = Offset(x - 65f, y),
+    style =
+        TextStyle(
+            color = BusbarColor,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+)
+
+}
+
+private fun DrawScope.drawCableConnectionLabel(
+textMeasurer: TextMeasurer,
+x: Float,
+y: Float,
+connection: SldConnection,
+feederResult: SldUpstreamEngineering.FeederResult?
+) {
+val cableText =
+buildString {
+append("CABLE")
+
+        if (connection.cableSizeMm2 > 0.0) {
+            append(
+                "  ${fmt(connection.cableSizeMm2)} mm²"
+            )
+
+            if (connection.parallelRuns > 1) {
+                append(
+                    " × ${connection.parallelRuns}"
+                )
+            }
+        }
+
+        if (connection.lengthMeters > 0.0) {
+            append(
+                "  ${fmt(connection.lengthMeters)} m"
+            )
+        }
+    }
+
+drawText(
+    textMeasurer = textMeasurer,
+    text = cableText,
+    topLeft = Offset(x - 75f, y),
+    style =
+        TextStyle(
+            color =
+                if (
+                    feederResult != null &&
+                    !feederResult.cableAdequate
+                ) {
+                    FaultColor
+                } else {
+                    TextSecondary
+                },
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+)
+
+if (feederResult != null) {
+    val engineeringText =
+        "Ib=${fmt(feederResult.currentA)} A   " +
+            "S=${fmt(feederResult.kva)} kVA   " +
+            "ΔV=${fmt(feederResult.voltageDropPercent)}%"
+
+    drawText(
+        textMeasurer = textMeasurer,
+        text = engineeringText,
+        topLeft = Offset(x - 105f, y + 16f),
+        style =
+            TextStyle(
+                color =
+                    when {
+                        !feederResult.cableAdequate ->
+                            FaultColor
+
+                        feederResult.voltageDropPercent > 3.0 ->
+                            WarningColor
+
+                        else ->
+                            EngineeringColor
+                    },
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+    )
+}
+
+}
+
+fun DrawScope.drawNode(
+node: SldNode,
+selected: Boolean,
+connectionStart: Boolean,
+textMeasurer: TextMeasurer,
+engineeringResult:
+SldUpstreamEngineering.NodeResult? = null
+) {
+val centerX =
+node.x + NODE_WIDTH / 2f
+
+val centerY =
+    node.y + 48f
+
+if (selected || connectionStart) {
+    drawRoundRect(
+        color =
+            if (connectionStart) {
+                StartColor
+            } else {
+                SelectedColor
+            },
+        topLeft =
+            Offset(
+                node.x - 6f,
+                node.y - 6f
+            ),
+        size =
+            Size(
+                NODE_WIDTH + 12f,
+                NODE_HEIGHT + 12f
+            ),
+        cornerRadius =
+            androidx.compose.ui.geometry.CornerRadius(
+                10f,
+                10f
+            ),
+        style =
+            Stroke(
+                width = 4f
+            )
+    )
+}
+
+drawRoundRect(
+    color = NodeFill,
+    topLeft =
+        Offset(
+            node.x,
+            node.y
+        ),
+    size =
+        Size(
+            NODE_WIDTH,
+            NODE_HEIGHT
+        ),
+    cornerRadius =
+        androidx.compose.ui.geometry.CornerRadius(
+            8f,
+            8f
+        )
+)
+
+drawRoundRect(
+    color = NodeBorder,
+    topLeft =
+        Offset(
+            node.x,
+            node.y
+        ),
+    size =
+        Size(
+            NODE_WIDTH,
+            NODE_HEIGHT
+        ),
+    cornerRadius =
+        androidx.compose.ui.geometry.CornerRadius(
+            8f,
+            8f
+        ),
+    style =
+        Stroke(
+            width = 2.5f
+        )
+)
+
+when (node.type) {
+    SldNodeType.SOURCE ->
+        drawSourceSymbol(
+            centerX,
+            centerY
+        )
+
+    SldNodeType.TRANSFORMER ->
+        drawTransformerSymbol(
+            centerX,
+            centerY
+        )
+
+    SldNodeType.GENERATOR ->
+        drawGeneratorSymbol(
+            centerX,
+            centerY
+        )
+
+    SldNodeType.BUS ->
+        drawBusbarSymbol(
+            centerX,
+            centerY
+        )
+
+    SldNodeType.PANEL ->
+        drawPanelSymbol(
+            centerX,
+            centerY
+        )
+
+    SldNodeType.BREAKER ->
+        drawBreakerSymbol(
+            centerX,
+            centerY
+        )
+
+    SldNodeType.LOAD ->
+        drawLoadSymbol(
+            centerX,
+            centerY
+        )
+}
+
+drawCenteredText(
+    textMeasurer = textMeasurer,
+    text = node.name,
+    centerX = centerX,
+    topY = node.y + 70f,
+    style =
+        TextStyle(
+            color = TextPrimary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+        )
+)
+
+val electrical =
+    buildString {
+        append(
+            "V ${fmt(node.voltage)} V"
+        )
+
+        if (node.loadKw > 0.0) {
+            append(
+                "   P ${fmt(node.loadKw)} kW"
+            )
+        }
+
+        if (node.ratedKva > 0.0) {
+            append(
+                "   S ${fmt(node.ratedKva)} kVA"
+            )
+        }
+    }
+
+drawCenteredText(
+    textMeasurer = textMeasurer,
+    text = electrical,
+    centerX = centerX,
+    topY = node.y + 90f,
+    style =
+        TextStyle(
+            color = TextSecondary,
+            fontSize = 9.sp
+        )
+)
+
+if (engineeringResult != null) {
+    val engineering =
+        "Ib ${fmt(engineeringResult.currentA)} A"
+
+    drawCenteredText(
+        textMeasurer = textMeasurer,
+        text = engineering,
+        centerX = centerX,
+        topY = node.y + 106f,
+        style =
+            TextStyle(
+                color =
+                    when {
+                        engineeringResult.loadingPercent > 100.0 ->
+                            FaultColor
+
+                        engineeringResult.voltageDropPercent > 3.0 ->
+                            WarningColor
+
+                        else ->
+                            EngineeringColor
+                    },
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+    )
+}
+
+}
+
+private fun DrawScope.drawCenteredText(
+textMeasurer: TextMeasurer,
+text: String,
+centerX: Float,
+topY: Float,
+style: TextStyle
+) {
+val result =
+textMeasurer.measure(
+text = text,
+style = style
+)
+
+drawText(
+    textMeasurer = textMeasurer,
+    text = text,
+    topLeft =
+        Offset(
+            centerX - result.size.width / 2f,
+            topY
+        ),
+    style = style
+)
+
+}
+
+private fun DrawScope.drawSourceSymbol(
+x: Float,
+y: Float
+) {
+drawLine(
+color = NodeBorder,
+start = Offset(x, y - 32f),
+end = Offset(x, y - 18f),
+strokeWidth = 3f
+)
+
+drawCircle(
+    color = Color.White,
+    radius = 19f,
+    center = Offset(x, y),
+    style = Stroke(width = 3f)
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 10f, y + 10f),
+    end = Offset(x + 10f, y - 10f),
+    strokeWidth = 2.5f
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 10f, y - 10f),
+    end = Offset(x + 10f, y + 10f),
+    strokeWidth = 2.5f
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x, y + 19f),
+    end = Offset(x, y + 32f),
+    strokeWidth = 3f
+)
+
+}
+
+private fun DrawScope.drawTransformerSymbol(
+x: Float,
+y: Float
+) {
+drawLine(
+color = NodeBorder,
+start = Offset(x, y - 34f),
+end = Offset(x, y - 25f),
+strokeWidth = 3f
+)
+
+drawArc(
+    color = NodeBorder,
+    startAngle = -90f,
+    sweepAngle = 180f,
+    useCenter = false,
+    topLeft = Offset(x - 25f, y - 25f),
+    size = Size(50f, 50f),
+    style = Stroke(width = 3f)
+)
+
+drawArc(
+    color = NodeBorder,
+    startAngle = 90f,
+    sweepAngle = 180f,
+    useCenter = false,
+    topLeft = Offset(x + 1f, y - 25f),
+    size = Size(50f, 50f),
+    style = Stroke(width = 3f)
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x, y + 25f),
+    end = Offset(x, y + 34f),
+    strokeWidth = 3f
+)
+
+}
+
+private fun DrawScope.drawGeneratorSymbol(
+x: Float,
+y: Float
+) {
+drawLine(
+color = NodeBorder,
+start = Offset(x, y - 34f),
+end = Offset(x, y - 22f),
+strokeWidth = 3f
+)
+
+drawCircle(
+    color = Color.White,
+    radius = 22f,
+    center = Offset(x, y),
+    style = Stroke(width = 3f)
+)
+
+drawArc(
+    color = NodeBorder,
+    startAngle = 25f,
+    sweepAngle = 130f,
+    useCenter = false,
+    topLeft = Offset(x - 13f, y - 13f),
+    size = Size(26f, 26f),
+    style = Stroke(width = 2.5f)
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x, y + 22f),
+    end = Offset(x, y + 34f),
+    strokeWidth = 3f
+)
+
+}
+
+private fun DrawScope.drawBusbarSymbol(
+x: Float,
+y: Float
+) {
+drawLine(
+color = BusbarColor,
+start = Offset(x - 58f, y),
+end = Offset(x + 58f, y),
+strokeWidth = 8f
+)
+
+drawLine(
+    color = BusbarColor,
+    start = Offset(x, y - 30f),
+    end = Offset(x, y),
+    strokeWidth = 4f
+)
+
+drawLine(
+    color = BusbarColor,
+    start = Offset(x, y),
+    end = Offset(x, y + 30f),
+    strokeWidth = 4f
+)
+
+}
+
+private fun DrawScope.drawPanelSymbol(
+x: Float,
+y: Float
+) {
+drawRect(
+color = Color.White,
+topLeft = Offset(x - 34f, y - 25f),
+size = Size(68f, 50f)
+)
+
+drawRect(
+    color = NodeBorder,
+    topLeft = Offset(x - 34f, y - 25f),
+    size = Size(68f, 50f),
+    style = Stroke(width = 3f)
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 22f, y - 10f),
+    end = Offset(x + 22f, y - 10f),
+    strokeWidth = 2f
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 22f, y),
+    end = Offset(x + 22f, y),
+    strokeWidth = 2f
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 22f, y + 10f),
+    end = Offset(x + 22f, y + 10f),
+    strokeWidth = 2f
+)
+
+}
+
+private fun DrawScope.drawBreakerSymbol(
+x: Float,
+y: Float
+) {
+drawLine(
+color = NodeBorder,
+start = Offset(x, y - 32f),
+end = Offset(x, y - 18f),
+strokeWidth = 3f
+)
+
+drawRect(
+    color = Color.White,
+    topLeft = Offset(x - 22f, y - 18f),
+    size = Size(44f, 36f)
+)
+
+drawRect(
+    color = NodeBorder,
+    topLeft = Offset(x - 22f, y - 18f),
+    size = Size(44f, 36f),
+    style = Stroke(width = 3f)
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 12f, y + 9f),
+    end = Offset(x + 12f, y - 9f),
+    strokeWidth = 3f
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x, y + 18f),
+    end = Offset(x, y + 32f),
+    strokeWidth = 3f
+)
+
+}
+
+private fun DrawScope.drawLoadSymbol(
+x: Float,
+y: Float
+) {
+drawLine(
+color = NodeBorder,
+start = Offset(x, y - 32f),
+end = Offset(x, y - 22f),
+strokeWidth = 3f
+)
+
+drawCircle(
+    color = Color.White,
+    radius = 21f,
+    center = Offset(x, y),
+    style = Stroke(width = 3f)
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 12f, y + 12f),
+    end = Offset(x + 12f, y - 12f),
+    strokeWidth = 3f
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x - 6f, y + 18f),
+    end = Offset(x + 18f, y - 6f),
+    strokeWidth = 2f
+)
+
+drawLine(
+    color = NodeBorder,
+    start = Offset(x, y + 21f),
+    end = Offset(x, y + 32f),
+    strokeWidth = 3f
+)
+
+}
+
+private fun equipmentTypeLabel(
+type: SldNodeType
+): String =
+when (type) {
+SldNodeType.SOURCE -> "UTILITY SOURCE"
+SldNodeType.TRANSFORMER -> "TRANSFORMER"
+SldNodeType.GENERATOR -> "GENERATOR"
+SldNodeType.BUS -> "BUSBAR"
+SldNodeType.PANEL -> "PANELBOARD"
+SldNodeType.BREAKER -> "CIRCUIT BREAKER"
+SldNodeType.LOAD -> "LOAD / MOTOR"
+}
+
+fun findNode(
+point: Offset,
+nodes: List<SldNode>
+): SldNode? =
+nodes.lastOrNull { node ->
+point.x >= node.x &&
+point.x <= node.x + NODE_WIDTH &&
+point.y >= node.y &&
+point.y <= node.y + NODE_HEIGHT
+}
+
+fun findConnection(
+point: Offset,
+nodes: List<SldNode>,
+connections: List<SldConnection>
+): SldConnection? {
+var bestConnection: SldConnection? = null
+var bestDistance = Float.MAX_VALUE
+
+connections.forEach { connection ->
     val from =
         nodes.firstOrNull {
             it.id == connection.fromNodeId
-        } ?: return
+        } ?: return@forEach
 
     val to =
         nodes.firstOrNull {
             it.id == connection.toNodeId
-        } ?: return
+        } ?: return@forEach
 
     val start =
         Offset(
@@ -66,1322 +850,112 @@ fun DrawScope.drawConnection(
     val middleX =
         (start.x + end.x) / 2f
 
-    val path =
-        Path().apply {
-
-            moveTo(
-                start.x,
-                start.y
-            )
-
-            lineTo(
-                middleX,
-                start.y
-            )
-
-            lineTo(
-                middleX,
-                end.y
-            )
-
-            lineTo(
-                end.x,
-                end.y
-            )
-        }
-
-    val connectionColor =
-        when {
-
-            selected ->
-                ConnectionSelectedColor
-
-            feederResult != null &&
-                !feederResult.cableAdequate ->
-                FaultColor
-
-            else ->
-                ConnectionColor
-        }
-
-    drawPath(
-        path = path,
-        color = connectionColor,
-        style =
-            Stroke(
-                width =
-                    when {
-
-                        selected ->
-                            7f
-
-                        feederResult != null &&
-                            !feederResult.cableAdequate ->
-                            6f
-
-                        else ->
-                            4f
-                    }
-            )
-    )
-
-    val cableLabel =
-        buildString {
-
-            if (
-                connection.cableSizeMm2 >
-                    0.0
-            ) {
-
-                append(
-                    fmt(
-                        connection.cableSizeMm2
-                    )
-                )
-
-                append(
-                    " mm²"
-                )
-
-                if (
-                    connection.parallelRuns >
-                        1
-                ) {
-
-                    append(
-                        " × "
-                    )
-
-                    append(
-                        connection.parallelRuns
-                    )
-                }
-            }
-
-            if (
-                connection.lengthMeters >
-                    0.0
-            ) {
-
-                if (isNotEmpty()) {
-                    append(" | ")
-                }
-
-                append(
-                    fmt(
-                        connection.lengthMeters
-                    )
-                )
-
-                append(
-                    " m"
-                )
-            }
-
-            if (
-                feederResult !=
-                    null
-            ) {
-
-                if (isNotEmpty()) {
-                    append(" | ")
-                }
-
-                append(
-                    "Ib="
-                )
-
-                append(
-                    fmt(
-                        feederResult.currentA
-                    )
-                )
-
-                append(
-                    " A"
-                )
-
-            } else if (
-                connection.currentCapacityA >
-                    0.0
-            ) {
-
-                if (isNotEmpty()) {
-                    append(" | ")
-                }
-
-                append(
-                    fmt(
-                        connection.currentCapacityA
-                    )
-                )
-
-                append(
-                    " A"
-                )
-            }
-        }
-
-    if (
-        cableLabel.isNotBlank()
-    ) {
-
-        drawText(
-            textMeasurer =
-                textMeasurer,
-            text =
-                cableLabel,
-            topLeft =
-                Offset(
-                    middleX - 85f,
-                    min(
-                        start.y,
-                        end.y
-                    ) - 31f
-                ),
-            style =
-                TextStyle(
-                    color =
-                        if (
-                            feederResult != null &&
-                            !feederResult.cableAdequate
-                        ) {
-                            FaultColor
-                        } else {
-                            SecondaryColor
-                        },
-                    fontSize =
-                        10.sp,
-                    fontWeight =
-                        if (
-                            feederResult != null &&
-                            !feederResult.cableAdequate
-                        ) {
-                            FontWeight.Bold
-                        } else {
-                            FontWeight.Normal
-                        }
-                )
-        )
-    }
-
-    if (
-        feederResult !=
-            null
-    ) {
-
-        val engineeringLabel =
-            "S=${fmt(feederResult.kva)} kVA  " +
-                "ΔV=${fmt(feederResult.voltageDropPercent)}%"
-
-        drawText(
-            textMeasurer =
-                textMeasurer,
-            text =
-                engineeringLabel,
-            topLeft =
-                Offset(
-                    middleX - 85f,
-                    min(
-                        start.y,
-                        end.y
-                    ) - 14f
-                ),
-            style =
-                TextStyle(
-                    color =
-                        if (
-                            feederResult.voltageDropPercent >
-                                3.0
-                        ) {
-                            WarningColor
-                        } else {
-                            EngineeringColor
-                        },
-                    fontSize =
-                        9.sp,
-                    fontWeight =
-                        FontWeight.Bold
-                )
-        )
-    }
-}
-
-fun DrawScope.drawNode(
-    node: SldNode,
-    selected: Boolean,
-    connectionStart: Boolean,
-    textMeasurer: TextMeasurer,
-    engineeringResult:
-        SldUpstreamEngineering.NodeResult? = null
-) {
-    val centerX =
-        node.x +
-            NODE_WIDTH / 2f
-
-    val centerY =
-        node.y + 50f
-
-    if (
-        selected ||
-        connectionStart
-    ) {
-
-        drawRect(
-            color =
-                if (
-                    connectionStart
-                ) {
-                    ConnectionSelectedColor
-                } else {
-                    SelectedColor
-                },
-            topLeft =
-                Offset(
-                    node.x - 7f,
-                    node.y - 7f
-                ),
-            size =
-                Size(
-                    NODE_WIDTH + 14f,
-                    NODE_HEIGHT + 14f
-                ),
-            style =
-                Stroke(
-                    width = 4f
-                )
-        )
-    }
-
-    when (node.type) {
-
-        SldNodeType.SOURCE ->
-            drawSourceSymbol(
-                centerX,
-                centerY
-            )
-
-        SldNodeType.TRANSFORMER ->
-            drawTransformerSymbol(
-                centerX,
-                centerY
-            )
-
-        SldNodeType.GENERATOR ->
-            drawGeneratorSymbol(
-                centerX,
-                centerY
-            )
-
-        SldNodeType.BUS ->
-            drawBusbarSymbol(
-                centerX,
-                centerY
-            )
-
-        SldNodeType.PANEL ->
-            drawPanelSymbol(
-                centerX,
-                centerY
-            )
-
-        SldNodeType.BREAKER ->
-            drawBreakerSymbol(
-                centerX,
-                centerY
-            )
-
-        SldNodeType.LOAD ->
-            drawLoadSymbol(
-                centerX,
-                centerY
-            )
-    }
-
-    drawText(
-        textMeasurer =
-            textMeasurer,
-        text =
-            node.name,
-        topLeft =
-            Offset(
-                node.x,
-                node.y + 84f
-            ),
-        style =
-            TextStyle(
-                color =
-                    PrimaryColor,
-                fontSize =
-                    14.sp,
-                fontWeight =
-                    FontWeight.Bold
-            )
-    )
-
-    val basicText =
-        buildString {
-
-            append(
-                "V="
-            )
-
-            append(
-                fmt(
-                    node.voltage
-                )
-            )
-
-            append(
-                " V"
-            )
-
-            if (
-                node.loadKw >
-                    0.0
-            ) {
-
-                append(
-                    "   P="
-                )
-
-                append(
-                    fmt(
-                        node.loadKw
-                    )
-                )
-
-                append(
-                    " kW"
-                )
-            }
-
-            if (
-                node.ratedKva >
-                    0.0
-            ) {
-
-                append(
-                    "   S="
-                )
-
-                append(
-                    fmt(
-                        node.ratedKva
-                    )
-                )
-
-                append(
-                    " kVA"
-                )
-            }
-        }
-
-    drawText(
-        textMeasurer =
-            textMeasurer,
-        text =
-            basicText,
-        topLeft =
-            Offset(
-                node.x,
-                node.y + 103f
-            ),
-        style =
-            TextStyle(
-                color =
-                    SecondaryColor,
-                fontSize =
-                    10.sp
-            )
-    )
-
-    if (
-        engineeringResult !=
-            null
-    ) {
-
-        val engineeringText =
-            "Ib=${fmt(engineeringResult.currentA)} A  " +
-                "S=${fmt(engineeringResult.kva)} kVA"
-
-        drawText(
-            textMeasurer =
-                textMeasurer,
-            text =
-                engineeringText,
-            topLeft =
-                Offset(
-                    node.x,
-                    node.y + 116f
-                ),
-            style =
-                TextStyle(
-                    color =
-                        when {
-
-                            engineeringResult.loadingPercent >
-                                100.0 ->
-                                FaultColor
-
-                            engineeringResult.voltageDropPercent >
-                                3.0 ->
-                                WarningColor
-
-                            else ->
-                                EngineeringColor
-                        },
-                    fontSize =
-                        9.sp,
-                    fontWeight =
-                        FontWeight.Bold
-                )
+    val p1 =
+        Offset(
+            middleX,
+            start.y
         )
 
-        val secondLine =
-            "Pdem=${fmt(engineeringResult.demandKw)} kW"
-
-        drawText(
-            textMeasurer =
-                textMeasurer,
-            text =
-                secondLine,
-            topLeft =
-                Offset(
-                    node.x,
-                    node.y + NODE_HEIGHT + 12f
-                ),
-            style =
-                TextStyle(
-                    color =
-                        SecondaryColor,
-                    fontSize =
-                        9.sp
-                )
+    val p2 =
+        Offset(
+            middleX,
+            end.y
         )
 
-        if (
-            node.ratedKva >
-                0.0
-        ) {
-
-            val loadingText =
-                "Loading=" +
-                    fmt(
-                        engineeringResult.loadingPercent
-                    ) +
-                    "%"
-
-            drawText(
-                textMeasurer =
-                    textMeasurer,
-                text =
-                    loadingText,
-                topLeft =
-                    Offset(
-                        node.x,
-                        node.y + NODE_HEIGHT + 28f
-                    ),
-                style =
-                    TextStyle(
-                        color =
-                            when {
-
-                                engineeringResult.loadingPercent >
-                                    100.0 ->
-                                    FaultColor
-
-                                engineeringResult.loadingPercent >
-                                    80.0 ->
-                                    WarningColor
-
-                                else ->
-                                    SuccessColor
-                            },
-                        fontSize =
-                            9.sp,
-                        fontWeight =
-                            FontWeight.Bold
-                    )
-            )
-        }
-
-        if (
-            engineeringResult.recommendedBreakerA >
-                0.0
-        ) {
-
-            val breakerText =
-                "Breaker≈" +
-                    fmt(
-                        engineeringResult.recommendedBreakerA
-                    ) +
-                    " A"
-
-            drawText(
-                textMeasurer =
-                    textMeasurer,
-                text =
-                    breakerText,
-                topLeft =
-                    Offset(
-                        node.x,
-                        node.y + NODE_HEIGHT + 44f
-                    ),
-                style =
-                    TextStyle(
-                        color =
-                            SecondaryColor,
-                        fontSize =
-                            9.sp
-                    )
-            )
-        }
-
-    } else {
-
-        drawText(
-            textMeasurer =
-                textMeasurer,
-            text =
-                equipmentTypeLabel(
-                    node.type
-                ),
-            topLeft =
-                Offset(
-                    node.x,
-                    node.y + 116f
-                ),
-            style =
-                TextStyle(
-                    color =
-                        SecondaryColor,
-                    fontSize =
-                        9.sp
-                )
-        )
-    }
-}
-
-private fun DrawScope.drawSourceSymbol(
-    x: Float,
-    y: Float
-) {
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 45f
-            ),
-        end =
-            Offset(
-                x,
-                y - 20f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawCircle(
-        color = SymbolBackground,
-        radius = 22f,
-        center =
-            Offset(
-                x,
-                y
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 12f,
-                y + 12f
-            ),
-        end =
-            Offset(
-                x + 12f,
-                y - 12f
-            ),
-        strokeWidth = 3f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 12f,
-                y - 12f
-            ),
-        end =
-            Offset(
-                x + 12f,
-                y + 12f
-            ),
-        strokeWidth = 3f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 22f
-            ),
-        end =
-            Offset(
-                x,
-                y + 45f
-            ),
-        strokeWidth = 4f
-    )
-}
-
-private fun DrawScope.drawTransformerSymbol(
-    x: Float,
-    y: Float
-) {
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 50f
-            ),
-        end =
-            Offset(
-                x,
-                y - 30f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 30f
-            ),
-        end =
-            Offset(
-                x,
-                y + 50f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawArc(
-        color = SymbolColor,
-        startAngle = -90f,
-        sweepAngle = 180f,
-        useCenter = false,
-        topLeft =
-            Offset(
-                x - 28f,
-                y - 28f
-            ),
-        size =
-            Size(
-                56f,
-                56f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
-    )
-
-    drawArc(
-        color = SymbolColor,
-        startAngle = 90f,
-        sweepAngle = 180f,
-        useCenter = false,
-        topLeft =
-            Offset(
-                x + 2f,
-                y - 28f
-            ),
-        size =
-            Size(
-                56f,
-                56f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
-    )
-}
-
-private fun DrawScope.drawGeneratorSymbol(
-    x: Float,
-    y: Float
-) {
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 48f
-            ),
-        end =
-            Offset(
-                x,
-                y - 24f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawCircle(
-        color = SymbolBackground,
-        radius = 25f,
-        center =
-            Offset(
-                x,
-                y
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
-    )
-
-    drawArc(
-        color = SymbolColor,
-        startAngle = 25f,
-        sweepAngle = 130f,
-        useCenter = false,
-        topLeft =
-            Offset(
-                x - 15f,
-                y - 15f
-            ),
-        size =
-            Size(
-                30f,
-                30f
-            ),
-        style =
-            Stroke(
-                width = 3f
-            )
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 25f
-            ),
-        end =
-            Offset(
-                x,
-                y + 48f
-            ),
-        strokeWidth = 4f
-    )
-}
-
-private fun DrawScope.drawBusbarSymbol(
-    x: Float,
-    y: Float
-) {
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 58f,
-                y
-            ),
-        end =
-            Offset(
-                x + 58f,
-                y
-            ),
-        strokeWidth = 8f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 45f
-            ),
-        end =
-            Offset(
-                x,
-                y
-            ),
-        strokeWidth = 4f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y
-            ),
-        end =
-            Offset(
-                x,
-                y + 45f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawCircle(
-        color = SymbolColor,
-        radius = 5f,
-        center =
-            Offset(
-                x,
-                y - 45f
-            )
-    )
-
-    drawCircle(
-        color = SymbolColor,
-        radius = 5f,
-        center =
-            Offset(
-                x,
-                y + 45f
-            )
-    )
-}
-
-private fun DrawScope.drawPanelSymbol(
-    x: Float,
-    y: Float
-) {
-    drawRect(
-        color = SymbolBackground,
-        topLeft =
-            Offset(
-                x - 38f,
-                y - 30f
-            ),
-        size =
-            Size(
-                76f,
-                60f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 30f
-            ),
-        end =
-            Offset(
-                x,
-                y + 30f
-            ),
-        strokeWidth = 2.5f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 38f,
-                y - 10f
-            ),
-        end =
-            Offset(
-                x + 38f,
-                y - 10f
-            ),
-        strokeWidth = 2f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 38f,
-                y + 10f
-            ),
-        end =
-            Offset(
-                x + 38f,
-                y + 10f
-            ),
-        strokeWidth = 2f
-    )
-}
-
-private fun DrawScope.drawBreakerSymbol(
-    x: Float,
-    y: Float
-) {
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 48f
-            ),
-        end =
-            Offset(
-                x,
-                y - 23f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 23f
-            ),
-        end =
-            Offset(
-                x,
-                y + 48f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawRect(
-        color = SymbolBackground,
-        topLeft =
-            Offset(
-                x - 24f,
-                y - 24f
-            ),
-        size =
-            Size(
-                48f,
-                48f
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 14f,
-                y + 12f
-            ),
-        end =
-            Offset(
-                x + 13f,
-                y - 12f
-            ),
-        strokeWidth = 4f
-    )
-}
-
-private fun DrawScope.drawLoadSymbol(
-    x: Float,
-    y: Float
-) {
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y - 48f
-            ),
-        end =
-            Offset(
-                x,
-                y - 23f
-            ),
-        strokeWidth = 4f
-    )
-
-    drawCircle(
-        color = SymbolBackground,
-        radius = 23f,
-        center =
-            Offset(
-                x,
-                y
-            ),
-        style =
-            Stroke(
-                width = 3.5f
-            )
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 14f,
-                y + 14f
-            ),
-        end =
-            Offset(
-                x + 14f,
-                y - 14f
-            ),
-        strokeWidth = 3f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x - 8f,
-                y + 20f
-            ),
-        end =
-            Offset(
-                x + 20f,
-                y - 8f
-            ),
-        strokeWidth = 2f
-    )
-
-    drawLine(
-        color = SymbolColor,
-        start =
-            Offset(
-                x,
-                y + 23f
-            ),
-        end =
-            Offset(
-                x,
-                y + 48f
-            ),
-        strokeWidth = 4f
-    )
-}
-
-private fun equipmentTypeLabel(
-    type: SldNodeType
-): String {
-
-    return when (type) {
-
-        SldNodeType.SOURCE ->
-            "UTILITY SOURCE"
-
-        SldNodeType.TRANSFORMER ->
-            "TRANSFORMER"
-
-        SldNodeType.GENERATOR ->
-            "GENERATOR"
-
-        SldNodeType.BUS ->
-            "BUSBAR"
-
-        SldNodeType.PANEL ->
-            "PANELBOARD"
-
-        SldNodeType.BREAKER ->
-            "CIRCUIT BREAKER"
-
-        SldNodeType.LOAD ->
-            "LOAD / MOTOR"
-    }
-}
-
-fun findNode(
-    point: Offset,
-    nodes: List<SldNode>
-): SldNode? {
-
-    return nodes.lastOrNull { node ->
-
-        point.x >= node.x &&
-            point.x <=
-            node.x + NODE_WIDTH &&
-            point.y >= node.y &&
-            point.y <=
-            node.y + NODE_HEIGHT
-    }
-}
-
-fun findConnection(
-    point: Offset,
-    nodes: List<SldNode>,
-    connections: List<SldConnection>
-): SldConnection? {
-
-    var bestConnection:
-        SldConnection? = null
-
-    var bestDistance =
-        Float.MAX_VALUE
-
-    connections.forEach { connection ->
-
-        val from =
-            nodes.firstOrNull {
-                it.id ==
-                    connection.fromNodeId
-            } ?: return@forEach
-
-        val to =
-            nodes.firstOrNull {
-                it.id ==
-                    connection.toNodeId
-            } ?: return@forEach
-
-        val start =
-            Offset(
-                from.x + NODE_WIDTH,
-                from.y + NODE_HEIGHT / 2f
-            )
-
-        val end =
-            Offset(
-                to.x,
-                to.y + NODE_HEIGHT / 2f
-            )
-
-        val middleX =
-            (start.x + end.x) / 2f
-
-        val p1 =
-            Offset(
-                middleX,
-                start.y
-            )
-
-        val p2 =
-            Offset(
-                middleX,
-                end.y
-            )
-
-        val d1 =
+    val distance =
+        min(
             segmentDistance(
                 point,
                 start,
                 p1
-            )
-
-        val d2 =
-            segmentDistance(
-                point,
-                p1,
-                p2
-            )
-
-        val d3 =
-            segmentDistance(
-                point,
-                p2,
-                end
-            )
-
-        val distance =
+            ),
             min(
-                d1,
-                min(
-                    d2,
-                    d3
+                segmentDistance(
+                    point,
+                    p1,
+                    p2
+                ),
+                segmentDistance(
+                    point,
+                    p2,
+                    end
                 )
             )
+        )
 
-        if (
-            distance <
-            bestDistance
-        ) {
-
-            bestDistance =
-                distance
-
-            bestConnection =
-                connection
-        }
-    }
-
-    return if (
-        bestDistance < 40f
-    ) {
-        bestConnection
-    } else {
-        null
+    if (distance < bestDistance) {
+        bestDistance = distance
+        bestConnection = connection
     }
 }
 
+return if (bestDistance < 35f) {
+    bestConnection
+} else {
+    null
+}
+
+}
+
 private fun segmentDistance(
-    point: Offset,
-    start: Offset,
-    end: Offset
+point: Offset,
+start: Offset,
+end: Offset
 ): Float {
+val dx =
+end.x - start.x
 
-    val dx =
-        end.x - start.x
+val dy =
+    end.y - start.y
 
-    val dy =
-        end.y - start.y
-
-    if (
-        dx == 0f &&
-        dy == 0f
-    ) {
-
-        return sqrt(
-            (point.x - start.x) *
-                (point.x - start.x) +
-                (point.y - start.y) *
-                (point.y - start.y)
-        )
-    }
-
-    val t =
-        (
-            (point.x - start.x) *
-                dx +
-                (point.y - start.y) *
-                dy
-            ) /
-            (
-                dx * dx +
-                    dy * dy
-            )
-
-    val clamped =
-        max(
-            0f,
-            min(
-                1f,
-                t
-            )
-        )
-
-    val closestX =
-        start.x +
-            clamped * dx
-
-    val closestY =
-        start.y +
-            clamped * dy
-
+if (dx == 0f && dy == 0f) {
     return sqrt(
-        (point.x - closestX) *
-            (point.x - closestX) +
-            (point.y - closestY) *
-            (point.y - closestY)
+        (point.x - start.x) *
+            (point.x - start.x) +
+            (point.y - start.y) *
+            (point.y - start.y)
     )
+}
+
+val t =
+    (
+        (point.x - start.x) * dx +
+            (point.y - start.y) * dy
+        ) /
+        (
+            dx * dx +
+                dy * dy
+        )
+
+val clamped =
+    max(
+        0f,
+        min(
+            1f,
+            t
+        )
+    )
+
+val closestX =
+    start.x + clamped * dx
+
+val closestY =
+    start.y + clamped * dy
+
+return sqrt(
+    (point.x - closestX) *
+        (point.x - closestX) +
+        (point.y - closestY) *
+        (point.y - closestY)
+)
+
+}
+
+private fun fmt(
+value: Double
+): String =
+if (value == 0.0) {
+"0"
+} else {
+"%.2f".format(value)
 }
