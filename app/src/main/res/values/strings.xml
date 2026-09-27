@@ -6,4 +6,20 @@
         Electrical Calculations Pro
     </string>
 
+    <string name="app_owner">
+        المهندس الاستشاري عبدالرءوف الغيطي
+    </string>
+
+    <string name="copyright_notice">
+        © 2026 جميع الحقوق محفوظة للمهندس الاستشاري عبدالرءوف الغيطي
+    </string>
+
+    <string name="intellectual_property_notice">
+        جميع الحقوق والملكية الفكرية محفوظة للمهندس الاستشاري عبدالرءوف الغيطي
+    </string>
+
+    <string name="app_version_title">
+        Electrical Calculations Pro
+    </string>
+
 </resources>
