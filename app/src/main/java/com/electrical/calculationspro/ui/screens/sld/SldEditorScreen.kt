@@ -79,6 +79,10 @@ fun SldEditorScreen(
                 )
     ) {
 
+        // =========================================================
+        // SLD HEADER
+        // =========================================================
+
         Row(
             modifier =
                 Modifier
@@ -122,9 +126,9 @@ fun SldEditorScreen(
                 Text(
                     text =
                         if (arabic) {
-                            "مصمم الشبكة الكهربائية"
+                            "المخطط الأحادي"
                         } else {
-                            "Electrical Network Designer"
+                            "Single Line Diagram"
                         },
                     color =
                         Color(0xFF172027),
@@ -134,9 +138,9 @@ fun SldEditorScreen(
                 Text(
                     text =
                         if (arabic) {
-                            "المخطط الأحادي • التصميم الهندسي"
+                            "مصمم الشبكة الكهربائية • التصميم الهندسي"
                         } else {
-                            "Single Line Diagram • Engineering Design"
+                            "Electrical Network Designer • Engineering Design"
                         },
                     color =
                         Color(0xFF687780),
@@ -144,25 +148,42 @@ fun SldEditorScreen(
                 )
             }
 
-            IconButton(
+            // -----------------------------------------------------
+            // VISIBLE CALCULATE BUTTON
+            // -----------------------------------------------------
+
+            Button(
                 onClick = {
                     actions.generateCompleteSld()
                 }
             ) {
+
                 Icon(
                     imageVector =
                         Icons.Outlined.PlayArrow,
                     contentDescription =
+                        null
+                )
+
+                Spacer(
+                    modifier =
+                        Modifier.width(6.dp)
+                )
+
+                Text(
+                    text =
                         if (arabic) {
-                            "حساب"
+                            "حساب التصميم"
                         } else {
-                            "Calculate"
-                        },
-                    tint =
-                        Color(0xFF1565C0)
+                            "Calculate Design"
+                        }
                 )
             }
         }
+
+        // =========================================================
+        // TOOLBAR
+        // =========================================================
 
         Row(
             modifier =
@@ -271,15 +292,19 @@ fun SldEditorScreen(
                     Icons.Outlined.Settings,
                 text =
                     if (arabic) {
-                        "SLD كامل"
+                        "الدراسة الكاملة"
                     } else {
-                        "Complete SLD"
+                        "Complete Study"
                     },
                 onClick = {
                     actions.generateCompleteSld()
                 }
             )
         }
+
+        // =========================================================
+        // STATUS / SELECTION CARD
+        // =========================================================
 
         Card(
             modifier =
@@ -406,20 +431,38 @@ fun SldEditorScreen(
             }
         }
 
+        // =========================================================
+        // SLD CANVAS
+        //
+        // IMPORTANT:
+        // weight(1f) keeps the SLD in its own available screen
+        // area and prevents it from consuming the whole Column.
+        // =========================================================
+
         Box(
             modifier =
                 Modifier
-                    .fillMaxSize()
+                    .weight(1f)
+                    .fillMaxWidth()
                     .padding(6.dp)
         ) {
 
             SldCanvas(
-                nodes = state.nodes,
-                connections = state.connections,
+                modifier =
+                    Modifier.fillMaxSize(),
+
+                nodes =
+                    state.nodes,
+
+                connections =
+                    state.connections,
+
                 selectedNodeId =
                     state.selectedNodeId,
+
                 selectedConnectionId =
                     state.selectedConnectionId,
+
                 connectionStartId =
                     state.connectionStartId,
 
@@ -428,8 +471,11 @@ fun SldEditorScreen(
 
                 onSelectNode = { id ->
 
-                    state.selectedNodeId = id
-                    state.selectedConnectionId = null
+                    state.selectedNodeId =
+                        id
+
+                    state.selectedConnectionId =
+                        null
                 },
 
                 onMoveNode = {
@@ -467,9 +513,14 @@ fun SldEditorScreen(
 
                 onSelectConnection = { id ->
 
-                    state.selectedConnectionId = id
-                    state.selectedNodeId = null
-                    state.connectionStartId = null
+                    state.selectedConnectionId =
+                        id
+
+                    state.selectedNodeId =
+                        null
+
+                    state.connectionStartId =
+                        null
                 },
 
                 onEditNode = { node ->
@@ -489,10 +540,15 @@ fun SldEditorScreen(
         }
     }
 
+    // =============================================================
+    // NODE DIALOG
+    // =============================================================
+
     if (state.showNodeDialog) {
 
         SldNodeEditorDialog(
-            arabic = arabic,
+            arabic =
+                arabic,
 
             editing =
                 state.editingNodeId != null,
@@ -574,10 +630,15 @@ fun SldEditorScreen(
         )
     }
 
+    // =============================================================
+    // CONNECTION DIALOG
+    // =============================================================
+
     if (state.showConnectionDialog) {
 
         SldConnectionEditorDialog(
-            arabic = arabic,
+            arabic =
+                arabic,
 
             connectionType =
                 state.connectionType,
@@ -682,6 +743,10 @@ fun SldEditorScreen(
         )
     }
 
+    // =============================================================
+    // REPORT
+    // =============================================================
+
     if (state.showReport) {
 
         SldReportDialog(
@@ -697,6 +762,10 @@ fun SldEditorScreen(
         )
     }
 }
+
+// =================================================================
+// ADD COMPONENT MENU
+// =================================================================
 
 @Composable
 private fun AddComponentMenu(
@@ -719,7 +788,8 @@ private fun AddComponentMenu(
             Icon(
                 imageVector =
                     Icons.Outlined.Add,
-                contentDescription = null
+                contentDescription =
+                    null
             )
 
             Spacer(
@@ -738,7 +808,9 @@ private fun AddComponentMenu(
         }
 
         DropdownMenu(
-            expanded = expanded,
+            expanded =
+                expanded,
+
             onDismissRequest = {
                 expanded = false
             }
@@ -756,16 +828,25 @@ private fun AddComponentMenu(
 
                 DropdownMenuItem(
                     text = {
+
                         Text(
                             typeLabel(
-                                type = type,
-                                arabic = arabic
+                                type =
+                                    type,
+                                arabic =
+                                    arabic
                             )
                         )
                     },
+
                     onClick = {
-                        expanded = false
-                        onType(type)
+
+                        expanded =
+                            false
+
+                        onType(
+                            type
+                        )
                     }
                 )
             }
@@ -773,11 +854,17 @@ private fun AddComponentMenu(
     }
 }
 
+// =================================================================
+// TOOL BUTTON
+// =================================================================
+
 @Composable
 private fun ToolButton(
     icon:
         androidx.compose.ui.graphics.vector.ImageVector,
+
     text: String,
+
     onClick: () -> Unit
 ) {
 
@@ -786,8 +873,11 @@ private fun ToolButton(
     ) {
 
         Icon(
-            imageVector = icon,
-            contentDescription = null
+            imageVector =
+                icon,
+
+            contentDescription =
+                null
         )
 
         Spacer(
@@ -795,9 +885,15 @@ private fun ToolButton(
                 Modifier.width(5.dp)
         )
 
-        Text(text)
+        Text(
+            text
+        )
     }
 }
+
+// =================================================================
+// NODE LABEL
+// =================================================================
 
 private fun typeLabel(
     type: SldNodeType,
