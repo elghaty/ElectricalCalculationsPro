@@ -50,7 +50,6 @@ fun SldEditorScreen(
     language: AppLanguage,
     onBack: (() -> Unit)? = null
 ) {
-
     val state =
         remember {
             SldEditorState()
@@ -95,15 +94,20 @@ fun SldEditorScreen(
                 Alignment.CenterVertically
         ) {
 
-            onBack?.let {
+            onBack?.let { back ->
 
                 IconButton(
-                    onClick = it
+                    onClick = back
                 ) {
                     Icon(
                         imageVector =
                             Icons.Outlined.ArrowBack,
-                        contentDescription = null,
+                        contentDescription =
+                            if (arabic) {
+                                "رجوع"
+                            } else {
+                                "Back"
+                            },
                         tint =
                             Color(0xFF263238)
                     )
@@ -183,7 +187,8 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon = Icons.Outlined.AutoFixHigh,
+                icon =
+                    Icons.Outlined.AutoFixHigh,
                 text =
                     if (arabic) {
                         "ترتيب تلقائي"
@@ -196,10 +201,17 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon = Icons.Outlined.Link,
+                icon =
+                    Icons.Outlined.Link,
                 text =
-                    if (state.connectionStartId == null) {
-                        if (arabic) "توصيل" else "Connect"
+                    if (
+                        state.connectionStartId == null
+                    ) {
+                        if (arabic) {
+                            "توصيل"
+                        } else {
+                            "Connect"
+                        }
                     } else {
                         if (arabic) {
                             "اختر الطرف الآخر"
@@ -213,36 +225,56 @@ fun SldEditorScreen(
             )
 
             ToolButton(
-                icon = Icons.Outlined.Delete,
+                icon =
+                    Icons.Outlined.Delete,
                 text =
-                    if (arabic) "حذف" else "Delete",
+                    if (arabic) {
+                        "حذف"
+                    } else {
+                        "Delete"
+                    },
                 onClick = {
                     actions.deleteSelected()
                 }
             )
 
             ToolButton(
-                icon = Icons.Outlined.Calculate,
+                icon =
+                    Icons.Outlined.Calculate,
                 text =
-                    if (arabic) "القصر" else "Short Circuit",
+                    if (arabic) {
+                        "القصر"
+                    } else {
+                        "Short Circuit"
+                    },
                 onClick = {
                     actions.runShortCircuit()
                 }
             )
 
             ToolButton(
-                icon = Icons.Outlined.TableView,
+                icon =
+                    Icons.Outlined.TableView,
                 text =
-                    if (arabic) "جدول اللوحة" else "Panel Schedule",
+                    if (arabic) {
+                        "جدول اللوحة"
+                    } else {
+                        "Panel Schedule"
+                    },
                 onClick = {
                     actions.runPanelSchedule()
                 }
             )
 
             ToolButton(
-                icon = Icons.Outlined.Settings,
+                icon =
+                    Icons.Outlined.Settings,
                 text =
-                    if (arabic) "SLD كامل" else "Complete SLD",
+                    if (arabic) {
+                        "SLD كامل"
+                    } else {
+                        "Complete SLD"
+                    },
                 onClick = {
                     actions.generateCompleteSld()
                 }
@@ -259,7 +291,8 @@ fun SldEditorScreen(
                     ),
             colors =
                 CardDefaults.cardColors(
-                    containerColor = Color.White
+                    containerColor =
+                        Color.White
                 )
         ) {
 
@@ -336,21 +369,27 @@ fun SldEditorScreen(
                     )
                 }
 
-                if (state.selectedNodeId != null) {
+                if (
+                    state.selectedNodeId != null
+                ) {
 
                     OutlinedButton(
                         onClick = {
 
-                            state.selectedNodeId?.let { id ->
+                            state.selectedNodeId
+                                ?.let { id ->
 
-                                state.nodes
-                                    .firstOrNull {
-                                        it.id == id
-                                    }
-                                    ?.let {
-                                        actions.editNode(it)
-                                    }
-                            }
+                                    state.nodes
+                                        .firstOrNull {
+                                            it.id == id
+                                        }
+                                        ?.let { node ->
+
+                                            actions.editNode(
+                                                node
+                                            )
+                                        }
+                                }
                         }
                     ) {
 
@@ -384,13 +423,19 @@ fun SldEditorScreen(
                 connectionStartId =
                     state.connectionStartId,
 
+                engineering =
+                    state.engineeringPackage,
+
                 onSelectNode = { id ->
 
                     state.selectedNodeId = id
                     state.selectedConnectionId = null
                 },
 
-                onMoveNode = { id, dx, dy ->
+                onMoveNode = {
+                        id,
+                        dx,
+                        dy ->
 
                     state.nodes =
                         state.nodes.map { node ->
@@ -414,7 +459,9 @@ fun SldEditorScreen(
                                 node
                             }
                         }
+                },
 
+                onMoveNodeEnd = {
                     actions.saveProjectNetwork()
                 },
 
@@ -426,11 +473,17 @@ fun SldEditorScreen(
                 },
 
                 onEditNode = { node ->
-                    actions.editNode(node)
+
+                    actions.editNode(
+                        node
+                    )
                 },
 
                 onEditConnection = { connection ->
-                    actions.editConnection(connection)
+
+                    actions.editConnection(
+                        connection
+                    )
                 }
             )
         }
@@ -440,49 +493,80 @@ fun SldEditorScreen(
 
         SldNodeEditorDialog(
             arabic = arabic,
+
             editing =
                 state.editingNodeId != null,
-            type = state.nodeType,
-            name = state.name,
-            voltage = state.voltage,
-            loadKw = state.loadKw,
-            pf = state.pf,
-            demand = state.demand,
-            kva = state.kva,
-            transformerZ = state.transformerZ,
-            generatorXd = state.generatorXd,
-            sourceMva = state.sourceMva,
+
+            type =
+                state.nodeType,
+
+            name =
+                state.name,
+
+            voltage =
+                state.voltage,
+
+            loadKw =
+                state.loadKw,
+
+            pf =
+                state.pf,
+
+            demand =
+                state.demand,
+
+            kva =
+                state.kva,
+
+            transformerZ =
+                state.transformerZ,
+
+            generatorXd =
+                state.generatorXd,
+
+            sourceMva =
+                state.sourceMva,
 
             onNameChange = {
                 state.name = it
             },
+
             onVoltageChange = {
                 state.voltage = it
             },
+
             onLoadKwChange = {
                 state.loadKw = it
             },
+
             onPfChange = {
                 state.pf = it
             },
+
             onDemandChange = {
                 state.demand = it
             },
+
             onKvaChange = {
                 state.kva = it
             },
+
             onTransformerZChange = {
                 state.transformerZ = it
             },
+
             onGeneratorXdChange = {
                 state.generatorXd = it
             },
+
             onSourceMvaChange = {
                 state.sourceMva = it
             },
+
             onSave = {
                 actions.saveNode()
             },
+
             onCancel = {
                 state.showNodeDialog = false
                 state.editingNodeId = null
@@ -494,34 +578,102 @@ fun SldEditorScreen(
 
         SldConnectionEditorDialog(
             arabic = arabic,
-            length = state.length,
-            resistance = state.resistance,
-            reactance = state.reactance,
-            cableSize = state.cableSize,
-            parallelRuns = state.parallelRuns,
-            capacity = state.capacity,
+
+            connectionType =
+                state.connectionType,
+
+            conductorMaterial =
+                state.conductorMaterial,
+
+            insulationType =
+                state.insulationType,
+
+            installationMethodCode =
+                state.installationMethodCode,
+
+            busbarMaterial =
+                state.busbarMaterial,
+
+            busbarRatedCurrent =
+                state.busbarRatedCurrent,
+
+            busbarShortCircuit =
+                state.busbarShortCircuit,
+
+            length =
+                state.length,
+
+            resistance =
+                state.resistance,
+
+            reactance =
+                state.reactance,
+
+            cableSize =
+                state.cableSize,
+
+            parallelRuns =
+                state.parallelRuns,
+
+            capacity =
+                state.capacity,
+
+            onConnectionTypeChange = {
+                state.connectionType = it
+            },
+
+            onConductorMaterialChange = {
+                state.conductorMaterial = it
+            },
+
+            onInsulationTypeChange = {
+                state.insulationType = it
+            },
+
+            onInstallationMethodChange = {
+                state.installationMethodCode = it
+            },
+
+            onBusbarMaterialChange = {
+                state.busbarMaterial = it
+            },
+
+            onBusbarRatedCurrentChange = {
+                state.busbarRatedCurrent = it
+            },
+
+            onBusbarShortCircuitChange = {
+                state.busbarShortCircuit = it
+            },
 
             onLengthChange = {
                 state.length = it
             },
+
             onResistanceChange = {
                 state.resistance = it
             },
+
             onReactanceChange = {
                 state.reactance = it
             },
+
             onCableSizeChange = {
                 state.cableSize = it
             },
+
             onParallelRunsChange = {
                 state.parallelRuns = it
             },
+
             onCapacityChange = {
                 state.capacity = it
             },
+
             onSave = {
                 actions.saveConnection()
             },
+
             onCancel = {
                 state.showConnectionDialog = false
                 state.editingConnectionId = null
@@ -533,8 +685,12 @@ fun SldEditorScreen(
     if (state.showReport) {
 
         SldReportDialog(
-            title = state.reportTitle,
-            text = state.reportText,
+            title =
+                state.reportTitle,
+
+            text =
+                state.reportText,
+
             onClose = {
                 state.showReport = false
             }
@@ -561,7 +717,8 @@ private fun AddComponentMenu(
         ) {
 
             Icon(
-                imageVector = Icons.Outlined.Add,
+                imageVector =
+                    Icons.Outlined.Add,
                 contentDescription = null
             )
 
@@ -601,8 +758,8 @@ private fun AddComponentMenu(
                     text = {
                         Text(
                             typeLabel(
-                                type,
-                                arabic
+                                type = type,
+                                arabic = arabic
                             )
                         )
                     },
@@ -650,24 +807,52 @@ private fun typeLabel(
     return when (type) {
 
         SldNodeType.SOURCE ->
-            if (arabic) "مصدر تغذية" else "Utility Source"
+            if (arabic) {
+                "مصدر تغذية"
+            } else {
+                "Utility Source"
+            }
 
         SldNodeType.TRANSFORMER ->
-            if (arabic) "محول" else "Transformer"
+            if (arabic) {
+                "محول"
+            } else {
+                "Transformer"
+            }
 
         SldNodeType.GENERATOR ->
-            if (arabic) "مولد" else "Generator"
+            if (arabic) {
+                "مولد"
+            } else {
+                "Generator"
+            }
 
         SldNodeType.BUS ->
-            if (arabic) "قضبان Busbar" else "Busbar"
+            if (arabic) {
+                "قضبان Busbar"
+            } else {
+                "Busbar"
+            }
 
         SldNodeType.BREAKER ->
-            if (arabic) "قاطع" else "Breaker"
+            if (arabic) {
+                "قاطع"
+            } else {
+                "Breaker"
+            }
 
         SldNodeType.PANEL ->
-            if (arabic) "لوحة" else "Panel"
+            if (arabic) {
+                "لوحة"
+            } else {
+                "Panel"
+            }
 
         SldNodeType.LOAD ->
-            if (arabic) "حمل / موتور" else "Load / Motor"
+            if (arabic) {
+                "حمل / موتور"
+            } else {
+                "Load / Motor"
+            }
     }
 }
