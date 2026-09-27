@@ -88,15 +88,118 @@ object SldPanelScheduleEngine {
                 "Panel node was not found."
             )
 
+        /*
+         * SldTopologyEngine is the authoritative source
+         * for electrical direction.
+         */
+        val topology =
+            SldTopologyEngine.build(network)
+
         val nodeMap =
             network.nodes.associateBy {
                 it.id
             }
 
+        /*
+         * Only topology-oriented downstream connections
+         * are considered panel outgoing feeders.
+         */
         val outgoing =
-            network.connections.filter {
-                it.fromNodeId == panelNodeId
+            topology.children[panelNodeId]
+                .orEmpty()
+                .mapNotNull { child ->
+
+                    topology.connections.firstOrNull {
+                        it.fromNodeId == panelNodeId &&
+                            it.toNodeId == child.id
+                    }
+                }
+
+        val connectedLoadCache =
+            mutableMapOf<String, Double>()
+
+        val demandLoadCache =
+            mutableMapOf<String, Double>()
+
+        fun connectedLoad(
+            nodeId: String,
+            stack: MutableSet<String>
+        ): Double {
+
+            connectedLoadCache[nodeId]?.let {
+                return it
             }
+
+            require(stack.add(nodeId)) {
+                "Circular SLD path detected while calculating panel connected load."
+            }
+
+            val node =
+                nodeMap[nodeId]
+                    ?: return 0.0
+
+            var total =
+                node.loadKw.coerceAtLeast(0.0)
+
+            topology.children[nodeId]
+                .orEmpty()
+                .forEach { child ->
+
+                    total +=
+                        connectedLoad(
+                            child.id,
+                            stack
+                        )
+                }
+
+            stack.remove(nodeId)
+
+            connectedLoadCache[nodeId] = total
+
+            return total
+        }
+
+        fun demandLoad(
+            nodeId: String,
+            stack: MutableSet<String>
+        ): Double {
+
+            demandLoadCache[nodeId]?.let {
+                return it
+            }
+
+            require(stack.add(nodeId)) {
+                "Circular SLD path detected while calculating panel demand load."
+            }
+
+            val node =
+                nodeMap[nodeId]
+                    ?: return 0.0
+
+            var total =
+                node.loadKw.coerceAtLeast(0.0) *
+                    node.demandFactor.coerceIn(
+                        0.0,
+                        1.0
+                    )
+
+            topology.children[nodeId]
+                .orEmpty()
+                .forEach { child ->
+
+                    total +=
+                        demandLoad(
+                            child.id,
+                            stack
+                        )
+                }
+
+            stack.remove(nodeId)
+
+            demandLoadCache[nodeId] = total
+
+            return total
+        }
 
         val rows =
             outgoing.mapNotNull { connection ->
@@ -106,17 +209,15 @@ object SldPanelScheduleEngine {
                         ?: return@mapNotNull null
 
                 val loadKw =
-                    calculateConnectedLoad(
-                        destination,
-                        network,
-                        nodeMap
+                    connectedLoad(
+                        destination.id,
+                        mutableSetOf()
                     )
 
                 val demandKw =
-                    calculateDemandLoad(
-                        destination,
-                        network,
-                        nodeMap
+                    demandLoad(
+                        destination.id,
+                        mutableSetOf()
                     )
 
                 val voltage =
@@ -128,7 +229,10 @@ object SldPanelScheduleEngine {
 
                 val pf =
                     destination.powerFactor
-                        .coerceIn(0.01, 1.0)
+                        .coerceIn(
+                            0.01,
+                            1.0
+                        )
 
                 val designCurrent =
                     if (
@@ -215,12 +319,10 @@ object SldPanelScheduleEngine {
 
                 if (
                     shortCircuit != null &&
-                    shortCircuit.breakerRequiredKa >
-                        0.0
+                    shortCircuit.breakerRequiredKa > 0.0
                 ) {
                     if (
-                        shortCircuit.breakerRequiredKa >
-                        100.0
+                        shortCircuit.breakerRequiredKa > 100.0
                     ) {
                         status =
                             PanelScheduleStatus.FAIL
@@ -285,12 +387,18 @@ object SldPanelScheduleEngine {
         val totalDemandLoad =
             rows.sumOf {
                 it.loadKw *
-                    it.demandFactor
+                    it.demandFactor.coerceIn(
+                        0.0,
+                        1.0
+                    )
             }
 
         val panelPf =
             panel.powerFactor
-                .coerceIn(0.01, 1.0)
+                .coerceIn(
+                    0.01,
+                    1.0
+                )
 
         val totalDemandCurrent =
             if (
@@ -339,7 +447,11 @@ object SldPanelScheduleEngine {
         }
 
         notes.add(
-            "Panel schedule is generated from the current SLD topology."
+            "Panel schedule uses SldTopologyEngine as the authoritative electrical direction."
+        )
+
+        notes.add(
+            "Connected and demand loads are aggregated recursively from downstream topology."
         )
 
         return SldPanelSchedule(
@@ -360,68 +472,6 @@ object SldPanelScheduleEngine {
             notes =
                 notes
         )
-    }
-
-    private fun calculateConnectedLoad(
-        node: SldNode,
-        network: SldNetwork,
-        nodeMap: Map<String, SldNode>
-    ): Double {
-
-        var total =
-            node.loadKw.coerceAtLeast(0.0)
-
-        network.connections
-            .filter {
-                it.fromNodeId == node.id
-            }
-            .forEach { connection ->
-
-                val child =
-                    nodeMap[connection.toNodeId]
-                        ?: return@forEach
-
-                total +=
-                    calculateConnectedLoad(
-                        child,
-                        network,
-                        nodeMap
-                    )
-            }
-
-        return total
-    }
-
-    private fun calculateDemandLoad(
-        node: SldNode,
-        network: SldNetwork,
-        nodeMap: Map<String, SldNode>
-    ): Double {
-
-        var total =
-            node.loadKw.coerceAtLeast(0.0) *
-                node.demandFactor
-                    .coerceIn(0.0, 1.0)
-
-        network.connections
-            .filter {
-                it.fromNodeId == node.id
-            }
-            .forEach { connection ->
-
-                val child =
-                    nodeMap[connection.toNodeId]
-                        ?: return@forEach
-
-                total +=
-                    calculateDemandLoad(
-                        child,
-                        network,
-                        nodeMap
-                    )
-            }
-
-        return total
     }
 
     private fun selectBreaker(
