@@ -18,7 +18,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
@@ -43,19 +47,14 @@ val textMeasurer =
     rememberTextMeasurer()
 
 /*
- * ------------------------------------------------------------
- * IMPORTANT PERFORMANCE DESIGN
- * ------------------------------------------------------------
+ * Stable gesture state.
  *
- * Do NOT put nodes / connections / pan values in the
- * pointerInput keys.
+ * The previous implementation used nodes / pan values as
+ * pointerInput keys. That can restart the gesture while the
+ * node is being moved.
  *
- * Moving a node changes the nodes list on every drag event.
- * If nodes are used as pointerInput keys, Compose restarts the
- * gesture handler while the finger is still moving.
- *
- * rememberUpdatedState keeps the gesture handler alive while
- * giving it the newest state.
+ * rememberUpdatedState keeps the gesture detector alive while
+ * always exposing the latest state and callbacks.
  */
 
 val currentNodes =
@@ -102,10 +101,6 @@ var panY by remember {
     mutableFloatStateOf(0f)
 }
 
-/*
- * Keep the latest pan values available to pointer handlers
- * without restarting those handlers.
- */
 val currentPanX =
     rememberUpdatedState(panX)
 
@@ -127,15 +122,9 @@ Box(
                 .fillMaxSize()
 
                 /*
-                 * ------------------------------------------------
-                 * TAP / DOUBLE TAP
-                 * ------------------------------------------------
+                 * Tap / double tap detector.
                  *
-                 * Key is intentionally Unit.
-                 *
-                 * The handler remains attached during node
-                 * movement and always reads the latest state
-                 * through rememberUpdatedState.
+                 * Stable key = Unit.
                  */
                 .pointerInput(Unit) {
 
@@ -185,10 +174,9 @@ Box(
 
                                 if (connection != null) {
 
-                                    currentOnEditConnection
-                                        .value(
-                                            connection
-                                        )
+                                    currentOnEditConnection.value(
+                                        connection
+                                    )
                                 }
                             }
                         },
@@ -217,10 +205,9 @@ Box(
 
                             if (node != null) {
 
-                                currentOnSelectNode
-                                    .value(
-                                        node.id
-                                    )
+                                currentOnSelectNode.value(
+                                    node.id
+                                )
 
                             } else {
 
@@ -238,10 +225,9 @@ Box(
 
                                 if (connection != null) {
 
-                                    currentOnSelectConnection
-                                        .value(
-                                            connection.id
-                                        )
+                                    currentOnSelectConnection.value(
+                                        connection.id
+                                    )
                                 }
                             }
                         }
@@ -249,16 +235,16 @@ Box(
                 }
 
                 /*
-                 * ------------------------------------------------
-                 * DRAG
-                 * ------------------------------------------------
+                 * Stable drag detector.
                  *
-                 * One stable gesture handler.
+                 * Node movement:
+                 * finger movement -> geometry only
                  *
-                 * A node is moved when the drag starts over a
-                 * node.
+                 * finger released:
+                 * one save + one engineering recalculation
                  *
-                 * Otherwise the complete SLD canvas is panned.
+                 * Empty canvas:
+                 * pan viewport only
                  */
                 .pointerInput(Unit) {
 
@@ -300,10 +286,9 @@ Box(
 
                             if (node != null) {
 
-                                currentOnSelectNode
-                                    .value(
-                                        node.id
-                                    )
+                                currentOnSelectNode.value(
+                                    node.id
+                                )
                             }
                         },
 
@@ -322,25 +307,23 @@ Box(
                             ) {
 
                                 /*
-                                 * Only update geometry.
+                                 * IMPORTANT:
                                  *
-                                 * NO engineering calculation
-                                 * happens here.
+                                 * Do not recalculate engineering
+                                 * values during every pointer event.
+                                 *
+                                 * Only move the geometry here.
                                  */
-                                currentOnMoveNode
-                                    .value(
-                                        nodeId,
-                                        dragAmount.x,
-                                        dragAmount.y
-                                    )
+                                currentOnMoveNode.value(
+                                    nodeId,
+                                    dragAmount.x,
+                                    dragAmount.y
+                                )
 
                             } else {
 
                                 /*
-                                 * Empty canvas drag = pan.
-                                 *
-                                 * This changes only the viewport,
-                                 * not the engineering network.
+                                 * Empty area drag = viewport pan.
                                  */
                                 panX +=
                                     dragAmount.x
@@ -355,15 +338,15 @@ Box(
                             if (draggingNode) {
 
                                 /*
-                                 * Exactly ONE engineering
-                                 * recalculation after the complete
-                                 * node movement.
+                                 * SldEditorScreen currently connects
+                                 * this callback to:
                                  *
-                                 * This is where upstream propagation
-                                 * is triggered.
+                                 * actions.saveAndRecalculate()
+                                 *
+                                 * Therefore upstream propagation
+                                 * occurs once after the movement.
                                  */
-                                currentOnMoveNodeEnd
-                                    .value()
+                                currentOnMoveNodeEnd.value()
                             }
 
                             draggingNodeId =
@@ -377,13 +360,7 @@ Box(
 
                             if (draggingNode) {
 
-                                /*
-                                 * Keep the network and engineering
-                                 * state synchronized even if the
-                                 * gesture is cancelled.
-                                 */
-                                currentOnMoveNodeEnd
-                                    .value()
+                                currentOnMoveNodeEnd.value()
                             }
 
                             draggingNodeId =
@@ -396,29 +373,23 @@ Box(
                 }
     ) {
 
-        /*
-         * Background is drawn by the modular SLD drawing layer.
-         */
         drawSldEngineeringBackground()
 
-        /*
-         * Apply viewport translation only to the SLD itself.
-         */
         withTransform({
 
             translate(
-                left = panX,
-                top = panY
+                left =
+                    panX,
+
+                top =
+                    panY
             )
 
         }) {
 
             /*
-             * ----------------------------------------------------
-             * CONNECTIONS FIRST
-             * ----------------------------------------------------
-             *
-             * This keeps feeders behind equipment symbols.
+             * Connections are drawn first so that equipment
+             * symbols remain visually above feeders.
              */
             currentConnections.value.forEach { connection ->
 
@@ -441,8 +412,7 @@ Box(
 
                     selected =
                         connection.id ==
-                            currentSelectedConnectionId
-                                .value,
+                            currentSelectedConnectionId.value,
 
                     textMeasurer =
                         textMeasurer,
@@ -453,9 +423,7 @@ Box(
             }
 
             /*
-             * ----------------------------------------------------
-             * NODES
-             * ----------------------------------------------------
+             * Equipment / nodes.
              */
             currentNodes.value.forEach { node ->
 
@@ -489,10 +457,6 @@ Box(
                 )
             }
 
-            /*
-             * Title / engineering status remains part of the
-             * drawing layer and follows the SLD viewport.
-             */
             drawSldTitleBlock(
                 textMeasurer =
                     textMeasurer,
@@ -520,7 +484,8 @@ drawRect(
         Color(0xFFF4F7F9)
 )
 
-var x = 0f
+var x =
+    0f
 
 while (x <= size.width) {
 
@@ -544,10 +509,12 @@ while (x <= size.width) {
             1f
     )
 
-    x += 50f
+    x +=
+        50f
 }
 
-var y = 0f
+var y =
+    0f
 
 while (y <= size.height) {
 
@@ -571,7 +538,8 @@ while (y <= size.height) {
             1f
     )
 
-    y += 50f
+    y +=
+        50f
 }
 
 }
@@ -580,12 +548,15 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope
 .drawSldTitleBlock(
 textMeasurer:
 TextMeasurer,
-nodes:
-List<SldNode>,
-connections:
-List<SldConnection>,
-engineering:
-SldEngineeringPackage?
+
+    nodes:
+        List<SldNode>,
+
+    connections:
+        List<SldConnection>,
+
+    engineering:
+        SldEngineeringPackage?
 ) {
 
 val left =
@@ -608,16 +579,15 @@ drawText(
         ),
 
     style =
-        androidx.compose.ui.text.TextStyle(
+        TextStyle(
             color =
                 Color(0xFF172027),
 
             fontSize =
-                androidx.compose.ui.unit.sp(20f),
+                20.sp,
 
             fontWeight =
-                androidx.compose.ui.text.font.FontWeight
-                    .Bold
+                FontWeight.Bold
         )
 )
 
@@ -635,12 +605,12 @@ drawText(
         ),
 
     style =
-        androidx.compose.ui.text.TextStyle(
+        TextStyle(
             color =
                 Color(0xFF60717A),
 
             fontSize =
-                androidx.compose.ui.unit.sp(11f)
+                11.sp
         )
 )
 
@@ -678,12 +648,12 @@ drawText(
         ),
 
     style =
-        androidx.compose.ui.text.TextStyle(
+        TextStyle(
             color =
                 Color(0xFF60717A),
 
             fontSize =
-                androidx.compose.ui.unit.sp(10f)
+                10.sp
         )
 )
 
@@ -705,7 +675,7 @@ drawText(
         ),
 
     style =
-        androidx.compose.ui.text.TextStyle(
+        TextStyle(
             color =
                 if (engineering != null) {
                     Color(0xFF1976D2)
@@ -714,11 +684,10 @@ drawText(
                 },
 
             fontSize =
-                androidx.compose.ui.unit.sp(10f),
+                10.sp,
 
             fontWeight =
-                androidx.compose.ui.text.font.FontWeight
-                    .Bold
+                FontWeight.Bold
         )
 )
 
