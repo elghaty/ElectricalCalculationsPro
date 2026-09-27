@@ -57,6 +57,27 @@ class SldEditorState {
     var generatorXd by mutableStateOf("15")
     var sourceMva by mutableStateOf("500")
 
+    /*
+     * ============================================================
+     * CONNECTION EDITOR STATE
+     * ============================================================
+     */
+
+    var connectionType by mutableStateOf("CABLE")
+
+    var conductorMaterial by mutableStateOf("Copper")
+    var insulationType by mutableStateOf("PVC")
+    var installationMethodCode by mutableStateOf("B1")
+
+    var busbarMaterial by mutableStateOf("Copper")
+    var busbarRatedCurrent by mutableStateOf("400")
+    var busbarShortCircuit by mutableStateOf("25")
+
+    /*
+     * Legacy cable fields are retained for compatibility
+     * with the existing engineering engines.
+     */
+
     var length by mutableStateOf("50")
     var resistance by mutableStateOf("0.125")
     var reactance by mutableStateOf("0.080")
