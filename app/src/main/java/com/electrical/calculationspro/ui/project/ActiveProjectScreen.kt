@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.ElectricalServices
 import androidx.compose.material.icons.outlined.Factory
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Power
@@ -64,10 +65,6 @@ Column(
         .background(MaterialTheme.colorScheme.surface)
 ) {
 
-    /* ---------------------------------------------------------
-     * TOP APP BAR
-     * --------------------------------------------------------- */
-
     Surface(
         tonalElevation = 2.dp,
         shadowElevation = 2.dp
@@ -105,10 +102,7 @@ Column(
                 )
 
                 Text(
-                    text = if (arabic)
-                        "Electrical • Water • Sewage"
-                    else
-                        "Electrical • Water • Sewage",
+                    text = "Electrical • Water • Sewage",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -122,10 +116,6 @@ Column(
             .verticalScroll(rememberScrollState())
             .padding(18.dp)
     ) {
-
-        /* -----------------------------------------------------
-         * CURRENT PROJECT
-         * ----------------------------------------------------- */
 
         Text(
             text = if (arabic)
@@ -145,8 +135,7 @@ Column(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme.colorScheme.primaryContainer
+                containerColor = MaterialTheme.colorScheme.primaryContainer
             )
         ) {
             Column(
@@ -214,7 +203,6 @@ Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-
                     ProjectInfoChip(
                         modifier = Modifier.weight(1f),
                         title = if (arabic) "الكود" else "Standard",
@@ -251,10 +239,6 @@ Column(
             modifier = Modifier.height(24.dp)
         )
 
-        /* -----------------------------------------------------
-         * ELECTRICAL DESIGN
-         * ----------------------------------------------------- */
-
         DashboardSectionTitle(
             title = if (arabic)
                 "التصميم الكهربائي"
@@ -274,26 +258,20 @@ Column(
             items = listOf(
                 DashboardItem(
                     title = if (arabic) "الأحمال" else "Loads",
-                    subtitle = if (arabic)
-                        "Load Schedule"
-                    else
-                        "Load Schedule",
+                    subtitle = "Load Schedule",
                     icon = Icons.Outlined.Speed,
                     onClick = onElectrical
                 ),
                 DashboardItem(
                     title = if (arabic) "الكابلات" else "Cables",
-                    subtitle = if (arabic)
-                        "Cable Sizing"
-                    else
-                        "Cable Sizing",
-                    icon = Icons.Outlined.Tune,
+                    subtitle = "Cable Sizing",
+                    icon = Icons.Outlined.ElectricalServices,
                     onClick = onElectrical
                 ),
                 DashboardItem(
                     title = if (arabic) "القواطع" else "Breakers",
                     subtitle = if (arabic)
-                        "Breaker Selection"
+                        "اختيار القواطع"
                     else
                         "Breaker Selection",
                     icon = Icons.Outlined.Power,
@@ -302,7 +280,7 @@ Column(
                 DashboardItem(
                     title = if (arabic) "المحولات" else "Transformers",
                     subtitle = if (arabic)
-                        "Transformer Sizing"
+                        "اختيار المحول"
                     else
                         "Transformer Sizing",
                     icon = Icons.Outlined.Memory,
@@ -311,7 +289,7 @@ Column(
                 DashboardItem(
                     title = if (arabic) "المولدات" else "Generators",
                     subtitle = if (arabic)
-                        "Generator Sizing"
+                        "اختيار المولد"
                     else
                         "Generator Sizing",
                     icon = Icons.Outlined.Factory,
@@ -319,10 +297,7 @@ Column(
                 ),
                 DashboardItem(
                     title = if (arabic) "المضخات" else "Pumps",
-                    subtitle = if (arabic)
-                        "Flow • Head • Power"
-                    else
-                        "Flow • Head • Power",
+                    subtitle = "Flow • Head • Power",
                     icon = Icons.Outlined.Waves,
                     onClick = onElectrical
                 )
@@ -332,10 +307,6 @@ Column(
         Spacer(
             modifier = Modifier.height(24.dp)
         )
-
-        /* -----------------------------------------------------
-         * ELECTRICAL NETWORK
-         * ----------------------------------------------------- */
 
         DashboardSectionTitle(
             title = if (arabic)
@@ -356,17 +327,14 @@ Column(
             items = listOf(
                 DashboardItem(
                     title = "SLD",
-                    subtitle = if (arabic)
-                        "Single Line Diagram"
-                    else
-                        "Single Line Diagram",
+                    subtitle = "Single Line Diagram",
                     icon = Icons.Outlined.AccountTree,
                     onClick = onSld
                 ),
                 DashboardItem(
                     title = if (arabic) "المياه" else "Water",
                     subtitle = if (arabic)
-                        "Hydraulic Design"
+                        "التصميم الهيدروليكي"
                     else
                         "Hydraulic Design",
                     icon = Icons.Outlined.WaterDrop,
@@ -375,19 +343,16 @@ Column(
                 DashboardItem(
                     title = if (arabic) "الصرف" else "Sewage",
                     subtitle = if (arabic)
-                        "Sewage Network"
+                        "شبكة الصرف"
                     else
                         "Sewage Network",
                     icon = Icons.Outlined.Waves,
                     onClick = onSewage
                 ),
                 DashboardItem(
-                    title = if (arabic)
-                        "Short Circuit"
-                    else
-                        "Short Circuit",
+                    title = "Short Circuit",
                     subtitle = if (arabic)
-                        "Fault Analysis"
+                        "تحليل القصر"
                     else
                         "Fault Analysis",
                     icon = Icons.Outlined.Bolt,
@@ -395,11 +360,11 @@ Column(
                 ),
                 DashboardItem(
                     title = if (arabic)
-                        "Protection"
+                        "الحماية"
                     else
                         "Protection",
                     subtitle = if (arabic)
-                        "Coordination"
+                        "التنسيق والحماية"
                     else
                         "Coordination",
                     icon = Icons.Outlined.Settings,
@@ -411,10 +376,6 @@ Column(
         Spacer(
             modifier = Modifier.height(24.dp)
         )
-
-        /* -----------------------------------------------------
-         * REPORTS
-         * ----------------------------------------------------- */
 
         DashboardSectionTitle(
             title = if (arabic)
@@ -475,10 +436,7 @@ Column(
                     )
 
                     Text(
-                        text = if (arabic)
-                            "Panel Schedule • Engineering Report • Export"
-                        else
-                            "Panel Schedule • Engineering Report • Export",
+                        text = "Panel Schedule • Engineering Report • Export",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -489,10 +447,6 @@ Column(
         Spacer(
             modifier = Modifier.height(20.dp)
         )
-
-        /* -----------------------------------------------------
-         * BACK
-         * ----------------------------------------------------- */
 
         OutlinedButton(
             onClick = onBack,
@@ -523,22 +477,12 @@ Column(
 
 }
 
-/* ================================================================
-
-* DASHBOARD MODELS
-* ================================================================ */
-
 private data class DashboardItem(
 val title: String,
 val subtitle: String,
 val icon: ImageVector,
 val onClick: () -> Unit
 )
-
-/* ================================================================
-
-* SECTION TITLE
-* ================================================================ */
 
 @Composable
 private fun DashboardSectionTitle(
@@ -567,11 +511,6 @@ fontWeight = FontWeight.Bold
 
 }
 
-/* ================================================================
-
-* RESPONSIVE DASHBOARD GRID
-* ================================================================ */
-
 @Composable
 private fun DashboardGrid(
 items: List<DashboardItem>
@@ -583,8 +522,7 @@ minSize = 155.dp
 modifier = Modifier
 .fillMaxWidth()
 .height(
-if (items.size <= 4) 330.dp
-else 500.dp
+if (items.size <= 4) 330.dp else 500.dp
 ),
 contentPadding = androidx.compose.foundation.layout.PaddingValues(2.dp),
 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -660,11 +598,6 @@ key = { index -> items[index].title }
 }
 
 }
-
-/* ================================================================
-
-* PROJECT INFORMATION CHIP
-* ================================================================ */
 
 @Composable
 private fun ProjectInfoChip(
