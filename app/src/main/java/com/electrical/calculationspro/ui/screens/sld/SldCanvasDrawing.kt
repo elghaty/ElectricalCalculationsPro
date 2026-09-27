@@ -950,12 +950,3 @@ return sqrt(
 )
 
 }
-
-private fun fmt(
-value: Double
-): String =
-if (value == 0.0) {
-"0"
-} else {
-"%.2f".format(value)
-}
