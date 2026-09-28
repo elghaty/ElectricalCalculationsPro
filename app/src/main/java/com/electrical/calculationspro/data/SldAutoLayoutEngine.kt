@@ -1,51 +1,23 @@
 package com.electrical.calculationspro.data
 
 /**
- * ================================================================
- * PROFESSIONAL SLD AUTO LAYOUT ENGINE
- * ================================================================
+ * Topology-aware SLD presentation layout.
  *
- * Drawing-only engine.
- *
- * It changes coordinates only.
- * It does NOT perform engineering calculations.
- * It does NOT change topology.
- *
- * Intended electrical presentation:
- *
- *                         SOURCE
- *                            │
- *                       MAIN BREAKER
- *                            │
- *                        TRANSFORMER
- *                            │
- *                           BUS
- *                            │
- *                          PANEL
- *                      ┌─────┼─────┐
- *                      │     │     │
- *                   FEEDER FEEDER FEEDER
- *                      │     │     │
- *                    LOAD  LOAD  LOAD
- *
- * Main electrical path is vertical.
- * Branches are distributed horizontally.
- * ================================================================
+ * This class changes coordinates only.
+ * No electrical calculation is performed here.
  */
 object SldAutoLayoutEngine {
 
-    private const val CENTER_X = 700f
-    private const val START_Y = 80f
+    private const val START_X = 620f
+    private const val START_Y = 70f
 
-    /**
-     * Vertical distance between electrical levels.
-     */
-    private const val LEVEL_SPACING = 220f
+    private const val LEVEL_Y = 190f
+    private const val BRANCH_X = 250f
 
-    /**
-     * Horizontal distance between parallel branches.
-     */
-    private const val ROW_SPACING = 240f
+    private const val NODE_WIDTH = 180f
+    private const val NODE_HEIGHT = 118f
+
+    private const val CLEARANCE = 60f
 
     data class LayoutResult(
         val network: SldNetwork,
@@ -57,91 +29,75 @@ object SldAutoLayoutEngine {
     ): LayoutResult {
 
         if (network.nodes.isEmpty()) {
-
             return LayoutResult(
                 network = network,
                 levels = emptyMap()
             )
         }
 
-        val nodeMap =
+        val nodes =
             network.nodes.associateBy {
                 it.id
             }
 
         val children =
-            mutableMapOf<
-                String,
-                MutableList<String>
-            >()
+            network.nodes
+                .associate {
+                    it.id to
+                        mutableListOf<String>()
+                }
+                .toMutableMap()
 
-        network.nodes.forEach { node ->
-
-            children[node.id] =
-                mutableListOf()
-        }
+        val incoming =
+            mutableSetOf<String>()
 
         network.connections.forEach { connection ->
 
-            val fromExists =
-                nodeMap.containsKey(
+            if (
+                nodes.containsKey(
                     connection.fromNodeId
-                )
-
-            val toExists =
-                nodeMap.containsKey(
+                ) &&
+                nodes.containsKey(
                     connection.toNodeId
                 )
-
-            if (
-                fromExists &&
-                toExists
             ) {
 
-                children[
-                    connection.fromNodeId
-                ]?.add(
+                children
+                    .getValue(
+                        connection.fromNodeId
+                    )
+                    .add(
+                        connection.toNodeId
+                    )
+
+                incoming.add(
                     connection.toNodeId
                 )
             }
         }
 
-        // =========================================================
-        // ROOTS
-        // =========================================================
-
         val sourceRoots =
             network.nodes.filter {
-
                 it.type ==
                     SldNodeType.SOURCE
             }
 
         val roots =
-            if (
-                sourceRoots.isNotEmpty()
-            ) {
+            sourceRoots.ifEmpty {
 
-                sourceRoots
-
-            } else {
-
-                network.nodes.filter { node ->
-
-                    network.connections.none {
-
-                        it.toNodeId ==
-                            node.id
-                    }
+                network.nodes.filter {
+                    it.id !in incoming
                 }
+
+            }.ifEmpty {
+
+                listOf(
+                    network.nodes.first()
+                )
             }
 
-        // =========================================================
-        // LEVEL CALCULATION
-        // =========================================================
-
         val levels =
-            mutableMapOf<String, Int>()
+            linkedMapOf<String, Int>()
 
         fun visit(
             id: String,
@@ -149,30 +105,19 @@ object SldAutoLayoutEngine {
             path: Set<String>
         ) {
 
-            if (
-                id in path
-            ) {
+            if (id in path) {
                 return
             }
 
-            val previous =
+            val old =
                 levels[id]
 
-            /*
-             * If a node can be reached through more than one
-             * upstream path, keep the deepest electrical level.
-             */
             if (
-                previous == null ||
-                level > previous
+                old == null ||
+                level > old
             ) {
-
-                levels[id] =
-                    level
+                levels[id] = level
             }
-
-            val nextPath =
-                path + id
 
             children[id]
                 .orEmpty()
@@ -181,7 +126,7 @@ object SldAutoLayoutEngine {
                     visit(
                         id = child,
                         level = level + 1,
-                        path = nextPath
+                        path = path + id
                     )
                 }
         }
@@ -189,20 +134,11 @@ object SldAutoLayoutEngine {
         roots.forEach { root ->
 
             visit(
-                id =
-                    root.id,
-
-                level =
-                    0,
-
-                path =
-                    emptySet()
+                id = root.id,
+                level = 0,
+                path = emptySet()
             )
         }
-
-        // =========================================================
-        // DISCONNECTED ELEMENTS
-        // =========================================================
 
         var disconnectedLevel =
             (
@@ -214,37 +150,12 @@ object SldAutoLayoutEngine {
             .filter {
                 it.id !in levels
             }
-            .sortedWith(
-                compareBy<SldNode> {
-
-                    typeOrder(
-                        it.type
-                    )
-
-                }.thenBy {
-
-                    it.name
-                }
-            )
             .forEach { node ->
 
                 levels[node.id] =
-                    disconnectedLevel
+                    disconnectedLevel++
 
-                disconnectedLevel++
             }
-
-        // =========================================================
-        // GROUP BY ELECTRICAL LEVEL
-        // =========================================================
-
-        val grouped =
-            network.nodes
-                .groupBy {
-
-                    levels[it.id]
-                        ?: 0
-                }
 
         val positions =
             mutableMapOf<
@@ -252,211 +163,264 @@ object SldAutoLayoutEngine {
                 Pair<Float, Float>
             >()
 
-        grouped
-            .toSortedMap()
-            .forEach { (level, nodesAtLevel) ->
-
-                val ordered =
-                    nodesAtLevel.sortedWith(
-
-                        compareBy<SldNode> {
-
-                            typeOrder(
-                                it.type
-                            )
-
-                        }.thenBy {
-
-                            it.name
-                        }
-                    )
-
-                /*
-                 * Branches spread horizontally around the
-                 * central electrical axis.
-                 */
-                val totalWidth =
-                    (
-                        ordered.size - 1
-                    ) *
-                        ROW_SPACING
-
-                val startX =
-                    CENTER_X -
-                        totalWidth / 2f
-
-                ordered.forEachIndexed {
-                        index,
-                        node
-                    ->
-
-                    positions[node.id] =
-                        Pair(
-
-                            startX +
-                                index *
-                                ROW_SPACING,
-
-                            START_Y +
-                                level *
-                                LEVEL_SPACING
-                        )
-                }
-            }
-
-        // =========================================================
-        // PRIMARY PATH ALIGNMENT
-        // =========================================================
-        //
-        // For nodes with one child, preserve a central path.
-        // Branching nodes remain distributed.
-        // =========================================================
-
-        fun singleChild(
-            nodeId: String
-        ): String? {
-
-            val list =
-                children[nodeId]
-                    .orEmpty()
-
-            return if (
-                list.size == 1
-            ) {
-                list.first()
-            } else {
-                null
-            }
-        }
-
+        /*
+         * Main trunk:
+         *
+         * Source -> breaker -> transformer -> bus -> panel
+         *
+         * remains on the center axis whenever topology permits.
+         */
         roots.forEach { root ->
 
             var current =
                 root.id
 
-            while (true) {
+            val visited =
+                mutableSetOf<String>()
 
-                val child =
-                    singleChild(
-                        current
-                    )
-                        ?: break
+            while (
+                visited.add(current)
+            ) {
 
-                val currentPosition =
-                    positions[current]
+                val level =
+                    levels[current]
+                        ?: 0
 
-                val childPosition =
-                    positions[child]
+                positions[current] =
+                    START_X to
+                        (
+                            START_Y +
+                                level *
+                                LEVEL_Y
+                            )
 
-                if (
-                    currentPosition != null &&
-                    childPosition != null
-                ) {
-
-                    positions[child] =
-                        Pair(
-                            currentPosition.first,
-                            childPosition.second
+                val next =
+                    children[current]
+                        .orEmpty()
+                        .filter {
+                            it !in visited
+                        }
+                        .sortedWith(
+                            compareBy<String> {
+                                typeOrder(
+                                    nodes[it]?.type
+                                )
+                            }.thenBy {
+                                nodes[it]?.name
+                                    ?: ""
+                            }
                         )
+                        .singleOrNull()
+
+                if (next == null) {
+                    break
                 }
 
-                current =
-                    child
+                current = next
             }
         }
 
-        // =========================================================
-        // FEEDER BRANCH ALIGNMENT
-        // =========================================================
-        //
-        // A direct breaker -> load feeder should be horizontal.
-        // =========================================================
+        /*
+         * Other nodes are distributed around the center axis.
+         */
+        levels.entries
+            .groupBy(
+                keySelector = {
+                    it.value
+                },
+                valueTransform = {
+                    it.key
+                }
+            )
+            .toSortedMap()
+            .forEach { (level, ids) ->
 
-        network.connections.forEach { connection ->
+                val unplaced =
+                    ids
+                        .filter {
+                            it !in positions
+                        }
+                        .sortedWith(
+                            compareBy<String> {
+                                typeOrder(
+                                    nodes[it]?.type
+                                )
+                            }.thenBy {
+                                nodes[it]?.name
+                                    ?: ""
+                            }
+                        )
+
+                unplaced.forEachIndexed {
+                    index,
+                    id
+                    ->
+
+                    val side =
+                        if (
+                            index % 2 == 0
+                        ) {
+                            1
+                        } else {
+                            -1
+                        }
+
+                    val slot =
+                        (index + 1) / 2
+
+                    positions[id] =
+                        (
+                            START_X +
+                                side *
+                                slot *
+                                BRANCH_X
+                            ) to
+                            (
+                                START_Y +
+                                    level *
+                                    LEVEL_Y
+                                )
+                }
+            }
+
+        /*
+         * Breaker -> Load is presented as a horizontal feeder.
+         */
+        network.connections.forEach {
+            connection ->
 
             val from =
-                nodeMap[
+                nodes[
                     connection.fromNodeId
                 ]
 
             val to =
-                nodeMap[
+                nodes[
                     connection.toNodeId
                 ]
 
             if (
                 from != null &&
-                to != null
+                to != null &&
+                from.type ==
+                    SldNodeType.BREAKER &&
+                to.type ==
+                    SldNodeType.LOAD
             ) {
 
                 val fromPosition =
                     positions[from.id]
 
-                val toPosition =
-                    positions[to.id]
-
                 if (
-                    fromPosition != null &&
-                    toPosition != null &&
-                    from.type ==
-                        SldNodeType.BREAKER &&
-                    to.type ==
-                        SldNodeType.LOAD
+                    fromPosition != null
                 ) {
 
                     positions[to.id] =
-                        Pair(
-                            toPosition.first,
+                        (
+                            fromPosition.first +
+                                BRANCH_X / 1.7f
+                            ) to
                             fromPosition.second
-                        )
                 }
             }
         }
 
-        // =========================================================
-        // FINAL NODE UPDATE
-        // =========================================================
+        /*
+         * Resolve collisions without changing topology.
+         */
+        val finalPositions =
+            mutableMapOf<
+                String,
+                Pair<Float, Float>
+            >()
+
+        positions.forEach { (id, original) ->
+
+            var candidate =
+                original
+
+            var guard = 0
+
+            while (
+                finalPositions.values.any {
+                    overlaps(
+                        candidate,
+                        it
+                    )
+                } &&
+                guard < 50
+            ) {
+
+                candidate =
+                    candidate.first +
+                        90f to
+                        candidate.second +
+                        LEVEL_Y / 2f
+
+                guard++
+            }
+
+            finalPositions[id] =
+                candidate
+        }
 
         val arrangedNodes =
             network.nodes.map { node ->
 
                 val position =
-                    positions[node.id]
+                    finalPositions[node.id]
 
-                if (
-                    position == null
-                ) {
-
+                if (position == null) {
                     node
-
                 } else {
-
                     node.copy(
-
-                        x =
-                            position.first,
-
-                        y =
-                            position.second
+                        x = position.first,
+                        y = position.second
                     )
                 }
             }
 
         return LayoutResult(
-
             network =
                 network.copy(
                     nodes =
                         arrangedNodes
                 ),
-
             levels =
                 levels.toMap()
         )
     }
 
+    private fun overlaps(
+        a: Pair<Float, Float>,
+        b: Pair<Float, Float>
+    ): Boolean {
+
+        val horizontal =
+            a.first <
+                b.first +
+                NODE_WIDTH +
+                CLEARANCE &&
+                a.first +
+                NODE_WIDTH +
+                CLEARANCE >
+                b.first
+
+        val vertical =
+            a.second <
+                b.second +
+                NODE_HEIGHT +
+                CLEARANCE &&
+                a.second +
+                NODE_HEIGHT +
+                CLEARANCE >
+                b.second
+
+        return horizontal && vertical
+    }
+
     private fun typeOrder(
-        type: SldNodeType
+        type: SldNodeType?
     ): Int {
 
         return when (type) {
@@ -464,23 +428,26 @@ object SldAutoLayoutEngine {
             SldNodeType.SOURCE ->
                 0
 
-            SldNodeType.GENERATOR ->
+            SldNodeType.BREAKER ->
                 1
 
             SldNodeType.TRANSFORMER ->
                 2
 
-            SldNodeType.BREAKER ->
+            SldNodeType.BUS ->
                 3
 
-            SldNodeType.BUS ->
+            SldNodeType.PANEL ->
                 4
 
-            SldNodeType.PANEL ->
+            SldNodeType.GENERATOR ->
                 5
 
             SldNodeType.LOAD ->
                 6
+
+            null ->
+                99
         }
     }
 }
