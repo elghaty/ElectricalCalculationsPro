@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.verticalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -97,9 +97,7 @@ fun SldConnectionEditorDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(
-                        rememberScrollState()
-                    ),
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
@@ -110,21 +108,17 @@ fun SldConnectionEditorDialog(
                         "Connection Type"
                     }
                 ) {
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-
                         OutlinedButton(
                             onClick = {
                                 onConnectionTypeChange("CABLE")
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(
-                                text = "CABLE"
-                            )
+                            Text("CABLE")
                         }
 
                         OutlinedButton(
@@ -133,9 +127,7 @@ fun SldConnectionEditorDialog(
                             },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(
-                                text = "BUSBAR"
-                            )
+                            Text("BUSBAR")
                         }
                     }
 
@@ -180,7 +172,7 @@ fun SldConnectionEditorDialog(
 
                         OutlinedButton(
                             onClick = {
-                                onBusbarMaterialChange(
+                                val nextMaterial =
                                     if (
                                         busbarMaterial.equals(
                                             "Copper",
@@ -191,14 +183,18 @@ fun SldConnectionEditorDialog(
                                     } else {
                                         "Copper"
                                     }
-                                },
+
+                                onBusbarMaterialChange(
+                                    nextMaterial
+                                )
+                            },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = if (arabic) {
-                                    "مادة الباسبار: $busbarMaterial  • اضغط للتغيير"
+                                    "مادة الباسبار: $busbarMaterial"
                                 } else {
-                                    "Busbar Material: $busbarMaterial • Tap to change"
+                                    "Busbar Material: $busbarMaterial"
                                 }
                             )
                         }
@@ -246,7 +242,7 @@ fun SldConnectionEditorDialog(
 
                         OutlinedButton(
                             onClick = {
-                                onConductorMaterialChange(
+                                val nextMaterial =
                                     if (
                                         conductorMaterial.equals(
                                             "Copper",
@@ -257,22 +253,25 @@ fun SldConnectionEditorDialog(
                                     } else {
                                         "Copper"
                                     }
+
+                                onConductorMaterialChange(
+                                    nextMaterial
                                 )
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = if (arabic) {
-                                    "الموصل: $conductorMaterial  • اضغط للتغيير"
+                                    "الموصل: $conductorMaterial"
                                 } else {
-                                    "Conductor: $conductorMaterial • Tap to change"
+                                    "Conductor: $conductorMaterial"
                                 }
                             )
                         }
 
                         OutlinedButton(
                             onClick = {
-                                onInsulationTypeChange(
+                                val nextInsulation =
                                     if (
                                         insulationType.equals(
                                             "PVC",
@@ -283,15 +282,18 @@ fun SldConnectionEditorDialog(
                                     } else {
                                         "PVC"
                                     }
+
+                                onInsulationTypeChange(
+                                    nextInsulation
                                 )
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
                                 text = if (arabic) {
-                                    "العزل: $insulationType  • اضغط للتغيير"
+                                    "العزل: $insulationType"
                                 } else {
-                                    "Insulation: $insulationType • Tap to change"
+                                    "Insulation: $insulationType"
                                 }
                             )
                         }
@@ -308,9 +310,9 @@ fun SldConnectionEditorDialog(
                         ) {
                             Text(
                                 text = if (arabic) {
-                                    "طريقة التنفيذ: $installationMethodCode  • اضغط للتغيير"
+                                    "طريقة التنفيذ: $installationMethodCode"
                                 } else {
-                                    "Installation: $installationMethodCode • Tap to change"
+                                    "Installation: $installationMethodCode"
                                 }
                             )
                         }
@@ -415,7 +417,7 @@ private fun nextInstallationMethod(
 
     val index = methods.indexOf(current)
 
-    return if (index < 0 || index == methods.lastIndex) {
+    return if (index < 0 || index >= methods.lastIndex) {
         methods.first()
     } else {
         methods[index + 1]
