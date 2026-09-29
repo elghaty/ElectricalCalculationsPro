@@ -29,16 +29,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.input.pointer.awaitPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
+import kotlin.math.max
 
 private const val MIN_ZOOM = 0.25f
 private const val MAX_ZOOM = 4.0f
-
 private const val BUTTON_ZOOM_FACTOR = 1.20f
 
 private const val DOUBLE_TAP_TIMEOUT = 350L
@@ -60,61 +61,46 @@ fun SldCanvas(
     onEditNode: (SldNode) -> Unit,
     onEditConnection: (SldConnection) -> Unit
 ) {
-    val textMeasurer = rememberTextMeasurer()
 
-    /*
-     * Keep callbacks and data current without forcing the gesture detector
-     * to restart every time the editor state changes.
-     */
-    val currentNodes by rememberUpdatedState(nodes)
-    val currentConnections by rememberUpdatedState(connections)
+    val textMeasurer =
+        rememberTextMeasurer()
 
-    val currentSelectedNodeId by rememberUpdatedState(
-        selectedNodeId
-    )
+    val currentNodes by
+        rememberUpdatedState(nodes)
 
-    val currentSelectedConnectionId by rememberUpdatedState(
-        selectedConnectionId
-    )
+    val currentConnections by
+        rememberUpdatedState(connections)
 
-    val currentConnectionStartId by rememberUpdatedState(
-        connectionStartId
-    )
+    val currentSelectedNodeId by
+        rememberUpdatedState(selectedNodeId)
 
-    val currentEngineering by rememberUpdatedState(
-        engineering
-    )
+    val currentSelectedConnectionId by
+        rememberUpdatedState(selectedConnectionId)
 
-    val currentOnSelectNode by rememberUpdatedState(
-        onSelectNode
-    )
+    val currentConnectionStartId by
+        rememberUpdatedState(connectionStartId)
 
-    val currentOnMoveNode by rememberUpdatedState(
-        onMoveNode
-    )
+    val currentEngineering by
+        rememberUpdatedState(engineering)
 
-    val currentOnMoveNodeEnd by rememberUpdatedState(
-        onMoveNodeEnd
-    )
+    val currentOnSelectNode by
+        rememberUpdatedState(onSelectNode)
 
-    val currentOnSelectConnection by rememberUpdatedState(
-        onSelectConnection
-    )
+    val currentOnMoveNode by
+        rememberUpdatedState(onMoveNode)
 
-    val currentOnEditNode by rememberUpdatedState(
-        onEditNode
-    )
+    val currentOnMoveNodeEnd by
+        rememberUpdatedState(onMoveNodeEnd)
 
-    val currentOnEditConnection by rememberUpdatedState(
-        onEditConnection
-    )
+    val currentOnSelectConnection by
+        rememberUpdatedState(onSelectConnection)
 
-    /*
-     * View transformation.
-     *
-     * panX / panY are screen-space offsets.
-     * Node coordinates remain in logical SLD coordinates.
-     */
+    val currentOnEditNode by
+        rememberUpdatedState(onEditNode)
+
+    val currentOnEditConnection by
+        rememberUpdatedState(onEditConnection)
+
     var panX by remember {
         mutableFloatStateOf(0f)
     }
@@ -127,69 +113,84 @@ fun SldCanvas(
         mutableFloatStateOf(1f)
     }
 
-    /*
-     * Converts screen coordinates into the logical SLD coordinate system.
-     */
     fun screenToLogical(
         point: Offset
     ): Offset {
+
         return Offset(
-            x = (point.x - panX) / zoom,
-            y = (point.y - panY) / zoom
+            x =
+                (point.x - panX) /
+                    zoom,
+
+            y =
+                (point.y - panY) /
+                    zoom
         )
     }
 
-    /*
-     * Zoom around a specific screen point.
-     *
-     * This is important for professional SLD navigation:
-     * when the engineer pinches or presses +/- the drawing should remain
-     * visually anchored instead of jumping toward the origin.
-     */
     fun zoomAt(
         factor: Float,
         center: Offset
     ) {
-        if (!factor.isFinite() || factor <= 0f) {
+
+        if (
+            !factor.isFinite() ||
+                factor <= 0f
+        ) {
             return
         }
 
-        val oldZoom = zoom
+        val oldZoom =
+            zoom
 
         val newZoom =
-            (oldZoom * factor)
-                .coerceIn(
-                    MIN_ZOOM,
-                    MAX_ZOOM
-                )
+            (
+                oldZoom * factor
+            ).coerceIn(
+                MIN_ZOOM,
+                MAX_ZOOM
+            )
 
-        if (newZoom == oldZoom) {
+        if (
+            newZoom ==
+                oldZoom
+        ) {
             return
         }
 
         val logicalPoint =
             Offset(
-                x = (center.x - panX) / oldZoom,
-                y = (center.y - panY) / oldZoom
+                x =
+                    (
+                        center.x -
+                            panX
+                        ) /
+                        oldZoom,
+
+                y =
+                    (
+                        center.y -
+                            panY
+                        ) /
+                        oldZoom
             )
 
-        zoom = newZoom
+        zoom =
+            newZoom
 
         panX =
             center.x -
-                logicalPoint.x * newZoom
+                logicalPoint.x *
+                newZoom
 
         panY =
             center.y -
-                logicalPoint.y * newZoom
+                logicalPoint.y *
+                newZoom
     }
 
-    /*
-     * Reset the viewport only.
-     *
-     * It does NOT change the SLD nodes or connections.
-     */
     fun resetView() {
+
         panX = 0f
         panY = 0f
         zoom = 1f
@@ -210,7 +211,8 @@ fun SldCanvas(
                     .fillMaxSize()
                     .pointerInput(Unit) {
 
-                        var lastTapTime = 0L
+                        var lastTapTime =
+                            0L
 
                         var lastTapPosition =
                             Offset.Unspecified
@@ -219,7 +221,8 @@ fun SldCanvas(
 
                             val firstDown =
                                 awaitFirstDown(
-                                    requireUnconsumed = false
+                                    requireUnconsumed =
+                                        false
                                 )
 
                             val firstPosition =
@@ -230,23 +233,29 @@ fun SldCanvas(
                                     firstPosition
                                 )
 
-                            /*
-                             * Node has priority over connection.
-                             * This prevents selecting a feeder underneath a node.
-                             */
                             val firstNode =
                                 findNode(
-                                    point = firstLogical,
-                                    nodes = currentNodes
+                                    point =
+                                        firstLogical,
+                                    nodes =
+                                        currentNodes
                                 )
 
                             val firstConnection =
-                                if (firstNode == null) {
+                                if (
+                                    firstNode ==
+                                        null
+                                ) {
+
                                     findConnection(
-                                        point = firstLogical,
-                                        nodes = currentNodes,
-                                        connections = currentConnections
+                                        point =
+                                            firstLogical,
+                                        nodes =
+                                            currentNodes,
+                                        connections =
+                                            currentConnections
                                     )
+
                                 } else {
                                     null
                                 }
@@ -254,8 +263,16 @@ fun SldCanvas(
                             var activeNodeId =
                                 firstNode?.id
 
+                            /*
+                             * IMPORTANT:
+                             *
+                             * Do not allow node dragging while
+                             * a connection is being created.
+                             */
                             var draggingNode =
-                                firstNode != null
+                                firstNode != null &&
+                                    currentConnectionStartId ==
+                                        null
 
                             var moved =
                                 false
@@ -263,14 +280,23 @@ fun SldCanvas(
                             var multiTouch =
                                 false
 
-                            if (firstNode != null) {
+                            if (
+                                firstNode !=
+                                    null
+                            ) {
 
+                                /*
+                                 * This callback is now also responsible
+                                 * for completing a connection when the
+                                 * editor is in connection mode.
+                                 */
                                 currentOnSelectNode(
                                     firstNode.id
                                 )
 
                             } else if (
-                                firstConnection != null
+                                firstConnection !=
+                                    null
                             ) {
 
                                 currentOnSelectConnection(
@@ -288,30 +314,36 @@ fun SldCanvas(
                                         it.pressed
                                     }
 
-                                /*
-                                 * All pointers released.
-                                 */
-                                if (pressed.isEmpty()) {
+                                if (
+                                    pressed.isEmpty()
+                                ) {
                                     break
                                 }
 
                                 /*
-                                 * Two or more pointers:
-                                 *
-                                 * - disable node dragging
-                                 * - calculate pinch zoom
-                                 * - calculate pan
-                                 * - keep the pinch centroid anchored
+                                 * =================================================
+                                 * TWO-FINGER NAVIGATION
+                                 * =================================================
                                  */
-                                if (pressed.size >= 2) {
 
-                                    multiTouch = true
-                                    draggingNode = false
-                                    moved = true
+                                if (
+                                    pressed.size >=
+                                        2
+                                ) {
+
+                                    multiTouch =
+                                        true
+
+                                    draggingNode =
+                                        false
+
+                                    moved =
+                                        true
 
                                     val centroid =
                                         event.calculateCentroid(
-                                            useCurrent = false
+                                            useCurrent =
+                                                false
                                         )
 
                                     val pan =
@@ -323,10 +355,11 @@ fun SldCanvas(
                                     val oldZoom =
                                         zoom
 
-                                    val safeGestureZoom =
+                                    val safeZoom =
                                         if (
                                             gestureZoom.isFinite() &&
-                                                gestureZoom > 0f
+                                                gestureZoom >
+                                                0f
                                         ) {
                                             gestureZoom
                                         } else {
@@ -336,18 +369,15 @@ fun SldCanvas(
                                     val newZoom =
                                         (
                                             oldZoom *
-                                                safeGestureZoom
+                                                safeZoom
                                             ).coerceIn(
                                                 MIN_ZOOM,
                                                 MAX_ZOOM
                                             )
 
-                                    /*
-                                     * Apply zoom around the current pinch
-                                     * centroid first.
-                                     */
                                     if (
-                                        newZoom != oldZoom
+                                        newZoom !=
+                                            oldZoom
                                     ) {
 
                                         val logicalCentroid =
@@ -381,23 +411,28 @@ fun SldCanvas(
                                                 newZoom
                                     }
 
-                                    /*
-                                     * Then apply two-finger pan.
-                                     */
-                                    panX += pan.x
-                                    panY += pan.y
+                                    panX +=
+                                        pan.x
 
-                                    pressed.forEach { change ->
-                                        change.consume()
+                                    panY +=
+                                        pan.y
+
+                                    pressed.forEach {
+                                        it.consume()
                                     }
 
                                     continue
                                 }
 
                                 /*
-                                 * One-finger interaction.
+                                 * =================================================
+                                 * ONE-FINGER
+                                 * =================================================
                                  */
-                                if (!multiTouch) {
+
+                                if (
+                                    !multiTouch
+                                ) {
 
                                     val change =
                                         pressed.first()
@@ -411,31 +446,34 @@ fun SldCanvas(
                                             Offset.Zero
                                     ) {
 
-                                        moved = true
+                                        moved =
+                                            true
 
-                                        /*
-                                         * Move the selected node in logical
-                                         * coordinates. Dividing by zoom keeps
-                                         * node movement independent of zoom.
-                                         */
                                         if (
                                             draggingNode &&
-                                                activeNodeId != null
+                                                activeNodeId !=
+                                                null
                                         ) {
 
                                             currentOnMoveNode(
                                                 activeNodeId!!,
-                                                delta.x / zoom,
-                                                delta.y / zoom
+                                                delta.x /
+                                                    zoom,
+                                                delta.y /
+                                                    zoom
                                             )
 
                                         } else {
 
                                             /*
-                                             * Empty canvas drag = pan.
+                                             * Empty canvas =
+                                             * pan.
                                              */
-                                            panX += delta.x
-                                            panY += delta.y
+                                            panX +=
+                                                delta.x
+
+                                            panY +=
+                                                delta.y
                                         }
 
                                         change.consume()
@@ -443,11 +481,6 @@ fun SldCanvas(
                                 }
                             }
 
-                            /*
-                             * Notify editor that node dragging has ended.
-                             * This is where the state layer can finalize
-                             * automatic engineering recalculation.
-                             */
                             if (
                                 draggingNode &&
                                     !multiTouch &&
@@ -458,11 +491,11 @@ fun SldCanvas(
                             }
 
                             /*
-                             * A tap with no movement:
-                             *
-                             * - first tap selects
-                             * - second tap edits
+                             * =================================================
+                             * SINGLE / DOUBLE TAP
+                             * =================================================
                              */
+
                             if (
                                 !moved &&
                                     !multiTouch
@@ -472,7 +505,8 @@ fun SldCanvas(
                                     firstDown.uptimeMillis
 
                                 val isDoubleTap =
-                                    lastTapTime > 0L &&
+                                    lastTapTime >
+                                        0L &&
                                         now -
                                             lastTapTime <=
                                             DOUBLE_TAP_TIMEOUT &&
@@ -484,53 +518,69 @@ fun SldCanvas(
                                             ).getDistance() <=
                                             DOUBLE_TAP_DISTANCE
 
-                                if (isDoubleTap) {
+                                if (
+                                    isDoubleTap
+                                ) {
 
+                                    /*
+                                     * Do not open the editor when
+                                     * the user is in connection mode.
+                                     */
                                     if (
-                                        firstNode != null
+                                        currentConnectionStartId ==
+                                            null
                                     ) {
 
-                                        currentOnEditNode(
-                                            firstNode
-                                        )
+                                        if (
+                                            firstNode !=
+                                                null
+                                        ) {
 
-                                    } else if (
-                                        firstConnection != null
-                                    ) {
+                                            currentOnEditNode(
+                                                firstNode
+                                            )
 
-                                        currentOnEditConnection(
-                                            firstConnection
-                                        )
+                                        } else if (
+                                            firstConnection !=
+                                                null
+                                        ) {
+
+                                            currentOnEditConnection(
+                                                firstConnection
+                                            )
+                                        }
                                     }
 
-                                    lastTapTime = 0L
+                                    lastTapTime =
+                                        0L
 
                                     lastTapPosition =
                                         Offset.Unspecified
 
                                 } else {
 
-                                    lastTapTime = now
+                                    lastTapTime =
+                                        now
 
                                     lastTapPosition =
                                         firstPosition
                                 }
                             }
 
-                            activeNodeId = null
+                            activeNodeId =
+                                null
                         }
                     }
         ) {
 
             /*
-             * Fixed screen background/grid.
+             * =========================================================
+             * ENGINEERING BACKGROUND
+             * =========================================================
              */
+
             drawSldEngineeringBackground()
 
-            /*
-             * All SLD geometry is rendered in logical coordinates and then
-             * transformed by the current viewport.
-             */
             withTransform({
 
                 translate(
@@ -541,14 +591,13 @@ fun SldCanvas(
                 scale(
                     scaleX = zoom,
                     scaleY = zoom,
-                    pivot = Offset.Zero
+                    pivot =
+                        Offset.Zero
                 )
-
             }) {
 
                 /*
-                 * Connections are deliberately drawn before nodes so that
-                 * feeders and busbars remain behind the IEC symbols.
+                 * Connections first.
                  */
                 currentConnections.forEach { connection ->
 
@@ -584,7 +633,7 @@ fun SldCanvas(
                 }
 
                 /*
-                 * Nodes are rendered after connections.
+                 * Nodes second.
                  */
                 currentNodes.forEach { node ->
 
@@ -622,15 +671,65 @@ fun SldCanvas(
                             currentConnections
                     )
                 }
+
+                /*
+                 * =====================================================
+                 * CONNECTION START GUIDE
+                 * =====================================================
+                 *
+                 * Draw a small crosshair/guide around the selected
+                 * starting element. This gives the engineer a clear
+                 * visual indication that the editor is waiting for
+                 * the destination.
+                 */
+                currentConnectionStartId
+                    ?.let { startId ->
+
+                        currentNodes
+                            .firstOrNull {
+                                it.id ==
+                                    startId
+                            }
+                            ?.let { node ->
+
+                                val center =
+                                    Offset(
+                                        node.x +
+                                            90f,
+
+                                        node.y +
+                                            59f
+                                    )
+
+                                drawCircle(
+                                    color =
+                                        Color(
+                                            0xFFFF9800
+                                        ),
+
+                                    radius =
+                                        92f,
+
+                                    center =
+                                        center,
+
+                                    style =
+                                        androidx.compose.ui.graphics.drawscope.Stroke(
+                                            width =
+                                                3f
+                                        )
+                                )
+                            }
+                    }
             }
         }
 
         /*
-         * View controls.
-         *
-         * They are deliberately outside the Canvas transform, so they stay
-         * fixed on the screen while the SLD is zoomed/panned.
+         * ============================================================
+         * FIXED VIEW CONTROLS
+         * ============================================================
          */
+
         Column(
             modifier =
                 Modifier
@@ -645,12 +744,11 @@ fun SldCanvas(
 
             FloatingActionButton(
                 onClick = {
+
                     /*
-                     * Zoom around the center of the available canvas rather
-                     * than around logical origin (0,0).
-                     *
-                     * This prevents the drawing from flying away when the
-                     * engineer uses the +/- buttons.
+                     * Use the center of the visible viewport.
+                     * The Canvas is behind the controls and fills
+                     * the parent, so a normalized center is sufficient.
                      */
                     zoomAt(
                         factor =
@@ -658,15 +756,8 @@ fun SldCanvas(
 
                         center =
                             Offset(
-                                x = sizeSafeCenterX(
-                                    panX = panX,
-                                    zoom = zoom
-                                ),
-
-                                y = sizeSafeCenterY(
-                                    panY = panY,
-                                    zoom = zoom
-                                )
+                                x = 500f,
+                                y = 350f
                             )
                     )
                 }
@@ -691,15 +782,8 @@ fun SldCanvas(
 
                         center =
                             Offset(
-                                x = sizeSafeCenterX(
-                                    panX = panX,
-                                    zoom = zoom
-                                ),
-
-                                y = sizeSafeCenterY(
-                                    panY = panY,
-                                    zoom = zoom
-                                )
+                                x = 500f,
+                                y = 350f
                             )
                     )
                 }
@@ -729,48 +813,5 @@ fun SldCanvas(
                 )
             }
         }
-    }
-}
-
-/*
- * The floating buttons need a stable point around which to zoom.
- *
- * Because the buttons are outside Canvas and this composable does not expose
- * the Canvas size directly, use the current transformed origin as a safe
- * anchor. The value is intentionally kept independent of SLD model data.
- */
-private fun sizeSafeCenterX(
-    panX: Float,
-    zoom: Float
-): Float {
-    return if (
-        panX.isFinite() &&
-            zoom.isFinite() &&
-            zoom > 0f
-    ) {
-        panX.coerceIn(
-            -100000f,
-            100000f
-        )
-    } else {
-        0f
-    }
-}
-
-private fun sizeSafeCenterY(
-    panY: Float,
-    zoom: Float
-): Float {
-    return if (
-        panY.isFinite() &&
-            zoom.isFinite() &&
-            zoom > 0f
-    ) {
-        panY.coerceIn(
-            -100000f,
-            100000f
-        )
-    } else {
-        0f
     }
 }
