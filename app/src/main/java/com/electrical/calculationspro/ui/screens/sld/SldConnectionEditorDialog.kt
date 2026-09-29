@@ -8,18 +8,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.ui.components.EngineeringCard
 import com.electrical.calculationspro.ui.components.EngineeringInput
@@ -56,20 +51,17 @@ fun SldConnectionEditorDialog(
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
-    var typeExpanded by remember { mutableStateOf(false) }
-    var conductorExpanded by remember { mutableStateOf(false) }
-    var insulationExpanded by remember { mutableStateOf(false) }
-    var installationExpanded by remember { mutableStateOf(false) }
-    var busbarMaterialExpanded by remember { mutableStateOf(false) }
-
-    val isBusbar = connectionType == "BUSBAR"
+    val isBusbar = connectionType.equals(
+        "BUSBAR",
+        ignoreCase = true
+    )
 
     AlertDialog(
         onDismissRequest = onCancel,
 
         title = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(3.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = if (arabic) {
@@ -77,7 +69,8 @@ fun SldConnectionEditorDialog(
                     } else {
                         "Connection Data"
                     },
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
 
                 Text(
@@ -104,7 +97,9 @@ fun SldConnectionEditorDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(
+                        rememberScrollState()
+                    ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
@@ -115,52 +110,52 @@ fun SldConnectionEditorDialog(
                         "Connection Type"
                     }
                 ) {
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+
                         OutlinedButton(
                             onClick = {
-                                typeExpanded = true
+                                onConnectionTypeChange("CABLE")
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.weight(1f)
                         ) {
                             Text(
-                                if (isBusbar) {
-                                    "BUSBAR"
-                                } else {
-                                    "CABLE"
-                                }
-                            }
+                                text = "CABLE"
+                            )
                         }
 
-                        DropdownMenu(
-                            expanded = typeExpanded,
-                            onDismissRequest = {
-                                typeExpanded = false
-                            }
+                        OutlinedButton(
+                            onClick = {
+                                onConnectionTypeChange("BUSBAR")
+                            },
+                            modifier = Modifier.weight(1f)
                         ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text("BUSBAR")
-                                },
-                                onClick = {
-                                    onConnectionTypeChange("BUSBAR")
-                                    typeExpanded = false
-                                }
-                            )
-
-                            DropdownMenuItem(
-                                text = {
-                                    Text("CABLE")
-                                },
-                                onClick = {
-                                    onConnectionTypeChange("CABLE")
-                                    typeExpanded = false
-                                }
+                            Text(
+                                text = "BUSBAR"
                             )
                         }
                     }
+
+                    Text(
+                        text = if (isBusbar) {
+                            if (arabic) {
+                                "الوضع الحالي: BUSBAR — لا يتم إدخال طول كابل أو معاملات كابل."
+                            } else {
+                                "Current type: BUSBAR — cable length and cable parameters are not used."
+                            }
+                        } else {
+                            if (arabic) {
+                                "الوضع الحالي: CABLE — بيانات الكابل مطلوبة للتغذية الخارجية."
+                            } else {
+                                "Current type: CABLE — cable data is required for the external feeder."
+                            }
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
                 if (isBusbar) {
@@ -172,11 +167,12 @@ fun SldConnectionEditorDialog(
                             "Busbar Data"
                         }
                     ) {
+
                         Text(
                             text = if (arabic) {
-                                "توصيل داخلي داخل اللوحة. لا يتم استخدام طول كابل أو طريقة تنفيذ."
+                                "الباسبار جزء داخلي من اللوحة. لا يتم تطبيق طول أو R أو X أو طريقة تنفيذ كابل عليه."
                             } else {
-                                "Internal panel connection. Cable length and installation method are not applicable."
+                                "The busbar is an internal panel element. Cable length, R, X and installation method are not applicable."
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -184,39 +180,27 @@ fun SldConnectionEditorDialog(
 
                         OutlinedButton(
                             onClick = {
-                                busbarMaterialExpanded = true
-                            },
+                                onBusbarMaterialChange(
+                                    if (
+                                        busbarMaterial.equals(
+                                            "Copper",
+                                            ignoreCase = true
+                                        )
+                                    ) {
+                                        "Aluminium"
+                                    } else {
+                                        "Copper"
+                                    }
+                                },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                if (arabic) {
-                                    "مادة الباسبار: $busbarMaterial"
+                                text = if (arabic) {
+                                    "مادة الباسبار: $busbarMaterial  • اضغط للتغيير"
                                 } else {
-                                    "Busbar Material: $busbarMaterial"
+                                    "Busbar Material: $busbarMaterial • Tap to change"
                                 }
                             )
-                        }
-
-                        DropdownMenu(
-                            expanded = busbarMaterialExpanded,
-                            onDismissRequest = {
-                                busbarMaterialExpanded = false
-                            }
-                        ) {
-                            listOf(
-                                "Copper",
-                                "Aluminium"
-                            ).forEach { material ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(material)
-                                    },
-                                    onClick = {
-                                        onBusbarMaterialChange(material)
-                                        busbarMaterialExpanded = false
-                                    }
-                                )
-                            }
                         }
 
                         EngineeringInput(
@@ -262,118 +246,73 @@ fun SldConnectionEditorDialog(
 
                         OutlinedButton(
                             onClick = {
-                                conductorExpanded = true
+                                onConductorMaterialChange(
+                                    if (
+                                        conductorMaterial.equals(
+                                            "Copper",
+                                            ignoreCase = true
+                                        )
+                                    ) {
+                                        "Aluminium"
+                                    } else {
+                                        "Copper"
+                                    }
+                                )
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                if (arabic) {
-                                    "الموصل: $conductorMaterial"
+                                text = if (arabic) {
+                                    "الموصل: $conductorMaterial  • اضغط للتغيير"
                                 } else {
-                                    "Conductor: $conductorMaterial"
+                                    "Conductor: $conductorMaterial • Tap to change"
                                 }
                             )
-                        }
-
-                        DropdownMenu(
-                            expanded = conductorExpanded,
-                            onDismissRequest = {
-                                conductorExpanded = false
-                            }
-                        ) {
-                            listOf(
-                                "Copper",
-                                "Aluminium"
-                            ).forEach { material ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(material)
-                                    },
-                                    onClick = {
-                                        onConductorMaterialChange(material)
-                                        conductorExpanded = false
-                                    }
-                                )
-                            }
                         }
 
                         OutlinedButton(
                             onClick = {
-                                insulationExpanded = true
+                                onInsulationTypeChange(
+                                    if (
+                                        insulationType.equals(
+                                            "PVC",
+                                            ignoreCase = true
+                                        )
+                                    ) {
+                                        "XLPE"
+                                    } else {
+                                        "PVC"
+                                    }
+                                )
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                if (arabic) {
-                                    "العزل: $insulationType"
+                                text = if (arabic) {
+                                    "العزل: $insulationType  • اضغط للتغيير"
                                 } else {
-                                    "Insulation: $insulationType"
+                                    "Insulation: $insulationType • Tap to change"
                                 }
                             )
-                        }
-
-                        DropdownMenu(
-                            expanded = insulationExpanded,
-                            onDismissRequest = {
-                                insulationExpanded = false
-                            }
-                        ) {
-                            listOf(
-                                "PVC",
-                                "XLPE"
-                            ).forEach { insulation ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(insulation)
-                                    },
-                                    onClick = {
-                                        onInsulationTypeChange(insulation)
-                                        insulationExpanded = false
-                                    }
-                                )
-                            }
                         }
 
                         OutlinedButton(
                             onClick = {
-                                installationExpanded = true
+                                onInstallationMethodChange(
+                                    nextInstallationMethod(
+                                        installationMethodCode
+                                    )
+                                )
                             },
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
-                                if (arabic) {
-                                    "طريقة التنفيذ: $installationMethodCode"
+                                text = if (arabic) {
+                                    "طريقة التنفيذ: $installationMethodCode  • اضغط للتغيير"
                                 } else {
-                                    "Installation: $installationMethodCode"
+                                    "Installation: $installationMethodCode • Tap to change"
                                 }
                             )
-                        }
-
-                        DropdownMenu(
-                            expanded = installationExpanded,
-                            onDismissRequest = {
-                                installationExpanded = false
-                            }
-                        ) {
-                            listOf(
-                                "A1",
-                                "A2",
-                                "B1",
-                                "B2",
-                                "C",
-                                "D1",
-                                "D2"
-                            ).forEach { method ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(method)
-                                    },
-                                    onClick = {
-                                        onInstallationMethodChange(method)
-                                        installationExpanded = false
-                                    }
-                                )
-                            }
                         }
 
                         EngineeringInput(
@@ -404,6 +343,7 @@ fun SldConnectionEditorDialog(
                             "Electrical Parameters"
                         }
                     ) {
+
                         EngineeringInput(
                             value = resistance,
                             label = "R (Ω/km)",
@@ -435,7 +375,7 @@ fun SldConnectionEditorDialog(
                 onClick = onSave
             ) {
                 Text(
-                    if (arabic) {
+                    text = if (arabic) {
                         "حفظ"
                     } else {
                         "Save"
@@ -449,7 +389,7 @@ fun SldConnectionEditorDialog(
                 onClick = onCancel
             ) {
                 Text(
-                    if (arabic) {
+                    text = if (arabic) {
                         "إلغاء"
                     } else {
                         "Cancel"
@@ -458,4 +398,26 @@ fun SldConnectionEditorDialog(
             }
         }
     )
+}
+
+private fun nextInstallationMethod(
+    current: String
+): String {
+    val methods = listOf(
+        "A1",
+        "A2",
+        "B1",
+        "B2",
+        "C",
+        "D1",
+        "D2"
+    )
+
+    val index = methods.indexOf(current)
+
+    return if (index < 0 || index == methods.lastIndex) {
+        methods.first()
+    } else {
+        methods[index + 1]
+    }
 }
