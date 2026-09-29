@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TableView
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +35,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,11 +47,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.SldNodeType
-import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun SldEditorScreen(
@@ -73,6 +76,17 @@ fun SldEditorScreen(
         language == AppLanguage.ARABIC
 
     /*
+     * IMPORTANT:
+     *
+     * LocalContext.current is a Composable value.
+     * It must be obtained here, inside the Composable,
+     * and never from the ActivityResult callback.
+     */
+
+    val context =
+        LocalContext.current
+
+    /*
      * ============================================================
      * PDF EXPORT
      * ============================================================
@@ -94,23 +108,26 @@ fun SldEditorScreen(
                 runCatching {
 
                     val output =
-                        androidx.compose.ui.platform.LocalContext
-                            .current
+                        context
                             .contentResolver
                             .openOutputStream(uri)
 
                     output?.use { stream ->
 
                         SldPdfReportExporter.export(
-                            outputStream = stream,
+                            outputStream =
+                                stream,
+
                             title =
                                 state.reportTitle.ifBlank {
+
                                     if (arabic) {
                                         "تقرير التصميم الكهربائي"
                                     } else {
                                         "Electrical Engineering Design Report"
                                     }
                                 },
+
                             reportText =
                                 state.reportText
                         )
@@ -152,7 +169,9 @@ fun SldEditorScreen(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .background(Color.White)
+                    .background(
+                        Color.White
+                    )
                     .padding(
                         horizontal = 8.dp,
                         vertical = 7.dp
@@ -315,7 +334,8 @@ fun SldEditorScreen(
                                     "CONNECTION MODE"
                                 },
 
-                            fontSize = 13.sp,
+                            fontSize =
+                                13.sp,
 
                             color =
                                 Color(0xFF6D4700)
@@ -329,7 +349,8 @@ fun SldEditorScreen(
                                     "From: ${startNode?.name ?: "Start"} — select the destination component"
                                 },
 
-                            fontSize = 11.sp,
+                            fontSize =
+                                11.sp,
 
                             color =
                                 Color(0xFF795548)
@@ -338,7 +359,8 @@ fun SldEditorScreen(
 
                     OutlinedButton(
                         onClick = {
-                            state.connectionStartId = null
+                            state.connectionStartId =
+                                null
                         }
                     ) {
 
@@ -377,7 +399,9 @@ fun SldEditorScreen(
         ) {
 
             AddComponentMenu(
-                arabic = arabic,
+                arabic =
+                    arabic,
+
                 onType = {
                     actions.resetNodeEditor(it)
                 }
@@ -421,14 +445,6 @@ fun SldEditorScreen(
                     },
 
                 onClick = {
-
-                    /*
-                     * If a node is already selected, pressing Connect
-                     * immediately starts the connection from it.
-                     *
-                     * Otherwise the user is asked to select the first
-                     * component.
-                     */
                     actions.startOrCompleteConnection()
                 }
             )
@@ -608,12 +624,16 @@ fun SldEditorScreen(
                         }
 
                     Text(
-                        text = status,
-                        fontSize = 13.sp
+                        text =
+                            status,
+
+                        fontSize =
+                            13.sp
                     )
 
                     if (
-                        state.engineeringError != null
+                        state.engineeringError !=
+                            null
                     ) {
 
                         Spacer(
@@ -625,7 +645,8 @@ fun SldEditorScreen(
                             text =
                                 state.engineeringError!!,
 
-                            fontSize = 11.sp,
+                            fontSize =
+                                11.sp,
 
                             color =
                                 Color(0xFFC62828)
@@ -637,7 +658,8 @@ fun SldEditorScreen(
                     text =
                         "${state.nodes.size} Nodes  •  ${state.connections.size} Connections",
 
-                    fontSize = 11.sp,
+                    fontSize =
+                        11.sp,
 
                     color =
                         Color(0xFF607D8B)
@@ -681,14 +703,6 @@ fun SldEditorScreen(
                 engineering =
                     state.engineeringPackage,
 
-                /*
-                 * IMPORTANT:
-                 *
-                 * In normal mode this only selects.
-                 *
-                 * In connection mode the second node immediately
-                 * completes the connection through Actions.
-                 */
                 onSelectNode = { id ->
 
                     state.selectedNodeId =
@@ -698,7 +712,8 @@ fun SldEditorScreen(
                         null
 
                     if (
-                        state.connectionStartId != null
+                        state.connectionStartId !=
+                            null
                     ) {
 
                         actions.startOrCompleteConnection()
@@ -707,19 +722,17 @@ fun SldEditorScreen(
 
                 onMoveNode = { id, dx, dy ->
 
-                    /*
-                     * Never move a node while a connection is being
-                     * created.
-                     */
                     if (
-                        state.connectionStartId == null
+                        state.connectionStartId ==
+                            null
                     ) {
 
                         state.nodes =
                             state.nodes.map { node ->
 
                                 if (
-                                    node.id == id
+                                    node.id ==
+                                        id
                                 ) {
 
                                     node.copy(
@@ -746,7 +759,8 @@ fun SldEditorScreen(
                 onMoveNodeEnd = {
 
                     if (
-                        state.connectionStartId == null
+                        state.connectionStartId ==
+                            null
                     ) {
                         actions.saveAndRecalculate()
                     }
@@ -787,7 +801,8 @@ fun SldEditorScreen(
                 arabic,
 
             editing =
-                state.editingNodeId != null,
+                state.editingNodeId !=
+                    null,
 
             type =
                 state.nodeType,
@@ -860,8 +875,12 @@ fun SldEditorScreen(
             },
 
             onCancel = {
-                state.showNodeDialog = false
-                state.editingNodeId = null
+
+                state.showNodeDialog =
+                    false
+
+                state.editingNodeId =
+                    null
             }
         )
     }
@@ -976,9 +995,15 @@ fun SldEditorScreen(
             },
 
             onCancel = {
-                state.showConnectionDialog = false
-                state.editingConnectionId = null
-                state.connectionStartId = null
+
+                state.showConnectionDialog =
+                    false
+
+                state.editingConnectionId =
+                    null
+
+                state.connectionStartId =
+                    null
             }
         )
     }
@@ -993,9 +1018,10 @@ fun SldEditorScreen(
         state.showReport
     ) {
 
-        androidx.compose.material3.AlertDialog(
+        AlertDialog(
             onDismissRequest = {
-                state.showReport = false
+                state.showReport =
+                    false
             },
 
             title = {
@@ -1006,29 +1032,31 @@ fun SldEditorScreen(
 
             text = {
 
-                androidx.compose.foundation.layout.Box(
+                Box(
                     modifier =
                         Modifier
                             .fillMaxWidth()
                             .height(520.dp)
                 ) {
 
-                    androidx.compose.foundation.verticalScroll(
+                    val scrollState =
                         rememberScrollState()
-                    ).let { scrollState ->
 
-                        Text(
-                            text =
-                                state.reportText,
+                    Text(
+                        text =
+                            state.reportText,
 
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(4.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(4.dp)
+                                .verticalScroll(
+                                    scrollState
+                                ),
 
-                            fontSize = 11.sp
-                        )
-                    }
+                        fontSize =
+                            11.sp
+                    )
                 }
             },
 
@@ -1070,7 +1098,8 @@ fun SldEditorScreen(
 
                 androidx.compose.material3.TextButton(
                     onClick = {
-                        state.showReport = false
+                        state.showReport =
+                            false
                     }
                 ) {
 
@@ -1095,18 +1124,25 @@ fun SldEditorScreen(
 
 @Composable
 private fun ToolButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon:
+        androidx.compose.ui.graphics.vector.ImageVector,
+
     text: String,
+
     onClick: () -> Unit
 ) {
 
     OutlinedButton(
-        onClick = onClick
+        onClick =
+            onClick
     ) {
 
         Icon(
-            imageVector = icon,
-            contentDescription = null
+            imageVector =
+                icon,
+
+            contentDescription =
+                null
         )
 
         Spacer(
@@ -1115,7 +1151,8 @@ private fun ToolButton(
         )
 
         Text(
-            text = text
+            text =
+                text
         )
     }
 }
@@ -1140,7 +1177,8 @@ private fun AddComponentMenu(
 
         Button(
             onClick = {
-                expanded = true
+                expanded =
+                    true
             }
         ) {
 
@@ -1167,33 +1205,43 @@ private fun AddComponentMenu(
         }
 
         DropdownMenu(
-            expanded = expanded,
+            expanded =
+                expanded,
 
             onDismissRequest = {
-                expanded = false
+                expanded =
+                    false
             }
         ) {
 
-            SldNodeType.values().forEach { type ->
+            SldNodeType.values()
+                .forEach { type ->
 
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            sldNodeTypeLabel(
-                                type = type,
-                                arabic = arabic
+                    DropdownMenuItem(
+                        text = {
+
+                            Text(
+                                sldNodeTypeLabel(
+                                    type =
+                                        type,
+
+                                    arabic =
+                                        arabic
+                                )
                             )
-                        )
-                    },
+                        },
 
-                    onClick = {
+                        onClick = {
 
-                        expanded = false
+                            expanded =
+                                false
 
-                        onType(type)
-                    }
-                )
-            }
+                            onType(
+                                type
+                            )
+                        }
+                    )
+                }
         }
     }
 }
@@ -1206,24 +1254,52 @@ private fun sldNodeTypeLabel(
     return when (type) {
 
         SldNodeType.SOURCE ->
-            if (arabic) "مصدر كهرباء" else "Utility Source"
+            if (arabic) {
+                "مصدر كهرباء"
+            } else {
+                "Utility Source"
+            }
 
         SldNodeType.TRANSFORMER ->
-            if (arabic) "محول" else "Transformer"
+            if (arabic) {
+                "محول"
+            } else {
+                "Transformer"
+            }
 
         SldNodeType.GENERATOR ->
-            if (arabic) "مولد" else "Generator"
+            if (arabic) {
+                "مولد"
+            } else {
+                "Generator"
+            }
 
         SldNodeType.BUS ->
-            if (arabic) "باسبار" else "Busbar"
+            if (arabic) {
+                "باسبار"
+            } else {
+                "Busbar"
+            }
 
         SldNodeType.PANEL ->
-            if (arabic) "لوحة" else "Panel"
+            if (arabic) {
+                "لوحة"
+            } else {
+                "Panel"
+            }
 
         SldNodeType.BREAKER ->
-            if (arabic) "قاطع" else "Breaker"
+            if (arabic) {
+                "قاطع"
+            } else {
+                "Breaker"
+            }
 
         SldNodeType.LOAD ->
-            if (arabic) "حمل" else "Load"
+            if (arabic) {
+                "حمل"
+            } else {
+                "Load"
+            }
     }
 }
