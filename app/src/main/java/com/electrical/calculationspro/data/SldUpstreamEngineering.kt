@@ -4,7 +4,11 @@ import kotlin.math.sqrt
 
 /**
 
+* ================================================================
+
 * PROFESSIONAL SLD UPSTREAM ENGINE
+
+* ================================================================
 
 * 
 
@@ -36,10 +40,6 @@ import kotlin.math.sqrt
 
 * 
 
-* Therefore:
-
-* 
-
 * P = Σ kW
 
 * Q = Σ kVAr
@@ -52,15 +52,21 @@ import kotlin.math.sqrt
 
 * 
 
-* This avoids the previous error of calculating upstream kVA
+* The selected SldEngineeringContext is used for:
 
-* using only the local node power factor.
+* - breaker nominal ratings
+
+* - voltage-drop limit
+
+* - engineering-standard traceability
 
 * 
 
-* Voltage drop is calculated cumulatively through the downstream
+* No other standard is silently substituted when the selected
 
-* radial path.
+* standard does not provide verified breaker ratings.
+
+* ================================================================
   */
   object SldUpstreamEngineering {
   
@@ -112,38 +118,48 @@ import kotlin.math.sqrt
   val reactiveKvar: Double
   )
   
-  private val breakerRatings =
-  listOf(
-  6.0,
-  10.0,
-  16.0,
-  20.0,
-  25.0,
-  32.0,
-  40.0,
-  50.0,
-  63.0,
-  80.0,
-  100.0,
-  125.0,
-  160.0,
-  200.0,
-  250.0,
-  315.0,
-  400.0,
-  500.0,
-  630.0,
-  800.0,
-  1000.0,
-  1250.0,
-  1600.0,
-  2000.0,
-  2500.0,
-  3200.0,
-  4000.0,
-  5000.0,
-  6300.0
-  )
+  /**
+  
+  * Backward-compatible fallback.
+  * 
+  * This is used only by callers that do not supply an
+  * EngineeringContext.
+  * 
+  * Context-aware SLD calculations must use the selected
+  * StandardEngine instead.
+    */
+    private val defaultBreakerRatings =
+    listOf(
+    6.0,
+    10.0,
+    16.0,
+    20.0,
+    25.0,
+    32.0,
+    40.0,
+    50.0,
+    63.0,
+    80.0,
+    100.0,
+    125.0,
+    160.0,
+    200.0,
+    250.0,
+    315.0,
+    400.0,
+    500.0,
+    630.0,
+    800.0,
+    1000.0,
+    1250.0,
+    1600.0,
+    2000.0,
+    2500.0,
+    3200.0,
+    4000.0,
+    5000.0,
+    6300.0
+    )
   
   private val transformerRatings =
   listOf(
@@ -175,662 +191,807 @@ import kotlin.math.sqrt
   20000.0
   )
   
-  fun calculate(
-  network: SldNetwork
-  ): Result {
+  /**
   
-   require(network.nodes.isNotEmpty()) {
-     "SLD network is empty."
- }
-
- validate(network)
-
- val topology =
-     SldTopologyEngine.build(network)
-
- val nodeMap =
-     network.nodes.associateBy {
-         it.id
-     }
-
- /*
-  * ---------------------------------------------------------
-  * DOWNSTREAM POWER AGGREGATION
-  * ---------------------------------------------------------
-  *
-  * Every terminal load contributes:
-  *
-  * connected kW
-  * demand kW
-  * demand kVAr
-  *
-  * kVAr is calculated from the node's actual PF.
-  *
-  * Passive SLD elements do not contribute load.
-  */
- val powerCache =
-     mutableMapOf<String, PowerResult>()
-
- fun calculateNodePower(
-     node: SldNode,
-     stack: MutableSet<String>
- ): PowerResult {
-
+  * Original API.
+  
+  * 
+  
+  * Existing callers remain compatible.
+    */
+    fun calculate(
+    network: SldNetwork
+    ): Result {
+    
+    return calculate(
+    network = network,
+    engineeringContext = null
+    )
+    }
+  
+  /**
+  
+  * Context-aware authoritative calculation.
+  
+  * 
+  
+  * The same EngineeringContext selected for the complete SLD
+  
+  * study reaches this engine.
+    */
+    fun calculate(
+    network: SldNetwork,
+    engineeringContext: SldEngineeringContext?
+    ): Result {
+    
+    require(network.nodes.isNotEmpty()) {
+    "SLD network is empty."
+    }
+    
+    validate(network)
+    
+    val breakerRatings =
+    resolveBreakerRatings(
+    engineeringContext
+    )
+    
+    val voltageDropLimitPercent =
+    engineeringContext
+    ?.effectiveVoltageDropLimitPercent()
+    ?.takeIf { it > 0.0 }
+    ?: 3.0
+    
+    val topology =
+    SldTopologyEngine.build(network)
+    
+    val nodeMap =
+    network.nodes.associateBy {
+    it.id
+    }
+    
+    /*
+    
+    * ---
+    * DOWNSTREAM POWER AGGREGATION
+    * ---
+    
+    */
+    val powerCache =
+    mutableMapOf<String, PowerResult>()
+    
+    fun calculateNodePower(
+    node: SldNode,
+    stack: MutableSet<String>
+    ): PowerResult {
+    
      powerCache[node.id]?.let {
-         return it
-     }
-
-     require(
-         stack.add(node.id)
-     ) {
-         "Circular upstream path at ${node.name}."
-     }
-
-     val ownConnectedKw =
-         when (node.type) {
-             SldNodeType.BUS,
-             SldNodeType.BREAKER,
-             SldNodeType.SOURCE,
-             SldNodeType.TRANSFORMER,
-             SldNodeType.GENERATOR ->
-                 0.0
-
-             else ->
-                 node.loadKw.coerceAtLeast(0.0)
-         }
-
-     val ownDemandKw =
-         when (node.type) {
-             SldNodeType.BUS,
-             SldNodeType.BREAKER,
-             SldNodeType.SOURCE,
-             SldNodeType.TRANSFORMER,
-             SldNodeType.GENERATOR ->
-                 0.0
-
-             else ->
-                 ownConnectedKw *
-                     node.demandFactor.coerceIn(
-                         0.0,
-                         1.0
-                     )
-         }
-
-     val ownReactiveKvar =
-         calculateReactivePower(
-             activeKw = ownDemandKw,
-             powerFactor = node.powerFactor
-         )
-
-     var connectedKw =
-         ownConnectedKw
-
-     var demandKw =
-         ownDemandKw
-
-     var reactiveKvar =
-         ownReactiveKvar
-
-     topology.children[node.id]
-         .orEmpty()
-         .forEach { child ->
-
-             val childResult =
-                 calculateNodePower(
-                     child,
-                     stack
-                 )
-
-             connectedKw +=
-                 childResult.connectedKw
-
-             demandKw +=
-                 childResult.demandKw
-
-             reactiveKvar +=
-                 childResult.reactiveKvar
-         }
-
-     stack.remove(node.id)
-
-     val result =
-         PowerResult(
-             connectedKw =
-                 connectedKw,
-
-             demandKw =
-                 demandKw,
-
-             reactiveKvar =
-                 reactiveKvar
-         )
-
-     powerCache[node.id] =
-         result
-
-     return result
+     return it
  }
 
- /*
-  * Start at source to calculate the complete network.
-  */
- calculateNodePower(
-     topology.source,
-     mutableSetOf()
- )
+ require(stack.add(node.id)) {
+     "Circular upstream path at ${node.name}."
+ }
 
- /*
-  * Make sure every node has a result.
-  *
-  * Topology validation already rejects disconnected nodes,
-  * but this also protects against future topology changes.
-  */
- network.nodes.forEach { node ->
-     calculateNodePower(
-         node,
-         mutableSetOf()
+ val ownConnectedKw =
+     when (node.type) {
+
+         SldNodeType.BUS,
+         SldNodeType.BREAKER,
+         SldNodeType.SOURCE,
+         SldNodeType.TRANSFORMER,
+         SldNodeType.GENERATOR ->
+             0.0
+
+         else ->
+             node.loadKw.coerceAtLeast(0.0)
+     }
+
+ val ownDemandKw =
+     when (node.type) {
+
+         SldNodeType.BUS,
+         SldNodeType.BREAKER,
+         SldNodeType.SOURCE,
+         SldNodeType.TRANSFORMER,
+         SldNodeType.GENERATOR ->
+             0.0
+
+         else ->
+             ownConnectedKw *
+                 node.demandFactor.coerceIn(
+                     0.0,
+                     1.0
+                 )
+     }
+
+ val ownReactiveKvar =
+     calculateReactivePower(
+         activeKw = ownDemandKw,
+         powerFactor = node.powerFactor
      )
- }
 
- /*
-  * ---------------------------------------------------------
-  * CUMULATIVE VOLTAGE DROP
-  * ---------------------------------------------------------
-  *
-  * For each path:
-  *
-  * VD(total) =
-  * VD(section 1) +
-  * VD(section 2) +
-  * ...
-  *
-  * The maximum downstream path is reported for each node.
-  */
- fun cumulativeVoltageDrop(
-     nodeId: String,
-     upstreamVoltage: Double
- ): Double {
+ var connectedKw =
+     ownConnectedKw
 
-     val children =
-         topology.children[nodeId]
-             .orEmpty()
+ var demandKw =
+     ownDemandKw
 
-     if (children.isEmpty()) {
-         return 0.0
-     }
+ var reactiveKvar =
+     ownReactiveKvar
 
-     var maximum =
-         0.0
-
-     children.forEach { child ->
-
-         val connection =
-             topology.connections.firstOrNull {
-                 it.fromNodeId == nodeId &&
-                     it.toNodeId == child.id
-             }
-                 ?: return@forEach
-
-         val childPower =
-             powerCache[child.id]
-                 ?: return@forEach
-
-         val childKva =
-             apparentPower(
-                 activeKw =
-                     childPower.demandKw,
-                 reactiveKvar =
-                     childPower.reactiveKvar
-             )
-
-         val current =
-             threePhaseCurrent(
-                 kva =
-                     childKva,
-                 voltage =
-                     upstreamVoltage
-             )
-
-         val sectionDrop =
-             calculateVoltageDrop(
-                 connection =
-                     connection,
-                 currentA =
-                     current,
-                 voltage =
-                     upstreamVoltage
-             )
-
-         val downstreamDrop =
-             cumulativeVoltageDrop(
-                 nodeId =
-                     child.id,
-                 upstreamVoltage =
-                     child.voltage
-                         .takeIf {
-                             it > 0.0
-                         }
-                         ?: upstreamVoltage
-             )
-
-         maximum =
-             maxOf(
-                 maximum,
-                 sectionDrop +
-                     downstreamDrop
-             )
-     }
-
-     return maximum
- }
-
- val nodeResults =
-     network.nodes.map { node ->
-
-         val power =
-             powerCache[node.id]
-                 ?: PowerResult(
-                     connectedKw = 0.0,
-                     demandKw = 0.0,
-                     reactiveKvar = 0.0
-                 )
-
-         val kva =
-             apparentPower(
-                 activeKw =
-                     power.demandKw,
-                 reactiveKvar =
-                     power.reactiveKvar
-             )
-
-         val current =
-             threePhaseCurrent(
-                 kva =
-                     kva,
-                 voltage =
-                     node.voltage
-             )
-
-         val breaker =
-             nextBreaker(current)
-
-         val voltageDrop =
-             cumulativeVoltageDrop(
-                 nodeId =
-                     node.id,
-                 upstreamVoltage =
-                     node.voltage
-             )
-
-         val loading =
-             if (node.ratedKva > 0.0) {
-                 kva /
-                     node.ratedKva *
-                     100.0
-             } else {
-                 0.0
-             }
-
-         val calculatedPf =
-             if (kva > 0.0) {
-                 power.demandKw /
-                     kva
-             } else {
-                 1.0
-             }
-
-         NodeResult(
-             nodeId =
-                 node.id,
-
-             nodeName =
-                 node.name,
-
-             connectedKw =
-                 power.connectedKw,
-
-             demandKw =
-                 power.demandKw,
-
-             kva =
-                 kva,
-
-             currentA =
-                 current,
-
-             recommendedBreakerA =
-                 breaker,
-
-             voltageDropPercent =
-                 voltageDrop,
-
-             loadingPercent =
-                 loading,
-
-             notes =
-                 buildList {
-
-                     add(
-                         "Connected load = " +
-                             "%.2f kW".format(
-                                 power.connectedKw
-                             )
-                     )
-
-                     add(
-                         "Demand load = " +
-                             "%.2f kW".format(
-                                 power.demandKw
-                             )
-                     )
-
-                     add(
-                         "Required apparent power = " +
-                             "%.2f kVA".format(
-                                 kva
-                             )
-                     )
-
-                     add(
-                         "Calculated demand PF = " +
-                             "%.3f".format(
-                                 calculatedPf
-                             )
-                     )
-
-                     add(
-                         "Design current = " +
-                             "%.2f A".format(
-                                 current
-                             )
-                     )
-
-                     add(
-                         "Recommended breaker = " +
-                             "%.0f A".format(
-                                 breaker
-                             )
-                     )
-
-                     if (node.ratedKva > 0.0) {
-                         add(
-                             "Equipment loading = " +
-                                 "%.1f %%".format(
-                                     loading
-                                 )
-                         )
-                     }
-
-                     add(
-                         "Maximum downstream voltage drop = " +
-                             "%.2f %%".format(
-                                 voltageDrop
-                             )
-                     )
-                 }
-         )
-     }
-
- val nodeResultMap =
-     nodeResults.associateBy {
-         it.nodeId
-     }
-
- /*
-  * ---------------------------------------------------------
-  * FEEDER RESULTS
-  * ---------------------------------------------------------
-  */
- val feederResults =
-     topology.connections.map { connection ->
-
-         val child =
-             nodeMap[
-                 connection.toNodeId
-             ]
+ topology.children[node.id]
+     .orEmpty()
+     .forEach { child ->
 
          val childResult =
-             nodeResultMap[
-                 connection.toNodeId
-             ]
-
-         val connected =
-             childResult?.connectedKw
-                 ?: 0.0
-
-         val demand =
-             childResult?.demandKw
-                 ?: 0.0
-
-         val kva =
-             childResult?.kva
-                 ?: 0.0
-
-         val current =
-             childResult?.currentA
-                 ?: 0.0
-
-         val voltage =
-             child?.voltage
-                 ?.takeIf {
-                     it > 0.0
-                 }
-                 ?: 400.0
-
-         val sectionDrop =
-             calculateVoltageDrop(
-                 connection =
-                     connection,
-                 currentA =
-                     current,
-                 voltage =
-                     voltage
+             calculateNodePower(
+                 child,
+                 stack
              )
 
-         val adequate =
-             connection.currentCapacityA <= 0.0 ||
-                 connection.currentCapacityA >= current
+         connectedKw +=
+             childResult.connectedKw
 
-         FeederResult(
-             connectionId =
-                 connection.id,
+         demandKw +=
+             childResult.demandKw
 
-             fromNodeId =
-                 connection.fromNodeId,
+         reactiveKvar +=
+             childResult.reactiveKvar
+     }
 
-             toNodeId =
-                 connection.toNodeId,
+ stack.remove(node.id)
 
-             connectedKw =
-                 connected,
+ val result =
+     PowerResult(
+         connectedKw = connectedKw,
+         demandKw = demandKw,
+         reactiveKvar = reactiveKvar
+     )
 
-             demandKw =
-                 demand,
+ powerCache[node.id] =
+     result
 
-             kva =
-                 kva,
+ return result
+    
+    }
+    
+    /*
+    
+    * Calculate from the source.
+      */
+      calculateNodePower(
+      topology.source,
+      mutableSetOf()
+      )
+    
+    /*
+    
+    * Protect against future topology changes.
+      */
+      network.nodes.forEach { node ->
+      
+      calculateNodePower(
+      node,
+      mutableSetOf()
+      )
+      }
+    
+    /*
+    
+    * ---
+    * CUMULATIVE VOLTAGE DROP
+    * ---
+    
+    */
+    fun cumulativeVoltageDrop(
+    nodeId: String,
+    upstreamVoltage: Double
+    ): Double {
+    
+     val children =
+     topology.children[nodeId]
+         .orEmpty()
 
-             currentA =
-                 current,
+ if (children.isEmpty()) {
+     return 0.0
+ }
 
-             recommendedBreakerA =
-                 nextBreaker(current),
+ var maximum =
+     0.0
 
-             voltageDropPercent =
-                 sectionDrop,
+ children.forEach { child ->
 
-             cableAdequate =
-                 adequate,
+     val connection =
+         topology.connections.firstOrNull {
+             it.fromNodeId == nodeId &&
+                 it.toNodeId == child.id
+         }
+             ?: return@forEach
 
-             notes =
-                 buildList {
+     val childPower =
+         powerCache[child.id]
+             ?: return@forEach
 
-                     add(
-                         "Connected load = " +
-                             "%.2f kW".format(
-                                 connected
-                             )
-                     )
+     val childKva =
+         apparentPower(
+             activeKw =
+                 childPower.demandKw,
+             reactiveKvar =
+                 childPower.reactiveKvar
+         )
 
-                     add(
-                         "Demand load = " +
-                             "%.2f kW".format(
-                                 demand
-                             )
-                     )
+     val current =
+         threePhaseCurrent(
+             kva = childKva,
+             voltage = upstreamVoltage
+         )
 
-                     add(
-                         "Required apparent power = " +
-                             "%.2f kVA".format(
-                                 kva
-                             )
-                     )
+     val sectionDrop =
+         calculateVoltageDrop(
+             connection = connection,
+             currentA = current,
+             voltage = upstreamVoltage
+         )
 
-                     add(
-                         "Design current = " +
-                             "%.2f A".format(
-                                 current
-                             )
-                     )
-
-                     if (
-                         connection.currentCapacityA > 0.0
-                     ) {
-                         add(
-                             "Cable capacity = " +
-                                 "%.2f A".format(
-                                     connection.currentCapacityA
-                                 )
-                         )
+     val downstreamDrop =
+         cumulativeVoltageDrop(
+             nodeId = child.id,
+             upstreamVoltage =
+                 child.voltage
+                     .takeIf {
+                         it > 0.0
                      }
+                     ?: upstreamVoltage
+         )
+
+     maximum =
+         maxOf(
+             maximum,
+             sectionDrop + downstreamDrop
+         )
+ }
+
+ return maximum
+    
+    }
+    
+    /*
+    
+    * ---
+    * NODE RESULTS
+    * ---
+    
+    */
+    val nodeResults =
+    network.nodes.map { node ->
+    
+         val power =
+         powerCache[node.id]
+             ?: PowerResult(
+                 connectedKw = 0.0,
+                 demandKw = 0.0,
+                 reactiveKvar = 0.0
+             )
+
+     val kva =
+         apparentPower(
+             activeKw =
+                 power.demandKw,
+             reactiveKvar =
+                 power.reactiveKvar
+         )
+
+     val current =
+         threePhaseCurrent(
+             kva = kva,
+             voltage = node.voltage
+         )
+
+     val breaker =
+         nextBreaker(
+             current = current,
+             breakerRatings = breakerRatings
+         )
+
+     val voltageDrop =
+         cumulativeVoltageDrop(
+             nodeId = node.id,
+             upstreamVoltage = node.voltage
+         )
+
+     val loading =
+         if (node.ratedKva > 0.0) {
+             kva /
+                 node.ratedKva *
+                 100.0
+         } else {
+             0.0
+         }
+
+     val calculatedPf =
+         if (kva > 0.0) {
+             power.demandKw /
+                 kva
+         } else {
+             1.0
+         }
+
+     NodeResult(
+         nodeId = node.id,
+
+         nodeName =
+             node.name,
+
+         connectedKw =
+             power.connectedKw,
+
+         demandKw =
+             power.demandKw,
+
+         kva =
+             kva,
+
+         currentA =
+             current,
+
+         recommendedBreakerA =
+             breaker,
+
+         voltageDropPercent =
+             voltageDrop,
+
+         loadingPercent =
+             loading,
+
+         notes =
+             buildList {
+
+                 add(
+                     "Connected load = " +
+                         "%.2f kW".format(
+                             power.connectedKw
+                         )
+                 )
+
+                 add(
+                     "Demand load = " +
+                         "%.2f kW".format(
+                             power.demandKw
+                         )
+                 )
+
+                 add(
+                     "Required apparent power = " +
+                         "%.2f kVA".format(
+                             kva
+                         )
+                 )
+
+                 add(
+                     "Calculated demand PF = " +
+                         "%.3f".format(
+                             calculatedPf
+                         )
+                 )
+
+                 add(
+                     "Design current = " +
+                         "%.2f A".format(
+                             current
+                         )
+                 )
+
+                 add(
+                     "Recommended breaker = " +
+                         "%.0f A".format(
+                             breaker
+                         )
+                 )
+
+                 if (node.ratedKva > 0.0) {
 
                      add(
-                         "Section voltage drop = " +
-                             "%.2f %%".format(
-                                 sectionDrop
+                         "Equipment loading = " +
+                             "%.1f %%".format(
+                                 loading
                              )
                      )
-
-                     if (!adequate) {
-                         add(
-                             "WARNING: cable capacity is below design current."
-                         )
-                     }
                  }
-         )
-     }
 
- val sourceResult =
-     nodeResultMap[
-         topology.source.id
-     ]
-         ?: error(
-             "Unable to calculate source engineering result."
+                 add(
+                     "Maximum downstream voltage drop = " +
+                         "%.2f %%".format(
+                             voltageDrop
+                         )
+                 )
+
+                 if (
+                     voltageDrop >
+                         voltageDropLimitPercent
+                 ) {
+
+                     add(
+                         "WARNING: voltage drop exceeds " +
+                             "%.2f %%".format(
+                                 voltageDropLimitPercent
+                             ) +
+                             " limit."
+                     )
+                 }
+
+                 engineeringContext?.let { context ->
+
+                     add(
+                         "Engineering standard = " +
+                             context.codeName
+                     )
+
+                     add(
+                         "Standard revision = " +
+                             context.codeRevision
+                     )
+                 }
+             }
+     )
+ }
+    
+    val nodeResultMap =
+    nodeResults.associateBy {
+    it.nodeId
+    }
+    
+    /*
+    
+    * ---
+    * FEEDER RESULTS
+    * ---
+    
+    */
+    val feederResults =
+    topology.connections.map { connection ->
+    
+         val child =
+         nodeMap[
+             connection.toNodeId
+         ]
+
+     val childResult =
+         nodeResultMap[
+             connection.toNodeId
+         ]
+
+     val connected =
+         childResult?.connectedKw
+             ?: 0.0
+
+     val demand =
+         childResult?.demandKw
+             ?: 0.0
+
+     val kva =
+         childResult?.kva
+             ?: 0.0
+
+     val current =
+         childResult?.currentA
+             ?: 0.0
+
+     val voltage =
+         child?.voltage
+             ?.takeIf {
+                 it > 0.0
+             }
+             ?: 400.0
+
+     val sectionDrop =
+         calculateVoltageDrop(
+             connection = connection,
+             currentA = current,
+             voltage = voltage
          )
 
- val recommendedTransformer =
-     if (
-         topology.source.type ==
-             SldNodeType.TRANSFORMER &&
-         topology.source.ratedKva > 0.0
-     ) {
+     val adequate =
+         connection.currentCapacityA <= 0.0 ||
+             connection.currentCapacityA >= current
+
+     FeederResult(
+         connectionId =
+             connection.id,
+
+         fromNodeId =
+             connection.fromNodeId,
+
+         toNodeId =
+             connection.toNodeId,
+
+         connectedKw =
+             connected,
+
+         demandKw =
+             demand,
+
+         kva =
+             kva,
+
+         currentA =
+             current,
+
+         recommendedBreakerA =
+             nextBreaker(
+                 current = current,
+                 breakerRatings =
+                     breakerRatings
+             ),
+
+         voltageDropPercent =
+             sectionDrop,
+
+         cableAdequate =
+             adequate,
+
+         notes =
+             buildList {
+
+                 add(
+                     "Connected load = " +
+                         "%.2f kW".format(
+                             connected
+                         )
+                 )
+
+                 add(
+                     "Demand load = " +
+                         "%.2f kW".format(
+                             demand
+                         )
+                 )
+
+                 add(
+                     "Required apparent power = " +
+                         "%.2f kVA".format(
+                             kva
+                         )
+                 )
+
+                 add(
+                     "Design current = " +
+                         "%.2f A".format(
+                             current
+                         )
+                 )
+
+                 if (
+                     connection.currentCapacityA >
+                         0.0
+                 ) {
+
+                     add(
+                         "Cable capacity = " +
+                             "%.2f A".format(
+                                 connection.currentCapacityA
+                             )
+                     )
+                 }
+
+                 add(
+                     "Section voltage drop = " +
+                         "%.2f %%".format(
+                             sectionDrop
+                         )
+                 )
+
+                 if (
+                     sectionDrop >
+                         voltageDropLimitPercent
+                 ) {
+
+                     add(
+                         "WARNING: section voltage drop exceeds " +
+                             "%.2f %%".format(
+                                 voltageDropLimitPercent
+                             ) +
+                             " limit."
+                     )
+                 }
+
+                 if (!adequate) {
+
+                     add(
+                         "WARNING: cable capacity is below design current."
+                     )
+                 }
+
+                 engineeringContext?.let { context ->
+
+                     add(
+                         "Engineering standard = " +
+                             context.codeName
+                     )
+                 }
+             }
+     )
+ }
+    
+    val sourceResult =
+    nodeResultMap[
+    topology.source.id
+    ]
+    ?: error(
+    "Unable to calculate source engineering result."
+    )
+    
+    val recommendedTransformer =
+    if (
+    topology.source.type ==
+    SldNodeType.TRANSFORMER &&
+    topology.source.ratedKva > 0.0
+    ) {
+    
          topology.source.ratedKva
-     } else {
-         nextTransformer(
+
+ } else {
+
+     nextTransformer(
+         sourceResult.kva
+     )
+ }
+    
+    /*
+    
+    * ---
+    * WARNINGS
+    * ---
+    
+    */
+    val warnings =
+    buildList {
+    
+         feederResults
+         .filter {
+             !it.cableAdequate
+         }
+         .forEach {
+             add(
+                 "Cable capacity warning at connection ${it.connectionId}."
+             )
+         }
+
+     nodeResults
+         .filter {
+             it.loadingPercent > 100.0
+         }
+         .forEach {
+             add(
+                 "Equipment overload at ${it.nodeName}."
+             )
+         }
+
+     nodeResults
+         .filter {
+             it.voltageDropPercent >
+                 voltageDropLimitPercent
+         }
+         .forEach {
+             add(
+                 "Voltage drop above " +
+                     "%.2f %%".format(
+                         voltageDropLimitPercent
+                     ) +
+                     " at ${it.nodeName}."
+             )
+         }
+
+     if (
+         sourceResult.kva > 0.0 &&
+         recommendedTransformer <
              sourceResult.kva
+     ) {
+
+         add(
+             "Recommended transformer capacity is below calculated demand."
          )
      }
 
- /*
-  * ---------------------------------------------------------
-  * WARNINGS
-  * ---------------------------------------------------------
-  */
- val warnings =
-     buildList {
-
-         feederResults
-             .filter {
-                 !it.cableAdequate
-             }
-             .forEach {
-                 add(
-                     "Cable capacity warning at connection ${it.connectionId}."
-                 )
-             }
-
-         nodeResults
-             .filter {
-                 it.loadingPercent > 100.0
-             }
-             .forEach {
-                 add(
-                     "Equipment overload at ${it.nodeName}."
-                 )
-             }
-
-         nodeResults
-             .filter {
-                 it.voltageDropPercent > 3.0
-             }
-             .forEach {
-                 add(
-                     "Voltage drop above 3% at ${it.nodeName}."
-                 )
-             }
+     engineeringContext?.let { context ->
 
          if (
-             sourceResult.kva > 0.0 &&
-             recommendedTransformer <
-             sourceResult.kva
+             !context.standardImplemented
          ) {
+
              add(
-                 "Recommended transformer capacity is below calculated demand."
+                 "WARNING: selected engineering standard " +
+                     "${context.codeName} is not fully implemented " +
+                     "with verified datasets."
+             )
+         }
+
+         if (
+             breakerRatings.isEmpty()
+         ) {
+
+             add(
+                 "WARNING: selected engineering standard " +
+                     "${context.codeName} provides no verified " +
+                     "breaker ratings. No standard substitution was made."
              )
          }
      }
-
- return Result(
+ }
+    
+    return Result(
+    
      sourceNodeId =
-         topology.source.id,
+     topology.source.id,
 
-     sourceName =
-         topology.source.name,
+ sourceName =
+     topology.source.name,
 
-     totalConnectedKw =
-         sourceResult.connectedKw,
+ totalConnectedKw =
+     sourceResult.connectedKw,
 
-     totalDemandKw =
-         sourceResult.demandKw,
+ totalDemandKw =
+     sourceResult.demandKw,
 
-     totalKva =
-         sourceResult.kva,
+ totalKva =
+     sourceResult.kva,
 
-     sourceCurrentA =
-         sourceResult.currentA,
+ sourceCurrentA =
+     sourceResult.currentA,
 
-     recommendedMainBreakerA =
-         sourceResult.recommendedBreakerA,
+ recommendedMainBreakerA =
+     sourceResult.recommendedBreakerA,
 
-     recommendedTransformerKva =
-         recommendedTransformer,
+ recommendedTransformerKva =
+     recommendedTransformer,
 
-     maximumVoltageDropPercent =
-         nodeResults.maxOfOrNull {
-             it.voltageDropPercent
-         } ?: 0.0,
+ maximumVoltageDropPercent =
+     nodeResults.maxOfOrNull {
+         it.voltageDropPercent
+     } ?: 0.0,
 
-     nodes =
-         nodeResults,
+ nodes =
+     nodeResults,
 
-     feeders =
-         feederResults,
+ feeders =
+     feederResults,
 
-     warnings =
-         warnings
- )
+ warnings =
+     warnings
+    
+    )
+    }
   
-  }
+  /**
+  
+  * Resolve breaker ratings from the selected engineering
+  
+  * standard.
+  
+  * 
+  
+  * Empty ratings are intentionally NOT replaced with another
+  
+  * standard. This prevents silent engineering-standard
+  
+  * substitution.
+    */
+    private fun resolveBreakerRatings(
+    engineeringContext: SldEngineeringContext?
+    ): List<Double> {
+    
+    if (engineeringContext == null) {
+    return defaultBreakerRatings
+    }
+    
+    return engineeringContext
+    .standardEngine
+    .standardBreakerRatings()
+    .filter {
+    it > 0.0
+    }
+    .distinct()
+    .sorted()
+    }
   
   /**
   
@@ -910,7 +1071,7 @@ import kotlin.math.sqrt
   
   /**
   
-  * Voltage drop using:
+  * Voltage drop:
   
   * 
   
@@ -918,7 +1079,7 @@ import kotlin.math.sqrt
   
   * 
   
-  * where R and X are given in ohm/km.
+  * R and X are ohm/km.
     */
     private fun calculateVoltageDrop(
     connection: SldConnection,
@@ -968,10 +1129,15 @@ import kotlin.math.sqrt
     }
   
   private fun nextBreaker(
-  current: Double
+  current: Double,
+  breakerRatings: List<Double>
   ): Double {
   
    if (current <= 0.0) {
+     return 0.0
+ }
+
+ if (breakerRatings.isEmpty()) {
      return 0.0
  }
 
