@@ -1,6 +1,5 @@
 package com.electrical.calculationspro.ui.screens.sld
 
-import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -80,9 +79,6 @@ fun SldEditorScreen(
      * ============================================================
      * PDF EXPORT
      * ============================================================
-     *
-     * Context is captured here, inside the Composable.
-     * The ActivityResult callback itself is NOT composable.
      */
 
     val pdfLauncher =
@@ -510,7 +506,8 @@ fun SldEditorScreen(
                         )
 
                         Text(
-                            text = error,
+                            text =
+                                error,
 
                             fontSize = 11.sp,
 
@@ -534,7 +531,7 @@ fun SldEditorScreen(
 
         /*
          * =========================================================
-         * CANVAS
+         * SLD CANVAS
          * =========================================================
          */
 
@@ -632,7 +629,7 @@ fun SldEditorScreen(
 
     /*
      * ============================================================
-     * NODE DIALOG
+     * NODE EDITOR
      * ============================================================
      */
 
@@ -677,10 +674,6 @@ fun SldEditorScreen(
             sourceMva =
                 state.sourceMva,
 
-            onType = {
-                actions.resetNodeEditor(it)
-            },
-
             onNameChange = {
                 state.name = it
             },
@@ -722,6 +715,7 @@ fun SldEditorScreen(
             },
 
             onCancel = {
+
                 state.showNodeDialog =
                     false
 
@@ -733,7 +727,7 @@ fun SldEditorScreen(
 
     /*
      * ============================================================
-     * CONNECTION DIALOG
+     * CONNECTION EDITOR
      * ============================================================
      */
 
@@ -760,8 +754,20 @@ fun SldEditorScreen(
             busbarMaterial =
                 state.busbarMaterial,
 
-            lengthM =
-                state.lengthM,
+            busbarRatedCurrent =
+                state.busbarRatedCurrent,
+
+            busbarShortCircuit =
+                state.busbarShortCircuit,
+
+            length =
+                state.length,
+
+            resistance =
+                state.resistance,
+
+            reactance =
+                state.reactance,
 
             cableSize =
                 state.cableSize,
@@ -771,12 +777,6 @@ fun SldEditorScreen(
 
             capacity =
                 state.capacity,
-
-            resistance =
-                state.resistance,
-
-            reactance =
-                state.reactance,
 
             onConnectionTypeChange = {
                 state.connectionType = it
@@ -798,8 +798,24 @@ fun SldEditorScreen(
                 state.busbarMaterial = it
             },
 
+            onBusbarRatedCurrentChange = {
+                state.busbarRatedCurrent = it
+            },
+
+            onBusbarShortCircuitChange = {
+                state.busbarShortCircuit = it
+            },
+
             onLengthChange = {
-                state.lengthM = it
+                state.length = it
+            },
+
+            onResistanceChange = {
+                state.resistance = it
+            },
+
+            onReactanceChange = {
+                state.reactance = it
             },
 
             onCableSizeChange = {
@@ -812,14 +828,6 @@ fun SldEditorScreen(
 
             onCapacityChange = {
                 state.capacity = it
-            },
-
-            onResistanceChange = {
-                state.resistance = it
-            },
-
-            onReactanceChange = {
-                state.reactance = it
             },
 
             onSave = {
@@ -859,18 +867,6 @@ fun SldEditorScreen(
 
             onClose = {
                 state.showReport = false
-            },
-
-            onExportPdf = {
-
-                if (
-                    state.reportText.isNotBlank()
-                ) {
-
-                    pdfLauncher.launch(
-                        "SLD_Engineering_Report.pdf"
-                    )
-                }
             }
         )
     }
@@ -910,7 +906,8 @@ private fun ToolButton(
         )
 
         Text(
-            text = text
+            text =
+                text
         )
     }
 }
@@ -997,6 +994,12 @@ private fun AddComponentMenu(
     }
 }
 
+/*
+ * ================================================================
+ * NODE TYPE LABEL
+ * ================================================================
+ */
+
 private fun sldNodeTypeLabel(
     type: SldNodeType,
     arabic: Boolean
@@ -1005,24 +1008,52 @@ private fun sldNodeTypeLabel(
     return when (type) {
 
         SldNodeType.SOURCE ->
-            if (arabic) "مصدر التغذية" else "Utility Source"
+            if (arabic) {
+                "مصدر التغذية"
+            } else {
+                "Utility Source"
+            }
 
         SldNodeType.TRANSFORMER ->
-            if (arabic) "محول" else "Transformer"
+            if (arabic) {
+                "محول"
+            } else {
+                "Transformer"
+            }
 
         SldNodeType.GENERATOR ->
-            if (arabic) "مولد" else "Generator"
+            if (arabic) {
+                "مولد"
+            } else {
+                "Generator"
+            }
 
         SldNodeType.BUS ->
-            if (arabic) "بسبار" else "Busbar"
+            if (arabic) {
+                "بسبار"
+            } else {
+                "Busbar"
+            }
 
         SldNodeType.PANEL ->
-            if (arabic) "لوحة" else "Panel"
+            if (arabic) {
+                "لوحة"
+            } else {
+                "Panel"
+            }
 
         SldNodeType.BREAKER ->
-            if (arabic) "قاطع" else "Breaker"
+            if (arabic) {
+                "قاطع"
+            } else {
+                "Breaker"
+            }
 
         SldNodeType.LOAD ->
-            if (arabic) "حمل" else "Load"
+            if (arabic) {
+                "حمل"
+            } else {
+                "Load"
+            }
     }
 }
