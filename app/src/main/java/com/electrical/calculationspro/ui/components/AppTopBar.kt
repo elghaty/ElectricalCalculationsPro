@@ -22,12 +22,9 @@ import androidx.compose.ui.unit.dp
 /**
  * Unified application top bar.
  *
- * Rules:
- * - Back button is always visible when [showBack] is true.
- * - Title is the current engineering workspace/screen.
- * - Subtitle is normally the active project.
- * - Actions are placed on the trailing side.
- * - RTL/LTR is handled by Compose automatically.
+ * [onBack] is nullable intentionally:
+ * - null  -> main/root screen, no back button
+ * - value -> internal screen, back button is shown
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +39,7 @@ fun AppTopBar(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp),
+
         title = {
             Column(
                 modifier = Modifier
@@ -66,34 +64,40 @@ fun AppTopBar(
                 }
             }
         },
+
         navigationIcon = {
-            if (showBack) {
+            if (showBack && onBack != null) {
                 IconButton(
-                    onClick = {
-                        onBack?.invoke()
-                    }
+                    onClick = onBack
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        imageVector =
+                            Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = "Back"
                     )
                 }
             }
         },
+
         actions = actions,
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-            actionIconContentColor = MaterialTheme.colorScheme.onSurface
-        )
+
+        colors =
+            TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor =
+                    MaterialTheme.colorScheme.surface,
+                titleContentColor =
+                    MaterialTheme.colorScheme.onSurface,
+                navigationIconContentColor =
+                    MaterialTheme.colorScheme.onSurface,
+                actionIconContentColor =
+                    MaterialTheme.colorScheme.onSurface
+            )
     )
 }
 
+
 /**
- * Simple screen title bar.
- *
- * Use this for screens that do not need a project subtitle.
+ * Simple screen top bar.
  */
 @Composable
 fun SimpleAppTopBar(
@@ -108,16 +112,18 @@ fun SimpleAppTopBar(
     )
 }
 
+
 /**
- * Engineering screen title bar.
+ * Engineering screen top bar.
  *
- * This is the preferred version for calculation/design screens.
+ * Back button is displayed automatically when [onBack]
+ * is supplied.
  */
 @Composable
 fun EngineeringAppTopBar(
     title: String,
     projectName: String?,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     AppTopBar(
