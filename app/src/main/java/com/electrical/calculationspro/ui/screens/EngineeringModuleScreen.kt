@@ -4,9 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -20,30 +18,32 @@ import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Speed
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.Standard
-import kotlin.math.max
+import com.electrical.calculationspro.ui.components.EngineeringCard
+import com.electrical.calculationspro.ui.components.EngineeringEmptyState
+import com.electrical.calculationspro.ui.components.EngineeringInput
+import com.electrical.calculationspro.ui.components.EngineeringPage
+import com.electrical.calculationspro.ui.components.EngineeringPrimaryButton
+import com.electrical.calculationspro.ui.components.EngineeringResult
+import com.electrical.calculationspro.ui.components.EngineeringSecondaryButton
+import com.electrical.calculationspro.ui.components.EngineeringSectionTitle
+import com.electrical.calculationspro.ui.components.EngineeringStatus
+import com.electrical.calculationspro.ui.components.EngineeringValueRow
 
 enum class EngineeringModule {
     LOAD,
@@ -121,137 +121,23 @@ fun EngineeringModuleScreen(
 }
 
 @Composable
-private fun ModuleLayout(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    language: AppLanguage,
-    onBack: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    val arabic = language == AppLanguage.ARABIC
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) {
-                Text(
-                    text = if (arabic) "‹" else "‹",
-                    style = MaterialTheme.typography.headlineMedium
-                )
-            }
-
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
-            )
-
-            Spacer(
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        content()
-
-        Button(
-            onClick = onBack,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic) "رجوع" else "Back"
-            )
-        }
-    }
-}
-
-@Composable
-private fun NumberField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = {
-            onValueChange(
-                it.filter { c ->
-                    c.isDigit() || c == '.' || c == '-'
-                }
-            )
-        },
-        label = {
-            Text(label)
-        },
-        modifier = Modifier.fillMaxWidth(),
-        singleLine = true
-    )
-}
-
-@Composable
-private fun ResultCard(
-    title: String,
-    value: String,
-    success: Boolean = true
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                if (success)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.errorContainer
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall
-            )
-        }
-    }
-}
-
-@Composable
 private fun LoadEngineeringScreen(
     language: AppLanguage,
     onBack: () -> Unit
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var loadKw by remember { mutableStateOf("100") }
-    var voltage by remember { mutableStateOf("400") }
-    var pf by remember { mutableStateOf("0.90") }
+    var loadKw by remember {
+        mutableStateOf("100")
+    }
+
+    var voltage by remember {
+        mutableStateOf("400")
+    }
+
+    var pf by remember {
+        mutableStateOf("0.90")
+    }
 
     var currentType by remember {
         mutableStateOf(
@@ -263,67 +149,165 @@ private fun LoadEngineeringScreen(
         mutableStateOf<Double?>(null)
     }
 
-    ModuleLayout(
-        title = if (arabic) "حساب الأحمال" else "Load Calculation",
-        subtitle = if (arabic)
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    EngineeringPage(
+        title = if (arabic) {
+            "حساب الأحمال"
+        } else {
+            "Load Calculation"
+        },
+        subtitle = if (arabic) {
             "حساب تيار التصميم للحمل الكهربائي"
-        else
-            "Design current calculation",
-        icon = Icons.Outlined.Speed,
-        language = language,
+        } else {
+            "Design current calculation"
+        },
         onBack = onBack
     ) {
-        NumberField(
-            label = if (arabic) "الحمل (kW)" else "Load (kW)",
-            value = loadKw,
-            onValueChange = { loadKw = it }
-        )
-
-        NumberField(
-            label = if (arabic) "الجهد (V)" else "Voltage (V)",
-            value = voltage,
-            onValueChange = { voltage = it }
-        )
-
-        NumberField(
-            label = "Power Factor",
-            value = pf,
-            onValueChange = { pf = it }
-        )
-
-        CurrentTypeSelector(
-            language = language,
-            value = currentType,
-            onChange = { currentType = it }
-        )
-
-        Button(
-            onClick = {
-                result = runCatching {
-                    ElectricalCalculations.calculateDesignCurrentFromKw(
-                        loadKw = loadKw.toDouble(),
-                        voltage = voltage.toDouble(),
-                        powerFactor = pf.toDouble(),
-                        currentType = currentType
-                    )
-                }.getOrNull()
-            },
-            modifier = Modifier.fillMaxWidth()
+        EngineeringCard(
+            title = if (arabic) {
+                "بيانات الحمل"
+            } else {
+                "Load Data"
+            }
         ) {
-            Text(
-                if (arabic) "احسب تيار التصميم"
-                else "Calculate Design Current"
+            EngineeringInput(
+                label = if (arabic) {
+                    "الحمل (kW)"
+                } else {
+                    "Load (kW)"
+                },
+                value = loadKw,
+                onValueChange = {
+                    loadKw = it
+                    error = null
+                    result = null
+                }
+            )
+
+            EngineeringInput(
+                label = if (arabic) {
+                    "الجهد (V)"
+                } else {
+                    "Voltage (V)"
+                },
+                value = voltage,
+                onValueChange = {
+                    voltage = it
+                    error = null
+                    result = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Power Factor",
+                value = pf,
+                onValueChange = {
+                    pf = it
+                    error = null
+                    result = null
+                }
+            )
+
+            CurrentTypeSelector(
+                language = language,
+                value = currentType,
+                onChange = {
+                    currentType = it
+                    error = null
+                    result = null
+                }
+            )
+        }
+
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "احسب تيار التصميم"
+            } else {
+                "Calculate Design Current"
+            },
+            onClick = {
+                try {
+                    val load = loadKw.toDouble()
+                    val v = voltage.toDouble()
+                    val factor = pf.toDouble()
+
+                    if (load <= 0.0 || v <= 0.0) {
+                        throw IllegalArgumentException(
+                            if (arabic) {
+                                "الحمل والجهد يجب أن يكونا أكبر من صفر."
+                            } else {
+                                "Load and voltage must be greater than zero."
+                            }
+                        )
+                    }
+
+                    if (factor <= 0.0 || factor > 1.0) {
+                        throw IllegalArgumentException(
+                            if (arabic) {
+                                "Power Factor يجب أن يكون بين 0 و1."
+                            } else {
+                                "Power Factor must be between 0 and 1."
+                            }
+                        )
+                    }
+
+                    result =
+                        ElectricalCalculations
+                            .calculateDesignCurrentFromKw(
+                                loadKw = load,
+                                voltage = v,
+                                powerFactor = factor,
+                                currentType = currentType
+                            )
+
+                    error = null
+                } catch (exception: Exception) {
+                    result = null
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "بيانات الإدخال غير صحيحة."
+                            } else {
+                                "Invalid input data."
+                            }
+                }
+            }
+        )
+
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
             )
         }
 
         result?.let {
-            ResultCard(
-                title = if (arabic)
+            EngineeringResult(
+                title = if (arabic) {
                     "تيار التصميم"
-                else
-                    "Design Current",
+                } else {
+                    "Design Current"
+                },
                 value = "%.2f A".format(it)
             )
+        } ?: run {
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
+                    message = if (arabic) {
+                        "أدخل بيانات الحمل ثم اضغط حساب."
+                    } else {
+                        "Enter the load data and calculate."
+                    }
+                )
+            }
         }
     }
 }
@@ -336,88 +320,172 @@ private fun BreakerEngineeringScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var designCurrent by remember { mutableStateOf("100") }
-    var cableAmpacity by remember { mutableStateOf("125") }
-    var shortCircuit by remember { mutableStateOf("10") }
+    var designCurrent by remember {
+        mutableStateOf("100")
+    }
+
+    var cableAmpacity by remember {
+        mutableStateOf("125")
+    }
+
+    var shortCircuit by remember {
+        mutableStateOf("10")
+    }
 
     var result by remember {
         mutableStateOf<String?>(null)
     }
 
-    ModuleLayout(
-        title = if (arabic)
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    EngineeringPage(
+        title = if (arabic) {
             "اختيار القاطع"
-        else
-            "Breaker Selection",
-        subtitle = if (arabic)
+        } else {
+            "Breaker Selection"
+        },
+        subtitle = if (arabic) {
             "اختيار القاطع والتحقق من التنسيق وقدرة القطع"
-        else
-            "Breaker rating and breaking-capacity verification",
-        icon = Icons.Outlined.ElectricalServices,
-        language = language,
+        } else {
+            "Breaker rating and breaking-capacity verification"
+        },
         onBack = onBack
     ) {
-        NumberField(
-            label = "Design Current (A)",
-            value = designCurrent,
-            onValueChange = { designCurrent = it }
-        )
+        EngineeringCard(
+            title = if (arabic) {
+                "بيانات القاطع"
+            } else {
+                "Breaker Data"
+            }
+        ) {
+            EngineeringInput(
+                label = "Design Current (A)",
+                value = designCurrent,
+                onValueChange = {
+                    designCurrent = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Cable Ampacity (A)",
-            value = cableAmpacity,
-            onValueChange = { cableAmpacity = it }
-        )
+            EngineeringInput(
+                label = "Cable Ampacity (A)",
+                value = cableAmpacity,
+                onValueChange = {
+                    cableAmpacity = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Prospective Fault (kA)",
-            value = shortCircuit,
-            onValueChange = { shortCircuit = it }
-        )
+            EngineeringInput(
+                label = "Prospective Fault (kA)",
+                value = shortCircuit,
+                onValueChange = {
+                    shortCircuit = it
+                    result = null
+                    error = null
+                }
+            )
+        }
 
-        Button(
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "اختيار القاطع"
+            } else {
+                "Select Breaker"
+            },
             onClick = {
-                result = runCatching {
+                try {
                     val current = designCurrent.toDouble()
                     val ampacity = cableAmpacity.toDouble()
                     val fault = shortCircuit.toDouble()
 
-                    val rating =
-                        ElectricalCalculations.selectBreakerRating(
-                            designCurrentA = current,
-                            cableAmpacityA = ampacity,
-                            standard = standard
+                    if (current <= 0.0 || ampacity <= 0.0) {
+                        throw IllegalArgumentException(
+                            if (arabic) {
+                                "القيم يجب أن تكون أكبر من صفر."
+                            } else {
+                                "Values must be greater than zero."
+                            }
                         )
+                    }
+
+                    val rating =
+                        ElectricalCalculations
+                            .selectBreakerRating(
+                                designCurrentA = current,
+                                cableAmpacityA = ampacity,
+                                standard = standard
+                            )
 
                     val coordination =
-                        ElectricalCalculations.checkBreakerCoordination(
-                            designCurrentA = current,
-                            breakerRatingA = rating,
-                            cableAmpacityA = ampacity
-                        )
+                        ElectricalCalculations
+                            .checkBreakerCoordination(
+                                designCurrentA = current,
+                                breakerRatingA = rating,
+                                cableAmpacityA = ampacity
+                            )
 
-                    "Breaker = %.0f A\nCoordination = %s"
-                        .format(
-                            rating,
-                            if (coordination) "PASS" else "CHECK"
-                        ) +
-                        "\nBreaking capacity input = %.2f kA"
-                            .format(fault)
-                }.getOrNull()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic) "اختيار القاطع"
-                else "Select Breaker"
+                    result =
+                        "Breaker = %.0f A\nCoordination = %s\nBreaking capacity input = %.2f kA"
+                            .format(
+                                rating,
+                                if (coordination) {
+                                    "PASS"
+                                } else {
+                                    "CHECK"
+                                },
+                                fault
+                            )
+
+                    error = null
+                } catch (exception: Exception) {
+                    result = null
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "بيانات الإدخال غير صحيحة."
+                            } else {
+                                "Invalid input data."
+                            }
+                }
+            }
+        )
+
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
             )
         }
 
         result?.let {
-            ResultCard(
-                title = if (arabic) "النتيجة" else "Result",
+            EngineeringResult(
+                title = if (arabic) {
+                    "نتيجة اختيار القاطع"
+                } else {
+                    "Breaker Selection Result"
+                },
                 value = it
             )
+        } ?: run {
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
+                    message = if (arabic) {
+                        "أدخل بيانات القاطع ثم نفذ الاختيار."
+                    } else {
+                        "Enter breaker data and run the selection."
+                    }
+                )
+            }
         }
     }
 }
@@ -430,84 +498,185 @@ private fun TransformerEngineeringScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var loadKw by remember { mutableStateOf("500") }
-    var pf by remember { mutableStateOf("0.90") }
-    var growth by remember { mutableStateOf("1.15") }
-    var voltage by remember { mutableStateOf("400") }
+    var loadKw by remember {
+        mutableStateOf("500")
+    }
+
+    var pf by remember {
+        mutableStateOf("0.90")
+    }
+
+    var growth by remember {
+        mutableStateOf("1.15")
+    }
+
+    var voltage by remember {
+        mutableStateOf("400")
+    }
 
     var result by remember {
         mutableStateOf<String?>(null)
     }
 
-    ModuleLayout(
-        title = if (arabic)
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    EngineeringPage(
+        title = if (arabic) {
             "اختيار المحول"
-        else
-            "Transformer Sizing",
-        subtitle = if (arabic)
+        } else {
+            "Transformer Sizing"
+        },
+        subtitle = if (arabic) {
             "حساب القدرة المطلوبة واختيار أقرب مقاس قياسي"
-        else
-            "Required transformer capacity and standard rating",
-        icon = Icons.Outlined.Memory,
-        language = language,
+        } else {
+            "Required transformer capacity and standard rating"
+        },
         onBack = onBack
     ) {
-        NumberField(
-            label = "Load (kW)",
-            value = loadKw,
-            onValueChange = { loadKw = it }
-        )
+        EngineeringCard(
+            title = if (arabic) {
+                "بيانات المحول"
+            } else {
+                "Transformer Data"
+            }
+        ) {
+            EngineeringInput(
+                label = "Load (kW)",
+                value = loadKw,
+                onValueChange = {
+                    loadKw = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Power Factor",
-            value = pf,
-            onValueChange = { pf = it }
-        )
+            EngineeringInput(
+                label = "Power Factor",
+                value = pf,
+                onValueChange = {
+                    pf = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Growth Factor",
-            value = growth,
-            onValueChange = { growth = it }
-        )
+            EngineeringInput(
+                label = "Growth Factor",
+                value = growth,
+                onValueChange = {
+                    growth = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "LV Voltage (V)",
-            value = voltage,
-            onValueChange = { voltage = it }
-        )
+            EngineeringInput(
+                label = "LV Voltage (V)",
+                value = voltage,
+                onValueChange = {
+                    voltage = it
+                    result = null
+                    error = null
+                }
+            )
+        }
 
-        Button(
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "احسب المحول"
+            } else {
+                "Calculate Transformer"
+            },
             onClick = {
-                result = runCatching {
-                    val required =
-                        ElectricalCalculations.calculateRequiredTransformerKva(
-                            loadKw = loadKw.toDouble(),
-                            powerFactor = pf.toDouble(),
-                            growthFactor = growth.toDouble()
+                try {
+                    val load = loadKw.toDouble()
+                    val factor = pf.toDouble()
+                    val growthFactor = growth.toDouble()
+                    voltage.toDouble()
+
+                    if (
+                        load <= 0.0 ||
+                        factor <= 0.0 ||
+                        factor > 1.0 ||
+                        growthFactor <= 0.0
+                    ) {
+                        throw IllegalArgumentException(
+                            if (arabic) {
+                                "راجع قيم الحمل وPower Factor ومعامل النمو."
+                            } else {
+                                "Check load, power factor and growth factor."
+                            }
                         )
+                    }
+
+                    val required =
+                        ElectricalCalculations
+                            .calculateRequiredTransformerKva(
+                                loadKw = load,
+                                powerFactor = factor,
+                                growthFactor = growthFactor
+                            )
 
                     val selected =
-                        ElectricalCalculations.selectTransformerRating(
-                            requiredKva = required
-                        )
+                        ElectricalCalculations
+                            .selectTransformerRating(
+                                requiredKva = required
+                            )
 
-                    "Required = %.1f kVA\nStandard Selection = %.0f kVA"
-                        .format(required, selected)
-                }.getOrNull()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic) "احسب المحول"
-                else "Calculate Transformer"
+                    result =
+                        "Required = %.1f kVA\nStandard Selection = %.0f kVA"
+                            .format(
+                                required,
+                                selected
+                            )
+
+                    error = null
+                } catch (exception: Exception) {
+                    result = null
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "بيانات الإدخال غير صحيحة."
+                            } else {
+                                "Invalid input data."
+                            }
+                }
+            }
+        )
+
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
             )
         }
 
         result?.let {
-            ResultCard(
-                title = if (arabic) "نتيجة المحول" else "Transformer Result",
+            EngineeringResult(
+                title = if (arabic) {
+                    "نتيجة المحول"
+                } else {
+                    "Transformer Result"
+                },
                 value = it
             )
+        } ?: run {
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
+                    message = if (arabic) {
+                        "أدخل بيانات المحول ثم اضغط حساب."
+                    } else {
+                        "Enter transformer data and calculate."
+                    }
+                )
+            }
         }
     }
 }
@@ -520,55 +689,122 @@ private fun GeneratorEngineeringScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var requiredKva by remember { mutableStateOf("500") }
+    var requiredKva by remember {
+        mutableStateOf("500")
+    }
+
     var result by remember {
         mutableStateOf<String?>(null)
     }
 
-    ModuleLayout(
-        title = if (arabic)
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    EngineeringPage(
+        title = if (arabic) {
             "اختيار المولد"
-        else
-            "Generator Selection",
-        subtitle = if (arabic)
+        } else {
+            "Generator Selection"
+        },
+        subtitle = if (arabic) {
             "اختيار مولد من كتالوج المعدات"
-        else
-            "Generator selection from the equipment catalog",
-        icon = Icons.Outlined.Factory,
-        language = language,
+        } else {
+            "Generator selection from the equipment catalog"
+        },
         onBack = onBack
     ) {
-        NumberField(
-            label = "Required Generator (kVA)",
-            value = requiredKva,
-            onValueChange = { requiredKva = it }
+        EngineeringCard(
+            title = if (arabic) {
+                "بيانات المولد"
+            } else {
+                "Generator Data"
+            }
+        ) {
+            EngineeringInput(
+                label = "Required Generator (kVA)",
+                value = requiredKva,
+                onValueChange = {
+                    requiredKva = it
+                    result = null
+                    error = null
+                }
+            )
+        }
+
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "اختيار المولد"
+            } else {
+                "Select Generator"
+            },
+            onClick = {
+                try {
+                    val kva = requiredKva.toDouble()
+
+                    if (kva <= 0.0) {
+                        throw IllegalArgumentException(
+                            if (arabic) {
+                                "قدرة المولد يجب أن تكون أكبر من صفر."
+                            } else {
+                                "Generator capacity must be greater than zero."
+                            }
+                        )
+                    }
+
+                    val selection =
+                        ElectricalCalculations
+                            .selectGeneratorFromCatalog(
+                                requiredKva = kva,
+                                standard = standard
+                            )
+
+                    result = selection.toString()
+                    error = null
+                } catch (exception: Exception) {
+                    result = null
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "تعذر تنفيذ الاختيار."
+                            } else {
+                                "Selection could not be completed."
+                            }
+                }
+            }
         )
 
-        Button(
-            onClick = {
-                result = runCatching {
-                    val selection =
-                        ElectricalCalculations.selectGeneratorFromCatalog(
-                            requiredKva = requiredKva.toDouble(),
-                            standard = standard
-                        )
-
-                    selection.toString()
-                }.getOrNull()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic) "اختيار المولد"
-                else "Select Generator"
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
             )
         }
 
         result?.let {
-            ResultCard(
-                title = if (arabic) "نتيجة الاختيار" else "Selection Result",
+            EngineeringResult(
+                title = if (arabic) {
+                    "نتيجة اختيار المولد"
+                } else {
+                    "Generator Selection Result"
+                },
                 value = it
             )
+        } ?: run {
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
+                    message = if (arabic) {
+                        "أدخل القدرة المطلوبة ثم نفذ الاختيار."
+                    } else {
+                        "Enter the required capacity and run the selection."
+                    }
+                )
+            }
         }
     }
 }
@@ -582,77 +818,147 @@ private fun PanelEngineeringScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var current by remember { mutableStateOf("400") }
+    var current by remember {
+        mutableStateOf("400")
+    }
+
     var result by remember {
         mutableStateOf<String?>(null)
     }
 
-    ModuleLayout(
-        title = if (arabic)
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    EngineeringPage(
+        title = if (arabic) {
             "تصميم اللوحة"
-        else
-            "Panel Design",
-        subtitle = if (arabic)
+        } else {
+            "Panel Design"
+        },
+        subtitle = if (arabic) {
             "اختيار اللوحة طبقًا للتيار التصميمي"
-        else
-            "Panel selection based on design current",
-        icon = Icons.Outlined.Power,
-        language = language,
+        } else {
+            "Panel selection based on design current"
+        },
         onBack = onBack
     ) {
-        NumberField(
-            label = "Design Current (A)",
-            value = current,
-            onValueChange = { current = it }
+        EngineeringCard(
+            title = if (arabic) {
+                "بيانات اللوحة"
+            } else {
+                "Panel Data"
+            }
+        ) {
+            EngineeringInput(
+                label = "Design Current (A)",
+                value = current,
+                onValueChange = {
+                    current = it
+                    result = null
+                    error = null
+                }
+            )
+        }
+
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "اختيار اللوحة"
+            } else {
+                "Select Panel"
+            },
+            onClick = {
+                try {
+                    val currentValue = current.toDouble()
+
+                    if (currentValue <= 0.0) {
+                        throw IllegalArgumentException(
+                            if (arabic) {
+                                "تيار التصميم يجب أن يكون أكبر من صفر."
+                            } else {
+                                "Design current must be greater than zero."
+                            }
+                        )
+                    }
+
+                    result =
+                        ElectricalCalculations
+                            .selectPanelFromCatalog(
+                                currentA = currentValue,
+                                standard = standard
+                            )
+                            .toString()
+
+                    error = null
+                } catch (exception: Exception) {
+                    result = null
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "تعذر تنفيذ اختيار اللوحة."
+                            } else {
+                                "Panel selection could not be completed."
+                            }
+                }
+            }
         )
 
-        Button(
-            onClick = {
-                result = runCatching {
-                    ElectricalCalculations
-                        .selectPanelFromCatalog(
-                            currentA = current.toDouble(),
-                            standard = standard
-                        )
-                        .toString()
-                }.getOrNull()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic) "اختيار اللوحة"
-                else "Select Panel"
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
             )
         }
 
         result?.let {
-            ResultCard(
-                title = if (arabic) "نتيجة اللوحة" else "Panel Result",
+            EngineeringResult(
+                title = if (arabic) {
+                    "نتيجة اللوحة"
+                } else {
+                    "Panel Result"
+                },
                 value = it
             )
         }
 
         onOpenSld?.let { openSld ->
-            Button(
-                onClick = openSld,
-                modifier = Modifier.fillMaxWidth()
+            EngineeringCard(
+                title = if (arabic) {
+                    "المخطط الأحادي"
+                } else {
+                    "Single Line Diagram"
+                }
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AccountTree,
-                    contentDescription = null
-                )
-
-                Spacer(
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-
-                Text(
-                    if (arabic)
-                        "فتح المخطط الأحادي SLD"
-                    else
-                        "Open Single Line Diagram"
+                EngineeringSecondaryButton(
+                    text = if (arabic) {
+                        "فتح مصمم SLD"
+                    } else {
+                        "Open SLD Designer"
+                    },
+                    onClick = openSld,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.AccountTree,
+                            contentDescription = null
+                        )
+                    }
                 )
             }
+        }
+
+        if (result == null && error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) {
+                    "لا توجد نتيجة بعد"
+                } else {
+                    "No Result Yet"
+                },
+                message = if (arabic) {
+                    "أدخل تيار اللوحة ثم اضغط اختيار اللوحة."
+                } else {
+                    "Enter the panel current and run the selection."
+                }
+            )
         }
     }
 }
@@ -664,13 +970,20 @@ private fun ShortCircuitEngineeringScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var voltage by remember { mutableStateOf("400") }
-    var length by remember { mutableStateOf("30") }
-    var section by remember { mutableStateOf("70") }
-    var sourceIk by remember { mutableStateOf("25") }
+    var voltage by remember {
+        mutableStateOf("400")
+    }
 
-    var result by remember {
-        mutableStateOf<String?>(null)
+    var length by remember {
+        mutableStateOf("30")
+    }
+
+    var section by remember {
+        mutableStateOf("70")
+    }
+
+    var sourceIk by remember {
+        mutableStateOf("25")
     }
 
     var material by remember {
@@ -679,81 +992,171 @@ private fun ShortCircuitEngineeringScreen(
         )
     }
 
-    ModuleLayout(
-        title = if (arabic)
+    var result by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    EngineeringPage(
+        title = if (arabic) {
             "تيار القصر"
-        else
-            "Short Circuit",
-        subtitle = if (arabic)
+        } else {
+            "Short Circuit"
+        },
+        subtitle = if (arabic) {
             "حساب تيار القصر عند نقطة الدائرة"
-        else
-            "Prospective short-circuit current calculation",
-        icon = Icons.Outlined.Bolt,
-        language = language,
+        } else {
+            "Prospective short-circuit current calculation"
+        },
         onBack = onBack
     ) {
-        NumberField(
-            label = "Voltage (V)",
-            value = voltage,
-            onValueChange = { voltage = it }
-        )
+        EngineeringCard(
+            title = if (arabic) {
+                "بيانات القصر"
+            } else {
+                "Short-Circuit Data"
+            }
+        ) {
+            EngineeringInput(
+                label = "Voltage (V)",
+                value = voltage,
+                onValueChange = {
+                    voltage = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Cable Length (m)",
-            value = length,
-            onValueChange = { length = it }
-        )
+            EngineeringInput(
+                label = "Cable Length (m)",
+                value = length,
+                onValueChange = {
+                    length = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Cable Section (mm²)",
-            value = section,
-            onValueChange = { section = it }
-        )
+            EngineeringInput(
+                label = "Cable Section (mm²)",
+                value = section,
+                onValueChange = {
+                    section = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Source Ik (kA)",
-            value = sourceIk,
-            onValueChange = { sourceIk = it }
-        )
+            EngineeringInput(
+                label = "Source Ik (kA)",
+                value = sourceIk,
+                onValueChange = {
+                    sourceIk = it
+                    result = null
+                    error = null
+                }
+            )
 
-        MaterialSelector(
-            language = language,
-            value = material,
-            onChange = { material = it }
-        )
+            MaterialSelector(
+                language = language,
+                value = material,
+                onChange = {
+                    material = it
+                    result = null
+                    error = null
+                }
+            )
+        }
 
-        Button(
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "احسب تيار القصر"
+            } else {
+                "Calculate Short Circuit"
+            },
             onClick = {
-                result = runCatching {
-                    val r =
+                try {
+                    val v = voltage.toDouble()
+                    val cableLength = length.toDouble()
+                    val cableSection = section.toDouble()
+                    val source = sourceIk.toDouble()
+
+                    if (
+                        v <= 0.0 ||
+                        cableLength < 0.0 ||
+                        cableSection <= 0.0 ||
+                        source <= 0.0
+                    ) {
+                        throw IllegalArgumentException(
+                            if (arabic) {
+                                "راجع قيم الجهد والكابل وتيار المصدر."
+                            } else {
+                                "Check voltage, cable and source fault current."
+                            }
+                        )
+                    }
+
+                    val calculation =
                         ElectricalCalculations
                             .calculateShortCircuitCurrent(
-                                voltage = voltage.toDouble(),
-                                length = length.toDouble(),
-                                sectionMm2 = section.toDouble(),
+                                voltage = v,
+                                length = cableLength,
+                                sectionMm2 = cableSection,
                                 material = material,
                                 currentType =
                                     CurrentType.AlternatingThreePhase,
-                                sourceIkKA =
-                                    sourceIk.toDouble()
+                                sourceIkKA = source
                             )
 
-                    r.toString()
-                }.getOrNull()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic) "احسب تيار القصر"
-                else "Calculate Short Circuit"
+                    result = calculation.toString()
+                    error = null
+                } catch (exception: Exception) {
+                    result = null
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "تعذر تنفيذ الحساب."
+                            } else {
+                                "Calculation could not be completed."
+                            }
+                }
+            }
+        )
+
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
             )
         }
 
         result?.let {
-            ResultCard(
-                title = if (arabic) "نتيجة الدراسة" else "Study Result",
+            EngineeringResult(
+                title = if (arabic) {
+                    "نتيجة دراسة القصر"
+                } else {
+                    "Short-Circuit Study Result"
+                },
                 value = it
             )
+        } ?: run {
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
+                    message = if (arabic) {
+                        "أدخل بيانات القصر ثم اضغط حساب."
+                    } else {
+                        "Enter the short-circuit data and calculate."
+                    }
+                )
+            }
         }
     }
 }
@@ -765,99 +1168,193 @@ private fun ProtectionEngineeringScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var designCurrent by remember { mutableStateOf("100") }
-    var breaker by remember { mutableStateOf("125") }
-    var cable by remember { mutableStateOf("150") }
-    var fault by remember { mutableStateOf("10") }
-    var breakingCapacity by remember { mutableStateOf("25") }
+    var designCurrent by remember {
+        mutableStateOf("100")
+    }
+
+    var breaker by remember {
+        mutableStateOf("125")
+    }
+
+    var cable by remember {
+        mutableStateOf("150")
+    }
+
+    var fault by remember {
+        mutableStateOf("10")
+    }
+
+    var breakingCapacity by remember {
+        mutableStateOf("25")
+    }
 
     var result by remember {
         mutableStateOf<String?>(null)
     }
 
-    ModuleLayout(
-        title = if (arabic)
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    EngineeringPage(
+        title = if (arabic) {
             "الحماية والتنسيق"
-        else
-            "Protection & Coordination",
-        subtitle = if (arabic)
+        } else {
+            "Protection & Coordination"
+        },
+        subtitle = if (arabic) {
             "فحص تنسيق القاطع وقدرة القطع"
-        else
-            "Breaker coordination and breaking-capacity checks",
-        icon = Icons.Outlined.Security,
-        language = language,
+        } else {
+            "Breaker coordination and breaking-capacity checks"
+        },
         onBack = onBack
     ) {
-        NumberField(
-            label = "Design Current (A)",
-            value = designCurrent,
-            onValueChange = { designCurrent = it }
-        )
+        EngineeringCard(
+            title = if (arabic) {
+                "بيانات الحماية"
+            } else {
+                "Protection Data"
+            }
+        ) {
+            EngineeringInput(
+                label = "Design Current (A)",
+                value = designCurrent,
+                onValueChange = {
+                    designCurrent = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Breaker Rating (A)",
-            value = breaker,
-            onValueChange = { breaker = it }
-        )
+            EngineeringInput(
+                label = "Breaker Rating (A)",
+                value = breaker,
+                onValueChange = {
+                    breaker = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Cable Ampacity (A)",
-            value = cable,
-            onValueChange = { cable = it }
-        )
+            EngineeringInput(
+                label = "Cable Ampacity (A)",
+                value = cable,
+                onValueChange = {
+                    cable = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Fault Current (kA)",
-            value = fault,
-            onValueChange = { fault = it }
-        )
+            EngineeringInput(
+                label = "Fault Current (kA)",
+                value = fault,
+                onValueChange = {
+                    fault = it
+                    result = null
+                    error = null
+                }
+            )
 
-        NumberField(
-            label = "Breaker Breaking Capacity (kA)",
-            value = breakingCapacity,
-            onValueChange = { breakingCapacity = it }
-        )
+            EngineeringInput(
+                label = "Breaker Breaking Capacity (kA)",
+                value = breakingCapacity,
+                onValueChange = {
+                    breakingCapacity = it
+                    result = null
+                    error = null
+                }
+            )
+        }
 
-        Button(
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "فحص الحماية"
+            } else {
+                "Validate Protection"
+            },
             onClick = {
-                result = runCatching {
+                try {
                     val coordination =
-                        ElectricalCalculations.checkBreakerCoordination(
-                            designCurrentA =
-                                designCurrent.toDouble(),
-                            breakerRatingA =
-                                breaker.toDouble(),
-                            cableAmpacityA =
-                                cable.toDouble()
-                        )
+                        ElectricalCalculations
+                            .checkBreakerCoordination(
+                                designCurrentA =
+                                    designCurrent.toDouble(),
+                                breakerRatingA =
+                                    breaker.toDouble(),
+                                cableAmpacityA =
+                                    cable.toDouble()
+                            )
 
                     val breaking =
-                        ElectricalCalculations.checkBreakingCapacity(
-                            prospectiveFaultCurrentKA =
-                                fault.toDouble(),
-                            breakerBreakingCapacityKA =
-                                breakingCapacity.toDouble()
-                        )
+                        ElectricalCalculations
+                            .checkBreakingCapacity(
+                                prospectiveFaultCurrentKA =
+                                    fault.toDouble(),
+                                breakerBreakingCapacityKA =
+                                    breakingCapacity.toDouble()
+                            )
 
-                    "Coordination = " +
-                        if (coordination) "PASS" else "CHECK" +
-                        "\nBreaking Capacity = " +
-                        if (breaking) "PASS" else "CHECK"
-                }.getOrNull()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic) "فحص الحماية"
-                else "Validate Protection"
+                    result =
+                        "Coordination = ${
+                            if (coordination) {
+                                "PASS"
+                            } else {
+                                "CHECK"
+                            }
+                        }\nBreaking Capacity = ${
+                            if (breaking) {
+                                "PASS"
+                            } else {
+                                "CHECK"
+                            }
+                        }"
+
+                    error = null
+                } catch (exception: Exception) {
+                    result = null
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "تعذر تنفيذ فحص الحماية."
+                            } else {
+                                "Protection validation could not be completed."
+                            }
+                }
+            }
+        )
+
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
             )
         }
 
         result?.let {
-            ResultCard(
-                title = if (arabic) "حالة الحماية" else "Protection Status",
+            EngineeringResult(
+                title = if (arabic) {
+                    "حالة الحماية"
+                } else {
+                    "Protection Status"
+                },
                 value = it
             )
+        } ?: run {
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
+                    message = if (arabic) {
+                        "أدخل بيانات الحماية ثم نفذ الفحص."
+                    } else {
+                        "Enter protection data and validate."
+                    }
+                )
+            }
         }
     }
 }
@@ -869,28 +1366,87 @@ private fun EngineeringReportModuleScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    ModuleLayout(
-        title = if (arabic)
+    EngineeringPage(
+        title = if (arabic) {
             "التقرير الهندسي"
-        else
-            "Engineering Report",
-        subtitle = if (arabic)
+        } else {
+            "Engineering Report"
+        },
+        subtitle = if (arabic) {
             "مركز مخرجات التصميم والحسابات"
-        else
-            "Engineering calculation and design deliverables",
-        icon = Icons.Outlined.Description,
-        language = language,
+        } else {
+            "Engineering calculation and design deliverables"
+        },
         onBack = onBack
     ) {
-        ResultCard(
-            title = if (arabic)
-                "حالة النظام"
-            else
-                "System Status",
-            value = if (arabic)
-                "الحسابات الأساسية مرتبطة بالـ Core.\nSLD يعمل من مساره المستقل."
-            else
-                "Core-connected engineering calculations.\nSLD remains on its dedicated route."
+        EngineeringCard(
+            title = if (arabic) {
+                "مخرجات المشروع"
+            } else {
+                "Project Deliverables"
+            }
+        ) {
+            EngineeringStatus(
+                text = if (arabic) {
+                    "الحسابات الأساسية مرتبطة بالـ Core.\n" +
+                        "مصمم SLD يعمل من مساره المستقل."
+                } else {
+                    "Core-connected engineering calculations.\n" +
+                        "SLD remains on its dedicated route."
+                }
+            )
+
+            EngineeringSectionTitle(
+                text = if (arabic) {
+                    "المخرجات المستهدفة"
+                } else {
+                    "Target Deliverables"
+                }
+            )
+
+            EngineeringValueRow(
+                label = if (arabic) {
+                    "الحسابات"
+                } else {
+                    "Calculations"
+                },
+                value = if (arabic) {
+                    "Electrical / Water / Sewage"
+                } else {
+                    "Electrical / Water / Sewage"
+                }
+            )
+
+            EngineeringValueRow(
+                label = "SLD",
+                value = if (arabic) {
+                    "Interactive Engineering Diagram"
+                } else {
+                    "Interactive Engineering Diagram"
+                }
+            )
+
+            EngineeringValueRow(
+                label = "PDF",
+                value = if (arabic) {
+                    "Engineering Report"
+                } else {
+                    "Engineering Report"
+                }
+            )
+        }
+
+        EngineeringEmptyState(
+            title = if (arabic) {
+                "التقرير الكامل مرتبط بالمشروع"
+            } else {
+                "Full Report Is Project-Based"
+            },
+            message = if (arabic) {
+                "سيتم ربط التقرير النهائي بنتائج المشروع وSLD بعد تثبيت واجهة النظام الموحدة."
+            } else {
+                "The final report will consume project and SLD results after the unified interface is stabilized."
+            }
         )
     }
 }
@@ -903,41 +1459,81 @@ private fun CurrentTypeSelector(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    Button(
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    EngineeringSecondaryButton(
+        text = when (value) {
+            CurrentType.DirectCurrent ->
+                if (arabic) "تيار مستمر — DC" else "DC"
+
+            CurrentType.AlternatingSinglePhase ->
+                if (arabic) "أحادي الطور — 1 Phase" else "1 Phase"
+
+            CurrentType.AlternatingTwoPhase ->
+                if (arabic) "ثنائي الطور — 2 Phase" else "2 Phase"
+
+            CurrentType.AlternatingThreePhase ->
+                if (arabic) "ثلاثي الطور — 3 Phase" else "3 Phase"
+        },
         onClick = {
-            onChange(
-                when (value) {
-                    CurrentType.AlternatingThreePhase ->
-                        CurrentType.AlternatingSinglePhase
+            expanded = true
+        }
+    )
 
-                    CurrentType.AlternatingSinglePhase ->
-                        CurrentType.DirectCurrent
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = {
+            expanded = false
+        }
+    ) {
+        listOf(
+            CurrentType.DirectCurrent,
+            CurrentType.AlternatingSinglePhase,
+            CurrentType.AlternatingTwoPhase,
+            CurrentType.AlternatingThreePhase
+        ).forEach { type ->
+            DropdownMenuItem(
+                text = {
+                    androidx.compose.material3.Text(
+                        when (type) {
+                            CurrentType.DirectCurrent ->
+                                if (arabic) {
+                                    "تيار مستمر — DC"
+                                } else {
+                                    "DC"
+                                }
 
-                    CurrentType.DirectCurrent ->
-                        CurrentType.AlternatingThreePhase
+                            CurrentType.AlternatingSinglePhase ->
+                                if (arabic) {
+                                    "أحادي الطور — 1 Phase"
+                                } else {
+                                    "1 Phase"
+                                }
 
-                    CurrentType.AlternatingTwoPhase ->
-                        CurrentType.AlternatingThreePhase
+                            CurrentType.AlternatingTwoPhase ->
+                                if (arabic) {
+                                    "ثنائي الطور — 2 Phase"
+                                } else {
+                                    "2 Phase"
+                                }
+
+                            CurrentType.AlternatingThreePhase ->
+                                if (arabic) {
+                                    "ثلاثي الطور — 3 Phase"
+                                } else {
+                                    "3 Phase"
+                                }
+                        }
+                    )
+                },
+                onClick = {
+                    onChange(type)
+                    expanded = false
                 }
             )
-        },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            when (value) {
-                CurrentType.DirectCurrent ->
-                    if (arabic) "تيار مستمر" else "DC"
-
-                CurrentType.AlternatingSinglePhase ->
-                    if (arabic) "أحادي الطور" else "1 Phase"
-
-                CurrentType.AlternatingTwoPhase ->
-                    if (arabic) "ثنائي الطور" else "2 Phase"
-
-                CurrentType.AlternatingThreePhase ->
-                    if (arabic) "ثلاثي الطور" else "3 Phase"
-            }
-        )
+        }
     }
 }
 
@@ -949,22 +1545,64 @@ private fun MaterialSelector(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    Button(
-        onClick = {
-            onChange(
-                if (value == ConductorMaterial.Copper)
-                    ConductorMaterial.Aluminum
-                else
-                    ConductorMaterial.Copper
-            )
-        },
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            if (value == ConductorMaterial.Copper) {
-                if (arabic) "موصل نحاس" else "Copper"
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    EngineeringSecondaryButton(
+        text = if (value == ConductorMaterial.Copper) {
+            if (arabic) {
+                "موصل نحاس — Copper"
             } else {
-                if (arabic) "موصل ألومنيوم" else "Aluminum"
+                "Copper"
+            }
+        } else {
+            if (arabic) {
+                "موصل ألومنيوم — Aluminum"
+            } else {
+                "Aluminum"
+            }
+        },
+        onClick = {
+            expanded = true
+        }
+    )
+
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = {
+            expanded = false
+        }
+    ) {
+        DropdownMenuItem(
+            text = {
+                androidx.compose.material3.Text(
+                    if (arabic) {
+                        "موصل نحاس — Copper"
+                    } else {
+                        "Copper"
+                    }
+                )
+            },
+            onClick = {
+                onChange(ConductorMaterial.Copper)
+                expanded = false
+            }
+        )
+
+        DropdownMenuItem(
+            text = {
+                androidx.compose.material3.Text(
+                    if (arabic) {
+                        "موصل ألومنيوم — Aluminum"
+                    } else {
+                        "Aluminum"
+                    }
+                )
+            },
+            onClick = {
+                onChange(ConductorMaterial.Aluminum)
+                expanded = false
             }
         )
     }
