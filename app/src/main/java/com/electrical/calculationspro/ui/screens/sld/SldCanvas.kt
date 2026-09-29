@@ -224,14 +224,6 @@ fun SldCanvas(
                                  * =================================================
                                  * TWO FINGER GESTURE
                                  * =================================================
-                                 *
-                                 * Two fingers always control:
-                                 *
-                                 * 1. Pan
-                                 * 2. Pinch zoom
-                                 *
-                                 * Node dragging is disabled while two fingers
-                                 * are touching the screen.
                                  */
 
                                 if (pressed.size >= 2) {
@@ -296,7 +288,6 @@ fun SldCanvas(
                                             centroid.y -
                                                 logicalCentroid.y *
                                                 newZoom
-
                                     }
 
                                     panX += pan.x
@@ -343,10 +334,6 @@ fun SldCanvas(
                                             )
 
                                         } else {
-
-                                            /*
-                                             * Empty canvas drag = PAN
-                                             */
 
                                             panX += delta.x
                                             panY += delta.y
@@ -450,11 +437,8 @@ fun SldCanvas(
 
                 /*
                  * =========================================================
-                 * CONNECTIONS FIRST
+                 * CONNECTIONS
                  * =========================================================
-                 *
-                 * This guarantees that equipment symbols and labels
-                 * remain visually above cables/busbars.
                  */
 
                 currentConnections.forEach { connection ->
@@ -468,12 +452,27 @@ fun SldCanvas(
                                     connection.id
                             }
 
+                    /*
+                     * IMPORTANT:
+                     *
+                     * Pass the complete connection list.
+                     * drawConnection needs it for:
+                     *
+                     * - panel/busbar ports
+                     * - correct feeder routing
+                     * - connection direction
+                     * - busbar distribution
+                     */
+
                     drawConnection(
                         connection =
                             connection,
 
                         nodes =
                             currentNodes,
+
+                        connections =
+                            currentConnections,
 
                         selected =
                             connection.id ==
