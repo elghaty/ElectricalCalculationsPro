@@ -1,9 +1,16 @@
 package com.electrical.calculationspro.data
 
 /**
- * Topology-aware SLD presentation layout.
+ * Professional topology-aware SLD layout engine.
  *
- * This class changes coordinates only.
+ * Responsibilities:
+ * - Arrange SLD nodes according to electrical topology.
+ * - Keep the main upstream path visually centered.
+ * - Distribute downstream branches.
+ * - Prevent node overlap.
+ * - Preserve existing topology and connections.
+ *
+ * This class changes presentation coordinates only.
  * No electrical calculation is performed here.
  */
 object SldAutoLayoutEngine {
@@ -11,13 +18,20 @@ object SldAutoLayoutEngine {
     private const val START_X = 620f
     private const val START_Y = 70f
 
-    private const val LEVEL_Y = 190f
-    private const val BRANCH_X = 250f
+    private const val LEVEL_Y = 220f
+
+    private const val BRANCH_X = 320f
 
     private const val NODE_WIDTH = 180f
     private const val NODE_HEIGHT = 118f
 
-    private const val CLEARANCE = 60f
+    private const val CLEARANCE_X = 90f
+    private const val CLEARANCE_Y = 80f
+
+    private const val MIN_X = 40f
+    private const val MIN_Y = 40f
+
+    private const val MAX_SEARCH_STEPS = 200
 
     data class LayoutResult(
         val network: SldNetwork,
@@ -35,158 +49,250 @@ object SldAutoLayoutEngine {
             )
         }
 
-        val nodes =
-            network.nodes.associateBy {
-                it.id
-            }
+        val nodesById =
+            network.nodes.associateBy { it.id }
+
+        /*
+         * ------------------------------------------------------------
+         * BUILD TOPOLOGY
+         * ------------------------------------------------------------
+         */
 
         val children =
-            network.nodes
-                .associate {
-                    it.id to
-                        mutableListOf<String>()
-                }
-                .toMutableMap()
+            mutableMapOf<String, MutableList<String>>()
 
-        val incoming =
-            mutableSetOf<String>()
+        val parents =
+            mutableMapOf<String, MutableList<String>>()
+
+        network.nodes.forEach { node ->
+
+            children[node.id] =
+                mutableListOf()
+
+            parents[node.id] =
+                mutableListOf()
+        }
 
         network.connections.forEach { connection ->
 
+            val from =
+                nodesById[connection.fromNodeId]
+
+            val to =
+                nodesById[connection.toNodeId]
+
             if (
-                nodes.containsKey(
-                    connection.fromNodeId
-                ) &&
-                nodes.containsKey(
-                    connection.toNodeId
-                )
+                from != null &&
+                to != null &&
+                from.id != to.id
             ) {
 
-                children
-                    .getValue(
-                        connection.fromNodeId
-                    )
-                    .add(
-                        connection.toNodeId
-                    )
+                if (
+                    to.id !in
+                    children.getValue(from.id)
+                ) {
+                    children
+                        .getValue(from.id)
+                        .add(to.id)
+                }
 
-                incoming.add(
-                    connection.toNodeId
-                )
+                if (
+                    from.id !in
+                    parents.getValue(to.id)
+                ) {
+                    parents
+                        .getValue(to.id)
+                        .add(from.id)
+                }
             }
         }
 
+        /*
+         * ------------------------------------------------------------
+         * ROOTS
+         * ------------------------------------------------------------
+         *
+         * SOURCE has priority as the engineering root.
+         */
         val sourceRoots =
             network.nodes.filter {
-                it.type ==
-                    SldNodeType.SOURCE
+                it.type == SldNodeType.SOURCE
+            }
+
+        val topologyRoots =
+            network.nodes.filter { node ->
+
+                parents[node.id]
+                    .orEmpty()
+                    .isEmpty()
             }
 
         val roots =
-            sourceRoots.ifEmpty {
-
-                network.nodes.filter {
-                    it.id !in incoming
+            (
+                sourceRoots +
+                    topologyRoots
+                )
+                .distinctBy {
+                    it.id
+                }
+                .ifEmpty {
+                    listOf(
+                        network.nodes.first()
+                    )
                 }
 
-            }.ifEmpty {
-
-                listOf(
-                    network.nodes.first()
-                )
-            }
-
+        /*
+         * ------------------------------------------------------------
+         * LEVEL CALCULATION
+         * ------------------------------------------------------------
+         *
+         * Level 0:
+         * SOURCE
+         *
+         * Level 1:
+         * ACB / BREAKER
+         *
+         * Level 2:
+         * TRANSFORMER / BUS
+         *
+         * etc.
+         */
         val levels =
-            linkedMapOf<String, Int>()
+            mutableMapOf<String, Int>()
 
         fun visit(
-            id: String,
+            nodeId: String,
             level: Int,
             path: Set<String>
         ) {
 
-            if (id in path) {
+            /*
+             * Protect against circular topology.
+             */
+            if (nodeId in path) {
                 return
             }
 
-            val old =
-                levels[id]
+            val existing =
+                levels[nodeId]
 
+            /*
+             * Keep the shortest upstream level.
+             */
             if (
-                old == null ||
-                level > old
+                existing == null ||
+                level < existing
             ) {
-                levels[id] = level
+                levels[nodeId] = level
             }
 
-            children[id]
-                .orEmpty()
-                .forEach { child ->
+            val actualLevel =
+                levels[nodeId]
+                    ?: level
 
-                    visit(
-                        id = child,
-                        level = level + 1,
-                        path = path + id
+            val nextLevel =
+                actualLevel + 1
+
+            val orderedChildren =
+                children[nodeId]
+                    .orEmpty()
+                    .sortedWith(
+                        compareBy<String> {
+                            typeOrder(
+                                nodesById[it]?.type
+                            )
+                        }.thenBy {
+                            nodesById[it]
+                                ?.name
+                                ?.uppercase()
+                                ?: ""
+                        }
                     )
-                }
+
+            orderedChildren.forEach { childId ->
+
+                visit(
+                    nodeId = childId,
+                    level = nextLevel,
+                    path = path + nodeId
+                )
+            }
         }
 
         roots.forEach { root ->
 
             visit(
-                id = root.id,
+                nodeId = root.id,
                 level = 0,
                 path = emptySet()
             )
         }
 
+        /*
+         * Put disconnected nodes into separate levels.
+         */
         var disconnectedLevel =
             (
                 levels.values.maxOrNull()
                     ?: 0
                 ) + 1
 
-        network.nodes
-            .filter {
-                it.id !in levels
-            }
-            .forEach { node ->
+        val disconnectedNodes =
+            network.nodes
+                .filter {
+                    it.id !in levels
+                }
+                .sortedWith(
+                    compareBy<SldNode> {
+                        typeOrder(it.type)
+                    }.thenBy {
+                        it.name.uppercase()
+                    }
+                )
 
-                levels[node.id] =
-                    disconnectedLevel++
+        disconnectedNodes.forEach { node ->
 
-            }
+            levels[node.id] =
+                disconnectedLevel
 
-        val positions =
+            disconnectedLevel++
+        }
+
+        /*
+         * ------------------------------------------------------------
+         * POSITION MAP
+         * ------------------------------------------------------------
+         */
+        val preferredPositions =
             mutableMapOf<
                 String,
                 Pair<Float, Float>
             >()
 
         /*
-         * Main trunk:
+         * ------------------------------------------------------------
+         * MAIN TRUNK
+         * ------------------------------------------------------------
          *
-         * Source -> breaker -> transformer -> bus -> panel
-         *
-         * remains on the center axis whenever topology permits.
+         * Follow a single-child path and keep it centered.
          */
         roots.forEach { root ->
 
-            var current =
+            var currentId =
                 root.id
 
             val visited =
                 mutableSetOf<String>()
 
             while (
-                visited.add(current)
+                visited.add(currentId)
             ) {
 
                 val level =
-                    levels[current]
-                        ?: 0
+                    levels[currentId]
+                        ?: break
 
-                positions[current] =
+                preferredPositions[currentId] =
                     START_X to
                         (
                             START_Y +
@@ -194,8 +300,8 @@ object SldAutoLayoutEngine {
                                 LEVEL_Y
                             )
 
-                val next =
-                    children[current]
+                val candidates =
+                    children[currentId]
                         .orEmpty()
                         .filter {
                             it !in visited
@@ -203,76 +309,128 @@ object SldAutoLayoutEngine {
                         .sortedWith(
                             compareBy<String> {
                                 typeOrder(
-                                    nodes[it]?.type
+                                    nodesById[it]?.type
                                 )
                             }.thenBy {
-                                nodes[it]?.name
+                                nodesById[it]
+                                    ?.name
+                                    ?.uppercase()
                                     ?: ""
                             }
                         )
-                        .singleOrNull()
+
+                /*
+                 * Only one child continues the center trunk.
+                 *
+                 * Multiple children become branches.
+                 */
+                val next =
+                    candidates.singleOrNull()
 
                 if (next == null) {
                     break
                 }
 
-                current = next
+                currentId =
+                    next
             }
         }
 
         /*
-         * Other nodes are distributed around the center axis.
+         * ------------------------------------------------------------
+         * LEVEL GROUPS
+         * ------------------------------------------------------------
          */
-        levels.entries
-            .groupBy(
-                keySelector = {
-                    it.value
-                },
-                valueTransform = {
-                    it.key
+        val levelGroups =
+            levels.entries
+                .groupBy(
+                    keySelector = {
+                        it.value
+                    },
+                    valueTransform = {
+                        it.key
+                    }
+                )
+                .toSortedMap()
+
+        /*
+         * ------------------------------------------------------------
+         * PLACE BRANCHES
+         * ------------------------------------------------------------
+         */
+        levelGroups.forEach { (level, ids) ->
+
+            val unplaced =
+                ids
+                    .filter {
+                        it !in preferredPositions
+                    }
+                    .sortedWith(
+                        compareBy<String> {
+                            typeOrder(
+                                nodesById[it]?.type
+                            )
+                        }.thenBy {
+                            nodesById[it]
+                                ?.name
+                                ?.uppercase()
+                                ?: ""
+                        }
+                    )
+
+            if (unplaced.isEmpty()) {
+                return@forEach
+            }
+
+            /*
+             * First try to group nodes under their positioned parent.
+             */
+            val groupedByParent =
+                unplaced.groupBy { childId ->
+
+                    parents[childId]
+                        .orEmpty()
+                        .firstOrNull { parentId ->
+                            preferredPositions.containsKey(
+                                parentId
+                            )
+                        }
                 }
-            )
-            .toSortedMap()
-            .forEach { (level, ids) ->
 
-                val unplaced =
-                    ids
-                        .filter {
-                            it !in positions
-                        }
-                        .sortedWith(
-                            compareBy<String> {
-                                typeOrder(
-                                    nodes[it]?.type
-                                )
-                            }.thenBy {
-                                nodes[it]?.name
-                                    ?: ""
-                            }
-                        )
+            groupedByParent.forEach { entry ->
 
-                unplaced.forEachIndexed {
-                    index,
-                    id
-                    ->
+                val parentId =
+                    entry.key
 
-                    val side =
-                        if (
-                            index % 2 == 0
-                        ) {
-                            1
-                        } else {
-                            -1
-                        }
+                val group =
+                    entry.value
 
-                    val slot =
-                        (index + 1) / 2
+                if (parentId == null) {
+                    return@forEach
+                }
 
-                    positions[id] =
+                val parentPosition =
+                    preferredPositions[parentId]
+
+                if (parentPosition == null) {
+                    return@forEach
+                }
+
+                if (group.size == 1) {
+
+                    /*
+                     * Single branch.
+                     */
+                    val childId =
+                        group.first()
+
+                    preferredPositions[childId] =
                         (
-                            START_X +
-                                side *
-                                slot *
+                            parentPosition.first +
+                                branchDirection(
+                                    node =
+                                        nodesById[childId]
+                                ) *
                                 BRANCH_X
                             ) to
                             (
@@ -280,22 +438,115 @@ object SldAutoLayoutEngine {
                                     level *
                                     LEVEL_Y
                                 )
+
+                } else {
+
+                    /*
+                     * Multiple branches.
+                     *
+                     * They are distributed symmetrically around
+                     * the parent's X coordinate.
+                     */
+                    val ordered =
+                        group.sortedWith(
+                            compareBy<String> {
+                                typeOrder(
+                                    nodesById[it]?.type
+                                )
+                            }.thenBy {
+                                nodesById[it]
+                                    ?.name
+                                    ?.uppercase()
+                                    ?: ""
+                            }
+                        )
+
+                    val center =
+                        (
+                            ordered.size - 1
+                            ) / 2f
+
+                    ordered.forEachIndexed {
+                        index,
+                        childId
+                        ->
+
+                        val offset =
+                            index - center
+
+                        preferredPositions[childId] =
+                            (
+                                parentPosition.first +
+                                    offset *
+                                    BRANCH_X
+                                ) to
+                                (
+                                    START_Y +
+                                        level *
+                                        LEVEL_Y
+                                    )
+                    }
                 }
             }
 
+            /*
+             * Nodes with no positioned parent.
+             */
+            val remaining =
+                unplaced.filter {
+                    it !in preferredPositions
+                }
+
+            remaining.forEachIndexed {
+                index,
+                nodeId
+                ->
+
+                val side =
+                    if (
+                        index % 2 == 0
+                    ) {
+                        1f
+                    } else {
+                        -1f
+                    }
+
+                val slot =
+                    (
+                        index / 2
+                    ) + 1
+
+                preferredPositions[nodeId] =
+                    (
+                        START_X +
+                            side *
+                            slot *
+                            BRANCH_X
+                        ) to
+                        (
+                            START_Y +
+                                level *
+                                LEVEL_Y
+                            )
+            }
+        }
+
         /*
-         * Breaker -> Load is presented as a horizontal feeder.
+         * ------------------------------------------------------------
+         * BREAKER -> LOAD
+         * ------------------------------------------------------------
+         *
+         * Keep loads horizontally aligned with their breaker.
          */
-        network.connections.forEach {
-            connection ->
+        network.connections.forEach { connection ->
 
             val from =
-                nodes[
+                nodesById[
                     connection.fromNodeId
                 ]
 
             val to =
-                nodes[
+                nodesById[
                     connection.toNodeId
                 ]
 
@@ -308,25 +559,29 @@ object SldAutoLayoutEngine {
                     SldNodeType.LOAD
             ) {
 
-                val fromPosition =
-                    positions[from.id]
+                val breakerPosition =
+                    preferredPositions[from.id]
 
                 if (
-                    fromPosition != null
+                    breakerPosition != null
                 ) {
 
-                    positions[to.id] =
+                    preferredPositions[to.id] =
                         (
-                            fromPosition.first +
-                                BRANCH_X / 1.7f
+                            breakerPosition.first +
+                                BRANCH_X
                             ) to
-                            fromPosition.second
+                            breakerPosition.second
                 }
             }
         }
 
         /*
-         * Resolve collisions without changing topology.
+         * ------------------------------------------------------------
+         * COLLISION RESOLUTION
+         * ------------------------------------------------------------
+         *
+         * Resolve collisions without modifying topology.
          */
         val finalPositions =
             mutableMapOf<
@@ -334,45 +589,116 @@ object SldAutoLayoutEngine {
                 Pair<Float, Float>
             >()
 
-        positions.forEach { (id, original) ->
+        /*
+         * Process upstream levels first.
+         */
+        val orderedNodeIds =
+            levels.entries
+                .sortedWith(
+                    compareBy<
+                        Map.Entry<String, Int>
+                        > {
+                        it.value
+                    }.thenBy {
+                        preferredPositions[it.key]
+                            ?.first
+                            ?: START_X
+                    }.thenBy {
+                        nodesById[it.key]
+                            ?.name
+                            ?.uppercase()
+                            ?: ""
+                    }
+                )
+                .map {
+                    it.key
+                }
 
-            var candidate =
-                original
+        orderedNodeIds.forEach { nodeId ->
 
-            var guard = 0
+            val preferred =
+                preferredPositions[nodeId]
+                    ?: (
+                        START_X to
+                            START_Y
+                        )
 
-            while (
-                finalPositions.values.any {
-                    overlaps(
-                        candidate,
-                        it
-                    )
-                } &&
-                guard < 50
-            ) {
+            finalPositions[nodeId] =
+                resolveCollision(
+                    preferred =
+                        preferred,
 
-                candidate =
-                    candidate.first +
-                        90f to
-                        candidate.second +
-                        LEVEL_Y / 2f
-
-                guard++
-            }
-
-            finalPositions[id] =
-                candidate
+                    occupied =
+                        finalPositions.values
+                )
         }
 
+        /*
+         * ------------------------------------------------------------
+         * NORMALIZE
+         * ------------------------------------------------------------
+         */
+        val minX =
+            finalPositions.values
+                .minOfOrNull {
+                    it.first
+                }
+                ?: START_X
+
+        val minY =
+            finalPositions.values
+                .minOfOrNull {
+                    it.second
+                }
+                ?: START_Y
+
+        val shiftX =
+            if (minX < MIN_X) {
+                MIN_X - minX
+            } else {
+                0f
+            }
+
+        val shiftY =
+            if (minY < MIN_Y) {
+                MIN_Y - minY
+            } else {
+                0f
+            }
+
+        val normalized =
+            finalPositions.mapValues { entry ->
+
+                val position =
+                    entry.value
+
+                (
+                    position.first +
+                        shiftX
+                    ) to
+                    (
+                        position.second +
+                            shiftY
+                        )
+            }
+
+        /*
+         * ------------------------------------------------------------
+         * APPLY
+         * ------------------------------------------------------------
+         */
         val arrangedNodes =
             network.nodes.map { node ->
 
                 val position =
-                    finalPositions[node.id]
+                    normalized[node.id]
 
                 if (position == null) {
+
                     node
+
                 } else {
+
                     node.copy(
                         x = position.first,
                         y = position.second
@@ -386,39 +712,225 @@ object SldAutoLayoutEngine {
                     nodes =
                         arrangedNodes
                 ),
+
             levels =
                 levels.toMap()
         )
     }
 
+    /**
+     * Resolve a node collision.
+     *
+     * Search order:
+     * 1. Down
+     * 2. Right
+     * 3. Left
+     * 4. Diagonal
+     */
+    private fun resolveCollision(
+        preferred: Pair<Float, Float>,
+        occupied: Collection<Pair<Float, Float>>
+    ): Pair<Float, Float> {
+
+        if (
+            occupied.none {
+                overlaps(
+                    preferred,
+                    it
+                )
+            }
+        ) {
+            return preferred
+        }
+
+        /*
+         * Downward search.
+         */
+        for (step in 1..MAX_SEARCH_STEPS) {
+
+            val candidate =
+                preferred.first to
+                    (
+                        preferred.second +
+                            step *
+                            (
+                                NODE_HEIGHT +
+                                    CLEARANCE_Y
+                                )
+                        )
+
+            if (
+                occupied.none {
+                    overlaps(
+                        candidate,
+                        it
+                    )
+                }
+            ) {
+                return candidate
+            }
+        }
+
+        /*
+         * Right / left search.
+         */
+        for (step in 1..MAX_SEARCH_STEPS) {
+
+            val distance =
+                step *
+                    (
+                        NODE_WIDTH +
+                            CLEARANCE_X
+                        )
+
+            val right =
+                (
+                    preferred.first +
+                        distance
+                    ) to
+                    preferred.second
+
+            if (
+                occupied.none {
+                    overlaps(
+                        right,
+                        it
+                    )
+                }
+            ) {
+                return right
+            }
+
+            val left =
+                (
+                    preferred.first -
+                        distance
+                    ) to
+                    preferred.second
+
+            if (
+                occupied.none {
+                    overlaps(
+                        left,
+                        it
+                    )
+                }
+            ) {
+                return left
+            }
+        }
+
+        /*
+         * Guaranteed fallback.
+         */
+        var candidate =
+            preferred
+
+        var iteration =
+            0
+
+        while (
+            occupied.any {
+                overlaps(
+                    candidate,
+                    it
+                )
+            } &&
+            iteration < 1000
+        ) {
+
+            candidate =
+                (
+                    candidate.first +
+                        NODE_WIDTH +
+                        CLEARANCE_X
+                    ) to
+                    (
+                        candidate.second +
+                            NODE_HEIGHT +
+                            CLEARANCE_Y
+                        )
+
+            iteration++
+        }
+
+        return candidate
+    }
+
+    /**
+     * Collision detection.
+     */
     private fun overlaps(
         a: Pair<Float, Float>,
         b: Pair<Float, Float>
     ): Boolean {
 
-        val horizontal =
-            a.first <
-                b.first +
-                NODE_WIDTH +
-                CLEARANCE &&
-                a.first +
-                NODE_WIDTH +
-                CLEARANCE >
-                b.first
+        val aLeft =
+            a.first
 
-        val vertical =
-            a.second <
-                b.second +
-                NODE_HEIGHT +
-                CLEARANCE &&
-                a.second +
-                NODE_HEIGHT +
-                CLEARANCE >
-                b.second
+        val aTop =
+            a.second
 
-        return horizontal && vertical
+        val aRight =
+            a.first +
+                NODE_WIDTH +
+                CLEARANCE_X
+
+        val aBottom =
+            a.second +
+                NODE_HEIGHT +
+                CLEARANCE_Y
+
+        val bLeft =
+            b.first
+
+        val bTop =
+            b.second
+
+        val bRight =
+            b.first +
+                NODE_WIDTH +
+                CLEARANCE_X
+
+        val bBottom =
+            b.second +
+                NODE_HEIGHT +
+                CLEARANCE_Y
+
+        return (
+            aLeft < bRight &&
+                aRight > bLeft &&
+                aTop < bBottom &&
+                aBottom > bTop
+            )
     }
 
+    /**
+     * Branch direction used only for presentation.
+     */
+    private fun branchDirection(
+        node: SldNode?
+    ): Float {
+
+        return when (node?.type) {
+
+            SldNodeType.GENERATOR ->
+                -1f
+
+            SldNodeType.SOURCE ->
+                -1f
+
+            else ->
+                1f
+        }
+    }
+
+    /**
+     * Visual ordering of node types.
+     *
+     * This does not represent electrical priority,
+     * protection priority, or design rating.
+     */
     private fun typeOrder(
         type: SldNodeType?
     ): Int {
