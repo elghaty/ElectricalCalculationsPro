@@ -29,14 +29,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.input.pointer.awaitPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
-import kotlin.math.max
 
 private const val MIN_ZOOM = 0.25f
 private const val MAX_ZOOM = 4.0f
@@ -164,14 +162,14 @@ fun SldCanvas(
                     (
                         center.x -
                             panX
-                        ) /
+                    ) /
                         oldZoom,
 
                 y =
                     (
                         center.y -
                             panY
-                        ) /
+                    ) /
                         oldZoom
             )
 
@@ -190,7 +188,6 @@ fun SldCanvas(
     }
 
     fun resetView() {
-
         panX = 0f
         panY = 0f
         zoom = 1f
@@ -263,12 +260,6 @@ fun SldCanvas(
                             var activeNodeId =
                                 firstNode?.id
 
-                            /*
-                             * IMPORTANT:
-                             *
-                             * Do not allow node dragging while
-                             * a connection is being created.
-                             */
                             var draggingNode =
                                 firstNode != null &&
                                     currentConnectionStartId ==
@@ -285,11 +276,6 @@ fun SldCanvas(
                                     null
                             ) {
 
-                                /*
-                                 * This callback is now also responsible
-                                 * for completing a connection when the
-                                 * editor is in connection mode.
-                                 */
                                 currentOnSelectNode(
                                     firstNode.id
                                 )
@@ -321,9 +307,7 @@ fun SldCanvas(
                                 }
 
                                 /*
-                                 * =================================================
-                                 * TWO-FINGER NAVIGATION
-                                 * =================================================
+                                 * TWO-FINGER ZOOM / PAN
                                  */
 
                                 if (
@@ -370,10 +354,10 @@ fun SldCanvas(
                                         (
                                             oldZoom *
                                                 safeZoom
-                                            ).coerceIn(
-                                                MIN_ZOOM,
-                                                MAX_ZOOM
-                                            )
+                                        ).coerceIn(
+                                            MIN_ZOOM,
+                                            MAX_ZOOM
+                                        )
 
                                     if (
                                         newZoom !=
@@ -386,14 +370,14 @@ fun SldCanvas(
                                                     (
                                                         centroid.x -
                                                             panX
-                                                        ) /
+                                                    ) /
                                                         oldZoom,
 
                                                 y =
                                                     (
                                                         centroid.y -
                                                             panY
-                                                        ) /
+                                                    ) /
                                                         oldZoom
                                             )
 
@@ -425,9 +409,7 @@ fun SldCanvas(
                                 }
 
                                 /*
-                                 * =================================================
-                                 * ONE-FINGER
-                                 * =================================================
+                                 * ONE-FINGER NODE DRAG / CANVAS PAN
                                  */
 
                                 if (
@@ -465,10 +447,6 @@ fun SldCanvas(
 
                                         } else {
 
-                                            /*
-                                             * Empty canvas =
-                                             * pan.
-                                             */
                                             panX +=
                                                 delta.x
 
@@ -491,9 +469,7 @@ fun SldCanvas(
                             }
 
                             /*
-                             * =================================================
                              * SINGLE / DOUBLE TAP
-                             * =================================================
                              */
 
                             if (
@@ -515,17 +491,13 @@ fun SldCanvas(
                                         (
                                             firstPosition -
                                                 lastTapPosition
-                                            ).getDistance() <=
+                                        ).getDistance() <=
                                             DOUBLE_TAP_DISTANCE
 
                                 if (
                                     isDoubleTap
                                 ) {
 
-                                    /*
-                                     * Do not open the editor when
-                                     * the user is in connection mode.
-                                     */
                                     if (
                                         currentConnectionStartId ==
                                             null
@@ -573,12 +545,6 @@ fun SldCanvas(
                     }
         ) {
 
-            /*
-             * =========================================================
-             * ENGINEERING BACKGROUND
-             * =========================================================
-             */
-
             drawSldEngineeringBackground()
 
             withTransform({
@@ -594,11 +560,13 @@ fun SldCanvas(
                     pivot =
                         Offset.Zero
                 )
+
             }) {
 
                 /*
                  * Connections first.
                  */
+
                 currentConnections.forEach { connection ->
 
                     val feederResult =
@@ -635,6 +603,7 @@ fun SldCanvas(
                 /*
                  * Nodes second.
                  */
+
                 currentNodes.forEach { node ->
 
                     val engineeringResult =
@@ -673,15 +642,9 @@ fun SldCanvas(
                 }
 
                 /*
-                 * =====================================================
                  * CONNECTION START GUIDE
-                 * =====================================================
-                 *
-                 * Draw a small crosshair/guide around the selected
-                 * starting element. This gives the engineer a clear
-                 * visual indication that the editor is waiting for
-                 * the destination.
                  */
+
                 currentConnectionStartId
                     ?.let { startId ->
 
@@ -714,10 +677,11 @@ fun SldCanvas(
                                         center,
 
                                     style =
-                                        androidx.compose.ui.graphics.drawscope.Stroke(
-                                            width =
-                                                3f
-                                        )
+                                        androidx.compose.ui.graphics
+                                            .drawscope.Stroke(
+                                                width =
+                                                    3f
+                                            )
                                 )
                             }
                     }
@@ -725,9 +689,7 @@ fun SldCanvas(
         }
 
         /*
-         * ============================================================
          * FIXED VIEW CONTROLS
-         * ============================================================
          */
 
         Column(
@@ -745,11 +707,6 @@ fun SldCanvas(
             FloatingActionButton(
                 onClick = {
 
-                    /*
-                     * Use the center of the visible viewport.
-                     * The Canvas is behind the controls and fills
-                     * the parent, so a normalized center is sufficient.
-                     */
                     zoomAt(
                         factor =
                             BUTTON_ZOOM_FACTOR,
