@@ -24,7 +24,6 @@ import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PictureAsPdf
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TableView
 import androidx.compose.material3.AlertDialog
@@ -34,6 +33,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -50,7 +50,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.SldNodeType
 import com.electrical.calculationspro.ui.components.EngineeringStatus
@@ -163,7 +162,7 @@ fun SldEditorScreen(
         ) {
 
             if (onBack != null) {
-                androidx.compose.material3.IconButton(
+                IconButton(
                     onClick = onBack
                 ) {
                     Icon(
@@ -598,11 +597,7 @@ fun SldEditorScreen(
                 )
 
                 Text(
-                    text = if (arabic) {
-                        "SLD Engineering"
-                    } else {
-                        "SLD Engineering"
-                    },
+                    text = "SLD Engineering",
                     style =
                         MaterialTheme.typography.labelMedium,
                     fontWeight =
@@ -711,7 +706,7 @@ fun SldEditorScreen(
                     actions.editConnection(it)
                 }
             )
-        )
+        }
     }
 
     /*
