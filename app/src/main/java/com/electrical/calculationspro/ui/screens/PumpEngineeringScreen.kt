@@ -1,33 +1,19 @@
 package com.electrical.calculationspro.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.pumps.PumpCalculationInput
@@ -36,10 +22,16 @@ import com.electrical.calculationspro.data.pumps.PumpFlow
 import com.electrical.calculationspro.data.pumps.PumpFlowUnit
 import com.electrical.calculationspro.data.pumps.PumpHead
 import com.electrical.calculationspro.data.pumps.PumpSystemType
-import com.electrical.calculationspro.ui.theme.DarkBackground
-import com.electrical.calculationspro.ui.theme.DarkSurface
-import com.electrical.calculationspro.ui.theme.TextPrimary
-import com.electrical.calculationspro.ui.theme.TextSecondary
+import com.electrical.calculationspro.ui.components.EngineeringCard
+import com.electrical.calculationspro.ui.components.EngineeringEmptyState
+import com.electrical.calculationspro.ui.components.EngineeringInput
+import com.electrical.calculationspro.ui.components.EngineeringPage
+import com.electrical.calculationspro.ui.components.EngineeringPrimaryButton
+import com.electrical.calculationspro.ui.components.EngineeringResult
+import com.electrical.calculationspro.ui.components.EngineeringSecondaryButton
+import com.electrical.calculationspro.ui.components.EngineeringSectionTitle
+import com.electrical.calculationspro.ui.components.EngineeringStatus
+import com.electrical.calculationspro.ui.components.EngineeringValueRow
 
 @Composable
 fun PumpEngineeringScreen(
@@ -108,45 +100,21 @@ fun PumpEngineeringScreen(
         mutableStateOf<String?>(null)
     }
 
-    val scrollState = rememberScrollState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBackground)
-            .verticalScroll(scrollState)
-            .padding(16.dp)
+    EngineeringPage(
+        title = if (arabic) {
+            "تصميم الطلمبات"
+        } else {
+            "Pump Engineering"
+        },
+        subtitle = if (arabic) {
+            "حساب التصرف والرأس الكلي والقدرة واستهلاك الطاقة"
+        } else {
+            "Flow, total dynamic head, power and energy analysis"
+        },
+        onBack = onBack
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = if (arabic) {
-                    "حسابات الطلمبات"
-                } else {
-                    "Pump Engineering"
-                },
-                color = TextPrimary,
-                fontSize = 24.sp
-            )
 
-            OutlinedButton(
-                onClick = onBack
-            ) {
-                Text(
-                    text = if (arabic) {
-                        "رجوع"
-                    } else {
-                        "Back"
-                    }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        InputCard(
+        EngineeringCard(
             title = if (arabic) {
                 "نوع النظام"
             } else {
@@ -155,178 +123,176 @@ fun PumpEngineeringScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                OutlinedButton(
+                EngineeringSecondaryButton(
+                    text = if (arabic) "مياه" else "Water",
                     onClick = {
                         systemType = PumpSystemType.WATER
-                    }
-                ) {
-                    Text(
-                        text = if (arabic) {
-                            "مياه"
-                        } else {
-                            "Water"
-                        }
-                    )
-                }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = systemType != PumpSystemType.WATER
+                )
 
-                OutlinedButton(
+                EngineeringSecondaryButton(
+                    text = if (arabic) "صرف صحي" else "Sewage",
                     onClick = {
                         systemType = PumpSystemType.SEWAGE
-                    }
-                ) {
-                    Text(
-                        text = if (arabic) {
-                            "صرف"
-                        } else {
-                            "Sewage"
-                        }
-                    )
-                }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = systemType != PumpSystemType.SEWAGE
+                )
             }
+
+            EngineeringStatus(
+                text = if (systemType == PumpSystemType.WATER) {
+                    if (arabic) {
+                        "النظام الحالي: مياه"
+                    } else {
+                        "Current system: Water"
+                    }
+                } else {
+                    if (arabic) {
+                        "النظام الحالي: صرف صحي"
+                    } else {
+                        "Current system: Sewage"
+                    }
+                }
+            )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InputCard(
+        EngineeringCard(
             title = if (arabic) {
-                "التصرف"
+                "بيانات التصرف"
             } else {
-                "Flow"
+                "Flow Data"
             }
         ) {
-            OutlinedTextField(
+            EngineeringInput(
                 value = flow,
+                label = if (arabic) {
+                    "التصرف"
+                } else {
+                    "Flow"
+                },
                 onValueChange = {
                     flow = it
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = {
-                    Text(
-                        text = if (arabic) {
-                            "التصرف"
-                        } else {
-                            "Flow"
-                        }
-                    )
-                },
-                singleLine = true
+                    error = null
+                }
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             FlowUnitSelector(
                 selected = flowUnit,
                 arabic = arabic,
                 onSelected = {
                     flowUnit = it
+                    error = null
                 }
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InputCard(
+        EngineeringCard(
             title = if (arabic) {
                 "الرأس الهيدروليكي"
             } else {
                 "Hydraulic Head"
             }
         ) {
-            NumberField(
+            EngineeringInput(
                 value = staticHead,
                 label = if (arabic) {
-                    "الرفع الاستاتيكي H"
+                    "الرفع الاستاتيكي H (m)"
                 } else {
-                    "Static Head H"
+                    "Static Head H (m)"
                 },
                 onValueChange = {
                     staticHead = it
+                    error = null
                 }
             )
 
-            NumberField(
+            EngineeringInput(
                 value = frictionHead,
                 label = if (arabic) {
-                    "فاقد الاحتكاك"
+                    "فاقد الاحتكاك (m)"
                 } else {
-                    "Friction Head"
+                    "Friction Head (m)"
                 },
                 onValueChange = {
                     frictionHead = it
+                    error = null
                 }
             )
 
-            NumberField(
+            EngineeringInput(
                 value = minorHead,
                 label = if (arabic) {
-                    "الفواقد الثانوية"
+                    "الفواقد الثانوية (m)"
                 } else {
-                    "Minor Losses"
+                    "Minor Losses (m)"
                 },
                 onValueChange = {
                     minorHead = it
+                    error = null
                 }
             )
 
-            NumberField(
+            EngineeringInput(
                 value = pressureHead,
                 label = if (arabic) {
-                    "رأس الضغط المطلوب"
+                    "رأس الضغط المطلوب (m)"
                 } else {
-                    "Required Pressure Head"
+                    "Required Pressure Head (m)"
                 },
                 onValueChange = {
                     pressureHead = it
+                    error = null
                 }
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InputCard(
+        EngineeringCard(
             title = if (arabic) {
-                "الكفاءة"
+                "الكفاءات"
             } else {
-                "Efficiency"
+                "Efficiencies"
             }
         ) {
-            NumberField(
+            EngineeringInput(
                 value = pumpEfficiency,
                 label = if (arabic) {
-                    "كفاءة الطلمبة %"
+                    "كفاءة الطلمبة (%)"
                 } else {
-                    "Pump Efficiency %"
+                    "Pump Efficiency (%)"
                 },
                 onValueChange = {
                     pumpEfficiency = it
+                    error = null
                 }
             )
 
-            NumberField(
+            EngineeringInput(
                 value = motorEfficiency,
                 label = if (arabic) {
-                    "كفاءة الموتور %"
+                    "كفاءة الموتور (%)"
                 } else {
-                    "Motor Efficiency %"
+                    "Motor Efficiency (%)"
                 },
                 onValueChange = {
                     motorEfficiency = it
+                    error = null
                 }
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        InputCard(
+        EngineeringCard(
             title = if (arabic) {
-                "استهلاك الطاقة"
+                "بيانات التشغيل والطاقة"
             } else {
-                "Energy Consumption"
+                "Operating & Energy Data"
             }
         ) {
-            NumberField(
+            EngineeringInput(
                 value = operatingHours,
                 label = if (arabic) {
                     "ساعات التشغيل / يوم"
@@ -335,10 +301,11 @@ fun PumpEngineeringScreen(
                 },
                 onValueChange = {
                     operatingHours = it
+                    error = null
                 }
             )
 
-            NumberField(
+            EngineeringInput(
                 value = operatingDaysMonth,
                 label = if (arabic) {
                     "أيام التشغيل / شهر"
@@ -347,10 +314,11 @@ fun PumpEngineeringScreen(
                 },
                 onValueChange = {
                     operatingDaysMonth = it
+                    error = null
                 }
             )
 
-            NumberField(
+            EngineeringInput(
                 value = operatingDaysYear,
                 label = if (arabic) {
                     "أيام التشغيل / سنة"
@@ -359,10 +327,11 @@ fun PumpEngineeringScreen(
                 },
                 onValueChange = {
                     operatingDaysYear = it
+                    error = null
                 }
             )
 
-            NumberField(
+            EngineeringInput(
                 value = tariff,
                 label = if (arabic) {
                     "تعريفة الكهرباء / kWh"
@@ -371,33 +340,45 @@ fun PumpEngineeringScreen(
                 },
                 onValueChange = {
                     tariff = it
+                    error = null
                 }
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            modifier = Modifier.fillMaxWidth(),
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "حساب التصميم"
+            } else {
+                "Calculate Design"
+            },
             onClick = {
-                try {
-                    val flowValue = flow.toDoubleOrNull()
 
-                    if (flowValue == null || flowValue <= 0.0) {
+                try {
+                    val flowValue =
+                        flow.toDoubleOrNull()
+
+                    if (
+                        flowValue == null ||
+                        flowValue <= 0.0
+                    ) {
                         result = null
                         error = if (arabic) {
-                            "أدخل قيمة صحيحة للتصرف."
+                            "أدخل قيمة صحيحة وموجبة للتصرف."
                         } else {
-                            "Enter a valid flow value."
+                            "Enter a valid positive flow value."
                         }
-                        return@Button
+                        return@EngineeringPrimaryButton
                     }
 
                     val pumpEfficiencyValue =
-                        pumpEfficiency.toDoubleOrNull()?.div(100.0)
+                        pumpEfficiency
+                            .toDoubleOrNull()
+                            ?.div(100.0)
 
                     val motorEfficiencyValue =
-                        motorEfficiency.toDoubleOrNull()?.div(100.0)
+                        motorEfficiency
+                            .toDoubleOrNull()
+                            ?.div(100.0)
 
                     if (
                         pumpEfficiencyValue == null ||
@@ -410,7 +391,7 @@ fun PumpEngineeringScreen(
                         } else {
                             "Pump efficiency must be between 0 and 100%."
                         }
-                        return@Button
+                        return@EngineeringPrimaryButton
                     }
 
                     if (
@@ -424,135 +405,120 @@ fun PumpEngineeringScreen(
                         } else {
                             "Motor efficiency must be between 0 and 100%."
                         }
-                        return@Button
+                        return@EngineeringPrimaryButton
                     }
 
-                    val input = PumpCalculationInput(
-                        systemType = systemType,
-                        flow = PumpFlow(
-                            value = flowValue,
-                            unit = flowUnit
-                        ),
-                        head = PumpHead(
-                            staticHeadM =
-                                staticHead.toDoubleOrNull() ?: 0.0,
-                            frictionHeadM =
-                                frictionHead.toDoubleOrNull() ?: 0.0,
-                            minorLossHeadM =
-                                minorHead.toDoubleOrNull() ?: 0.0,
-                            requiredPressureHeadM =
-                                pressureHead.toDoubleOrNull() ?: 0.0
-                        ),
-                        pumpEfficiency = pumpEfficiencyValue,
-                        motorEfficiency = motorEfficiencyValue,
-                        operatingHoursPerDay =
-                            operatingHours.toDoubleOrNull() ?: 0.0,
-                        operatingDaysPerMonth =
-                            operatingDaysMonth.toDoubleOrNull() ?: 30.0,
-                        operatingDaysPerYear =
-                            operatingDaysYear.toDoubleOrNull() ?: 365.0,
-                        energyTariffPerKwh =
-                            tariff.toDoubleOrNull() ?: 0.0
-                    )
+                    val input =
+                        PumpCalculationInput(
+                            systemType = systemType,
 
-                    result = ElectricalCalculations.calculatePump(input)
+                            flow = PumpFlow(
+                                value = flowValue,
+                                unit = flowUnit
+                            ),
+
+                            head = PumpHead(
+                                staticHeadM =
+                                    staticHead
+                                        .toDoubleOrNull()
+                                        ?: 0.0,
+
+                                frictionHeadM =
+                                    frictionHead
+                                        .toDoubleOrNull()
+                                        ?: 0.0,
+
+                                minorLossHeadM =
+                                    minorHead
+                                        .toDoubleOrNull()
+                                        ?: 0.0,
+
+                                requiredPressureHeadM =
+                                    pressureHead
+                                        .toDoubleOrNull()
+                                        ?: 0.0
+                            ),
+
+                            pumpEfficiency =
+                                pumpEfficiencyValue,
+
+                            motorEfficiency =
+                                motorEfficiencyValue,
+
+                            operatingHoursPerDay =
+                                operatingHours
+                                    .toDoubleOrNull()
+                                    ?: 0.0,
+
+                            operatingDaysPerMonth =
+                                operatingDaysMonth
+                                    .toDoubleOrNull()
+                                    ?: 30.0,
+
+                            operatingDaysPerYear =
+                                operatingDaysYear
+                                    .toDoubleOrNull()
+                                    ?: 365.0,
+
+                            energyTariffPerKwh =
+                                tariff
+                                    .toDoubleOrNull()
+                                    ?: 0.0
+                        )
+
+                    result =
+                        ElectricalCalculations
+                            .calculatePump(input)
+
                     error = null
+
                 } catch (exception: Exception) {
+
                     result = null
-                    error = exception.message
-                        ?: if (arabic) {
-                            "بيانات الإدخال غير صحيحة."
-                        } else {
-                            "Invalid input."
-                        }
+
+                    error =
+                        exception.message
+                            ?: if (arabic) {
+                                "بيانات الإدخال غير صحيحة."
+                            } else {
+                                "Invalid input data."
+                            }
                 }
             }
-        ) {
-            Text(
-                text = if (arabic) {
-                    "احسب الطلمبة"
-                } else {
-                    "Calculate Pump"
-                }
+        )
+
+        error?.let { message ->
+
+            EngineeringStatus(
+                text = message,
+                success = false
             )
         }
 
-        error?.let { message ->
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF5A1F1F)
-                )
-            ) {
-                Text(
-                    text = message,
-                    color = Color.White,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
-        }
-
         result?.let { calculationResult ->
-            Spacer(modifier = Modifier.height(16.dp))
 
             PumpResultCard(
                 result = calculationResult,
                 arabic = arabic
             )
-        }
+        } ?: run {
 
-        Spacer(modifier = Modifier.height(30.dp))
-    }
-}
-
-@Composable
-private fun InputCard(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = DarkSurface
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = title,
-                color = TextPrimary,
-                fontSize = 18.sp
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            content()
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
+                    message = if (arabic) {
+                        "أدخل بيانات التصميم ثم اضغط حساب التصميم لعرض النتائج."
+                    } else {
+                        "Enter the design data and calculate to display the engineering results."
+                    }
+                )
+            }
         }
     }
-}
-
-@Composable
-private fun NumberField(
-    value: String,
-    label: String,
-    onValueChange: (String) -> Unit
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        label = {
-            Text(text = label)
-        },
-        singleLine = true
-    )
 }
 
 @Composable
@@ -568,19 +534,16 @@ private fun FlowUnitSelector(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        OutlinedButton(
-            modifier = Modifier.fillMaxWidth(),
+
+        EngineeringSecondaryButton(
+            text = flowUnitLabel(
+                unit = selected,
+                arabic = arabic
+            ),
             onClick = {
                 expanded = true
             }
-        ) {
-            Text(
-                text = flowUnitLabel(
-                    unit = selected,
-                    arabic = arabic
-                )
-            )
-        }
+        )
 
         DropdownMenu(
             expanded = expanded,
@@ -589,9 +552,10 @@ private fun FlowUnitSelector(
             }
         ) {
             PumpFlowUnit.entries.forEach { unit ->
+
                 DropdownMenuItem(
                     text = {
-                        Text(
+                        androidx.compose.material3.Text(
                             text = flowUnitLabel(
                                 unit = unit,
                                 arabic = arabic
@@ -613,17 +577,34 @@ private fun flowUnitLabel(
     arabic: Boolean
 ): String {
     return when (unit) {
+
         PumpFlowUnit.LITERS_PER_SECOND ->
-            if (arabic) "لتر / ثانية" else "L/s"
+            if (arabic) {
+                "لتر / ثانية — L/s"
+            } else {
+                "L/s"
+            }
 
         PumpFlowUnit.CUBIC_METERS_PER_HOUR ->
-            if (arabic) "م³ / ساعة" else "m³/h"
+            if (arabic) {
+                "م³ / ساعة — m³/h"
+            } else {
+                "m³/h"
+            }
 
         PumpFlowUnit.CUBIC_METERS_PER_SECOND ->
-            if (arabic) "م³ / ثانية" else "m³/s"
+            if (arabic) {
+                "م³ / ثانية — m³/s"
+            } else {
+                "m³/s"
+            }
 
         PumpFlowUnit.LITERS_PER_MINUTE ->
-            if (arabic) "لتر / دقيقة" else "L/min"
+            if (arabic) {
+                "لتر / دقيقة — L/min"
+            } else {
+                "L/min"
+            }
     }
 }
 
@@ -632,141 +613,155 @@ private fun PumpResultCard(
     result: PumpCalculationResult,
     arabic: Boolean
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = DarkSurface
-        )
+    EngineeringCard(
+        title = if (arabic) {
+            "نتائج التصميم"
+        } else {
+            "Design Results"
+        }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = if (arabic) {
-                    "نتائج الحساب"
-                } else {
-                    "Calculation Results"
-                },
-                color = TextPrimary,
-                fontSize = 20.sp
-            )
 
-            Spacer(modifier = Modifier.height(12.dp))
+        EngineeringResult(
+            title = if (arabic) {
+                "التصرف"
+            } else {
+                "Flow"
+            },
+            value =
+                "${formatValue(result.flowM3PerHour)} m³/h  |  " +
+                    "${formatValue(result.flowM3PerSecond)} m³/s"
+        )
 
-            ResultRow(
-                label = if (arabic) "التصرف m³/s" else "Flow m³/s",
-                value = formatValue(result.flowM3PerSecond)
-            )
+        EngineeringResult(
+            title = if (arabic) {
+                "الرأس الديناميكي الكلي TDH"
+            } else {
+                "Total Dynamic Head — TDH"
+            },
+            value =
+                "${formatValue(result.totalDynamicHeadM)} m"
+        )
 
-            ResultRow(
-                label = if (arabic) "التصرف m³/h" else "Flow m³/h",
-                value = formatValue(result.flowM3PerHour)
-            )
+        EngineeringResult(
+            title = if (arabic) {
+                "القدرة الهيدروليكية"
+            } else {
+                "Hydraulic Power"
+            },
+            value =
+                "${formatValue(result.hydraulicPowerKw)} kW"
+        )
 
-            ResultRow(
-                label = if (arabic) "الرفع الكلي TDH" else "Total Dynamic Head",
-                value = "${formatValue(result.totalDynamicHeadM)} m"
-            )
+        EngineeringResult(
+            title = if (arabic) {
+                "قدرة العمود"
+            } else {
+                "Shaft Power"
+            },
+            value =
+                "${formatValue(result.shaftPowerKw)} kW"
+        )
 
-            ResultRow(
-                label = if (arabic) "القدرة الهيدروليكية" else "Hydraulic Power",
-                value = "${formatValue(result.hydraulicPowerKw)} kW"
-            )
+        EngineeringResult(
+            title = if (arabic) {
+                "قدرة دخل الموتور"
+            } else {
+                "Motor Input Power"
+            },
+            value =
+                "${formatValue(result.motorInputPowerKw)} kW"
+        )
 
-            ResultRow(
-                label = if (arabic) "قدرة العمود" else "Shaft Power",
-                value = "${formatValue(result.shaftPowerKw)} kW"
-            )
+        EngineeringResult(
+            title = if (arabic) {
+                "قدرة الموتور المقترحة"
+            } else {
+                "Recommended Motor Rating"
+            },
+            value =
+                "${formatValue(result.recommendedMotorRatingKw)} kW"
+        )
 
-            ResultRow(
-                label = if (arabic) "قدرة دخل الموتور" else "Motor Input Power",
-                value = "${formatValue(result.motorInputPowerKw)} kW"
-            )
-
-            ResultRow(
-                label = if (arabic) "قدرة الموتور المقترحة" else "Recommended Motor",
-                value = "${formatValue(result.recommendedMotorRatingKw)} kW"
-            )
-
-            ResultRow(
-                label = if (arabic) "الاستهلاك اليومي" else "Daily Energy",
-                value = "${formatValue(result.dailyEnergyKwh)} kWh"
-            )
-
-            ResultRow(
-                label = if (arabic) "الاستهلاك الشهري" else "Monthly Energy",
-                value = "${formatValue(result.monthlyEnergyKwh)} kWh"
-            )
-
-            ResultRow(
-                label = if (arabic) "الاستهلاك السنوي" else "Yearly Energy",
-                value = "${formatValue(result.yearlyEnergyKwh)} kWh"
-            )
-
-            if (result.warnings.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = if (arabic) "تحذيرات" else "Warnings",
-                    color = TextPrimary,
-                    fontSize = 17.sp
-                )
-
-                result.warnings.forEach { warning ->
-                    Text(
-                        text = "• $warning",
-                        color = Color(0xFFFFCC80),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
+        EngineeringSectionTitle(
+            text = if (arabic) {
+                "استهلاك الطاقة"
+            } else {
+                "Energy Consumption"
             }
+        )
 
-            if (result.notes.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
+        EngineeringValueRow(
+            label = if (arabic) {
+                "يومي"
+            } else {
+                "Daily"
+            },
+            value =
+                "${formatValue(result.dailyEnergyKwh)} kWh"
+        )
 
-                Text(
-                    text = if (arabic) "ملاحظات" else "Notes",
-                    color = TextPrimary,
-                    fontSize = 17.sp
-                )
+        EngineeringValueRow(
+            label = if (arabic) {
+                "شهري"
+            } else {
+                "Monthly"
+            },
+            value =
+                "${formatValue(result.monthlyEnergyKwh)} kWh"
+        )
 
-                result.notes.forEach { note ->
-                    Text(
-                        text = "• $note",
-                        color = TextSecondary,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+        EngineeringValueRow(
+            label = if (arabic) {
+                "سنوي"
+            } else {
+                "Yearly"
+            },
+            value =
+                "${formatValue(result.yearlyEnergyKwh)} kWh"
+        )
+
+        if (result.warnings.isNotEmpty()) {
+
+            EngineeringSectionTitle(
+                text = if (arabic) {
+                    "تحذيرات هندسية"
+                } else {
+                    "Engineering Warnings"
                 }
+            )
+
+            result.warnings.forEach { warning ->
+
+                EngineeringStatus(
+                    text = warning,
+                    success = false
+                )
+            }
+        }
+
+        if (result.notes.isNotEmpty()) {
+
+            EngineeringSectionTitle(
+                text = if (arabic) {
+                    "ملاحظات"
+                } else {
+                    "Notes"
+                }
+            )
+
+            result.notes.forEach { note ->
+
+                EngineeringStatus(
+                    text = note,
+                    success = true
+                )
             }
         }
     }
 }
 
-@Composable
-private fun ResultRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            color = TextSecondary
-        )
-
-        Text(
-            text = value,
-            color = TextPrimary
-        )
-    }
-}
-
-private fun formatValue(value: Double): String {
+private fun formatValue(
+    value: Double
+): String {
     return "%.3f".format(value)
 }
