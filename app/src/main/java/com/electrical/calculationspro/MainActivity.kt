@@ -1,10 +1,10 @@
 package com.electrical.calculationspro
 
 import android.os.Bundle
-import android.content.res.Configuration
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,9 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Bolt
@@ -26,11 +24,12 @@ import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.ElectricalServices
 import androidx.compose.material.icons.outlined.Factory
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.WaterDrop
-import androidx.compose.material.icons.outlined.Folder
+
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,12 +42,14 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -61,6 +62,7 @@ import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
 
 import com.electrical.calculationspro.ui.components.EngineeringAppTopBar
+
 import com.electrical.calculationspro.ui.project.DesignGridItem
 import com.electrical.calculationspro.ui.project.FourColumnDesignGrid
 import com.electrical.calculationspro.ui.project.ProjectDashboardScreen
@@ -73,6 +75,7 @@ import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
 import com.electrical.calculationspro.ui.screens.PumpEngineeringScreen
 
 import com.electrical.calculationspro.ui.screens.sld.SldEditorScreen
+
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
 
 
@@ -152,10 +155,12 @@ private fun ElectricalCalculationsProApp() {
             ProjectManagementScreen(
                 language = language,
                 project = activeProject,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.PROJECT
                 },
+
                 onOpenProject = { project ->
 
                     DesignProjectCoreBridge
@@ -185,6 +190,7 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.LOAD,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -199,6 +205,7 @@ private fun ElectricalCalculationsProApp() {
 
             CurrentCalculationScreen(
                 language = language,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -214,6 +221,7 @@ private fun ElectricalCalculationsProApp() {
             ConductorSizingScreen(
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -229,6 +237,7 @@ private fun ElectricalCalculationsProApp() {
             ProfessionalVoltageDropScreen(
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -245,6 +254,7 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.BREAKER,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -261,6 +271,7 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.SHORT_CIRCUIT,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -277,6 +288,7 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.PROTECTION,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -293,6 +305,7 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.TRANSFORMER,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -309,6 +322,7 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.GENERATOR,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -325,13 +339,15 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.PANEL,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
                 },
+
                 onOpenSld = {
-                    screen = AppScreen.SLD
                     mainTab = MainTab.SLD
+                    screen = AppScreen.SLD
                 }
             )
 
@@ -345,6 +361,7 @@ private fun ElectricalCalculationsProApp() {
                 module = EngineeringModule.REPORT,
                 language = language,
                 standard = standard,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.REPORTS
@@ -359,6 +376,7 @@ private fun ElectricalCalculationsProApp() {
 
             PumpEngineeringScreen(
                 language = language,
+
                 onBack = {
                     screen = AppScreen.HOME
                     mainTab = MainTab.DESIGN
@@ -369,13 +387,22 @@ private fun ElectricalCalculationsProApp() {
         }
 
 
+        /*
+         * ====================================================
+         * DIRECT PROFESSIONAL SLD SCREEN
+         *
+         * There is intentionally NO SLD Home screen here.
+         * SLD is a primary engineering workspace.
+         * ====================================================
+         */
         AppScreen.SLD -> {
 
             SldEditorScreen(
                 language = language,
+
                 onBack = {
                     screen = AppScreen.HOME
-                    mainTab = MainTab.SLD
+                    mainTab = MainTab.PROJECT
                 }
             )
 
@@ -384,7 +411,7 @@ private fun ElectricalCalculationsProApp() {
 
 
         AppScreen.HOME -> {
-            // Main shell
+            // Main responsive shell
         }
     }
 
@@ -400,17 +427,30 @@ private fun ElectricalCalculationsProApp() {
     val isTablet =
         configuration.screenWidthDp >= 600
 
+
     if (isTablet) {
 
         TabletApplicationShell(
             mainTab = mainTab,
             language = language,
             activeProject = activeProject,
+
             onSelectTab = { selected ->
 
                 mainTab = selected
-                screen = AppScreen.HOME
+
+                /*
+                 * SLD is a primary workspace.
+                 * Selecting it opens the designer directly.
+                 */
+                screen =
+                    if (selected == MainTab.SLD) {
+                        AppScreen.SLD
+                    } else {
+                        AppScreen.HOME
+                    }
             },
+
             content = {
 
                 MainWorkspaceContent(
@@ -419,7 +459,8 @@ private fun ElectricalCalculationsProApp() {
                     project = activeProject,
 
                     onOpenProjectManagement = {
-                        screen = AppScreen.PROJECT_MANAGEMENT
+                        screen =
+                            AppScreen.PROJECT_MANAGEMENT
                     },
 
                     onOpenCalculators = {
@@ -427,9 +468,12 @@ private fun ElectricalCalculationsProApp() {
                         screen = AppScreen.HOME
                     },
 
+                    /*
+                     * DIRECT SLD NAVIGATION
+                     */
                     onOpenSld = {
                         mainTab = MainTab.SLD
-                        screen = AppScreen.HOME
+                        screen = AppScreen.SLD
                     },
 
                     onLoad = {
@@ -489,11 +533,23 @@ private fun ElectricalCalculationsProApp() {
             mainTab = mainTab,
             language = language,
             activeProject = activeProject,
+
             onSelectTab = { selected ->
 
                 mainTab = selected
-                screen = AppScreen.HOME
+
+                /*
+                 * SLD is a primary workspace.
+                 * Selecting it opens the designer directly.
+                 */
+                screen =
+                    if (selected == MainTab.SLD) {
+                        AppScreen.SLD
+                    } else {
+                        AppScreen.HOME
+                    }
             },
+
             content = {
 
                 MainWorkspaceContent(
@@ -502,7 +558,8 @@ private fun ElectricalCalculationsProApp() {
                     project = activeProject,
 
                     onOpenProjectManagement = {
-                        screen = AppScreen.PROJECT_MANAGEMENT
+                        screen =
+                            AppScreen.PROJECT_MANAGEMENT
                     },
 
                     onOpenCalculators = {
@@ -510,9 +567,12 @@ private fun ElectricalCalculationsProApp() {
                         screen = AppScreen.HOME
                     },
 
+                    /*
+                     * DIRECT SLD NAVIGATION
+                     */
                     onOpenSld = {
                         mainTab = MainTab.SLD
-                        screen = AppScreen.HOME
+                        screen = AppScreen.SLD
                     },
 
                     onLoad = {
@@ -575,9 +635,13 @@ private fun ElectricalCalculationsProApp() {
  * ============================================================
  */
 private enum class MainTab {
+
     PROJECT,
+
     DESIGN,
+
     SLD,
+
     REPORTS
 }
 
@@ -594,16 +658,27 @@ private enum class AppScreen {
     PROJECT_MANAGEMENT,
 
     LOAD,
+
     CURRENT,
+
     CABLE,
+
     VOLTAGE_DROP,
+
     BREAKER,
+
     SHORT_CIRCUIT,
+
     PROTECTION,
+
     TRANSFORMER,
+
     GENERATOR,
+
     PANEL,
+
     REPORT,
+
     PUMP,
 
     SLD
@@ -645,8 +720,10 @@ private fun TabletApplicationShell(
                     mainTab,
                     language
                 ),
+
                 projectName =
                     activeProject?.projectName,
+
                 onBack = null
             )
 
@@ -679,8 +756,10 @@ private fun PhoneApplicationShell(
                 mainTab,
                 language
             ),
+
             projectName =
                 activeProject?.projectName,
+
             onBack = null
         )
 
@@ -698,6 +777,9 @@ private fun PhoneApplicationShell(
 /**
  * ============================================================
  * MAIN CONTENT ROUTER
+ *
+ * SLD is intentionally not rendered here.
+ * It is routed directly through AppScreen.SLD.
  * ============================================================
  */
 @Composable
@@ -731,8 +813,13 @@ private fun MainWorkspaceContent(
             ProjectHomeTab(
                 language = language,
                 project = project,
-                onOpenCalculators = onOpenCalculators,
-                onOpenSld = onOpenSld,
+
+                onOpenCalculators =
+                    onOpenCalculators,
+
+                onOpenSld =
+                    onOpenSld,
+
                 onOpenProjectManagement =
                     onOpenProjectManagement
             )
@@ -760,12 +847,16 @@ private fun MainWorkspaceContent(
         }
 
 
+        /*
+         * Normally unreachable because selecting SLD
+         * changes AppScreen to AppScreen.SLD immediately.
+         *
+         * Kept as a safe fallback so the router remains
+         * exhaustive without creating an SLD Home screen.
+         */
         MainTab.SLD -> {
 
-            SldHomeTab(
-                language = language,
-                onOpenSld = onOpenSld
-            )
+            onOpenSld()
         }
 
 
@@ -800,64 +891,91 @@ private fun ProfessionalNavigationRail(
             modifier = Modifier.height(10.dp)
         )
 
+
         NavigationRailItem(
-            selected = selected == MainTab.PROJECT,
+            selected =
+                selected == MainTab.PROJECT,
+
             onClick = {
                 onSelect(MainTab.PROJECT)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.Folder,
+
                     contentDescription = null
                 )
             },
+
             label = {
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC)
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
                             "المشروع"
-                        else
+                        } else {
                             "Project"
+                        }
                 )
             }
         )
 
+
         NavigationRailItem(
-            selected = selected == MainTab.DESIGN,
+            selected =
+                selected == MainTab.DESIGN,
+
             onClick = {
                 onSelect(MainTab.DESIGN)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.ElectricalServices,
+
                     contentDescription = null
                 )
             },
+
             label = {
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC)
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
                             "التصميم"
-                        else
+                        } else {
                             "Design"
+                        }
                 )
             }
         )
 
+
         NavigationRailItem(
-            selected = selected == MainTab.SLD,
+            selected =
+                selected == MainTab.SLD,
+
             onClick = {
                 onSelect(MainTab.SLD)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.AccountTree,
-                    contentDescription = null
+
+                    contentDescription =
+                        "SLD Designer"
                 )
             },
+
             label = {
                 Text(
                     text = "SLD"
@@ -865,25 +983,35 @@ private fun ProfessionalNavigationRail(
             }
         )
 
+
         NavigationRailItem(
-            selected = selected == MainTab.REPORTS,
+            selected =
+                selected == MainTab.REPORTS,
+
             onClick = {
                 onSelect(MainTab.REPORTS)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.Description,
+
                     contentDescription = null
                 )
             },
+
             label = {
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC)
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
                             "التقارير"
-                        else
+                        } else {
                             "Reports"
+                        }
                 )
             }
         )
@@ -906,87 +1034,125 @@ private fun ProfessionalNavigationBar(
     NavigationBar {
 
         NavigationBarItem(
-            selected = selected == MainTab.PROJECT,
+            selected =
+                selected == MainTab.PROJECT,
+
             onClick = {
                 onSelect(MainTab.PROJECT)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.Folder,
+
                     contentDescription = null
                 )
             },
+
             label = {
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC)
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
                             "المشروع"
-                        else
+                        } else {
                             "Project"
+                        }
                 )
             }
         )
 
+
         NavigationBarItem(
-            selected = selected == MainTab.DESIGN,
+            selected =
+                selected == MainTab.DESIGN,
+
             onClick = {
                 onSelect(MainTab.DESIGN)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.ElectricalServices,
+
                     contentDescription = null
                 )
             },
+
             label = {
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC)
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
                             "التصميم"
-                        else
+                        } else {
                             "Design"
+                        }
                 )
             }
         )
 
+
         NavigationBarItem(
-            selected = selected == MainTab.SLD,
+            selected =
+                selected == MainTab.SLD,
+
             onClick = {
                 onSelect(MainTab.SLD)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.AccountTree,
-                    contentDescription = null
+
+                    contentDescription =
+                        "SLD Designer"
                 )
             },
+
             label = {
-                Text(text = "SLD")
+                Text(
+                    text = "SLD"
+                )
             }
         )
 
+
         NavigationBarItem(
-            selected = selected == MainTab.REPORTS,
+            selected =
+                selected == MainTab.REPORTS,
+
             onClick = {
                 onSelect(MainTab.REPORTS)
             },
+
             icon = {
                 Icon(
                     imageVector =
                         Icons.Outlined.Description,
+
                     contentDescription = null
                 )
             },
+
             label = {
                 Text(
                     text =
-                        if (language == AppLanguage.ARABIC)
+                        if (
+                            language ==
+                            AppLanguage.ARABIC
+                        ) {
                             "التقارير"
-                        else
+                        } else {
                             "Reports"
+                        }
                 )
             }
         )
@@ -1010,25 +1176,31 @@ private fun mainTabTitle(
     return when (tab) {
 
         MainTab.PROJECT ->
-            if (arabic)
+            if (arabic) {
                 "المشروع الهندسي"
-            else
+            } else {
                 "Engineering Project"
+            }
+
 
         MainTab.DESIGN ->
-            if (arabic)
+            if (arabic) {
                 "التصميم الكهروميكانيكي"
-            else
+            } else {
                 "Electromechanical Design"
+            }
+
 
         MainTab.SLD ->
             "SLD Designer"
 
+
         MainTab.REPORTS ->
-            if (arabic)
+            if (arabic) {
                 "التقارير الهندسية"
-            else
+            } else {
                 "Engineering Reports"
+            }
     }
 }
 
@@ -1065,6 +1237,7 @@ private fun ProjectHeader(
                     horizontal = 18.dp,
                     vertical = 14.dp
                 ),
+
             horizontalAlignment =
                 Alignment.CenterHorizontally
         ) {
@@ -1074,56 +1247,71 @@ private fun ProjectHeader(
                     project
                         ?.projectName
                         ?.ifBlank {
-                            if (arabic)
+                            if (arabic) {
                                 "مشروع هندسي جديد"
-                            else
+                            } else {
                                 "New Engineering Project"
+                            }
                         }
-                        ?: if (arabic)
+                        ?: if (arabic) {
                             "لا يوجد مشروع نشط"
-                        else
-                            "No Active Project",
+                        } else {
+                            "No Active Project"
+                        },
+
                 style =
                     MaterialTheme.typography.headlineSmall
             )
+
 
             Spacer(
                 modifier = Modifier.height(8.dp)
             )
 
+
             Row(
                 horizontalArrangement =
                     Arrangement.Center,
+
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
 
                 HeaderField(
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "المصمم"
-                        else
-                            "Designer",
+                        } else {
+                            "Designer"
+                        },
+
                     value = "—"
                 )
+
 
                 Spacer(
                     modifier = Modifier.width(32.dp)
                 )
 
+
                 HeaderField(
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "الاستشاري"
-                        else
-                            "Consultant",
+                        } else {
+                            "Consultant"
+                        },
+
                     value =
                         project
                             ?.consultantName
-                            ?.ifBlank { "—" }
+                            ?.ifBlank {
+                                "—"
+                            }
                             ?: "—"
                 )
             }
+
 
             if (
                 project != null &&
@@ -1134,12 +1322,15 @@ private fun ProjectHeader(
                     modifier = Modifier.height(4.dp)
                 )
 
+
                 Text(
                     text =
-                        if (arabic)
+                        if (arabic) {
                             "رقم المشروع: ${project.projectNumber}"
-                        else
-                            "Project No.: ${project.projectNumber}",
+                        } else {
+                            "Project No.: ${project.projectNumber}"
+                        },
+
                     style =
                         MaterialTheme.typography.bodySmall
                 )
@@ -1149,6 +1340,11 @@ private fun ProjectHeader(
 }
 
 
+/**
+ * ============================================================
+ * HEADER FIELD
+ * ============================================================
+ */
 @Composable
 private fun HeaderField(
     title: String,
@@ -1162,12 +1358,14 @@ private fun HeaderField(
 
         Text(
             text = title,
+
             style =
                 MaterialTheme.typography.labelMedium
         )
 
         Text(
             text = value,
+
             style =
                 MaterialTheme.typography.bodyMedium
         )
@@ -1203,34 +1401,44 @@ private fun ProjectHomeTab(
 
         Text(
             text =
-                if (arabic)
+                if (arabic) {
                     "مساحة العمل الهندسية"
-                else
-                    "Engineering Workspace",
+                } else {
+                    "Engineering Workspace"
+                },
+
             style =
                 MaterialTheme.typography.headlineSmall
         )
+
 
         Spacer(
             modifier = Modifier.height(4.dp)
         )
 
+
         Text(
             text =
-                if (arabic)
+                if (arabic) {
                     "اختر بيئة التصميم التي تريد العمل عليها"
-                else
-                    "Select the engineering workspace",
+                } else {
+                    "Select the engineering workspace"
+                },
+
             style =
                 MaterialTheme.typography.bodyMedium
         )
+
 
         Spacer(
             modifier = Modifier.height(18.dp)
         )
 
+
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier.fillMaxWidth(),
+
             horizontalArrangement =
                 Arrangement.spacedBy(16.dp)
         ) {
@@ -1238,84 +1446,108 @@ private fun ProjectHomeTab(
             MainWorkspaceCard(
                 modifier =
                     Modifier.weight(1f),
+
                 icon =
                     Icons.Outlined.ElectricalServices,
+
                 title =
-                    if (arabic)
+                    if (arabic) {
                         "التصميم الكهروميكانيكي"
-                    else
-                        "Electromechanical Design",
+                    } else {
+                        "Electromechanical Design"
+                    },
+
                 subtitle =
-                    if (arabic)
+                    if (arabic) {
                         "الأحمال والكابلات والحماية والمعدات"
-                    else
-                        "Loads, cables, protection and equipment",
+                    } else {
+                        "Loads, cables, protection and equipment"
+                    },
+
                 onClick =
                     onOpenCalculators
             )
 
+
             MainWorkspaceCard(
                 modifier =
                     Modifier.weight(1f),
+
                 icon =
                     Icons.Outlined.AccountTree,
+
                 title =
                     "SLD Designer",
+
                 subtitle =
-                    if (arabic)
+                    if (arabic) {
                         "التصميم الأحادي والحسابات المرتبطة"
-                    else
-                        "Single Line Diagram & engineering study",
+                    } else {
+                        "Single Line Diagram & engineering study"
+                    },
+
                 onClick =
                     onOpenSld
             )
         }
 
+
         Spacer(
             modifier = Modifier.height(18.dp)
         )
 
+
         Card(
-            modifier = Modifier.fillMaxWidth()
+            modifier =
+                Modifier.fillMaxWidth()
         ) {
 
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp)
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp)
             ) {
 
                 Text(
                     text =
-                        if (arabic)
+                        if (arabic) {
                             "المشروع النشط"
-                        else
-                            "Active Project",
+                        } else {
+                            "Active Project"
+                        },
+
                     style =
                         MaterialTheme.typography.titleMedium
                 )
 
+
                 Spacer(
                     modifier = Modifier.height(6.dp)
                 )
+
 
                 Text(
                     text =
                         project
                             ?.projectName
                             ?.ifBlank {
-                                if (arabic)
+                                if (arabic) {
                                     "مشروع جديد"
-                                else
+                                } else {
                                     "New Project"
+                                }
                             }
-                            ?: if (arabic)
+                            ?: if (arabic) {
                                 "لا يوجد مشروع نشط"
-                            else
-                                "No Active Project",
+                            } else {
+                                "No Active Project"
+                            },
+
                     style =
                         MaterialTheme.typography.bodyLarge
                 )
+
 
                 if (project != null) {
 
@@ -1323,20 +1555,21 @@ private fun ProjectHomeTab(
                         modifier = Modifier.height(4.dp)
                     )
 
+
                     Text(
                         text =
-                            if (arabic)
-                                "Standard: ${project.electricalStandard}"
-                            else
-                                "Standard: ${project.electricalStandard}",
+                            "Standard: ${project.electricalStandard}",
+
                         style =
                             MaterialTheme.typography.bodySmall
                     )
                 }
 
+
                 Spacer(
                     modifier = Modifier.height(14.dp)
                 )
+
 
                 OutlinedButton(
                     onClick =
@@ -1346,19 +1579,23 @@ private fun ProjectHomeTab(
                     Icon(
                         imageVector =
                             Icons.Outlined.Folder,
+
                         contentDescription = null
                     )
+
 
                     Spacer(
                         modifier = Modifier.width(8.dp)
                     )
 
+
                     Text(
                         text =
-                            if (arabic)
+                            if (arabic) {
                                 "إدارة المشروعات"
-                            else
+                            } else {
                                 "Project Management"
+                            }
                     )
                 }
             }
@@ -1381,23 +1618,31 @@ private fun ProjectManagementScreen(
 ) {
 
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier =
+            Modifier.fillMaxSize()
     ) {
 
         EngineeringAppTopBar(
             title =
-                if (language == AppLanguage.ARABIC)
+                if (language == AppLanguage.ARABIC) {
                     "إدارة المشروعات"
-                else
-                    "Project Management",
+                } else {
+                    "Project Management"
+                },
+
             projectName =
                 project?.projectName,
-            onBack = onBack
+
+            onBack =
+                onBack
         )
+
 
         ProjectDashboardScreen(
             language = language,
-            onOpenProject = onOpenProject
+
+            onOpenProject =
+                onOpenProject
         )
     }
 }
@@ -1419,6 +1664,7 @@ private fun MainWorkspaceCard(
 
     Card(
         modifier = modifier,
+
         colors =
             CardDefaults.cardColors(
                 containerColor =
@@ -1427,43 +1673,55 @@ private fun MainWorkspaceCard(
     ) {
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(22.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(22.dp),
+
             horizontalAlignment =
                 Alignment.CenterHorizontally
         ) {
 
             Button(
                 onClick = onClick,
+
                 modifier =
                     Modifier.fillMaxWidth()
             ) {
 
                 Icon(
                     imageVector = icon,
-                    contentDescription = title,
+
+                    contentDescription =
+                        title,
+
                     modifier =
                         Modifier.size(42.dp)
                 )
             }
 
+
             Spacer(
                 modifier = Modifier.height(12.dp)
             )
 
+
             Text(
                 text = title,
+
                 style =
                     MaterialTheme.typography.titleMedium
             )
+
 
             Spacer(
                 modifier = Modifier.height(4.dp)
             )
 
+
             Text(
                 text = subtitle,
+
                 style =
                     MaterialTheme.typography.bodySmall
             )
@@ -1499,37 +1757,45 @@ private fun CalculatorTab(
         language == AppLanguage.ARABIC
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(
-                horizontal = 14.dp,
-                vertical = 8.dp
-            )
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(
+                    horizontal = 14.dp,
+                    vertical = 8.dp
+                )
     ) {
 
         Text(
             text =
-                if (arabic)
+                if (arabic) {
                     "التصميم الكهروميكانيكي"
-                else
-                    "Electromechanical Design",
+                } else {
+                    "Electromechanical Design"
+                },
+
             style =
                 MaterialTheme.typography.headlineSmall
         )
 
+
         Text(
             text =
-                if (arabic)
+                if (arabic) {
                     "أدوات التصميم مرتبة حسب دورة التصميم الهندسي"
-                else
-                    "Engineering tools arranged by the design workflow",
+                } else {
+                    "Engineering tools arranged by the design workflow"
+                },
+
             style =
                 MaterialTheme.typography.bodyMedium
         )
 
+
         Spacer(
             modifier = Modifier.height(10.dp)
         )
+
 
         FourColumnDesignGrid(
             modifier =
@@ -1539,275 +1805,292 @@ private fun CalculatorTab(
 
                 DesignGridItem(
                     id = "load",
+
                     title =
-                        if (arabic) "الأحمال" else "Loads",
-                    subtitle = "Load Schedule",
+                        if (arabic) {
+                            "الأحمال"
+                        } else {
+                            "Loads"
+                        },
+
+                    subtitle =
+                        "Load Schedule",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Power
                         )
                     },
-                    onClick = onLoad
+
+                    onClick =
+                        onLoad
                 ),
+
 
                 DesignGridItem(
                     id = "current",
+
                     title =
-                        if (arabic) "التيار" else "Current",
-                    subtitle = "Design Current",
+                        if (arabic) {
+                            "التيار"
+                        } else {
+                            "Current"
+                        },
+
+                    subtitle =
+                        "Design Current",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Calculate
                         )
                     },
-                    onClick = onCurrent
+
+                    onClick =
+                        onCurrent
                 ),
+
 
                 DesignGridItem(
                     id = "cable",
+
                     title =
-                        if (arabic) "الكابلات" else "Cables",
-                    subtitle = "Conductor Sizing",
+                        if (arabic) {
+                            "الكابلات"
+                        } else {
+                            "Cables"
+                        },
+
+                    subtitle =
+                        "Conductor Sizing",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Bolt
                         )
                     },
-                    onClick = onCable
+
+                    onClick =
+                        onCable
                 ),
+
 
                 DesignGridItem(
                     id = "voltage_drop",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "هبوط الجهد"
-                        else
-                            "Voltage Drop",
-                    subtitle = "Voltage Drop",
+                        } else {
+                            "Voltage Drop"
+                        },
+
+                    subtitle =
+                        "Voltage Drop",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Bolt
                         )
                     },
-                    onClick = onVoltageDrop
+
+                    onClick =
+                        onVoltageDrop
                 ),
+
 
                 DesignGridItem(
                     id = "breaker",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "القواطع"
-                        else
-                            "Breakers",
-                    subtitle = "Breaker Selection",
+                        } else {
+                            "Breakers"
+                        },
+
+                    subtitle =
+                        "Breaker Selection",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Power
                         )
                     },
-                    onClick = onBreaker
+
+                    onClick =
+                        onBreaker
                 ),
+
 
                 DesignGridItem(
                     id = "protection",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "الحماية"
-                        else
-                            "Protection",
-                    subtitle = "Protection Study",
+                        } else {
+                            "Protection"
+                        },
+
+                    subtitle =
+                        "Protection Study",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Security
                         )
                     },
-                    onClick = onProtection
+
+                    onClick =
+                        onProtection
                 ),
+
 
                 DesignGridItem(
                     id = "short_circuit",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "القصر الكهربائي"
-                        else
-                            "Short Circuit",
-                    subtitle = "Fault Current",
+                        } else {
+                            "Short Circuit"
+                        },
+
+                    subtitle =
+                        "Fault Current",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Bolt
                         )
                     },
-                    onClick = onShortCircuit
+
+                    onClick =
+                        onShortCircuit
                 ),
+
 
                 DesignGridItem(
                     id = "panel",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "اللوحات"
-                        else
-                            "Panels",
-                    subtitle = "Panel Design",
+                        } else {
+                            "Panels"
+                        },
+
+                    subtitle =
+                        "Panel Design",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.ElectricalServices
                         )
                     },
-                    onClick = onPanel
+
+                    onClick =
+                        onPanel
                 ),
+
 
                 DesignGridItem(
                     id = "transformer",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "المحولات"
-                        else
-                            "Transformers",
-                    subtitle = "Transformer Design",
+                        } else {
+                            "Transformers"
+                        },
+
+                    subtitle =
+                        "Transformer Design",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Memory
                         )
                     },
-                    onClick = onTransformer
+
+                    onClick =
+                        onTransformer
                 ),
+
 
                 DesignGridItem(
                     id = "generator",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "المولدات"
-                        else
-                            "Generators",
-                    subtitle = "Generator Design",
+                        } else {
+                            "Generators"
+                        },
+
+                    subtitle =
+                        "Generator Design",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Factory
                         )
                     },
-                    onClick = onGenerator
+
+                    onClick =
+                        onGenerator
                 ),
+
 
                 DesignGridItem(
                     id = "pump",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "المضخات"
-                        else
-                            "Pumps",
-                    subtitle = "Flow / Head / Power",
+                        } else {
+                            "Pumps"
+                        },
+
+                    subtitle =
+                        "Flow / Head / Power",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.WaterDrop
                         )
                     },
-                    onClick = onPump
+
+                    onClick =
+                        onPump
                 ),
+
 
                 DesignGridItem(
                     id = "report",
+
                     title =
-                        if (arabic)
+                        if (arabic) {
                             "التقرير"
-                        else
-                            "Engineering Report",
-                    subtitle = "Calculation Report",
+                        } else {
+                            "Engineering Report"
+                        },
+
+                    subtitle =
+                        "Calculation Report",
+
                     icon = {
                         AppIcon(
                             Icons.Outlined.Description
                         )
                     },
-                    onClick = onReport
+
+                    onClick =
+                        onReport
                 )
             )
         )
-    }
-}
-
-
-/**
- * ============================================================
- * SLD HOME
- * ============================================================
- */
-@Composable
-private fun SldHomeTab(
-    language: AppLanguage,
-    onOpenSld: () -> Unit
-) {
-
-    val arabic =
-        language == AppLanguage.ARABIC
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(18.dp),
-        horizontalAlignment =
-            Alignment.CenterHorizontally
-    ) {
-
-        Spacer(
-            modifier = Modifier.height(30.dp)
-        )
-
-        Icon(
-            imageVector =
-                Icons.Outlined.AccountTree,
-            contentDescription = "SLD Design",
-            modifier = Modifier.size(80.dp)
-        )
-
-        Spacer(
-            modifier = Modifier.height(14.dp)
-        )
-
-        Text(
-            text = "SLD Designer",
-            style =
-                MaterialTheme.typography.headlineMedium
-        )
-
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-
-        Text(
-            text =
-                if (arabic)
-                    "التصميم الأحادي الاحترافي للمنظومة الكهربائية"
-                else
-                    "Professional Single Line Diagram design",
-            style =
-                MaterialTheme.typography.bodyLarge
-        )
-
-        Spacer(
-            modifier = Modifier.height(20.dp)
-        )
-
-        Button(
-            onClick = onOpenSld
-        ) {
-
-            Icon(
-                imageVector =
-                    Icons.Outlined.AccountTree,
-                contentDescription = null
-            )
-
-            Spacer(
-                modifier = Modifier.width(8.dp)
-            )
-
-            Text(
-                text =
-                    if (arabic)
-                        "فتح المصمم"
-                    else
-                        "Open Designer"
-            )
-        }
     }
 }
 
@@ -1827,9 +2110,11 @@ private fun ReportsHomeTab(
         language == AppLanguage.ARABIC
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+
         horizontalAlignment =
             Alignment.CenterHorizontally
     ) {
@@ -1838,65 +2123,84 @@ private fun ReportsHomeTab(
             modifier = Modifier.height(20.dp)
         )
 
+
         Icon(
             imageVector =
                 Icons.Outlined.Description,
+
             contentDescription = null,
-            modifier = Modifier.size(64.dp)
+
+            modifier =
+                Modifier.size(64.dp)
         )
+
 
         Spacer(
             modifier = Modifier.height(12.dp)
         )
 
+
         Text(
             text =
-                if (arabic)
+                if (arabic) {
                     "التقارير الهندسية"
-                else
-                    "Engineering Reports",
+                } else {
+                    "Engineering Reports"
+                },
+
             style =
                 MaterialTheme.typography.headlineMedium
         )
+
 
         Spacer(
             modifier = Modifier.height(8.dp)
         )
 
+
         Text(
             text =
-                if (arabic)
+                if (arabic) {
                     "تقارير الحسابات والدراسات الهندسية"
-                else
-                    "Calculation and engineering study reports",
+                } else {
+                    "Calculation and engineering study reports"
+                },
+
             style =
                 MaterialTheme.typography.bodyLarge
         )
+
 
         Spacer(
             modifier = Modifier.height(20.dp)
         )
 
+
         Button(
-            onClick = onOpenReport
+            onClick =
+                onOpenReport
         ) {
 
             Icon(
                 imageVector =
                     Icons.Outlined.Description,
+
                 contentDescription = null
             )
+
 
             Spacer(
                 modifier = Modifier.width(8.dp)
             )
 
+
             Text(
                 text =
-                    if (arabic)
+                    if (arabic) {
                         "فتح التقارير"
-                    else
+                    } else {
                         "Open Reports"
+                    }
             )
         }
     }
@@ -1914,8 +2218,12 @@ private fun AppIcon(
 ) {
 
     Icon(
-        imageVector = imageVector,
+        imageVector =
+            imageVector,
+
         contentDescription = null,
-        modifier = Modifier.size(30.dp)
+
+        modifier =
+            Modifier.size(30.dp)
     )
 }
