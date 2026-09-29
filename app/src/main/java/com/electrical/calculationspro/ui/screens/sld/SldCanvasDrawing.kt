@@ -8,8 +8,6 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.ParagraphStyle
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -97,7 +95,7 @@ private fun nodeDirection(
 
     return if (
         abs(b.x - a.x) >=
-            abs(b.y - a.y)
+        abs(b.y - a.y)
     ) {
 
         if (b.x >= a.x) {
@@ -491,14 +489,13 @@ fun DrawScope.drawConnection(
 
                 if (
                     connection.busbarRatedCurrentA >
-                        0.0
+                    0.0
                 ) {
 
                     append(" ")
                     append(
                         fmt(
-                            connection
-                                .busbarRatedCurrentA
+                            connection.busbarRatedCurrentA
                         )
                     )
                     append(" A")
@@ -506,14 +503,13 @@ fun DrawScope.drawConnection(
 
                 if (
                     connection.busbarShortCircuitKA >
-                        0.0
+                    0.0
                 ) {
 
                     append("  ")
                     append(
                         fmt(
-                            connection
-                                .busbarShortCircuitKA
+                            connection.busbarShortCircuitKA
                         )
                     )
                     append(" kA")
@@ -537,21 +533,20 @@ fun DrawScope.drawConnection(
 
                 if (
                     connection.cableSizeMm2 >
-                        0.0
+                    0.0
                 ) {
 
                     append(" ")
                     append(
                         fmt(
-                            connection
-                                .cableSizeMm2
+                            connection.cableSizeMm2
                         )
                     )
                     append(" mm²")
 
                     if (
                         connection.parallelRuns >
-                            1
+                        1
                     ) {
 
                         append(" × ")
@@ -563,7 +558,7 @@ fun DrawScope.drawConnection(
 
                 if (
                     connection.lengthMeters >
-                        0.0
+                    0.0
                 ) {
 
                     append(" ")
@@ -844,21 +839,13 @@ fun DrawScope.drawNode(
 
     drawCenteredText(
         textMeasurer,
-        equipmentTypeLabel(
-            node.type
-        ),
+        equipmentTypeLabel(node.type),
         centerX,
         node.y + 51f,
         TextStyle(
-            spanStyle =
-                SpanStyle(
-                    color = TextSecondary,
-                    fontSize = 7.5.sp,
-                    fontWeight =
-                        FontWeight.Bold
-                ),
-            paragraphStyle =
-                ParagraphStyle()
+            color = TextSecondary,
+            fontSize = 7.5.sp,
+            fontWeight = FontWeight.Bold
         )
     )
 
@@ -868,15 +855,9 @@ fun DrawScope.drawNode(
         centerX,
         node.y + 64f,
         TextStyle(
-            spanStyle =
-                SpanStyle(
-                    color = TextPrimary,
-                    fontSize = 10.sp,
-                    fontWeight =
-                        FontWeight.Bold
-                ),
-            paragraphStyle =
-                ParagraphStyle()
+            color = TextPrimary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
         )
     )
 
@@ -920,13 +901,8 @@ fun DrawScope.drawNode(
         centerX,
         node.y + 79f,
         TextStyle(
-            spanStyle =
-                SpanStyle(
-                    color = TextSecondary,
-                    fontSize = 7.2.sp
-                ),
-            paragraphStyle =
-                ParagraphStyle()
+            color = TextSecondary,
+            fontSize = 7.2.sp
         )
     )
 
@@ -942,13 +918,8 @@ fun DrawScope.drawNode(
             centerX,
             node.y + 92f,
             TextStyle(
-                spanStyle =
-                    SpanStyle(
-                        color = TextSecondary,
-                        fontSize = 7.2.sp
-                    ),
-                paragraphStyle =
-                    ParagraphStyle()
+                color = TextSecondary,
+                fontSize = 7.2.sp
             )
         )
 
@@ -979,16 +950,9 @@ fun DrawScope.drawNode(
             centerX,
             node.y + 106f,
             TextStyle(
-                spanStyle =
-                    SpanStyle(
-                        color =
-                            engineeringColor,
-                        fontSize = 7.2.sp,
-                        fontWeight =
-                            FontWeight.Bold
-                    ),
-                paragraphStyle =
-                    ParagraphStyle()
+                color = engineeringColor,
+                fontSize = 7.2.sp,
+                fontWeight = FontWeight.Bold
             )
         )
 
@@ -1012,14 +976,8 @@ fun DrawScope.drawNode(
                 centerX,
                 node.y + 95f,
                 TextStyle(
-                    spanStyle =
-                        SpanStyle(
-                            color =
-                                TextSecondary,
-                            fontSize = 7f
-                        ),
-                    paragraphStyle =
-                        ParagraphStyle()
+                    color = TextSecondary,
+                    fontSize = 7.sp
                 )
             )
         }
@@ -1176,8 +1134,7 @@ private fun DrawScope.drawBusbarSymbol(
             min(
                 NODE_WIDTH - 18f,
                 32f *
-                    feederCount
-                        .toFloat()
+                    feederCount.toFloat()
             )
         )
 
@@ -1594,16 +1551,9 @@ private fun DrawScope.drawEngineeringLabel(
 
     val style =
         TextStyle(
-            spanStyle =
-                SpanStyle(
-                    color = color,
-                    fontSize =
-                        fontSize.sp,
-                    fontWeight =
-                        FontWeight.Bold
-                ),
-            paragraphStyle =
-                ParagraphStyle()
+            color = color,
+            fontSize = fontSize.sp,
+            fontWeight = FontWeight.Bold
         )
 
     val measured =
