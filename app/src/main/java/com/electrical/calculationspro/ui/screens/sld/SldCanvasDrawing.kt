@@ -8,6 +8,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.ParagraphStyle
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -448,11 +450,6 @@ fun DrawScope.drawConnection(
         )
     )
 
-    /*
-     * External feeder direction.
-     *
-     * BUSBAR connections intentionally have no arrow.
-     */
     if (
         !isBusbar &&
         points.size >= 2
@@ -853,10 +850,15 @@ fun DrawScope.drawNode(
         centerX,
         node.y + 51f,
         TextStyle(
-            color = TextSecondary,
-            fontSize = 7.5.sp,
-            fontWeight =
-                FontWeight.Bold
+            spanStyle =
+                SpanStyle(
+                    color = TextSecondary,
+                    fontSize = 7.5.sp,
+                    fontWeight =
+                        FontWeight.Bold
+                ),
+            paragraphStyle =
+                ParagraphStyle()
         )
     )
 
@@ -866,10 +868,15 @@ fun DrawScope.drawNode(
         centerX,
         node.y + 64f,
         TextStyle(
-            color = TextPrimary,
-            fontSize = 10.sp,
-            fontWeight =
-                FontWeight.Bold
+            spanStyle =
+                SpanStyle(
+                    color = TextPrimary,
+                    fontSize = 10.sp,
+                    fontWeight =
+                        FontWeight.Bold
+                ),
+            paragraphStyle =
+                ParagraphStyle()
         )
     )
 
@@ -913,8 +920,13 @@ fun DrawScope.drawNode(
         centerX,
         node.y + 79f,
         TextStyle(
-            color = TextSecondary,
-            fontSize = 7.2.sp
+            spanStyle =
+                SpanStyle(
+                    color = TextSecondary,
+                    fontSize = 7.2.sp
+                ),
+            paragraphStyle =
+                ParagraphStyle()
         )
     )
 
@@ -930,8 +942,13 @@ fun DrawScope.drawNode(
             centerX,
             node.y + 92f,
             TextStyle(
-                color = TextSecondary,
-                fontSize = 7.2.sp
+                spanStyle =
+                    SpanStyle(
+                        color = TextSecondary,
+                        fontSize = 7.2.sp
+                    ),
+                paragraphStyle =
+                    ParagraphStyle()
             )
         )
 
@@ -962,11 +979,16 @@ fun DrawScope.drawNode(
             centerX,
             node.y + 106f,
             TextStyle(
-                color =
-                    engineeringColor,
-                fontSize = 7.2.sp,
-                fontWeight =
-                    FontWeight.Bold
+                spanStyle =
+                    SpanStyle(
+                        color =
+                            engineeringColor,
+                        fontSize = 7.2.sp,
+                        fontWeight =
+                            FontWeight.Bold
+                    ),
+                paragraphStyle =
+                    ParagraphStyle()
             )
         )
 
@@ -990,9 +1012,14 @@ fun DrawScope.drawNode(
                 centerX,
                 node.y + 95f,
                 TextStyle(
-                    color =
-                        TextSecondary,
-                    fontSize = 7f
+                    spanStyle =
+                        SpanStyle(
+                            color =
+                                TextSecondary,
+                            fontSize = 7f
+                        ),
+                    paragraphStyle =
+                        ParagraphStyle()
                 )
             )
         }
@@ -1567,11 +1594,16 @@ private fun DrawScope.drawEngineeringLabel(
 
     val style =
         TextStyle(
-            color = color,
-            fontSize =
-                fontSize.sp,
-            fontWeight =
-                FontWeight.Bold
+            spanStyle =
+                SpanStyle(
+                    color = color,
+                    fontSize =
+                        fontSize.sp,
+                    fontWeight =
+                        FontWeight.Bold
+                ),
+            paragraphStyle =
+                ParagraphStyle()
         )
 
     val measured =
