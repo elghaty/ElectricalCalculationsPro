@@ -287,7 +287,8 @@ fun SldEditorScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        horizontal = 8.dp,
+                        start = 8.dp,
+                        end = 8.dp,
                         bottom = 5.dp
                     ),
                 colors = CardDefaults.cardColors(
@@ -323,7 +324,8 @@ fun SldEditorScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        horizontal = 8.dp,
+                        start = 8.dp,
+                        end = 8.dp,
                         bottom = 5.dp
                     ),
                 colors = CardDefaults.cardColors(
@@ -511,11 +513,7 @@ fun SldEditorScreen(
 
             SldToolButton(
                 icon = Icons.Outlined.PictureAsPdf,
-                text = if (arabic) {
-                    "PDF"
-                } else {
-                    "PDF"
-                },
+                text = "PDF",
                 onClick = {
 
                     if (state.reportText.isBlank()) {
