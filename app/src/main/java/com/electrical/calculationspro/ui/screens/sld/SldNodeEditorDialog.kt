@@ -2,17 +2,20 @@ package com.electrical.calculationspro.ui.screens.sld
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.SldNodeType
+import com.electrical.calculationspro.ui.components.EngineeringCard
+import com.electrical.calculationspro.ui.components.EngineeringInput
 
 @Composable
 fun SldNodeEditorDialog(
@@ -44,160 +47,254 @@ fun SldNodeEditorDialog(
         onDismissRequest = onCancel,
 
         title = {
-            Text(
-                if (editing) {
-                    if (arabic) "تعديل العنصر" else "Edit Component"
-                } else {
-                    if (arabic) "إضافة عنصر" else "Add Component"
-                }
-            )
+            Column(
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = if (editing) {
+                        if (arabic) {
+                            "تعديل العنصر"
+                        } else {
+                            "Edit Component"
+                        }
+                    } else {
+                        if (arabic) {
+                            "إضافة عنصر"
+                        } else {
+                            "Add Component"
+                        }
+                    },
+                    style = MaterialTheme.typography.titleLarge
+                )
+
+                Text(
+                    text = sldNodeTypeLabel(
+                        type = type,
+                        arabic = arabic
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         },
 
         text = {
             Column(
-                modifier = Modifier.verticalScroll(
-                    rememberScrollState()
-                ),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = onNameChange,
-                    singleLine = true,
-                    label = {
-                        Text(
-                            if (arabic) "اسم العنصر" else "Component Name"
-                        )
-                    }
-                )
 
-                OutlinedTextField(
-                    value = voltage,
-                    onValueChange = onVoltageChange,
-                    singleLine = true,
-                    label = {
-                        Text(
-                            if (arabic) "الجهد (V)" else "Voltage (V)"
-                        )
+                EngineeringCard(
+                    title = if (arabic) {
+                        "بيانات العنصر"
+                    } else {
+                        "Component Data"
                     }
-                )
+                ) {
+                    EngineeringInput(
+                        value = name,
+                        label = if (arabic) {
+                            "اسم العنصر"
+                        } else {
+                            "Component Name"
+                        },
+                        onValueChange = onNameChange,
+                        isNumeric = false
+                    )
+
+                    EngineeringInput(
+                        value = voltage,
+                        label = if (arabic) {
+                            "الجهد (V)"
+                        } else {
+                            "Voltage (V)"
+                        },
+                        onValueChange = onVoltageChange
+                    )
+                }
 
                 when (type) {
+
                     SldNodeType.SOURCE -> {
-                        OutlinedTextField(
-                            value = sourceMva,
-                            onValueChange = onSourceMvaChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) {
-                                        "قدرة القصر للمصدر (MVA)"
-                                    } else {
-                                        "Source Fault Level (MVA)"
-                                    }
-                                )
+                        EngineeringCard(
+                            title = if (arabic) {
+                                "بيانات المصدر"
+                            } else {
+                                "Source Data"
                             }
-                        )
+                        ) {
+                            EngineeringInput(
+                                value = sourceMva,
+                                label = if (arabic) {
+                                    "قدرة القصر للمصدر (MVA)"
+                                } else {
+                                    "Source Fault Level (MVA)"
+                                },
+                                onValueChange = onSourceMvaChange
+                            )
+                        }
                     }
 
                     SldNodeType.TRANSFORMER -> {
-                        OutlinedTextField(
-                            value = kva,
-                            onValueChange = onKvaChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "قدرة المحول (kVA)" else "Transformer Rating (kVA)"
-                                )
+                        EngineeringCard(
+                            title = if (arabic) {
+                                "بيانات المحول"
+                            } else {
+                                "Transformer Data"
                             }
-                        )
+                        ) {
+                            EngineeringInput(
+                                value = kva,
+                                label = if (arabic) {
+                                    "قدرة المحول (kVA)"
+                                } else {
+                                    "Transformer Rating (kVA)"
+                                },
+                                onValueChange = onKvaChange
+                            )
 
-                        OutlinedTextField(
-                            value = transformerZ,
-                            onValueChange = onTransformerZChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "ممانعة المحول (%Z)" else "Transformer Impedance (%Z)"
-                                )
-                            }
-                        )
+                            EngineeringInput(
+                                value = transformerZ,
+                                label = if (arabic) {
+                                    "ممانعة المحول (%Z)"
+                                } else {
+                                    "Transformer Impedance (%Z)"
+                                },
+                                onValueChange = onTransformerZChange
+                            )
+                        }
                     }
 
                     SldNodeType.GENERATOR -> {
-                        OutlinedTextField(
-                            value = kva,
-                            onValueChange = onKvaChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "قدرة المولد (kVA)" else "Generator Rating (kVA)"
-                                )
+                        EngineeringCard(
+                            title = if (arabic) {
+                                "بيانات المولد"
+                            } else {
+                                "Generator Data"
                             }
-                        )
+                        ) {
+                            EngineeringInput(
+                                value = kva,
+                                label = if (arabic) {
+                                    "قدرة المولد (kVA)"
+                                } else {
+                                    "Generator Rating (kVA)"
+                                },
+                                onValueChange = onKvaChange
+                            )
 
-                        OutlinedTextField(
-                            value = generatorXd,
-                            onValueChange = onGeneratorXdChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "Xd'' (%)" else "Subtransient Reactance Xd'' (%)"
-                                )
-                            }
-                        )
+                            EngineeringInput(
+                                value = generatorXd,
+                                label = if (arabic) {
+                                    "المفاعلة العابرة Xd'' (%)"
+                                } else {
+                                    "Subtransient Reactance Xd'' (%)"
+                                },
+                                onValueChange = onGeneratorXdChange
+                            )
+                        }
                     }
 
                     SldNodeType.PANEL -> {
-                        OutlinedTextField(
-                            value = kva,
-                            onValueChange = onKvaChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "قدرة اللوحة (kVA)" else "Panel Rating (kVA)"
-                                )
+                        EngineeringCard(
+                            title = if (arabic) {
+                                "بيانات اللوحة"
+                            } else {
+                                "Panel Data"
                             }
-                        )
+                        ) {
+                            EngineeringInput(
+                                value = kva,
+                                label = if (arabic) {
+                                    "قدرة اللوحة (kVA)"
+                                } else {
+                                    "Panel Rating (kVA)"
+                                },
+                                onValueChange = onKvaChange
+                            )
+                        }
                     }
 
                     SldNodeType.LOAD -> {
-                        OutlinedTextField(
-                            value = loadKw,
-                            onValueChange = onLoadKwChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "الحمل (kW)" else "Load (kW)"
-                                )
+                        EngineeringCard(
+                            title = if (arabic) {
+                                "بيانات الحمل"
+                            } else {
+                                "Load Data"
                             }
-                        )
+                        ) {
+                            EngineeringInput(
+                                value = loadKw,
+                                label = if (arabic) {
+                                    "الحمل (kW)"
+                                } else {
+                                    "Load (kW)"
+                                },
+                                onValueChange = onLoadKwChange
+                            )
 
-                        OutlinedTextField(
-                            value = pf,
-                            onValueChange = onPfChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "معامل القدرة" else "Power Factor"
-                                )
-                            }
-                        )
+                            EngineeringInput(
+                                value = pf,
+                                label = if (arabic) {
+                                    "معامل القدرة"
+                                } else {
+                                    "Power Factor"
+                                },
+                                onValueChange = onPfChange
+                            )
 
-                        OutlinedTextField(
-                            value = demand,
-                            onValueChange = onDemandChange,
-                            singleLine = true,
-                            label = {
-                                Text(
-                                    if (arabic) "معامل الطلب" else "Demand Factor"
-                                )
-                            }
-                        )
+                            EngineeringInput(
+                                value = demand,
+                                label = if (arabic) {
+                                    "معامل الطلب"
+                                } else {
+                                    "Demand Factor"
+                                },
+                                onValueChange = onDemandChange
+                            )
+                        }
                     }
 
                     SldNodeType.BUS,
-                    SldNodeType.BREAKER -> Unit
+                    SldNodeType.BREAKER -> {
+                        EngineeringCard(
+                            title = if (arabic) {
+                                "معلومات العنصر"
+                            } else {
+                                "Component Information"
+                            }
+                        ) {
+                            Text(
+                                text = if (arabic) {
+                                    when (type) {
+                                        SldNodeType.BUS ->
+                                            "الباسبار عنصر تجميعي داخل المخطط ولا يحتاج بيانات حمل مباشرة."
+
+                                        SldNodeType.BREAKER ->
+                                            "بيانات القاطع الهندسية يتم تحديدها من خلال دراسة الدائرة والـUpstream."
+
+                                        else ->
+                                            ""
+                                    }
+                                } else {
+                                    when (type) {
+                                        SldNodeType.BUS ->
+                                            "The busbar is an aggregation element and does not require direct load data."
+
+                                        SldNodeType.BREAKER ->
+                                            "Breaker engineering data is derived from circuit and upstream studies."
+
+                                        else ->
+                                            ""
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -207,7 +304,11 @@ fun SldNodeEditorDialog(
                 onClick = onSave
             ) {
                 Text(
-                    if (arabic) "حفظ" else "Save"
+                    if (arabic) {
+                        "حفظ"
+                    } else {
+                        "Save"
+                    }
                 )
             }
         },
@@ -217,9 +318,41 @@ fun SldNodeEditorDialog(
                 onClick = onCancel
             ) {
                 Text(
-                    if (arabic) "إلغاء" else "Cancel"
+                    if (arabic) {
+                        "إلغاء"
+                    } else {
+                        "Cancel"
+                    }
                 )
             }
         }
     )
+}
+
+private fun sldNodeTypeLabel(
+    type: SldNodeType,
+    arabic: Boolean
+): String {
+    return when (type) {
+        SldNodeType.SOURCE ->
+            if (arabic) "مصدر كهرباء" else "Utility Source"
+
+        SldNodeType.TRANSFORMER ->
+            if (arabic) "محول" else "Transformer"
+
+        SldNodeType.GENERATOR ->
+            if (arabic) "مولد" else "Generator"
+
+        SldNodeType.BUS ->
+            if (arabic) "باسبار" else "Busbar"
+
+        SldNodeType.PANEL ->
+            if (arabic) "لوحة" else "Panel"
+
+        SldNodeType.BREAKER ->
+            if (arabic) "قاطع" else "Breaker"
+
+        SldNodeType.LOAD ->
+            if (arabic) "حمل" else "Load"
+    }
 }
