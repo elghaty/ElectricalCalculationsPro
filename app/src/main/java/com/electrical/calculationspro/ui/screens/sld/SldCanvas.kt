@@ -220,20 +220,6 @@ fun SldCanvas(
                                     break
                                 }
 
-                                /*
-                                 * =================================================
-                                 * TWO FINGER GESTURE
-                                 * =================================================
-                                 *
-                                 * Two fingers always control:
-                                 *
-                                 * 1. Pan
-                                 * 2. Pinch zoom
-                                 *
-                                 * Node dragging is disabled while two fingers
-                                 * are touching the screen.
-                                 */
-
                                 if (pressed.size >= 2) {
 
                                     multiTouch = true
@@ -296,7 +282,6 @@ fun SldCanvas(
                                             centroid.y -
                                                 logicalCentroid.y *
                                                 newZoom
-
                                     }
 
                                     panX += pan.x
@@ -308,12 +293,6 @@ fun SldCanvas(
 
                                     continue
                                 }
-
-                                /*
-                                 * =================================================
-                                 * SINGLE FINGER
-                                 * =================================================
-                                 */
 
                                 if (!multiTouch) {
 
@@ -344,10 +323,6 @@ fun SldCanvas(
 
                                         } else {
 
-                                            /*
-                                             * Empty canvas drag = PAN
-                                             */
-
                                             panX += delta.x
                                             panY += delta.y
                                         }
@@ -357,12 +332,6 @@ fun SldCanvas(
                                 }
                             }
 
-                            /*
-                             * =====================================================
-                             * GESTURE END
-                             * =====================================================
-                             */
-
                             if (
                                 draggingNode &&
                                     !multiTouch &&
@@ -370,12 +339,6 @@ fun SldCanvas(
                             ) {
                                 currentOnMoveNodeEnd()
                             }
-
-                            /*
-                             * =====================================================
-                             * DOUBLE TAP
-                             * =====================================================
-                             */
 
                             if (
                                 !moved &&
@@ -448,15 +411,6 @@ fun SldCanvas(
 
             }) {
 
-                /*
-                 * =========================================================
-                 * CONNECTIONS FIRST
-                 * =========================================================
-                 *
-                 * This guarantees that equipment symbols and labels
-                 * remain visually above cables/busbars.
-                 */
-
                 currentConnections.forEach { connection ->
 
                     val feederResult =
@@ -475,6 +429,9 @@ fun SldCanvas(
                         nodes =
                             currentNodes,
 
+                        connections =
+                            currentConnections,
+
                         selected =
                             connection.id ==
                                 currentSelectedConnectionId,
@@ -486,12 +443,6 @@ fun SldCanvas(
                             feederResult
                     )
                 }
-
-                /*
-                 * =========================================================
-                 * NODES
-                 * =========================================================
-                 */
 
                 currentNodes.forEach { node ->
 
@@ -531,12 +482,6 @@ fun SldCanvas(
                 }
             }
         }
-
-        /*
-         * =============================================================
-         * VIEW CONTROLS
-         * =============================================================
-         */
 
         Column(
             modifier =
