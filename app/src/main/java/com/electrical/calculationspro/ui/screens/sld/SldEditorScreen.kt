@@ -34,10 +34,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,45 +46,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.SldNodeType
+import com.electrical.calculationspro.ui.components.EngineeringStatus
 
 @Composable
 fun SldEditorScreen(
     language: AppLanguage,
     onBack: (() -> Unit)? = null
 ) {
+    val state = remember {
+        SldEditorState()
+    }
 
-    val state =
-        remember {
-            SldEditorState()
-        }
+    val actions = remember(language) {
+        SldEditorActions(
+            state = state,
+            language = language
+        )
+    }
 
-    val actions =
-        remember(language) {
-            SldEditorActions(
-                state = state,
-                language = language
-            )
-        }
-
-    val arabic =
-        language == AppLanguage.ARABIC
-
-    /*
-     * IMPORTANT:
-     *
-     * LocalContext.current is a Composable value.
-     * It must be obtained here, inside the Composable,
-     * and never from the ActivityResult callback.
-     */
-
-    val context =
-        LocalContext.current
+    val arabic = language == AppLanguage.ARABIC
+    val context = LocalContext.current
 
     /*
      * ============================================================
@@ -94,143 +82,122 @@ fun SldEditorScreen(
 
     val pdfLauncher =
         rememberLauncherForActivityResult(
-            contract =
-                ActivityResultContracts.CreateDocument(
-                    "application/pdf"
-                )
+            contract = ActivityResultContracts.CreateDocument(
+                "application/pdf"
+            )
         ) { uri ->
 
             if (
                 uri != null &&
-                    state.reportText.isNotBlank()
+                state.reportText.isNotBlank()
             ) {
-
                 runCatching {
-
                     val output =
-                        context
-                            .contentResolver
-                            .openOutputStream(uri)
+                        context.contentResolver.openOutputStream(uri)
 
                     output?.use { stream ->
-
                         SldPdfReportExporter.export(
-                            outputStream =
-                                stream,
-
-                            title =
-                                state.reportTitle.ifBlank {
-
-                                    if (arabic) {
-                                        "تقرير التصميم الكهربائي"
-                                    } else {
-                                        "Electrical Engineering Design Report"
-                                    }
-                                },
-
-                            reportText =
-                                state.reportText
+                            outputStream = stream,
+                            title = state.reportTitle.ifBlank {
+                                if (arabic) {
+                                    "تقرير التصميم الكهربائي"
+                                } else {
+                                    "Electrical Engineering Design Report"
+                                }
+                            },
+                            reportText = state.reportText
                         )
                     }
-
                 }.onFailure { error ->
-
                     state.engineeringError =
-                        error.message
-                            ?: if (arabic) {
-                                "فشل تصدير التقرير PDF."
-                            } else {
-                                "PDF export failed."
-                            }
+                        error.message ?: if (arabic) {
+                            "فشل تصدير التقرير PDF."
+                        } else {
+                            "PDF export failed."
+                        }
                 }
             }
         }
+
+    /*
+     * ============================================================
+     * INITIAL LOAD
+     * ============================================================
+     */
 
     LaunchedEffect(Unit) {
         actions.loadProjectNetwork()
     }
 
+    /*
+     * ============================================================
+     * MAIN SCREEN
+     * ============================================================
+     */
+
     Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .background(
-                    Color(0xFFF3F6F8)
-                )
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                MaterialTheme.colorScheme.background
+            )
     ) {
 
         /*
          * ========================================================
-         * PROFESSIONAL HEADER
+         * HEADER
          * ========================================================
          */
 
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Color.White
-                    )
-                    .padding(
-                        horizontal = 8.dp,
-                        vertical = 7.dp
-                    ),
-
-            verticalAlignment =
-                Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    MaterialTheme.colorScheme.surface
+                )
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 6.dp
+                ),
+            verticalAlignment = Alignment.CenterVertically
         ) {
 
-            onBack?.let { back ->
-
-                IconButton(
-                    onClick = back
+            if (onBack != null) {
+                androidx.compose.material3.IconButton(
+                    onClick = onBack
                 ) {
-
                     Icon(
-                        imageVector =
-                            Icons.Outlined.ArrowBack,
-
-                        contentDescription =
-                            if (arabic) {
-                                "رجوع"
-                            } else {
-                                "Back"
-                            }
+                        imageVector = Icons.Outlined.ArrowBack,
+                        contentDescription = if (arabic) {
+                            "رجوع"
+                        } else {
+                            "Back"
+                        }
                     )
                 }
             }
 
             Column(
-                modifier =
-                    Modifier.weight(1f)
+                modifier = Modifier.weight(1f)
             ) {
-
                 Text(
-                    text =
-                        if (arabic) {
-                            "مصمم المخطط الأحادي SLD"
-                        } else {
-                            "Single Line Diagram Designer"
-                        },
-
-                    style =
-                        MaterialTheme.typography.titleLarge
+                    text = if (arabic) {
+                        "مصمم المخطط الأحادي SLD"
+                    } else {
+                        "Single Line Diagram Designer"
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
 
                 Text(
-                    text =
-                        if (arabic) {
-                            "تصميم وتوصيل وحساب هندسي تلقائي"
-                        } else {
-                            "Interactive electrical design and automatic engineering calculation"
-                        },
-
-                    style =
-                        MaterialTheme.typography.bodySmall,
-
-                    color =
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                    text = if (arabic) {
+                        "تصميم كهربائي تفاعلي مع الحساب الهندسي التلقائي"
+                    } else {
+                        "Interactive electrical design with automatic engineering calculation"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -239,23 +206,18 @@ fun SldEditorScreen(
                     actions.generateCompleteSld()
                 }
             ) {
-
                 Icon(
-                    imageVector =
-                        Icons.Outlined.PlayArrow,
-
-                    contentDescription =
-                        null
+                    imageVector = Icons.Outlined.Calculate,
+                    contentDescription = null
                 )
 
                 Spacer(
-                    modifier =
-                        Modifier.width(5.dp)
+                    modifier = Modifier.width(5.dp)
                 )
 
                 Text(
-                    if (arabic) {
-                        "حساب التصميم"
+                    text = if (arabic) {
+                        "حساب"
                     } else {
                         "Calculate"
                     }
@@ -265,42 +227,116 @@ fun SldEditorScreen(
 
         /*
          * ========================================================
-         * CONNECTION MODE BANNER
+         * ENGINEERING STATUS
          * ========================================================
          */
 
-        if (
-            state.connectionStartId != null
-        ) {
+        val statusText =
+            when {
+                state.connectionStartId != null -> {
+                    if (arabic) {
+                        "وضع التوصيل نشط — اختر العنصر الثاني"
+                    } else {
+                        "Connection mode active — select destination"
+                    }
+                }
+
+                state.selectedNodeId != null -> {
+                    if (arabic) {
+                        "تم تحديد عنصر"
+                    } else {
+                        "Component selected"
+                    }
+                }
+
+                state.selectedConnectionId != null -> {
+                    if (arabic) {
+                        "تم تحديد وصلة"
+                    } else {
+                        "Connection selected"
+                    }
+                }
+
+                state.engineeringPackage != null -> {
+                    if (arabic) {
+                        "الدراسة الهندسية محدثة"
+                    } else {
+                        "Engineering study is up to date"
+                    }
+                }
+
+                else -> {
+                    if (arabic) {
+                        "جاهز للتصميم"
+                    } else {
+                        "Ready for design"
+                    }
+                }
+            }
+
+        EngineeringStatus(
+            text = statusText,
+            success = state.engineeringError == null,
+            modifier = Modifier.padding(
+                horizontal = 8.dp,
+                vertical = 5.dp
+            )
+        )
+
+        if (!state.engineeringError.isNullOrBlank()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 8.dp,
+                        bottom = 5.dp
+                    ),
+                colors = CardDefaults.cardColors(
+                    containerColor =
+                        MaterialTheme.colorScheme.errorContainer
+                )
+            ) {
+                Text(
+                    text = state.engineeringError!!,
+                    modifier = Modifier.padding(12.dp),
+                    color =
+                        MaterialTheme.colorScheme.onErrorContainer,
+                    style =
+                        MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        /*
+         * ========================================================
+         * CONNECTION MODE
+         * ========================================================
+         */
+
+        if (state.connectionStartId != null) {
 
             val startNode =
                 state.nodes.firstOrNull {
-                    it.id ==
-                        state.connectionStartId
+                    it.id == state.connectionStartId
                 }
 
             Card(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            horizontal = 8.dp,
-                            vertical = 5.dp
-                        ),
-
-                colors =
-                    CardDefaults.cardColors(
-                        containerColor =
-                            Color(0xFFFFF3CD)
-                    )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 8.dp,
+                        bottom = 5.dp
+                    ),
+                colors = CardDefaults.cardColors(
+                    containerColor =
+                        MaterialTheme.colorScheme.secondaryContainer
+                )
             ) {
 
                 Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(9.dp),
-
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(10.dp),
                     verticalAlignment =
                         Alignment.CenterVertically
                 ) {
@@ -308,64 +344,53 @@ fun SldEditorScreen(
                     Icon(
                         imageVector =
                             Icons.Outlined.Link,
-
-                        contentDescription =
-                            null,
-
+                        contentDescription = null,
                         tint =
-                            Color(0xFF8A5A00)
+                            MaterialTheme.colorScheme.onSecondaryContainer
                     )
 
                     Spacer(
-                        modifier =
-                            Modifier.width(8.dp)
+                        modifier = Modifier.width(8.dp)
                     )
 
                     Column(
-                        modifier =
-                            Modifier.weight(1f)
+                        modifier = Modifier.weight(1f)
                     ) {
 
                         Text(
-                            text =
-                                if (arabic) {
-                                    "وضع التوصيل نشط"
-                                } else {
-                                    "CONNECTION MODE"
-                                },
-
-                            fontSize =
-                                13.sp,
-
+                            text = if (arabic) {
+                                "وضع التوصيل"
+                            } else {
+                                "CONNECTION MODE"
+                            },
+                            style =
+                                MaterialTheme.typography.labelLarge,
+                            fontWeight =
+                                FontWeight.Bold,
                             color =
-                                Color(0xFF6D4700)
+                                MaterialTheme.colorScheme.onSecondaryContainer
                         )
 
                         Text(
-                            text =
-                                if (arabic) {
-                                    "تم اختيار: ${startNode?.name ?: "العنصر الأول"} — اختر العنصر الثاني"
-                                } else {
-                                    "From: ${startNode?.name ?: "Start"} — select the destination component"
-                                },
-
-                            fontSize =
-                                11.sp,
-
+                            text = if (arabic) {
+                                "من: ${startNode?.name ?: "العنصر الأول"} — اختر العنصر الثاني"
+                            } else {
+                                "From: ${startNode?.name ?: "Start"} — select destination"
+                            },
+                            style =
+                                MaterialTheme.typography.bodySmall,
                             color =
-                                Color(0xFF795548)
+                                MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
 
                     OutlinedButton(
                         onClick = {
-                            state.connectionStartId =
-                                null
+                            state.connectionStartId = null
                         }
                     ) {
-
                         Text(
-                            if (arabic) {
+                            text = if (arabic) {
                                 "إلغاء"
                             } else {
                                 "Cancel"
@@ -383,286 +408,207 @@ fun SldEditorScreen(
          */
 
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Color(0xFFE7EDF1)
-                    )
-                    .horizontalScroll(
-                        rememberScrollState()
-                    )
-                    .padding(8.dp),
-
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(
+                    rememberScrollState()
+                )
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 5.dp
+                ),
             horizontalArrangement =
                 Arrangement.spacedBy(7.dp)
         ) {
 
             AddComponentMenu(
-                arabic =
-                    arabic,
-
+                arabic = arabic,
                 onType = {
                     actions.resetNodeEditor(it)
                 }
             )
 
-            ToolButton(
-                icon =
-                    Icons.Outlined.AutoFixHigh,
-
-                text =
+            SldToolButton(
+                icon = Icons.Outlined.Link,
+                text = if (
+                    state.connectionStartId == null
+                ) {
                     if (arabic) {
-                        "ترتيب تلقائي"
+                        "توصيل"
                     } else {
-                        "Auto Layout"
-                    },
-
-                onClick = {
-                    actions.autoLayout()
-                }
-            )
-
-            ToolButton(
-                icon =
-                    Icons.Outlined.Link,
-
-                text =
-                    if (
-                        state.connectionStartId == null
-                    ) {
-                        if (arabic) {
-                            "بدء التوصيل"
-                        } else {
-                            "Connect"
-                        }
+                        "Connect"
+                    }
+                } else {
+                    if (arabic) {
+                        "اختر الثاني"
                     } else {
-                        if (arabic) {
-                            "اختر العنصر الثاني"
-                        } else {
-                            "Select End"
-                        }
-                    },
-
+                        "Select End"
+                    }
+                },
                 onClick = {
                     actions.startOrCompleteConnection()
                 }
             )
 
-            ToolButton(
-                icon =
-                    Icons.Outlined.Delete,
+            SldToolButton(
+                icon = Icons.Outlined.AutoFixHigh,
+                text = if (arabic) {
+                    "ترتيب تلقائي"
+                } else {
+                    "Auto Layout"
+                },
+                onClick = {
+                    actions.autoLayout()
+                }
+            )
 
-                text =
-                    if (arabic) {
-                        "حذف"
-                    } else {
-                        "Delete"
-                    },
-
+            SldToolButton(
+                icon = Icons.Outlined.Delete,
+                text = if (arabic) {
+                    "حذف"
+                } else {
+                    "Delete"
+                },
                 onClick = {
                     actions.deleteSelected()
                 }
             )
 
-            ToolButton(
-                icon =
-                    Icons.Outlined.Calculate,
-
-                text =
-                    if (arabic) {
-                        "تيار القصر"
-                    } else {
-                        "Short Circuit"
-                    },
-
+            SldToolButton(
+                icon = Icons.Outlined.Calculate,
+                text = if (arabic) {
+                    "قصر"
+                } else {
+                    "Short Circuit"
+                },
                 onClick = {
                     actions.runShortCircuit()
                 }
             )
 
-            ToolButton(
-                icon =
-                    Icons.Outlined.TableView,
-
-                text =
-                    if (arabic) {
-                        "جدول اللوحة"
-                    } else {
-                        "Panel Schedule"
-                    },
-
+            SldToolButton(
+                icon = Icons.Outlined.TableView,
+                text = if (arabic) {
+                    "جدول اللوحة"
+                } else {
+                    "Panel Schedule"
+                },
                 onClick = {
                     actions.runPanelSchedule()
                 }
             )
 
-            ToolButton(
-                icon =
-                    Icons.Outlined.Settings,
-
-                text =
-                    if (arabic) {
-                        "الدراسة الكاملة"
-                    } else {
-                        "Complete Study"
-                    },
-
+            SldToolButton(
+                icon = Icons.Outlined.Settings,
+                text = if (arabic) {
+                    "الدراسة"
+                } else {
+                    "Complete Study"
+                },
                 onClick = {
                     actions.generateCompleteSld()
                 }
             )
 
-            Button(
+            SldToolButton(
+                icon = Icons.Outlined.PictureAsPdf,
+                text = if (arabic) {
+                    "PDF"
+                } else {
+                    "PDF"
+                },
                 onClick = {
 
-                    if (
-                        state.reportText.isBlank()
-                    ) {
-
+                    if (state.reportText.isBlank()) {
                         actions.generateCompleteSld()
-
                     } else {
-
                         pdfLauncher.launch(
                             "SLD_Engineering_Report.pdf"
                         )
                     }
                 }
-            ) {
-
-                Icon(
-                    imageVector =
-                        Icons.Outlined.PictureAsPdf,
-
-                    contentDescription =
-                        null
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.width(5.dp)
-                )
-
-                Text(
-                    if (arabic) {
-                        "تقرير PDF"
-                    } else {
-                        "PDF Report"
-                    }
-                )
-            }
+            )
         }
 
         /*
          * ========================================================
-         * ENGINEERING STATUS
+         * DESIGN INFORMATION BAR
          * ========================================================
          */
 
         Card(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        horizontal = 8.dp,
-                        vertical = 5.dp
-                    ),
-
-            colors =
-                CardDefaults.cardColors(
-                    containerColor =
-                        Color.White
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 2.dp
+                ),
+            colors = CardDefaults.cardColors(
+                containerColor =
+                    MaterialTheme.colorScheme.surface
+            ),
+            elevation =
+                CardDefaults.cardElevation(
+                    defaultElevation = 1.dp
                 )
         ) {
 
             Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(10.dp),
-
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(10.dp),
+                horizontalArrangement =
+                    Arrangement.SpaceBetween,
                 verticalAlignment =
                     Alignment.CenterVertically
             ) {
 
-                Column(
-                    modifier =
-                        Modifier.weight(1f)
-                ) {
-
-                    val status =
-                        when {
-
-                            state.connectionStartId != null ->
-                                if (arabic) {
-                                    "في انتظار الطرف الثاني"
-                                } else {
-                                    "Waiting for destination"
-                                }
-
-                            state.selectedNodeId != null ->
-                                if (arabic) {
-                                    "عنصر محدد"
-                                } else {
-                                    "Component selected"
-                                }
-
-                            state.selectedConnectionId != null ->
-                                if (arabic) {
-                                    "وصلة محددة"
-                                } else {
-                                    "Connection selected"
-                                }
-
-                            else ->
-                                if (arabic) {
-                                    "جاهز للتصميم"
-                                } else {
-                                    "Ready for design"
-                                }
-                        }
-
-                    Text(
-                        text =
-                            status,
-
-                        fontSize =
-                            13.sp
-                    )
-
-                    if (
-                        state.engineeringError !=
-                            null
-                    ) {
-
-                        Spacer(
-                            modifier =
-                                Modifier.height(3.dp)
-                        )
-
-                        Text(
-                            text =
-                                state.engineeringError!!,
-
-                            fontSize =
-                                11.sp,
-
-                            color =
-                                Color(0xFFC62828)
-                        )
+                SldMetric(
+                    value = state.nodes.size.toString(),
+                    label = if (arabic) {
+                        "عناصر"
+                    } else {
+                        "Nodes"
                     }
-                }
+                )
+
+                SldMetric(
+                    value = state.connections.size.toString(),
+                    label = if (arabic) {
+                        "وصلات"
+                    } else {
+                        "Connections"
+                    }
+                )
+
+                SldMetric(
+                    value =
+                        if (
+                            state.engineeringPackage != null
+                        ) {
+                            "OK"
+                        } else {
+                            "—"
+                        },
+                    label = if (arabic) {
+                        "الحساب"
+                    } else {
+                        "Study"
+                    }
+                )
 
                 Text(
-                    text =
-                        "${state.nodes.size} Nodes  •  ${state.connections.size} Connections",
-
-                    fontSize =
-                        11.sp,
-
+                    text = if (arabic) {
+                        "SLD Engineering"
+                    } else {
+                        "SLD Engineering"
+                    },
+                    style =
+                        MaterialTheme.typography.labelMedium,
+                    fontWeight =
+                        FontWeight.Bold,
                     color =
-                        Color(0xFF607D8B)
+                        MaterialTheme.colorScheme.primary
                 )
             }
         }
@@ -674,22 +620,18 @@ fun SldEditorScreen(
          */
 
         Box(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(6.dp)
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(6.dp)
         ) {
 
             SldCanvas(
-                modifier =
-                    Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize(),
 
-                nodes =
-                    state.nodes,
+                nodes = state.nodes,
 
-                connections =
-                    state.connections,
+                connections = state.connections,
 
                 selectedNodeId =
                     state.selectedNodeId,
@@ -705,17 +647,12 @@ fun SldEditorScreen(
 
                 onSelectNode = { id ->
 
-                    state.selectedNodeId =
-                        id
-
-                    state.selectedConnectionId =
-                        null
+                    state.selectedNodeId = id
+                    state.selectedConnectionId = null
 
                     if (
-                        state.connectionStartId !=
-                            null
+                        state.connectionStartId != null
                     ) {
-
                         actions.startOrCompleteConnection()
                     }
                 },
@@ -723,17 +660,13 @@ fun SldEditorScreen(
                 onMoveNode = { id, dx, dy ->
 
                     if (
-                        state.connectionStartId ==
-                            null
+                        state.connectionStartId == null
                     ) {
 
                         state.nodes =
                             state.nodes.map { node ->
 
-                                if (
-                                    node.id ==
-                                        id
-                                ) {
+                                if (node.id == id) {
 
                                     node.copy(
                                         x =
@@ -741,7 +674,6 @@ fun SldEditorScreen(
                                                 20f,
                                                 node.x + dx
                                             ),
-
                                         y =
                                             kotlin.math.max(
                                                 20f,
@@ -759,8 +691,7 @@ fun SldEditorScreen(
                 onMoveNodeEnd = {
 
                     if (
-                        state.connectionStartId ==
-                            null
+                        state.connectionStartId == null
                     ) {
                         actions.saveAndRecalculate()
                     }
@@ -768,11 +699,8 @@ fun SldEditorScreen(
 
                 onSelectConnection = { id ->
 
-                    state.selectedConnectionId =
-                        id
-
-                    state.selectedNodeId =
-                        null
+                    state.selectedConnectionId = id
+                    state.selectedNodeId = null
                 },
 
                 onEditNode = {
@@ -783,26 +711,22 @@ fun SldEditorScreen(
                     actions.editConnection(it)
                 }
             )
-        }
+        )
     }
 
     /*
      * ============================================================
-     * NODE DIALOG
+     * NODE EDITOR
      * ============================================================
      */
 
-    if (
-        state.showNodeDialog
-    ) {
+    if (state.showNodeDialog) {
 
         SldNodeEditorDialog(
-            arabic =
-                arabic,
+            arabic = arabic,
 
             editing =
-                state.editingNodeId !=
-                    null,
+                state.editingNodeId != null,
 
             type =
                 state.nodeType,
@@ -875,25 +799,19 @@ fun SldEditorScreen(
             },
 
             onCancel = {
-
-                state.showNodeDialog =
-                    false
-
-                state.editingNodeId =
-                    null
+                state.showNodeDialog = false
+                state.editingNodeId = null
             }
         )
     }
 
     /*
      * ============================================================
-     * CONNECTION DIALOG
+     * CONNECTION EDITOR
      * ============================================================
      */
 
-    if (
-        state.showConnectionDialog
-    ) {
+    if (state.showConnectionDialog) {
 
         SldConnectionEditorDialog(
             arabic =
@@ -995,52 +913,70 @@ fun SldEditorScreen(
             },
 
             onCancel = {
-
-                state.showConnectionDialog =
-                    false
-
-                state.editingConnectionId =
-                    null
-
-                state.connectionStartId =
-                    null
+                state.showConnectionDialog = false
+                state.editingConnectionId = null
+                state.connectionStartId = null
             }
         )
     }
 
     /*
      * ============================================================
-     * REPORT
+     * ENGINEERING REPORT
      * ============================================================
      */
 
-    if (
-        state.showReport
-    ) {
+    if (state.showReport) {
 
         AlertDialog(
             onDismissRequest = {
-                state.showReport =
-                    false
+                state.showReport = false
             },
 
             title = {
-                Text(
-                    state.reportTitle
-                )
+                Column(
+                    verticalArrangement =
+                        Arrangement.spacedBy(3.dp)
+                ) {
+                    Text(
+                        text =
+                            state.reportTitle.ifBlank {
+                                if (arabic) {
+                                    "تقرير التصميم"
+                                } else {
+                                    "Engineering Report"
+                                }
+                            },
+                        style =
+                            MaterialTheme.typography.titleLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Text(
+                        text =
+                            if (arabic) {
+                                "نتائج دراسة المخطط الأحادي"
+                            } else {
+                                "Single line diagram engineering study"
+                            },
+                        style =
+                            MaterialTheme.typography.bodySmall,
+                        color =
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             },
 
             text = {
 
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(520.dp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor =
+                            MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
-
-                    val scrollState =
-                        rememberScrollState()
 
                     Text(
                         text =
@@ -1049,13 +985,14 @@ fun SldEditorScreen(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
-                                .padding(4.dp)
+                                .height(520.dp)
                                 .verticalScroll(
-                                    scrollState
-                                ),
+                                    rememberScrollState()
+                                )
+                                .padding(14.dp),
 
-                        fontSize =
-                            11.sp
+                        style =
+                            MaterialTheme.typography.bodySmall
                     )
                 }
             },
@@ -1064,7 +1001,6 @@ fun SldEditorScreen(
 
                 Button(
                     onClick = {
-
                         pdfLauncher.launch(
                             "SLD_Engineering_Report.pdf"
                         )
@@ -1074,7 +1010,6 @@ fun SldEditorScreen(
                     Icon(
                         imageVector =
                             Icons.Outlined.PictureAsPdf,
-
                         contentDescription =
                             null
                     )
@@ -1085,30 +1020,30 @@ fun SldEditorScreen(
                     )
 
                     Text(
-                        if (arabic) {
-                            "تصدير PDF"
-                        } else {
-                            "Export PDF"
-                        }
+                        text =
+                            if (arabic) {
+                                "تصدير PDF"
+                            } else {
+                                "Export PDF"
+                            }
                     )
                 }
             },
 
             dismissButton = {
 
-                androidx.compose.material3.TextButton(
+                TextButton(
                     onClick = {
-                        state.showReport =
-                            false
+                        state.showReport = false
                     }
                 ) {
-
                     Text(
-                        if (arabic) {
-                            "إغلاق"
-                        } else {
-                            "Close"
-                        }
+                        text =
+                            if (arabic) {
+                                "إغلاق"
+                            } else {
+                                "Close"
+                            }
                     )
                 }
             }
@@ -1123,36 +1058,25 @@ fun SldEditorScreen(
  */
 
 @Composable
-private fun ToolButton(
-    icon:
-        androidx.compose.ui.graphics.vector.ImageVector,
-
+private fun SldToolButton(
+    icon: ImageVector,
     text: String,
-
     onClick: () -> Unit
 ) {
-
     OutlinedButton(
-        onClick =
-            onClick
+        onClick = onClick
     ) {
-
         Icon(
-            imageVector =
-                icon,
-
-            contentDescription =
-                null
+            imageVector = icon,
+            contentDescription = null
         )
 
         Spacer(
-            modifier =
-                Modifier.width(5.dp)
+            modifier = Modifier.width(5.dp)
         )
 
         Text(
-            text =
-                text
+            text = text
         )
     }
 }
@@ -1168,7 +1092,6 @@ private fun AddComponentMenu(
     arabic: Boolean,
     onType: (SldNodeType) -> Unit
 ) {
-
     var expanded by remember {
         mutableStateOf(false)
     }
@@ -1177,15 +1100,13 @@ private fun AddComponentMenu(
 
         Button(
             onClick = {
-                expanded =
-                    true
+                expanded = true
             }
         ) {
 
             Icon(
                 imageVector =
                     Icons.Outlined.Add,
-
                 contentDescription =
                     null
             )
@@ -1196,21 +1117,19 @@ private fun AddComponentMenu(
             )
 
             Text(
-                if (arabic) {
-                    "إضافة عنصر"
-                } else {
-                    "Add Component"
-                }
+                text =
+                    if (arabic) {
+                        "إضافة عنصر"
+                    } else {
+                        "Add Component"
+                    }
             )
         }
 
         DropdownMenu(
-            expanded =
-                expanded,
-
+            expanded = expanded,
             onDismissRequest = {
-                expanded =
-                    false
+                expanded = false
             }
         ) {
 
@@ -1219,32 +1138,66 @@ private fun AddComponentMenu(
 
                     DropdownMenuItem(
                         text = {
-
                             Text(
-                                sldNodeTypeLabel(
-                                    type =
+                                text =
+                                    sldNodeTypeLabel(
                                         type,
-
-                                    arabic =
                                         arabic
-                                )
+                                    )
                             )
                         },
 
                         onClick = {
-
-                            expanded =
-                                false
-
-                            onType(
-                                type
-                            )
+                            expanded = false
+                            onType(type)
                         }
                     )
                 }
         }
     }
 }
+
+/*
+ * ================================================================
+ * METRIC
+ * ================================================================
+ */
+
+@Composable
+private fun SldMetric(
+    value: String,
+    label: String
+) {
+    Column(
+        horizontalAlignment =
+            Alignment.CenterHorizontally
+    ) {
+
+        Text(
+            text = value,
+            style =
+                MaterialTheme.typography.titleMedium,
+            fontWeight =
+                FontWeight.Bold,
+            color =
+                MaterialTheme.colorScheme.primary
+        )
+
+        Text(
+            text = label,
+            style =
+                MaterialTheme.typography.labelSmall,
+            color =
+                MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/*
+ * ================================================================
+ * NODE LABEL
+ * ================================================================
+ */
 
 private fun sldNodeTypeLabel(
     type: SldNodeType,
