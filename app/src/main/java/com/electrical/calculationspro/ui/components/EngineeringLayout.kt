@@ -22,283 +22,331 @@ import kotlin.math.max
 
 @Composable
 fun EngineeringPage(
-title: String,
-subtitle: String? = null,
-onBack: (() -> Unit)? = null,
-content: @Composable ColumnScope.() -> Unit
+    title: String,
+    subtitle: String? = null,
+    onBack: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
 ) {
-Column(
-modifier = Modifier
-.fillMaxWidth()
-.background(
-MaterialTheme.colorScheme.background
-)
-.verticalScroll(
-rememberScrollState()
-)
-.padding(16.dp),
-verticalArrangement =
-Arrangement.spacedBy(14.dp)
-) {
-EngineeringScreenHeader(
-title = title,
-subtitle = subtitle,
-onBack = onBack
-)
-
-    content()
-}
-
-}
-
-@Composable
-fun EngineeringCard(
-title: String? = null,
-content: @Composable ColumnScope.() -> Unit
-) {
-Card(
-modifier = Modifier.fillMaxWidth(),
-colors = CardDefaults.cardColors(
-containerColor =
-MaterialTheme.colorScheme.surface
-),
-elevation = CardDefaults.cardElevation(
-defaultElevation = 1.dp
-)
-) {
-Column(
-modifier = Modifier
-.fillMaxWidth()
-.padding(14.dp),
-verticalArrangement =
-Arrangement.spacedBy(10.dp)
-) {
-title?.let {
-Text(
-text = it,
-color =
-MaterialTheme.colorScheme.onSurface,
-style =
-MaterialTheme.typography.titleMedium,
-fontWeight = FontWeight.Bold
-)
-}
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        EngineeringScreenHeader(
+            title = title,
+            subtitle = subtitle,
+            onBack = onBack
+        )
 
         content()
     }
 }
 
+@Composable
+fun EngineeringCard(
+    title: String? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 1.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (!title.isNullOrBlank()) {
+                Text(
+                    text = title,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            content()
+        }
+    }
 }
 
 @Composable
 fun FourColumnGrid(
-modifier: Modifier = Modifier,
-horizontalSpacing: Int = 10,
-verticalSpacing: Int = 10,
-content: @Composable () -> Unit
+    modifier: Modifier = Modifier,
+    horizontalSpacing: Int = 10,
+    verticalSpacing: Int = 10,
+    content: @Composable () -> Unit
 ) {
-Layout(
-modifier = modifier.fillMaxWidth(),
-content = content
-) { measurables, constraints ->
+    Layout(
+        modifier = modifier.fillMaxWidth(),
+        content = content
+    ) { measurables, constraints ->
 
-    if (measurables.isEmpty()) {
-        layout(
-            width = constraints.minWidth,
-            height = constraints.minHeight
-        ) {}
-        return@Layout
-    }
+        val columns = 4
 
-    val columns = 4
+        val spacingX = horizontalSpacing.dp.roundToPx()
+        val spacingY = verticalSpacing.dp.roundToPx()
 
-    val spacingX =
-        horizontalSpacing.dp.roundToPx()
+        /*
+         * Keep the measure policy valid for both bounded and unbounded
+         * width constraints.
+         */
+        val availableWidth = constraints.maxWidth
 
-    val spacingY =
-        verticalSpacing.dp.roundToPx()
+        if (measurables.isEmpty()) {
+            layout(
+                width = constraints.minWidth,
+                height = constraints.minHeight
+            ) {
+                // Nothing to place.
+            }
+        } else if (availableWidth == Int.MAX_VALUE) {
 
-    val availableWidth =
-        constraints.maxWidth
-
-    val columnWidth =
-        if (availableWidth == Int.MAX_VALUE) {
-            0
-        } else {
-            max(
-                0,
-                (
-                    availableWidth -
-                        spacingX * (columns - 1)
-                    ) / columns
-            )
-        }
-
-    val measured =
-        measurables.map { measurable ->
-
-            if (columnWidth > 0) {
+            /*
+             * Unbounded width:
+             * measure children naturally, then arrange them in four
+             * columns using the largest child width.
+             */
+            val measured = measurables.map { measurable ->
                 measurable.measure(
                     constraints.copy(
-                        minWidth = columnWidth,
-                        maxWidth = columnWidth
+                        minWidth = 0,
+                        maxWidth = constraints.maxWidth
                     )
                 )
-            } else {
-                measurable.measure(
-                    constraints
-                )
             }
-        }
 
-    val rowCount =
-        (measured.size + columns - 1) / columns
+            val naturalColumnWidth =
+                measured.maxOfOrNull { it.width } ?: 0
 
-    val rowHeights =
-        IntArray(rowCount)
+            val columnWidth =
+                max(1, naturalColumnWidth)
 
-    measured.forEachIndexed {
-            index,
-            placeable
-        ->
-        val row = index / columns
+            val rowCount =
+                (measured.size + columns - 1) / columns
 
-        rowHeights[row] =
-            max(
-                rowHeights[row],
-                placeable.height
-            )
-    }
+            val rowHeights = IntArray(rowCount)
 
-    val totalHeight =
-        rowHeights.sum() +
-            spacingY * (rowCount - 1)
+            measured.forEachIndexed { index, placeable ->
+                val row = index / columns
 
-    val finalWidth =
-        if (constraints.maxWidth != Int.MAX_VALUE) {
-            constraints.maxWidth
+                rowHeights[row] =
+                    max(
+                        rowHeights[row],
+                        placeable.height
+                    )
+            }
+
+            val totalHeight =
+                rowHeights.sum() +
+                    spacingY * max(0, rowCount - 1)
+
+            val finalWidth =
+                columnWidth * columns +
+                    spacingX * (columns - 1)
+
+            val finalHeight =
+                totalHeight.coerceIn(
+                    constraints.minHeight,
+                    constraints.maxHeight
+                )
+
+            layout(
+                width = finalWidth,
+                height = finalHeight
+            ) {
+                var y = 0
+
+                rowHeights.forEachIndexed { row, rowHeight ->
+
+                    for (column in 0 until columns) {
+                        val index =
+                            row * columns + column
+
+                        if (index >= measured.size) {
+                            continue
+                        }
+
+                        val placeable =
+                            measured[index]
+
+                        val x =
+                            column *
+                                (columnWidth + spacingX)
+
+                        placeable.placeRelative(
+                            x = x,
+                            y = y
+                        )
+                    }
+
+                    y += rowHeight + spacingY
+                }
+            }
         } else {
-            columnWidth * columns +
-                spacingX * (columns - 1)
-        }
 
-    val finalHeight =
-        totalHeight.coerceIn(
-            constraints.minHeight,
-            constraints.maxHeight
-        )
+            /*
+             * Normal bounded layout:
+             * divide the available width equally between four columns.
+             */
+            val columnWidth =
+                max(
+                    1,
+                    (
+                        availableWidth -
+                            spacingX * (columns - 1)
+                        ) / columns
+                )
 
-    layout(
-        width = finalWidth,
-        height = finalHeight
-    ) {
-        var y = 0
-
-        rowHeights.forEachIndexed {
-                row,
-                rowHeight
-            ->
-
-            for (column in 0 until columns) {
-                val index =
-                    row * columns + column
-
-                if (index >= measured.size) {
-                    continue
+            val measured =
+                measurables.map { measurable ->
+                    measurable.measure(
+                        constraints.copy(
+                            minWidth = columnWidth,
+                            maxWidth = columnWidth
+                        )
+                    )
                 }
 
-                val placeable =
-                    measured[index]
+            val rowCount =
+                (measured.size + columns - 1) / columns
 
-                val x =
-                    column *
-                        (columnWidth + spacingX)
+            val rowHeights =
+                IntArray(rowCount)
 
-                placeable.placeRelative(
-                    x = x,
-                    y = y
-                )
+            measured.forEachIndexed { index, placeable ->
+                val row = index / columns
+
+                rowHeights[row] =
+                    max(
+                        rowHeights[row],
+                        placeable.height
+                    )
             }
 
-            y += rowHeight + spacingY
+            val totalHeight =
+                rowHeights.sum() +
+                    spacingY * max(0, rowCount - 1)
+
+            val finalHeight =
+                totalHeight.coerceIn(
+                    constraints.minHeight,
+                    constraints.maxHeight
+                )
+
+            layout(
+                width = availableWidth,
+                height = finalHeight
+            ) {
+                var y = 0
+
+                rowHeights.forEachIndexed { row, rowHeight ->
+
+                    for (column in 0 until columns) {
+                        val index =
+                            row * columns + column
+
+                        if (index >= measured.size) {
+                            continue
+                        }
+
+                        val placeable =
+                            measured[index]
+
+                        val x =
+                            column *
+                                (columnWidth + spacingX)
+
+                        placeable.placeRelative(
+                            x = x,
+                            y = y
+                        )
+                    }
+
+                    y += rowHeight + spacingY
+                }
+            }
         }
     }
-}
-
 }
 
 @Composable
 fun FourColumnFields(
-content: @Composable FourColumnScope.() -> Unit
+    content: @Composable FourColumnScope.() -> Unit
 ) {
-val scope = FourColumnScopeImpl()
+    val scope = FourColumnScopeImpl()
 
-content(scope)
+    content(scope)
 
-FourColumnGrid {
-    scope.items.forEach { item ->
-        Box(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            item()
+    FourColumnGrid {
+        scope.items.forEach { item ->
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                item()
+            }
         }
     }
 }
 
-}
-
 interface FourColumnScope {
-fun item(
-content: @Composable () -> Unit
-)
+
+    fun item(
+        content: @Composable () -> Unit
+    )
 }
 
-private class FourColumnScopeImpl :
-FourColumnScope {
+private class FourColumnScopeImpl : FourColumnScope {
 
-val items =
-    mutableListOf<@Composable () -> Unit>()
+    val items =
+        mutableListOf<@Composable () -> Unit>()
 
-override fun item(
-    content: @Composable () -> Unit
-) {
-    items += content
-}
-
+    override fun item(
+        content: @Composable () -> Unit
+    ) {
+        items += content
+    }
 }
 
 @Composable
 fun FourColumnResults(
-content: @Composable FourColumnScope.() -> Unit
+    content: @Composable FourColumnScope.() -> Unit
 ) {
-FourColumnFields(content)
+    FourColumnFields(content)
 }
 
 @Composable
 fun EngineeringResultCard(
-title: String,
-value: String
+    title: String,
+    value: String
 ) {
-EngineeringResult(
-title = title,
-value = value
-)
+    EngineeringResult(
+        title = title,
+        value = value
+    )
 }
 
 @Composable
 fun EngineeringSectionTitle(
-text: String
+    text: String
 ) {
-Text(
-text = text,
-color =
-MaterialTheme.colorScheme.onSurface,
-style =
-MaterialTheme.typography.titleMedium,
-fontWeight = FontWeight.Bold,
-modifier = Modifier.padding(
-top = 4.dp,
-bottom = 2.dp
-)
-)
+    Text(
+        text = text,
+        color = MaterialTheme.colorScheme.onSurface,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(
+            top = 4.dp,
+            bottom = 2.dp
+        )
+    )
 }
