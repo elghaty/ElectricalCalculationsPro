@@ -4,8 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -97,7 +97,9 @@ fun SldConnectionEditorDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                    .verticalScroll(
+                        rememberScrollState()
+                    ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
 
@@ -417,7 +419,10 @@ private fun nextInstallationMethod(
 
     val index = methods.indexOf(current)
 
-    return if (index < 0 || index >= methods.lastIndex) {
+    return if (
+        index < 0 ||
+        index >= methods.lastIndex
+    ) {
         methods.first()
     } else {
         methods[index + 1]
