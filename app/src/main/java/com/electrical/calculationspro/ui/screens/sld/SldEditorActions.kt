@@ -1,16 +1,22 @@
 package com.electrical.calculationspro.ui.screens.sld
 
+import com.electrical.calculationspro.data.AppLanguage
+import com.electrical.calculationspro.data.SldAutoLayoutEngine
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldConnectionType
+import com.electrical.calculationspro.data.SldEngineeringFacade
+import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
 import com.electrical.calculationspro.data.SldNetwork
+import kotlin.math.abs
 import kotlin.math.sqrt
 import java.util.Locale
 
 class SldEditorActions(
 private val state: SldEditorState,
-private val arabic: Boolean = false,
+private val language: AppLanguage? = null,
+private val arabic: Boolean = language == AppLanguage.ARABIC,
 private val onSave: ((SldNetwork) -> Unit)? = null
 ) {
 
@@ -18,21 +24,36 @@ private companion object {
     const val MIN_X = 40f
     const val MIN_Y = 40f
     const val GRID = 20f
-    const val NODE_GAP = 70f
+
+    const val NODE_GAP_X = 70f
+    const val NODE_GAP_Y = 50f
+
     const val DEFAULT_X = 700f
     const val DEFAULT_Y = 160f
+
+    const val POSITION_STEP_X = 220f
+    const val POSITION_STEP_Y = 180f
 
     const val DEFAULT_BUSBAR_CURRENT_A = 400.0
     const val DEFAULT_BUSBAR_SHORT_CIRCUIT_KA = 25.0
 }
 
-private fun network(): SldNetwork =
-    SldNetwork(
+// ============================================================
+// NETWORK
+// ============================================================
+
+private fun network(): SldNetwork {
+    return SldNetwork(
         nodes = state.nodes,
         connections = state.connections
     )
+}
 
-private fun saveAndRecalculate() {
+// ============================================================
+// ENGINEERING
+// ============================================================
+
+fun saveAndRecalculate() {
     recalculateEngineering()
     onSave?.invoke(network())
 }
@@ -41,14 +62,22 @@ fun recalculateEngineering() {
     try {
         state.engineeringError = null
 
-        val result =
-            SldUpstreamEngineering.calculate(
+        /*
+         * The UI must consume the complete engineering package.
+         * Do not assign SldUpstreamEngineering.Result directly
+         * to state.engineeringPackage.
+         */
+        val result: SldEngineeringPackage =
+            SldEngineeringFacade.calculateComplete(
                 network = network()
             )
 
         state.engineeringPackage = result
+
     } catch (e: Exception) {
+
         state.engineeringPackage = null
+
         state.engineeringError =
             e.message
                 ?: if (arabic) {
@@ -60,12 +89,63 @@ fun recalculateEngineering() {
 }
 
 // ============================================================
+// PROJECT / INITIAL LOAD
+// ============================================================
+
+fun loadProjectNetwork() {
+    /*
+     * The current SLD editor keeps its project network in
+     * SldEditorState. Project persistence can call onSave.
+     *
+     * Loading therefore means synchronizing the current
+     * state with the engineering facade.
+     */
+    recalculateEngineering()
+}
+
+// ============================================================
+// COMPLETE SLD
+// ============================================================
+
+fun generateCompleteSld() {
+
+    try {
+
+        val generated =
+            SldCompleteGenerator.generate()
+
+        state.nodes =
+            generated.nodes
+
+        state.connections =
+            generated.connections
+
+        state.clearSelection()
+
+        saveAndRecalculate()
+
+    } catch (e: Exception) {
+
+        state.engineeringError =
+            e.message
+                ?: if (arabic) {
+                    "فشل إنشاء المخطط الكهربائي الكامل."
+                } else {
+                    "Failed to generate the complete SLD."
+                }
+    }
+}
+
+// ============================================================
 // NODE CREATION
 // ============================================================
 
-fun addNode(type: SldNodeType) {
+fun addNode(
+    type: SldNodeType
+) {
 
-    val position = findFreeNodePosition()
+    val position =
+        findFreeNodePosition()
 
     val node =
         SldNode(
@@ -75,19 +155,23 @@ fun addNode(type: SldNodeType) {
             x = position.first,
             y = position.second,
             voltage = 400.0,
+
             loadKw =
                 if (type == SldNodeType.LOAD) {
                     100.0
                 } else {
                     0.0
                 },
+
             powerFactor = 0.90,
+
             demandFactor =
                 if (type == SldNodeType.LOAD) {
                     0.80
                 } else {
                     1.0
                 },
+
             ratedKva =
                 when (type) {
                     SldNodeType.TRANSFORMER -> 500.0
@@ -95,18 +179,21 @@ fun addNode(type: SldNodeType) {
                     SldNodeType.PANEL -> 500.0
                     else -> 0.0
                 },
+
             transformerPercentZ =
                 if (type == SldNodeType.TRANSFORMER) {
                     6.0
                 } else {
                     0.0
                 },
+
             generatorXdSubtransient =
                 if (type == SldNodeType.GENERATOR) {
                     15.0
                 } else {
                     0.0
                 },
+
             sourceShortCircuitMva =
                 if (type == SldNodeType.SOURCE) {
                     500.0
@@ -118,9 +205,14 @@ fun addNode(type: SldNodeType) {
     state.nodes =
         state.nodes + node
 
-    state.selectedNodeId = node.id
-    state.selectedConnectionId = null
-    state.connectionStartId = null
+    state.selectedNodeId =
+        node.id
+
+    state.selectedConnectionId =
+        null
+
+    state.connectionStartId =
+        null
 
     saveAndRecalculate()
 }
@@ -131,16 +223,31 @@ private fun defaultNodeName(
 
     val prefix =
         when (type) {
-            SldNodeType.SOURCE -> "UTILITY"
-            SldNodeType.TRANSFORMER -> "TR"
-            SldNodeType.GENERATOR -> "GEN"
-            SldNodeType.BUS -> "BUS"
-            SldNodeType.PANEL -> "MDB"
-            SldNodeType.BREAKER -> "CB"
-            SldNodeType.LOAD -> "LOAD"
+
+            SldNodeType.SOURCE ->
+                "UTILITY"
+
+            SldNodeType.TRANSFORMER ->
+                "TR"
+
+            SldNodeType.GENERATOR ->
+                "GEN"
+
+            SldNodeType.BUS ->
+                "BUS"
+
+            SldNodeType.PANEL ->
+                "MDB"
+
+            SldNodeType.BREAKER ->
+                "CB"
+
+            SldNodeType.LOAD ->
+                "LOAD"
         }
 
-    var index = 1
+    var index =
+        1
 
     while (
         state.nodes.any {
@@ -157,10 +264,84 @@ private fun defaultNodeName(
 }
 
 // ============================================================
-// FREE POSITION
+// NODE EDITOR RESET
 // ============================================================
 
-private fun findFreeNodePosition(): Pair<Float, Float> {
+fun resetNodeEditor(
+    type: SldNodeType
+) {
+
+    state.editingNodeId =
+        null
+
+    state.nodeType =
+        type
+
+    state.name =
+        ""
+
+    state.voltage =
+        "400"
+
+    state.loadKw =
+        if (type == SldNodeType.LOAD) {
+            "100"
+        } else {
+            "0"
+        }
+
+    state.pf =
+        "0.90"
+
+    state.demand =
+        if (type == SldNodeType.LOAD) {
+            "0.80"
+        } else {
+            "1.00"
+        }
+
+    state.kva =
+        when (type) {
+            SldNodeType.TRANSFORMER,
+            SldNodeType.GENERATOR,
+            SldNodeType.PANEL ->
+                "500"
+
+            else ->
+                "0"
+        }
+
+    state.transformerZ =
+        if (type == SldNodeType.TRANSFORMER) {
+            "6"
+        } else {
+            "0"
+        }
+
+    state.generatorXd =
+        if (type == SldNodeType.GENERATOR) {
+            "15"
+        } else {
+            "0"
+        }
+
+    state.sourceMva =
+        if (type == SldNodeType.SOURCE) {
+            "500"
+        } else {
+            "0"
+        }
+
+    state.showNodeDialog =
+        true
+}
+
+// ============================================================
+// FREE NODE POSITION
+// ============================================================
+
+private fun findFreeNodePosition():
+    Pair<Float, Float> {
 
     if (state.nodes.isEmpty()) {
         return DEFAULT_X to DEFAULT_Y
@@ -169,36 +350,55 @@ private fun findFreeNodePosition(): Pair<Float, Float> {
     val candidates =
         mutableListOf<Pair<Float, Float>>()
 
-    for (row in 0..14) {
-        for (column in 0..14) {
+    /*
+     * Primary working-area grid.
+     */
+    for (row in 0..16) {
+
+        for (column in 0..16) {
 
             candidates +=
                 (
                     DEFAULT_X +
-                        column * 220f
+                        column * POSITION_STEP_X
                     ) to
                     (
                         DEFAULT_Y +
-                            row * 180f
+                            row * POSITION_STEP_Y
                         )
         }
     }
 
+    /*
+     * Positions beside existing elements.
+     */
     state.nodes.forEach { node ->
 
         candidates +=
-            (node.x + 220f) to node.y
+            (
+                node.x +
+                    POSITION_STEP_X
+                ) to node.y
 
         candidates +=
-            (node.x - 220f) to node.y
+            (
+                node.x -
+                    POSITION_STEP_X
+                ) to node.y
 
         candidates +=
             node.x to
-                (node.y + 180f)
+                (
+                    node.y +
+                        POSITION_STEP_Y
+                    )
 
         candidates +=
             node.x to
-                (node.y - 180f)
+                (
+                    node.y -
+                        POSITION_STEP_Y
+                    )
     }
 
     return candidates
@@ -233,8 +433,11 @@ private fun isFreePosition(
     return state.nodes.none { existing ->
 
         val dx =
-            kotlin.math.abs(
-                x + NODE_WIDTH / 2f -
+            abs(
+                (
+                    x +
+                        NODE_WIDTH / 2f
+                    ) -
                     (
                         existing.x +
                             NODE_WIDTH / 2f
@@ -242,42 +445,70 @@ private fun isFreePosition(
             )
 
         val dy =
-            kotlin.math.abs(
-                y + NODE_HEIGHT / 2f -
+            abs(
+                (
+                    y +
+                        NODE_HEIGHT / 2f
+                    ) -
                     (
                         existing.y +
                             NODE_HEIGHT / 2f
                         )
             )
 
-        dx >= NODE_WIDTH + NODE_GAP ||
-            dy >= NODE_HEIGHT + NODE_GAP
+        /*
+         * Position is free only when the candidate rectangle
+         * is separated from the existing rectangle in at
+         * least one axis.
+         */
+        dx >=
+            NODE_WIDTH +
+                NODE_GAP_X ||
+            dy >=
+            NODE_HEIGHT +
+                NODE_GAP_Y
     }
 }
 
 private fun fallbackFreePosition():
     Pair<Float, Float> {
 
-    var x = DEFAULT_X
-    var y = DEFAULT_Y
-    var attempts = 0
+    var x =
+        DEFAULT_X
+
+    var y =
+        DEFAULT_Y
+
+    var attempts =
+        0
 
     while (
-        attempts < 500 &&
-        !isFreePosition(x, y)
+        attempts < 1000 &&
+        !isFreePosition(
+            x,
+            y
+        )
     ) {
 
-        x += 240f
+        x +=
+            POSITION_STEP_X
 
-        if (x > 2600f) {
-            x = DEFAULT_X
-            y += 200f
+        if (x > 4000f) {
+
+            x =
+                DEFAULT_X
+
+            y +=
+                POSITION_STEP_Y
         }
 
         attempts++
     }
 
-    return snapToGrid(x, y)
+    return snapToGrid(
+        x,
+        y
+    )
 }
 
 private fun distanceFromWorkingArea(
@@ -285,8 +516,13 @@ private fun distanceFromWorkingArea(
     y: Float
 ): Float {
 
-    val dx = x - DEFAULT_X
-    val dy = y - DEFAULT_Y
+    val dx =
+        x -
+            DEFAULT_X
+
+    val dy =
+        y -
+            DEFAULT_Y
 
     return sqrt(
         dx * dx +
@@ -299,10 +535,16 @@ private fun snapToGrid(
     y: Float
 ): Pair<Float, Float> {
 
-    fun snap(value: Float): Float =
-        (
-            value / GRID
-        ).toInt() * GRID
+    fun snap(
+        value: Float
+    ): Float {
+
+        return (
+            value /
+                GRID
+            ).toInt() *
+            GRID
+    }
 
     return maxOf(
         MIN_X,
@@ -322,85 +564,116 @@ fun editNode(
     node: SldNode
 ) {
 
-    state.editingNodeId = node.id
-    state.name = node.name
-    state.nodeType = node.type
-    state.voltage = node.voltage.toEngineeringString()
-    state.loadKw = node.loadKw.toEngineeringString()
-    state.pf = node.powerFactor.toEngineeringString()
-    state.demand = node.demandFactor.toEngineeringString()
-    state.kva = node.ratedKva.toEngineeringString()
-    state.transformerZ =
-        node.transformerPercentZ.toEngineeringString()
-    state.generatorXd =
-        node.generatorXdSubtransient.toEngineeringString()
-    state.sourceMva =
-        node.sourceShortCircuitMva.toEngineeringString()
+    state.editingNodeId =
+        node.id
 
-    state.showNodeDialog = true
+    state.name =
+        node.name
+
+    state.nodeType =
+        node.type
+
+    state.voltage =
+        node.voltage.toEngineeringString()
+
+    state.loadKw =
+        node.loadKw.toEngineeringString()
+
+    state.pf =
+        node.powerFactor.toEngineeringString()
+
+    state.demand =
+        node.demandFactor.toEngineeringString()
+
+    state.kva =
+        node.ratedKva.toEngineeringString()
+
+    state.transformerZ =
+        node.transformerPercentZ
+            .toEngineeringString()
+
+    state.generatorXd =
+        node.generatorXdSubtransient
+            .toEngineeringString()
+
+    state.sourceMva =
+        node.sourceShortCircuitMva
+            .toEngineeringString()
+
+    state.showNodeDialog =
+        true
 }
 
 fun saveNode() {
 
-    val id = state.editingNodeId
+    val editingId =
+        state.editingNodeId
 
     val existing =
-        id?.let {
+        editingId?.let { id ->
             state.nodes.firstOrNull {
                 it.id == id
             }
         }
 
-    val parsedVoltage =
+    val voltage =
         state.voltage
             .toDoubleOrNull()
-            ?.takeIf { it > 0.0 }
+            ?.takeIf {
+                it > 0.0
+            }
             ?: existing?.voltage
             ?: 400.0
 
-    val parsedLoad =
+    val loadKw =
         state.loadKw
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: existing?.loadKw
             ?: 0.0
 
-    val parsedPf =
+    val pf =
         state.pf
             .toDoubleOrNull()
-            ?.coerceIn(0.50, 1.00)
+            ?.coerceIn(
+                0.50,
+                1.00
+            )
             ?: existing?.powerFactor
             ?: 0.90
 
-    val parsedDemand =
+    val demand =
         state.demand
             .toDoubleOrNull()
-            ?.coerceIn(0.0, 1.0)
+            ?.coerceIn(
+                0.0,
+                1.0
+            )
             ?: existing?.demandFactor
             ?: 1.0
 
-    val parsedKva =
+    val kva =
         state.kva
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: existing?.ratedKva
             ?: 0.0
 
-    val parsedZ =
+    val transformerZ =
         state.transformerZ
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: existing?.transformerPercentZ
             ?: 0.0
 
-    val parsedXd =
+    val generatorXd =
         state.generatorXd
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: existing?.generatorXdSubtransient
             ?: 0.0
 
-    val parsedMva =
+    val sourceMva =
         state.sourceMva
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
@@ -424,31 +697,57 @@ fun saveNode() {
 
         val node =
             SldNode(
-                id = id ?: createNodeId(),
-                name = cleanName,
-                type = state.nodeType,
-                x = position.first,
-                y = position.second,
-                voltage = parsedVoltage,
+                id =
+                    editingId
+                        ?: createNodeId(),
+
+                name =
+                    cleanName,
+
+                type =
+                    state.nodeType,
+
+                x =
+                    position.first,
+
+                y =
+                    position.second,
+
+                voltage =
+                    voltage,
+
                 loadKw =
                     if (
                         state.nodeType ==
-                            SldNodeType.LOAD
+                        SldNodeType.LOAD
                     ) {
-                        parsedLoad
+                        loadKw
                     } else {
                         0.0
                     },
-                powerFactor = parsedPf,
-                demandFactor = parsedDemand,
-                ratedKva = parsedKva,
-                transformerPercentZ = parsedZ,
-                generatorXdSubtransient = parsedXd,
-                sourceShortCircuitMva = parsedMva
+
+                powerFactor =
+                    pf,
+
+                demandFactor =
+                    demand,
+
+                ratedKva =
+                    kva,
+
+                transformerPercentZ =
+                    transformerZ,
+
+                generatorXdSubtransient =
+                    generatorXd,
+
+                sourceShortCircuitMva =
+                    sourceMva
             )
 
         state.nodes =
-            state.nodes + node
+            state.nodes +
+                node
 
         state.selectedNodeId =
             node.id
@@ -457,41 +756,67 @@ fun saveNode() {
 
         val updated =
             existing.copy(
-                name = cleanName,
-                type = state.nodeType,
-                voltage = parsedVoltage,
+
+                name =
+                    cleanName,
+
+                type =
+                    state.nodeType,
+
+                voltage =
+                    voltage,
+
                 loadKw =
                     if (
                         state.nodeType ==
-                            SldNodeType.LOAD
+                        SldNodeType.LOAD
                     ) {
-                        parsedLoad
+                        loadKw
                     } else {
                         0.0
                     },
-                powerFactor = parsedPf,
-                demandFactor = parsedDemand,
-                ratedKva = parsedKva,
-                transformerPercentZ = parsedZ,
-                generatorXdSubtransient = parsedXd,
-                sourceShortCircuitMva = parsedMva
+
+                powerFactor =
+                    pf,
+
+                demandFactor =
+                    demand,
+
+                ratedKva =
+                    kva,
+
+                transformerPercentZ =
+                    transformerZ,
+
+                generatorXdSubtransient =
+                    generatorXd,
+
+                sourceShortCircuitMva =
+                    sourceMva
             )
 
         state.nodes =
             state.nodes.map {
-                if (it.id == existing.id) {
+                if (
+                    it.id ==
+                    existing.id
+                ) {
                     updated
                 } else {
                     it
                 }
             }
 
+        /*
+         * If a panel is changed to another node type,
+         * old internal busbars must not remain as busbars.
+         */
         state.connections =
             state.connections.map { connection ->
 
                 if (
                     connection.connectionType ==
-                        SldConnectionType.BUSBAR &&
+                    SldConnectionType.BUSBAR &&
                     (
                         connection.fromNodeId ==
                             existing.id ||
@@ -499,12 +824,18 @@ fun saveNode() {
                             existing.id
                         )
                 ) {
+
                     connection.copy(
                         connectionType =
                             SldConnectionType.CABLE,
-                        busbarRatedCurrentA = 0.0,
-                        busbarShortCircuitKA = 0.0
+
+                        busbarRatedCurrentA =
+                            0.0,
+
+                        busbarShortCircuitKA =
+                            0.0
                     )
+
                 } else {
                     connection
                 }
@@ -514,9 +845,14 @@ fun saveNode() {
             updated.id
     }
 
-    state.showNodeDialog = false
-    state.editingNodeId = null
-    state.connectionStartId = null
+    state.showNodeDialog =
+        false
+
+    state.editingNodeId =
+        null
+
+    state.connectionStartId =
+        null
 
     saveAndRecalculate()
 }
@@ -534,27 +870,36 @@ fun moveNode(
     val node =
         state.nodes.firstOrNull {
             it.id == nodeId
-        } ?: return
+        }
+            ?: return
 
-    val newX =
+    val x =
         maxOf(
             MIN_X,
-            node.x + deltaX
+            node.x +
+                deltaX
         )
 
-    val newY =
+    val y =
         maxOf(
             MIN_Y,
-            node.y + deltaY
+            node.y +
+                deltaY
         )
 
     state.nodes =
         state.nodes.map {
-            if (it.id == nodeId) {
+
+            if (
+                it.id ==
+                nodeId
+            ) {
+
                 it.copy(
-                    x = newX,
-                    y = newY
+                    x = x,
+                    y = y
                 )
+
             } else {
                 it
             }
@@ -569,46 +914,90 @@ fun moveNodeEnd() {
 // CONNECTION CREATION
 // ============================================================
 
+/*
+ * Compatibility overload used by the toolbar.
+ */
+fun startOrCompleteConnection() {
+
+    state.selectedNodeId?.let {
+        startOrCompleteConnection(it)
+    }
+}
+
+/*
+ * Main connection state machine.
+ *
+ * First click:
+ *     selects the source.
+ *
+ * Second click:
+ *     creates source -> destination.
+ */
 fun startOrCompleteConnection(
     nodeId: String
 ) {
 
-    val node =
+    val target =
         state.nodes.firstOrNull {
             it.id == nodeId
-        } ?: return
+        }
+            ?: return
 
-    val start =
+    val startId =
         state.connectionStartId
 
-    if (start == null) {
+    if (startId == null) {
 
-        state.selectedNodeId = node.id
-        state.selectedConnectionId = null
-        state.connectionStartId = node.id
-        state.engineeringError = null
+        state.selectedNodeId =
+            target.id
+
+        state.selectedConnectionId =
+            null
+
+        state.connectionStartId =
+            target.id
+
+        state.engineeringError =
+            null
 
         return
     }
 
-    if (start == node.id) {
+    if (
+        startId ==
+        target.id
+    ) {
         return
     }
 
     val from =
         state.nodes.firstOrNull {
-            it.id == start
-        } ?: run {
-            state.connectionStartId = null
-            return
+            it.id == startId
         }
+            ?: run {
+                state.connectionStartId =
+                    null
+                return
+            }
 
-    val to = node
+    val to =
+        target
+
+    /*
+     * Never reverse the user direction.
+     */
+    val finalFrom =
+        from
+
+    val finalTo =
+        to
 
     if (
         state.connections.any {
-            it.fromNodeId == from.id &&
-                it.toNodeId == to.id
+            it.fromNodeId ==
+                finalFrom.id &&
+                it.toNodeId ==
+                finalTo.id
         }
     ) {
 
@@ -619,49 +1008,71 @@ fun startOrCompleteConnection(
                 "This connection already exists."
             }
 
-        state.connectionStartId = null
+        state.connectionStartId =
+            null
 
         return
     }
 
     val type =
         automaticConnectionType(
-            from,
-            to
+            finalFrom,
+            finalTo
         )
 
-    state.selectedNodeId = to.id
-    state.selectedConnectionId = null
+    state.selectedNodeId =
+        finalTo.id
+
+    state.selectedConnectionId =
+        null
 
     if (
         type ==
-            SldConnectionType.BUSBAR
+        SldConnectionType.BUSBAR
     ) {
 
         createBusbarConnection(
-            from,
-            to
+            finalFrom,
+            finalTo
         )
 
-        state.connectionStartId = null
+        state.connectionStartId =
+            null
 
         saveAndRecalculate()
 
         return
     }
 
-    state.editingConnectionId = null
+    /*
+     * Cable dialog.
+     */
+    state.editingConnectionId =
+        null
+
     state.connectionType =
         SldConnectionType.CABLE.name
 
-    state.length = "50"
-    state.resistance = "0.125"
-    state.reactance = "0.080"
-    state.cableSize = "240"
-    state.parallelRuns = "1"
-    state.capacity = "350"
+    state.length =
+        "50"
 
-    state.showConnectionDialog = true
+    state.resistance =
+        "0.125"
+
+    state.reactance =
+        "0.080"
+
+    state.cableSize =
+        "240"
+
+    state.parallelRuns =
+        "1"
+
+    state.capacity =
+        "350"
+
+    state.showConnectionDialog =
+        true
 }
 
 private fun createBusbarConnection(
@@ -670,38 +1081,68 @@ private fun createBusbarConnection(
 ) {
 
     val ratedCurrent =
-        estimateBusbarCurrent(from)
+        estimateBusbarCurrent(
+            from
+        )
 
     val connection =
         SldConnection(
-            id = createConnectionId(),
-            fromNodeId = from.id,
-            toNodeId = to.id,
+
+            id =
+                createConnectionId(),
+
+            fromNodeId =
+                from.id,
+
+            toNodeId =
+                to.id,
+
             connectionType =
                 SldConnectionType.BUSBAR,
-            lengthMeters = 0.0,
-            resistanceOhmPerKm = 0.0,
-            reactanceOhmPerKm = 0.0,
-            cableSizeMm2 = 0.0,
-            parallelRuns = 1,
-            voltageDropPercent = 0.0,
-            currentCapacityA = ratedCurrent,
+
+            lengthMeters =
+                0.0,
+
+            resistanceOhmPerKm =
+                0.0,
+
+            reactanceOhmPerKm =
+                0.0,
+
+            cableSizeMm2 =
+                0.0,
+
+            parallelRuns =
+                1,
+
+            voltageDropPercent =
+                0.0,
+
+            currentCapacityA =
+                ratedCurrent,
+
             conductorMaterial =
                 state.conductorMaterial,
+
             insulationType =
                 state.insulationType,
+
             installationMethodCode =
                 state.installationMethodCode,
+
             busbarMaterial =
                 state.busbarMaterial,
+
             busbarRatedCurrentA =
                 ratedCurrent,
+
             busbarShortCircuitKA =
                 DEFAULT_BUSBAR_SHORT_CIRCUIT_KA
         )
 
     state.connections =
-        state.connections + connection
+        state.connections +
+            connection
 }
 
 // ============================================================
@@ -762,7 +1203,8 @@ fun editConnection(
         connection.busbarShortCircuitKA
             .toEngineeringString()
 
-    state.showConnectionDialog = true
+    state.showConnectionDialog =
+        true
 }
 
 fun saveConnection() {
@@ -771,181 +1213,175 @@ fun saveConnection() {
         state.editingConnectionId
 
     val existing =
-        editingId?.let {
+        editingId?.let { id ->
             state.connections.firstOrNull {
-                it.id == editingId
+                it.id == id
             }
         }
 
     val type =
         try {
+
             SldConnectionType.valueOf(
                 state.connectionType
-                    .uppercase(Locale.US)
+                    .uppercase(
+                        Locale.US
+                    )
             )
+
         } catch (_: Exception) {
+
             SldConnectionType.CABLE
         }
 
-    val from =
-        existing?.let {
-            state.nodes.firstOrNull {
-                it.id == existing.fromNodeId
-            }
-        }
-
-    val to =
-        existing?.let {
-            state.nodes.firstOrNull {
-                it.id == existing.toNodeId
-            }
-        }
-
-    if (
-        existing != null &&
-        (from == null || to == null)
-    ) {
-
-        state.engineeringError =
-            if (arabic) {
-                "العناصر المرتبطة بالاتصال غير موجودة."
-            } else {
-                "Connection nodes no longer exist."
-            }
-
-        return
-    }
-
-    val parsedLength =
+    val length =
         state.length
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: 0.0
 
-    val parsedResistance =
+    val resistance =
         state.resistance
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: 0.0
 
-    val parsedReactance =
+    val reactance =
         state.reactance
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: 0.0
 
-    val parsedSize =
+    val cableSize =
         state.cableSize
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: 0.0
 
-    val parsedRuns =
+    val runs =
         state.parallelRuns
             .toIntOrNull()
             ?.coerceAtLeast(1)
             ?: 1
 
-    val parsedCapacity =
+    val capacity =
         state.capacity
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: 0.0
 
-    val parsedBusbarRated =
+    val busbarRated =
         state.busbarRatedCurrent
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: 0.0
 
-    val parsedBusbarFault =
+    val busbarShortCircuit =
         state.busbarShortCircuit
             .toDoubleOrNull()
             ?.coerceAtLeast(0.0)
             ?: 0.0
 
+    // --------------------------------------------------------
+    // EDIT EXISTING CONNECTION
+    // --------------------------------------------------------
+
     if (existing != null) {
 
         val updated =
             existing.copy(
-                connectionType = type,
+
+                connectionType =
+                    type,
+
                 lengthMeters =
                     if (
                         type ==
-                            SldConnectionType.CABLE
+                        SldConnectionType.CABLE
                     ) {
-                        parsedLength
+                        length
                     } else {
                         0.0
                     },
+
                 resistanceOhmPerKm =
                     if (
                         type ==
-                            SldConnectionType.CABLE
+                        SldConnectionType.CABLE
                     ) {
-                        parsedResistance
+                        resistance
                     } else {
                         0.0
                     },
+
                 reactanceOhmPerKm =
                     if (
                         type ==
-                            SldConnectionType.CABLE
+                        SldConnectionType.CABLE
                     ) {
-                        parsedReactance
+                        reactance
                     } else {
                         0.0
                     },
+
                 cableSizeMm2 =
                     if (
                         type ==
-                            SldConnectionType.CABLE
+                        SldConnectionType.CABLE
                     ) {
-                        parsedSize
+                        cableSize
                     } else {
                         0.0
                     },
+
                 parallelRuns =
                     if (
                         type ==
-                            SldConnectionType.CABLE
+                        SldConnectionType.CABLE
                     ) {
-                        parsedRuns
+                        runs
                     } else {
                         1
                     },
+
                 currentCapacityA =
                     if (
                         type ==
-                            SldConnectionType.CABLE
+                        SldConnectionType.CABLE
                     ) {
-                        parsedCapacity
+                        capacity
                     } else {
-                        parsedBusbarRated
+                        busbarRated
                     },
+
                 conductorMaterial =
                     state.conductorMaterial,
+
                 insulationType =
                     state.insulationType,
+
                 installationMethodCode =
                     state.installationMethodCode,
+
                 busbarMaterial =
                     state.busbarMaterial,
+
                 busbarRatedCurrentA =
                     if (
                         type ==
-                            SldConnectionType.BUSBAR
+                        SldConnectionType.BUSBAR
                     ) {
-                        parsedBusbarRated
+                        busbarRated
                     } else {
                         0.0
                     },
+
                 busbarShortCircuitKA =
                     if (
                         type ==
-                            SldConnectionType.BUSBAR
+                        SldConnectionType.BUSBAR
                     ) {
-                        parsedBusbarFault
+                        busbarShortCircuit
                     } else {
                         0.0
                     }
@@ -953,39 +1389,50 @@ fun saveConnection() {
 
         state.connections =
             state.connections.map {
-                if (it.id == existing.id) {
+
+                if (
+                    it.id ==
+                    existing.id
+                ) {
                     updated
                 } else {
                     it
                 }
             }
 
+        state.selectedConnectionId =
+            existing.id
+
     } else {
+
+        // ----------------------------------------------------
+        // CREATE NEW CABLE
+        // ----------------------------------------------------
 
         val startId =
             state.connectionStartId
 
-        val targetId =
+        val endId =
             state.selectedNodeId
 
-        val finalFrom =
-            startId?.let {
-                state.nodes.firstOrNull { node ->
-                    node.id == it
+        val from =
+            startId?.let { id ->
+                state.nodes.firstOrNull {
+                    it.id == id
                 }
             }
 
-        val finalTo =
-            targetId?.let {
-                state.nodes.firstOrNull { node ->
-                    node.id == it
+        val to =
+            endId?.let { id ->
+                state.nodes.firstOrNull {
+                    it.id == id
                 }
             }
 
         if (
-            finalFrom == null ||
-            finalTo == null ||
-            finalFrom.id == finalTo.id
+            from == null ||
+            to == null ||
+            from.id == to.id
         ) {
 
             state.engineeringError =
@@ -998,55 +1445,96 @@ fun saveConnection() {
             return
         }
 
+        /*
+         * New PANEL -> BREAKER is always a BUSBAR and should
+         * never arrive here through the cable dialog.
+         */
         if (
-            state.connections.any {
-                it.fromNodeId == finalFrom.id &&
-                    it.toNodeId == finalTo.id
-            }
+            automaticConnectionType(
+                from,
+                to
+            ) ==
+            SldConnectionType.BUSBAR
         ) {
 
             state.engineeringError =
                 if (arabic) {
-                    "هذا الاتصال موجود بالفعل."
+                    "اتصال اللوحة بالقاطع الداخلي يجب أن يكون BUSBAR."
                 } else {
-                    "This connection already exists."
+                    "Panel-to-breaker internal connection must be BUSBAR."
                 }
 
-            state.connectionStartId = null
+            state.showConnectionDialog =
+                false
+
+            state.connectionStartId =
+                null
 
             return
         }
 
+        /*
+         * Critical branch:
+         * actually append the new cable to state.connections.
+         */
         val connection =
             SldConnection(
-                id = createConnectionId(),
-                fromNodeId = finalFrom.id,
-                toNodeId = finalTo.id,
+
+                id =
+                    createConnectionId(),
+
+                fromNodeId =
+                    from.id,
+
+                toNodeId =
+                    to.id,
+
                 connectionType =
                     SldConnectionType.CABLE,
-                lengthMeters = parsedLength,
+
+                lengthMeters =
+                    length,
+
                 resistanceOhmPerKm =
-                    parsedResistance,
+                    resistance,
+
                 reactanceOhmPerKm =
-                    parsedReactance,
-                cableSizeMm2 = parsedSize,
-                parallelRuns = parsedRuns,
-                voltageDropPercent = 0.0,
-                currentCapacityA = parsedCapacity,
+                    reactance,
+
+                cableSizeMm2 =
+                    cableSize,
+
+                parallelRuns =
+                    runs,
+
+                voltageDropPercent =
+                    0.0,
+
+                currentCapacityA =
+                    capacity,
+
                 conductorMaterial =
                     state.conductorMaterial,
+
                 insulationType =
                     state.insulationType,
+
                 installationMethodCode =
                     state.installationMethodCode,
+
                 busbarMaterial =
                     state.busbarMaterial,
-                busbarRatedCurrentA = 0.0,
-                busbarShortCircuitKA = 0.0
+
+                busbarRatedCurrentA =
+                    0.0,
+
+                busbarShortCircuitKA =
+                    0.0
             )
 
         state.connections =
-            state.connections + connection
+            state.connections +
+                connection
 
         state.selectedConnectionId =
             connection.id
@@ -1059,11 +1547,20 @@ fun saveConnection() {
 
 fun cancelConnectionEdit() {
 
-    state.showConnectionDialog = false
-    state.editingConnectionId = null
-    state.connectionStartId = null
-    state.selectedConnectionId = null
-    state.engineeringError = null
+    state.showConnectionDialog =
+        false
+
+    state.editingConnectionId =
+        null
+
+    state.connectionStartId =
+        null
+
+    state.selectedConnectionId =
+        null
+
+    state.engineeringError =
+        null
 }
 
 // ============================================================
@@ -1072,31 +1569,39 @@ fun cancelConnectionEdit() {
 
 fun deleteSelected() {
 
-    val nodeId =
+    val selectedNode =
         state.selectedNodeId
 
-    val connectionId =
+    val selectedConnection =
         state.selectedConnectionId
 
-    if (nodeId != null) {
+    if (
+        selectedNode != null
+    ) {
 
         state.nodes =
             state.nodes.filterNot {
-                it.id == nodeId
+                it.id ==
+                    selectedNode
             }
 
         state.connections =
             state.connections.filter {
-                it.fromNodeId != nodeId &&
-                    it.toNodeId != nodeId
+                it.fromNodeId !=
+                    selectedNode &&
+                    it.toNodeId !=
+                    selectedNode
             }
     }
 
-    if (connectionId != null) {
+    if (
+        selectedConnection != null
+    ) {
 
         state.connections =
             state.connections.filterNot {
-                it.id == connectionId
+                it.id ==
+                    selectedConnection
             }
     }
 
@@ -1141,6 +1646,116 @@ fun autoLayout() {
 }
 
 // ============================================================
+// SHORT CIRCUIT
+// ============================================================
+
+fun runShortCircuit() {
+
+    try {
+
+        val study =
+            SldEngineeringFacade.calculateShortCircuit(
+                network()
+            )
+
+        state.reportTitle =
+            if (arabic) {
+                "دراسة القصر الكهربائي"
+            } else {
+                "Short Circuit Study"
+            }
+
+        state.reportText =
+            study.toString()
+
+        state.showReport =
+            true
+
+        state.engineeringError =
+            null
+
+    } catch (e: Exception) {
+
+        state.engineeringError =
+            e.message
+                ?: if (arabic) {
+                    "فشل حساب القصر الكهربائي."
+                } else {
+                    "Short-circuit study failed."
+                }
+    }
+}
+
+// ============================================================
+// PANEL SCHEDULE
+// ============================================================
+
+fun runPanelSchedule() {
+
+    val panel =
+        state.nodes.firstOrNull {
+            it.type ==
+                SldNodeType.PANEL
+        }
+
+    if (panel == null) {
+
+        state.engineeringError =
+            if (arabic) {
+                "لا توجد لوحة PANEL في المخطط."
+            } else {
+                "No PANEL exists in the SLD."
+            }
+
+        return
+    }
+
+    try {
+
+        val result =
+            SldEngineeringFacade.calculateComplete(
+                network = network(),
+                panelNodeId = panel.id
+            )
+
+        state.engineeringPackage =
+            result
+
+        state.reportTitle =
+            if (arabic) {
+                "جدول اللوحة"
+            } else {
+                "Panel Schedule"
+            }
+
+        state.reportText =
+            result.panelSchedule
+                ?.toString()
+                ?: if (arabic) {
+                    "لم يتم إنشاء جدول اللوحة."
+                } else {
+                    "Panel schedule was not generated."
+                }
+
+        state.showReport =
+            true
+
+        state.engineeringError =
+            null
+
+    } catch (e: Exception) {
+
+        state.engineeringError =
+            e.message
+                ?: if (arabic) {
+                    "فشل إنشاء جدول اللوحة."
+                } else {
+                    "Panel schedule failed."
+                }
+    }
+}
+
+// ============================================================
 // HELPERS
 // ============================================================
 
@@ -1149,14 +1764,24 @@ private fun automaticConnectionType(
     to: SldNode
 ): SldConnectionType {
 
+    /*
+     * Internal panel busbar is only:
+     *
+     * PANEL -> BREAKER
+     *
+     * All other connections are external CABLE feeders.
+     */
     return if (
         from.type ==
             SldNodeType.PANEL &&
         to.type ==
             SldNodeType.BREAKER
     ) {
+
         SldConnectionType.BUSBAR
+
     } else {
+
         SldConnectionType.CABLE
     }
 }
@@ -1182,6 +1807,7 @@ private fun estimateBusbarCurrent(
             current.isFinite() &&
             current > 0.0
         ) {
+
             return current.coerceAtLeast(
                 DEFAULT_BUSBAR_CURRENT_A
             )
@@ -1198,9 +1824,11 @@ private fun createNodeId(): String {
 
     while (
         state.nodes.any {
-            it.id == id
+            it.id ==
+                id
         }
     ) {
+
         id =
             "node-${System.nanoTime()}"
     }
@@ -1215,9 +1843,11 @@ private fun createConnectionId(): String {
 
     while (
         state.connections.any {
-            it.id == id
+            it.id ==
+                id
         }
     ) {
+
         id =
             "connection-${System.nanoTime()}"
     }
@@ -1226,11 +1856,13 @@ private fun createConnectionId(): String {
 }
 
 private fun Double.toEngineeringString():
-    String =
-    String.format(
+    String {
+
+    return String.format(
         Locale.US,
         "%.2f",
         this
     )
+}
 
 }
