@@ -29,12 +29,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldEngineeringPackage
 import com.electrical.calculationspro.data.SldNode
+import kotlin.math.abs
 
 private const val MIN_ZOOM = 0.25f
 private const val MAX_ZOOM = 4.0f
@@ -43,389 +45,542 @@ private const val BUTTON_ZOOM_FACTOR = 1.20f
 private const val DOUBLE_TAP_TIMEOUT = 350L
 private const val DOUBLE_TAP_DISTANCE = 48f
 
+private const val NODE_CENTER_X = 90f
+private const val NODE_CENTER_Y = 59f
+
 @Composable
 fun SldCanvas(
-    modifier: Modifier = Modifier,
-    nodes: List<SldNode>,
-    connections: List<SldConnection>,
-    selectedNodeId: String?,
-    selectedConnectionId: String?,
-    connectionStartId: String?,
-    engineering: SldEngineeringPackage? = null,
-    onSelectNode: (String) -> Unit,
-    onMoveNode: (String, Float, Float) -> Unit,
-    onMoveNodeEnd: () -> Unit,
-    onSelectConnection: (String) -> Unit,
-    onEditNode: (SldNode) -> Unit,
-    onEditConnection: (SldConnection) -> Unit
+modifier: Modifier = Modifier,
+nodes: List<SldNode>,
+connections: List<SldConnection>,
+selectedNodeId: String?,
+selectedConnectionId: String?,
+connectionStartId: String?,
+engineering: SldEngineeringPackage? = null,
+onSelectNode: (String) -> Unit,
+onMoveNode: (String, Float, Float) -> Unit,
+onMoveNodeEnd: () -> Unit,
+onSelectConnection: (String) -> Unit,
+onEditNode: (SldNode) -> Unit,
+onEditConnection: (SldConnection) -> Unit
 ) {
 
-    val textMeasurer =
-        rememberTextMeasurer()
+val textMeasurer =
+    rememberTextMeasurer()
 
-    val currentNodes by
-        rememberUpdatedState(nodes)
+val currentNodes by
+    rememberUpdatedState(nodes)
 
-    val currentConnections by
-        rememberUpdatedState(connections)
+val currentConnections by
+    rememberUpdatedState(connections)
 
-    val currentSelectedNodeId by
-        rememberUpdatedState(selectedNodeId)
+val currentSelectedNodeId by
+    rememberUpdatedState(selectedNodeId)
 
-    val currentSelectedConnectionId by
-        rememberUpdatedState(selectedConnectionId)
+val currentSelectedConnectionId by
+    rememberUpdatedState(selectedConnectionId)
 
-    val currentConnectionStartId by
-        rememberUpdatedState(connectionStartId)
+val currentConnectionStartId by
+    rememberUpdatedState(connectionStartId)
 
-    val currentEngineering by
-        rememberUpdatedState(engineering)
+val currentEngineering by
+    rememberUpdatedState(engineering)
 
-    val currentOnSelectNode by
-        rememberUpdatedState(onSelectNode)
+val currentOnSelectNode by
+    rememberUpdatedState(onSelectNode)
 
-    val currentOnMoveNode by
-        rememberUpdatedState(onMoveNode)
+val currentOnMoveNode by
+    rememberUpdatedState(onMoveNode)
 
-    val currentOnMoveNodeEnd by
-        rememberUpdatedState(onMoveNodeEnd)
+val currentOnMoveNodeEnd by
+    rememberUpdatedState(onMoveNodeEnd)
 
-    val currentOnSelectConnection by
-        rememberUpdatedState(onSelectConnection)
+val currentOnSelectConnection by
+    rememberUpdatedState(onSelectConnection)
 
-    val currentOnEditNode by
-        rememberUpdatedState(onEditNode)
+val currentOnEditNode by
+    rememberUpdatedState(onEditNode)
 
-    val currentOnEditConnection by
-        rememberUpdatedState(onEditConnection)
+val currentOnEditConnection by
+    rememberUpdatedState(onEditConnection)
 
-    var panX by remember {
-        mutableFloatStateOf(0f)
-    }
+/*
+ * ================================================================
+ * VIEW STATE
+ * ================================================================
+ */
 
-    var panY by remember {
-        mutableFloatStateOf(0f)
-    }
+var panX by remember {
+    mutableFloatStateOf(0f)
+}
 
-    var zoom by remember {
-        mutableFloatStateOf(1f)
-    }
+var panY by remember {
+    mutableFloatStateOf(0f)
+}
 
-    fun screenToLogical(
-        point: Offset
-    ): Offset {
+var zoom by remember {
+    mutableFloatStateOf(1f)
+}
 
-        return Offset(
-            x =
-                (point.x - panX) /
-                    zoom,
+/*
+ * ================================================================
+ * COORDINATE CONVERSION
+ * ================================================================
+ */
 
-            y =
-                (point.y - panY) /
-                    zoom
-        )
-    }
+fun screenToLogical(
+    point: Offset
+): Offset {
 
-    fun zoomAt(
-        factor: Float,
-        center: Offset
-    ) {
-
-        if (
-            !factor.isFinite() ||
-                factor <= 0f
-        ) {
-            return
-        }
-
-        val oldZoom =
-            zoom
-
-        val newZoom =
+    return Offset(
+        x =
             (
-                oldZoom * factor
+                point.x -
+                    panX
+                ) /
+                zoom,
+
+        y =
+            (
+                point.y -
+                    panY
+                ) /
+                zoom
+    )
+}
+
+fun logicalToScreen(
+    point: Offset
+): Offset {
+
+    return Offset(
+        x =
+            point.x *
+                zoom +
+                panX,
+
+        y =
+            point.y *
+                zoom +
+                panY
+    )
+}
+
+/*
+ * ================================================================
+ * ZOOM AROUND FINGER / CURSOR
+ * ================================================================
+ */
+
+fun zoomAt(
+    factor: Float,
+    center: Offset
+) {
+
+    if (
+        !factor.isFinite() ||
+            factor <= 0f
+    ) {
+        return
+    }
+
+    val oldZoom =
+        zoom
+
+    val newZoom =
+        (
+            oldZoom *
+                factor
             ).coerceIn(
                 MIN_ZOOM,
                 MAX_ZOOM
             )
 
-        if (
-            newZoom ==
+    if (
+        abs(
+            newZoom -
                 oldZoom
-        ) {
-            return
-        }
+        ) < 0.0001f
+    ) {
+        return
+    }
 
-        val logicalPoint =
-            Offset(
-                x =
-                    (
-                        center.x -
-                            panX
+    /*
+     * Keep the logical point beneath the user's finger
+     * stationary on screen.
+     */
+    val logicalPoint =
+        Offset(
+            x =
+                (
+                    center.x -
+                        panX
                     ) /
-                        oldZoom,
+                    oldZoom,
 
-                y =
-                    (
-                        center.y -
-                            panY
+            y =
+                (
+                    center.y -
+                        panY
                     ) /
-                        oldZoom
-            )
+                    oldZoom
+        )
 
-        zoom =
+    zoom =
+        newZoom
+
+    panX =
+        center.x -
+            logicalPoint.x *
             newZoom
 
-        panX =
-            center.x -
-                logicalPoint.x *
-                newZoom
+    panY =
+        center.y -
+            logicalPoint.y *
+            newZoom
+}
 
-        panY =
-            center.y -
-                logicalPoint.y *
-                newZoom
-    }
+fun resetView() {
 
-    fun resetView() {
-        panX = 0f
-        panY = 0f
-        zoom = 1f
-    }
+    zoom =
+        1f
 
-    Box(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .background(
-                    Color(0xFFF7F9FA)
+    panX =
+        0f
+
+    panY =
+        0f
+}
+
+/*
+ * ================================================================
+ * CANVAS
+ * ================================================================
+ */
+
+Box(
+    modifier =
+        modifier
+            .fillMaxSize()
+            .background(
+                Color(
+                    0xFFF7F9FA
                 )
-    ) {
+            )
+) {
 
-        Canvas(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
+    Canvas(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .pointerInput(Unit) {
 
-                        var lastTapTime =
-                            0L
+                    var lastTapTime =
+                        0L
 
-                        var lastTapPosition =
-                            Offset.Unspecified
+                    var lastTapPosition =
+                        Offset.Unspecified
 
-                        awaitEachGesture {
+                    awaitEachGesture {
 
-                            val firstDown =
-                                awaitFirstDown(
-                                    requireUnconsumed =
-                                        false
-                                )
+                        /*
+                         * ==================================================
+                         * FIRST TOUCH
+                         * ==================================================
+                         */
 
-                            val firstPosition =
-                                firstDown.position
+                        val firstDown =
+                            awaitFirstDown(
+                                pass =
+                                    PointerEventPass.Main,
 
-                            val firstLogical =
-                                screenToLogical(
-                                    firstPosition
-                                )
+                                requireUnconsumed =
+                                    false
+                            )
 
-                            val firstNode =
-                                findNode(
-                                    point =
-                                        firstLogical,
-                                    nodes =
-                                        currentNodes
-                                )
+                        val firstPosition =
+                            firstDown.position
 
-                            val firstConnection =
-                                if (
-                                    firstNode ==
-                                        null
-                                ) {
+                        val firstLogicalPosition =
+                            screenToLogical(
+                                firstPosition
+                            )
 
-                                    findConnection(
-                                        point =
-                                            firstLogical,
-                                        nodes =
-                                            currentNodes,
-                                        connections =
-                                            currentConnections
-                                    )
+                        val firstNode =
+                            findNode(
+                                point =
+                                    firstLogicalPosition,
 
-                                } else {
-                                    null
-                                }
+                                nodes =
+                                    currentNodes
+                            )
 
-                            var activeNodeId =
-                                firstNode?.id
-
-                            var draggingNode =
-                                firstNode != null &&
-                                    currentConnectionStartId ==
-                                        null
-
-                            var moved =
-                                false
-
-                            var multiTouch =
-                                false
-
+                        val firstConnection =
                             if (
-                                firstNode !=
-                                    null
+                                firstNode == null
                             ) {
 
-                                currentOnSelectNode(
-                                    firstNode.id
+                                findConnection(
+                                    point =
+                                        firstLogicalPosition,
+
+                                    nodes =
+                                        currentNodes,
+
+                                    connections =
+                                        currentConnections
                                 )
 
-                            } else if (
-                                firstConnection !=
-                                    null
-                            ) {
-
-                                currentOnSelectConnection(
-                                    firstConnection.id
-                                )
+                            } else {
+                                null
                             }
 
-                            while (true) {
+                        /*
+                         * ==================================================
+                         * GESTURE STATE
+                         * ==================================================
+                         */
 
-                                val event =
-                                    awaitPointerEvent()
+                        var activeNodeId =
+                            firstNode?.id
 
-                                val pressed =
-                                    event.changes.filter {
+                        var draggingNode =
+                            firstNode != null &&
+                                currentConnectionStartId ==
+                                    null
+
+                        var moved =
+                            false
+
+                        var multiTouch =
+                            false
+
+                        var pointerCount =
+                            1
+
+                        /*
+                         * Distance threshold prevents an accidental
+                         * one-pixel movement from becoming a drag.
+                         */
+                        var dragStarted =
+                            false
+
+                        var accumulatedDrag =
+                            Offset.Zero
+
+                        /*
+                         * Select immediately.
+                         */
+                        if (
+                            firstNode != null
+                        ) {
+
+                            currentOnSelectNode(
+                                firstNode.id
+                            )
+
+                        } else if (
+                            firstConnection != null
+                        ) {
+
+                            currentOnSelectConnection(
+                                firstConnection.id
+                            )
+                        }
+
+                        /*
+                         * ==================================================
+                         * EVENT LOOP
+                         * ==================================================
+                         */
+
+                        while (true) {
+
+                            val event =
+                                awaitPointerEvent(
+                                    pass =
+                                        PointerEventPass.Main
+                                )
+
+                            val pressed =
+                                event.changes
+                                    .filter {
                                         it.pressed
                                     }
 
-                                if (
-                                    pressed.isEmpty()
-                                ) {
-                                    break
-                                }
+                            pointerCount =
+                                pressed.size
+
+                            /*
+                             * All pointers released.
+                             */
+                            if (
+                                pressed.isEmpty()
+                            ) {
+                                break
+                            }
+
+                            /*
+                             * ==================================================
+                             * TWO OR MORE FINGERS
+                             * ==================================================
+                             */
+
+                            if (
+                                pressed.size >= 2
+                            ) {
+
+                                multiTouch =
+                                    true
 
                                 /*
-                                 * TWO-FINGER ZOOM / PAN
+                                 * Once a second finger enters,
+                                 * never continue dragging the node
+                                 * during this gesture.
                                  */
+                                draggingNode =
+                                    false
 
-                                if (
-                                    pressed.size >=
-                                        2
-                                ) {
+                                dragStarted =
+                                    false
 
-                                    multiTouch =
-                                        true
+                                moved =
+                                    true
 
-                                    draggingNode =
-                                        false
+                                val centroid =
+                                    event.calculateCentroid(
+                                        useCurrent =
+                                            false
+                                    )
 
-                                    moved =
-                                        true
+                                val pan =
+                                    event.calculatePan()
 
-                                    val centroid =
-                                        event.calculateCentroid(
-                                            useCurrent =
-                                                false
-                                        )
+                                val gestureZoom =
+                                    event.calculateZoom()
 
-                                    val pan =
-                                        event.calculatePan()
+                                /*
+                                 * Zoom around the actual centroid.
+                                 */
+                                val safeZoom =
+                                    if (
+                                        gestureZoom.isFinite() &&
+                                            gestureZoom >
+                                            0f
+                                    ) {
+                                        gestureZoom
+                                    } else {
+                                        1f
+                                    }
 
-                                    val gestureZoom =
-                                        event.calculateZoom()
+                                val oldZoom =
+                                    zoom
 
-                                    val oldZoom =
-                                        zoom
-
-                                    val safeZoom =
-                                        if (
-                                            gestureZoom.isFinite() &&
-                                                gestureZoom >
-                                                0f
-                                        ) {
-                                            gestureZoom
-                                        } else {
-                                            1f
-                                        }
-
-                                    val newZoom =
-                                        (
-                                            oldZoom *
-                                                safeZoom
+                                val newZoom =
+                                    (
+                                        oldZoom *
+                                            safeZoom
                                         ).coerceIn(
                                             MIN_ZOOM,
                                             MAX_ZOOM
                                         )
 
-                                    if (
-                                        newZoom !=
+                                if (
+                                    abs(
+                                        newZoom -
                                             oldZoom
-                                    ) {
+                                    ) > 0.0001f
+                                ) {
 
-                                        val logicalCentroid =
-                                            Offset(
-                                                x =
-                                                    (
-                                                        centroid.x -
-                                                            panX
+                                    val logicalCentroid =
+                                        Offset(
+                                            x =
+                                                (
+                                                    centroid.x -
+                                                        panX
                                                     ) /
-                                                        oldZoom,
+                                                    oldZoom,
 
-                                                y =
-                                                    (
-                                                        centroid.y -
-                                                            panY
+                                            y =
+                                                (
+                                                    centroid.y -
+                                                        panY
                                                     ) /
-                                                        oldZoom
-                                            )
+                                                    oldZoom
+                                        )
 
-                                        zoom =
+                                    zoom =
+                                        newZoom
+
+                                    panX =
+                                        centroid.x -
+                                            logicalCentroid.x *
                                             newZoom
 
-                                        panX =
-                                            centroid.x -
-                                                logicalCentroid.x *
-                                                newZoom
+                                    panY =
+                                        centroid.y -
+                                            logicalCentroid.y *
+                                            newZoom
+                                }
 
-                                        panY =
-                                            centroid.y -
-                                                logicalCentroid.y *
-                                                newZoom
-                                    }
+                                /*
+                                 * Two-finger translation.
+                                 */
+                                if (
+                                    pan !=
+                                        Offset.Zero
+                                ) {
 
                                     panX +=
                                         pan.x
 
                                     panY +=
                                         pan.y
-
-                                    pressed.forEach {
-                                        it.consume()
-                                    }
-
-                                    continue
                                 }
 
-                                /*
-                                 * ONE-FINGER NODE DRAG / CANVAS PAN
-                                 */
+                                pressed.forEach {
+                                    it.consume()
+                                }
+
+                                continue
+                            }
+
+                            /*
+                             * ==================================================
+                             * ONE FINGER
+                             * ==================================================
+                             */
+
+                            if (
+                                pressed.size == 1 &&
+                                    !multiTouch
+                            ) {
+
+                                val change =
+                                    pressed.first()
+
+                                val delta =
+                                    change.position -
+                                        change.previousPosition
 
                                 if (
-                                    !multiTouch
+                                    delta !=
+                                        Offset.Zero
                                 ) {
 
-                                    val change =
-                                        pressed.first()
+                                    accumulatedDrag +=
+                                        delta
 
-                                    val delta =
-                                        change.position -
-                                            change.previousPosition
+                                    /*
+                                     * Ignore tiny finger jitter.
+                                     */
+                                    val distance =
+                                        accumulatedDrag
+                                            .getDistance()
 
                                     if (
-                                        delta !=
-                                            Offset.Zero
+                                        distance >
+                                            5f
                                     ) {
 
                                         moved =
@@ -437,338 +592,418 @@ fun SldCanvas(
                                                 null
                                         ) {
 
+                                            dragStarted =
+                                                true
+
+                                            /*
+                                             * Convert screen movement
+                                             * into logical SLD movement.
+                                             */
                                             currentOnMoveNode(
                                                 activeNodeId!!,
+
                                                 delta.x /
                                                     zoom,
+
                                                 delta.y /
                                                     zoom
                                             )
 
                                         } else {
 
+                                            /*
+                                             * Empty canvas =
+                                             * pan the drawing.
+                                             */
                                             panX +=
                                                 delta.x
 
                                             panY +=
                                                 delta.y
                                         }
-
-                                        change.consume()
                                     }
+
+                                    change.consume()
                                 }
                             }
+                        }
 
-                            if (
-                                draggingNode &&
-                                    !multiTouch &&
-                                    moved
-                            ) {
+                        /*
+                         * ==================================================
+                         * END NODE DRAG
+                         * ==================================================
+                         */
 
-                                currentOnMoveNodeEnd()
-                            }
+                        if (
+                            dragStarted &&
+                                !multiTouch &&
+                                activeNodeId != null
+                        ) {
 
-                            /*
-                             * SINGLE / DOUBLE TAP
-                             */
+                            currentOnMoveNodeEnd()
+                        }
 
-                            if (
-                                !moved &&
-                                    !multiTouch
-                            ) {
+                        /*
+                         * ==================================================
+                         * TAP / DOUBLE TAP
+                         * ==================================================
+                         */
 
-                                val now =
-                                    firstDown.uptimeMillis
+                        if (
+                            !moved &&
+                                !multiTouch &&
+                                pointerCount <= 1
+                        ) {
 
-                                val isDoubleTap =
-                                    lastTapTime >
-                                        0L &&
-                                        now -
-                                            lastTapTime <=
-                                            DOUBLE_TAP_TIMEOUT &&
-                                        lastTapPosition !=
-                                            Offset.Unspecified &&
-                                        (
-                                            firstPosition -
-                                                lastTapPosition
+                            val now =
+                                firstDown.uptimeMillis
+
+                            val isDoubleTap =
+                                lastTapTime >
+                                    0L &&
+                                    now -
+                                        lastTapTime <=
+                                        DOUBLE_TAP_TIMEOUT &&
+                                    lastTapPosition !=
+                                        Offset.Unspecified &&
+                                    (
+                                        firstPosition -
+                                            lastTapPosition
                                         ).getDistance() <=
-                                            DOUBLE_TAP_DISTANCE
+                                        DOUBLE_TAP_DISTANCE
+
+                            if (
+                                isDoubleTap
+                            ) {
 
                                 if (
-                                    isDoubleTap
+                                    currentConnectionStartId ==
+                                        null
                                 ) {
 
                                     if (
-                                        currentConnectionStartId ==
+                                        firstNode !=
                                             null
                                     ) {
 
-                                        if (
-                                            firstNode !=
-                                                null
-                                        ) {
+                                        currentOnEditNode(
+                                            firstNode
+                                        )
 
-                                            currentOnEditNode(
-                                                firstNode
-                                            )
+                                    } else if (
+                                        firstConnection !=
+                                            null
+                                    ) {
 
-                                        } else if (
-                                            firstConnection !=
-                                                null
-                                        ) {
-
-                                            currentOnEditConnection(
-                                                firstConnection
-                                            )
-                                        }
+                                        currentOnEditConnection(
+                                            firstConnection
+                                        )
                                     }
-
-                                    lastTapTime =
-                                        0L
-
-                                    lastTapPosition =
-                                        Offset.Unspecified
-
-                                } else {
-
-                                    lastTapTime =
-                                        now
-
-                                    lastTapPosition =
-                                        firstPosition
                                 }
-                            }
 
-                            activeNodeId =
-                                null
+                                lastTapTime =
+                                    0L
+
+                                lastTapPosition =
+                                    Offset.Unspecified
+
+                            } else {
+
+                                lastTapTime =
+                                    now
+
+                                lastTapPosition =
+                                    firstPosition
+                            }
                         }
+
+                        /*
+                         * Prevent stale node references.
+                         */
+                        activeNodeId =
+                            null
                     }
+                }
+    ) {
+
+        /*
+         * ============================================================
+         * ENGINEERING BACKGROUND
+         * ============================================================
+         */
+
+        drawSldEngineeringBackground()
+
+        /*
+         * ============================================================
+         * WORLD TRANSFORM
+         * ============================================================
+         */
+
+        withTransform({
+
+            translate(
+                left =
+                    panX,
+
+                top =
+                    panY
+            )
+
+            scale(
+                scaleX =
+                    zoom,
+
+                scaleY =
+                    zoom,
+
+                pivot =
+                    Offset.Zero
+            )
+
+        }) {
+
+            /*
+             * ========================================================
+             * CONNECTIONS
+             * ========================================================
+             */
+
+            currentConnections.forEach { connection ->
+
+                val feederResult =
+                    currentEngineering
+                        ?.upstream
+                        ?.feeders
+                        ?.firstOrNull {
+                            it.connectionId ==
+                                connection.id
+                        }
+
+                drawConnection(
+                    connection =
+                        connection,
+
+                    nodes =
+                        currentNodes,
+
+                    connections =
+                        currentConnections,
+
+                    selected =
+                        connection.id ==
+                            currentSelectedConnectionId,
+
+                    textMeasurer =
+                        textMeasurer,
+
+                    feederResult =
+                        feederResult
+                )
+            }
+
+            /*
+             * ========================================================
+             * NODES
+             * ========================================================
+             */
+
+            currentNodes.forEach { node ->
+
+                val engineeringResult =
+                    currentEngineering
+                        ?.upstream
+                        ?.nodes
+                        ?.firstOrNull {
+                            it.nodeId ==
+                                node.id
+                        }
+
+                drawNode(
+                    node =
+                        node,
+
+                    selected =
+                        node.id ==
+                            currentSelectedNodeId,
+
+                    connectionStart =
+                        node.id ==
+                            currentConnectionStartId,
+
+                    textMeasurer =
+                        textMeasurer,
+
+                    engineeringResult =
+                        engineeringResult,
+
+                    nodes =
+                        currentNodes,
+
+                    connections =
+                        currentConnections
+                )
+            }
+
+            /*
+             * ========================================================
+             * CONNECTION START INDICATOR
+             * ========================================================
+             */
+
+            currentConnectionStartId
+                ?.let { startId ->
+
+                    currentNodes
+                        .firstOrNull {
+                            it.id ==
+                                startId
+                        }
+                        ?.let { node ->
+
+                            val center =
+                                Offset(
+                                    x =
+                                        node.x +
+                                            NODE_CENTER_X,
+
+                                    y =
+                                        node.y +
+                                            NODE_CENTER_Y
+                                )
+
+                            drawCircle(
+                                color =
+                                    Color(
+                                        0xFFFF9800
+                                    ),
+
+                                radius =
+                                    92f,
+
+                                center =
+                                    center,
+
+                                style =
+                                    androidx.compose.ui.graphics
+                                        .drawscope.Stroke(
+                                            width =
+                                                3f
+                                        )
+                            )
+                        }
+                }
+        }
+    }
+
+    /*
+     * ================================================================
+     * VIEW CONTROLS
+     * ================================================================
+     */
+
+    Column(
+        modifier =
+            Modifier
+                .align(
+                    Alignment.TopEnd
+                )
+                .padding(
+                    12.dp
+                ),
+
+        verticalArrangement =
+            Arrangement.spacedBy(
+                8.dp
+            )
+    ) {
+
+        /*
+         * ZOOM IN
+         */
+        FloatingActionButton(
+            onClick = {
+
+                /*
+                 * Zoom around the center of the visible canvas.
+                 * The actual pinch gesture always zooms around
+                 * the fingers.
+                 */
+                zoomAt(
+                    factor =
+                        BUTTON_ZOOM_FACTOR,
+
+                    center =
+                        Offset(
+                            x =
+                                500f,
+
+                            y =
+                                350f
+                        )
+                )
+            }
         ) {
 
-            drawSldEngineeringBackground()
+            Icon(
+                imageVector =
+                    Icons.Outlined.Add,
 
-            withTransform({
-
-                translate(
-                    left = panX,
-                    top = panY
-                )
-
-                scale(
-                    scaleX = zoom,
-                    scaleY = zoom,
-                    pivot =
-                        Offset.Zero
-                )
-
-            }) {
-
-                /*
-                 * Connections first.
-                 */
-
-                currentConnections.forEach { connection ->
-
-                    val feederResult =
-                        currentEngineering
-                            ?.upstream
-                            ?.feeders
-                            ?.firstOrNull {
-                                it.connectionId ==
-                                    connection.id
-                            }
-
-                    drawConnection(
-                        connection =
-                            connection,
-
-                        nodes =
-                            currentNodes,
-
-                        connections =
-                            currentConnections,
-
-                        selected =
-                            connection.id ==
-                                currentSelectedConnectionId,
-
-                        textMeasurer =
-                            textMeasurer,
-
-                        feederResult =
-                            feederResult
-                    )
-                }
-
-                /*
-                 * Nodes second.
-                 */
-
-                currentNodes.forEach { node ->
-
-                    val engineeringResult =
-                        currentEngineering
-                            ?.upstream
-                            ?.nodes
-                            ?.firstOrNull {
-                                it.nodeId ==
-                                    node.id
-                            }
-
-                    drawNode(
-                        node =
-                            node,
-
-                        selected =
-                            node.id ==
-                                currentSelectedNodeId,
-
-                        connectionStart =
-                            node.id ==
-                                currentConnectionStartId,
-
-                        textMeasurer =
-                            textMeasurer,
-
-                        engineeringResult =
-                            engineeringResult,
-
-                        nodes =
-                            currentNodes,
-
-                        connections =
-                            currentConnections
-                    )
-                }
-
-                /*
-                 * CONNECTION START GUIDE
-                 */
-
-                currentConnectionStartId
-                    ?.let { startId ->
-
-                        currentNodes
-                            .firstOrNull {
-                                it.id ==
-                                    startId
-                            }
-                            ?.let { node ->
-
-                                val center =
-                                    Offset(
-                                        node.x +
-                                            90f,
-
-                                        node.y +
-                                            59f
-                                    )
-
-                                drawCircle(
-                                    color =
-                                        Color(
-                                            0xFFFF9800
-                                        ),
-
-                                    radius =
-                                        92f,
-
-                                    center =
-                                        center,
-
-                                    style =
-                                        androidx.compose.ui.graphics
-                                            .drawscope.Stroke(
-                                                width =
-                                                    3f
-                                            )
-                                )
-                            }
-                    }
-            }
+                contentDescription =
+                    "Zoom In"
+            )
         }
 
         /*
-         * FIXED VIEW CONTROLS
+         * ZOOM OUT
          */
+        FloatingActionButton(
+            onClick = {
 
-        Column(
-            modifier =
-                Modifier
-                    .align(
-                        Alignment.TopEnd
-                    )
-                    .padding(12.dp),
-
-            verticalArrangement =
-                Arrangement.spacedBy(8.dp)
-        ) {
-
-            FloatingActionButton(
-                onClick = {
-
-                    zoomAt(
-                        factor =
+                zoomAt(
+                    factor =
+                        1f /
                             BUTTON_ZOOM_FACTOR,
 
-                        center =
-                            Offset(
-                                x = 500f,
-                                y = 350f
-                            )
-                    )
-                }
-            ) {
+                    center =
+                        Offset(
+                            x =
+                                500f,
 
-                Icon(
-                    imageVector =
-                        Icons.Outlined.Add,
-
-                    contentDescription =
-                        "Zoom In"
+                            y =
+                                350f
+                        )
                 )
             }
+        ) {
 
-            FloatingActionButton(
-                onClick = {
+            Icon(
+                imageVector =
+                    Icons.Outlined.Remove,
 
-                    zoomAt(
-                        factor =
-                            1f /
-                                BUTTON_ZOOM_FACTOR,
+                contentDescription =
+                    "Zoom Out"
+            )
+        }
 
-                        center =
-                            Offset(
-                                x = 500f,
-                                y = 350f
-                            )
-                    )
-                }
-            ) {
-
-                Icon(
-                    imageVector =
-                        Icons.Outlined.Remove,
-
-                    contentDescription =
-                        "Zoom Out"
-                )
+        /*
+         * RESET VIEW
+         */
+        FloatingActionButton(
+            onClick = {
+                resetView()
             }
+        ) {
 
-            FloatingActionButton(
-                onClick = {
-                    resetView()
-                }
-            ) {
+            Icon(
+                imageVector =
+                    Icons.Outlined.CenterFocusStrong,
 
-                Icon(
-                    imageVector =
-                        Icons.Outlined.CenterFocusStrong,
-
-                    contentDescription =
-                        "Reset View"
-                )
-            }
+                contentDescription =
+                    "Reset View"
+            )
         }
     }
+}
+
 }
