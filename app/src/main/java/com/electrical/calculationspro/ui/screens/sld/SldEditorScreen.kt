@@ -341,9 +341,9 @@ fun SldEditorScreen(
                     Modifier
                         .fillMaxWidth()
                         .padding(
-                            horizontal = 8.dp,
-                            bottom = 5.dp
-                        ),
+                           horizontal = 8.dp,
+                           vertical = 5.dp
+                    )
                 colors =
                     CardDefaults.cardColors(
                         containerColor =
