@@ -82,12 +82,16 @@ class SldEditorActions(
                 SldCompleteGenerator.generate()
 
             state.nodes = generated.nodes
-            state.connections = sanitizeConnections(
-                generated.connections
-            )
+
+            state.connections =
+                sanitizeConnections(
+                    generated.connections
+                )
 
             state.clearSelection()
+
             saveAndRecalculate()
+
         } catch (e: Exception) {
             state.engineeringError =
                 e.message
@@ -107,21 +111,43 @@ class SldEditorActions(
 
     fun addNode(type: SldNodeType) {
 
-        /*
-         * Important:
-         * Use the requested type directly.
-         * Never depend on state.nodeType here.
-         */
         state.nodeType = type
 
+        /*
+         * BREAKER is a special case.
+         *
+         * A breaker cannot exist as an orphan element in the
+         * professional SLD. It must belong to a PANEL through
+         * an internal BUSBAR connection.
+         *
+         * Prefer the currently selected panel. If no panel is
+         * selected, use the first available PANEL.
+         *
+         * If no PANEL exists, do not modify the network.
+         */
         val selectedPanel =
-            state.selectedNodeId
-                ?.let { id ->
-                    state.nodes.firstOrNull {
-                        it.id == id &&
-                            it.type == SldNodeType.PANEL
-                    }
+            if (type == SldNodeType.BREAKER) {
+                findPanelForNewBreaker()
+            } else {
+                null
+            }
+
+        if (
+            type == SldNodeType.BREAKER &&
+            selectedPanel == null
+        ) {
+            state.connectionStartId = null
+            state.selectedConnectionId = null
+
+            state.engineeringError =
+                if (arabic) {
+                    "أضف لوحة PANEL أولاً ثم اختر اللوحة وأضف القاطع."
+                } else {
+                    "Add a PANEL first, select the panel, then add the breaker."
                 }
+
+            return
+        }
 
         val position =
             if (
@@ -184,26 +210,50 @@ class SldEditorActions(
             )
 
         /*
-         * Atomic UI update:
-         * add node first, then create its internal busbar.
-         * Recalculation happens only after both exist.
+         * Atomic topology update.
+         *
+         * For a BREAKER:
+         *
+         * PANEL
+         *   |
+         * BUSBAR
+         *   |
+         * BREAKER
+         *
+         * Both node and connection are created before any
+         * engineering calculation is executed.
          */
-        state.nodes =
-            state.nodes + node
-
         if (
             type == SldNodeType.BREAKER &&
             selectedPanel != null
         ) {
+
+            state.nodes =
+                state.nodes + node
+
             createBusbarConnection(
                 from = selectedPanel,
                 to = node
             )
+
+        } else {
+
+            state.nodes =
+                state.nodes + node
         }
 
         state.selectedNodeId = node.id
         state.selectedConnectionId = null
         state.connectionStartId = null
+
+        /*
+         * Remove any accidental invalid BUSBAR fields before
+         * calculation/persistence.
+         */
+        state.connections =
+            sanitizeConnections(
+                state.connections
+            )
 
         saveAndRecalculate()
     }
@@ -274,6 +324,7 @@ class SldEditorActions(
                 SldNodeType.TRANSFORMER,
                 SldNodeType.GENERATOR,
                 SldNodeType.PANEL -> "500"
+
                 else -> "0"
             }
 
@@ -333,6 +384,28 @@ class SldEditorActions(
                 }
             }
 
+        /*
+         * Never allow creation of an orphan BREAKER through
+         * the dialog path either.
+         */
+        if (
+            existing == null &&
+            state.nodeType == SldNodeType.BREAKER &&
+            findPanelForNewBreaker() == null
+        ) {
+            state.engineeringError =
+                if (arabic) {
+                    "لا يمكن إنشاء قاطع بدون لوحة PANEL."
+                } else {
+                    "A BREAKER cannot be created without a PANEL."
+                }
+
+            state.showNodeDialog = false
+            state.editingNodeId = null
+            state.connectionStartId = null
+            return
+        }
+
         val voltage =
             state.voltage.toDoubleOrNull()
                 ?.takeIf { it > 0.0 }
@@ -389,18 +462,23 @@ class SldEditorActions(
 
         if (existing == null) {
 
-            val position =
+            val panel =
                 if (
                     state.nodeType ==
                     SldNodeType.BREAKER
                 ) {
-                    selectedPanelForNewBreaker()
-                        ?.let {
-                            findBreakerPosition(it)
-                        }
-                        ?: findFreeNodePosition(
-                            state.nodeType
-                        )
+                    findPanelForNewBreaker()
+                } else {
+                    null
+                }
+
+            val position =
+                if (
+                    state.nodeType ==
+                    SldNodeType.BREAKER &&
+                    panel != null
+                ) {
+                    findBreakerPosition(panel)
                 } else {
                     findFreeNodePosition(
                         state.nodeType
@@ -437,20 +515,17 @@ class SldEditorActions(
                         sourceMva
                 )
 
+            /*
+             * Atomic insertion for breaker.
+             */
             state.nodes =
                 state.nodes + node
 
-            val panel =
-                if (
-                    node.type ==
-                    SldNodeType.BREAKER
-                ) {
-                    selectedPanelForNewBreaker()
-                } else {
-                    null
-                }
-
-            if (panel != null) {
+            if (
+                node.type ==
+                    SldNodeType.BREAKER &&
+                panel != null
+            ) {
                 createBusbarConnection(
                     panel,
                     node
@@ -495,12 +570,18 @@ class SldEditorActions(
                     }
                 }
 
-            state.selectedNodeId = updated.id
+            state.selectedNodeId =
+                updated.id
         }
 
         state.showNodeDialog = false
         state.editingNodeId = null
         state.connectionStartId = null
+
+        state.connections =
+            sanitizeConnections(
+                state.connections
+            )
 
         saveAndRecalculate()
     }
@@ -511,16 +592,37 @@ class SldEditorActions(
      * ============================================================
      */
 
-    private fun selectedPanelForNewBreaker():
-        SldNode? {
+    private fun findPanelForNewBreaker(): SldNode? {
 
-        return state.selectedNodeId?.let { id ->
-            state.nodes.firstOrNull {
-                it.id == id &&
-                    it.type == SldNodeType.PANEL
+        /*
+         * 1. Selected PANEL has priority.
+         */
+        val selected =
+            state.selectedNodeId?.let { id ->
+                state.nodes.firstOrNull {
+                    it.id == id &&
+                        it.type == SldNodeType.PANEL
+                }
             }
+
+        if (selected != null) {
+            return selected
+        }
+
+        /*
+         * 2. If no panel is selected, use the first panel.
+         *
+         * This makes the toolbar action safe and prevents the
+         * first BREAKER from becoming an invalid orphan.
+         */
+        return state.nodes.firstOrNull {
+            it.type == SldNodeType.PANEL
         }
     }
+
+    private fun selectedPanelForNewBreaker():
+        SldNode? =
+        findPanelForNewBreaker()
 
     private fun findBreakerPosition(
         panel: SldNode
@@ -544,11 +646,10 @@ class SldEditorActions(
                 }
 
         val usedXs =
-            breakers
-                .map {
-                    it.x +
-                        NODE_WIDTH / 2f
-                }
+            breakers.map {
+                it.x +
+                    NODE_WIDTH / 2f
+            }
 
         val panelCenter =
             panel.x +
@@ -558,16 +659,13 @@ class SldEditorActions(
             panel.y +
                 BREAKER_Y_GAP
 
-        /*
-         * First slot is centered under panel.
-         * Subsequent breakers alternate left/right.
-         */
         val candidates =
             buildList {
 
                 add(panelCenter)
 
                 for (i in 1..40) {
+
                     val offset =
                         i * BREAKER_SLOT
 
@@ -750,7 +848,7 @@ class SldEditorActions(
                             existing.y +
                                 NODE_HEIGHT / 2f
                             )
-                )
+                    )
 
             dx >=
                 NODE_WIDTH +
@@ -1010,9 +1108,6 @@ class SldEditorActions(
                 connectionType =
                     SldConnectionType.BUSBAR,
 
-                /*
-                 * BUSBAR contains NO cable data.
-                 */
                 lengthMeters = 0.0,
                 resistanceOhmPerKm = 0.0,
                 reactanceOhmPerKm = 0.0,
@@ -1126,18 +1221,13 @@ class SldEditorActions(
                 SldConnectionType.CABLE
             }
 
-        if (
-            existing != null
-        ) {
+        if (existing != null) {
 
             val updated =
                 if (
                     type ==
                     SldConnectionType.BUSBAR
                 ) {
-                    /*
-                     * BUSBAR is completely isolated from cable fields.
-                     */
                     existing.copy(
                         connectionType =
                             SldConnectionType.BUSBAR,
@@ -1344,6 +1434,12 @@ class SldEditorActions(
         }
 
         state.clearDialogs()
+
+        state.connections =
+            sanitizeConnections(
+                state.connections
+            )
+
         saveAndRecalculate()
     }
 
@@ -1392,6 +1488,7 @@ class SldEditorActions(
         }
 
         state.clearSelection()
+
         saveAndRecalculate()
     }
 
@@ -1403,6 +1500,7 @@ class SldEditorActions(
 
     fun autoLayout() {
         try {
+
             val result =
                 SldAutoLayoutEngine.arrange(
                     network()
@@ -1417,9 +1515,11 @@ class SldEditorActions(
                 )
 
             state.clearSelection()
+
             saveAndRecalculate()
 
         } catch (e: Exception) {
+
             state.engineeringError =
                 e.message
                     ?: if (arabic) {
@@ -1438,6 +1538,7 @@ class SldEditorActions(
 
     fun runShortCircuit() {
         try {
+
             val study =
                 SldEngineeringFacade
                     .calculateShortCircuit(
@@ -1458,6 +1559,7 @@ class SldEditorActions(
             state.engineeringError = null
 
         } catch (e: Exception) {
+
             state.engineeringError =
                 e.message
                     ?: if (arabic) {
@@ -1476,12 +1578,14 @@ class SldEditorActions(
             }
 
         if (panel == null) {
+
             state.engineeringError =
                 if (arabic) {
                     "لا توجد لوحة PANEL."
                 } else {
                     "No PANEL exists."
                 }
+
             return
         }
 
@@ -1515,6 +1619,7 @@ class SldEditorActions(
             state.engineeringError = null
 
         } catch (e: Exception) {
+
             state.engineeringError =
                 e.message
                     ?: if (arabic) {
@@ -1559,7 +1664,7 @@ class SldEditorActions(
                     (
                         sqrt(3.0) *
                             panel.voltage
-                    )
+                        )
 
             if (
                 current.isFinite() &&
@@ -1593,9 +1698,11 @@ class SldEditorActions(
                     parallelRuns = 1,
                     voltageDropPercent = 0.0,
                     currentCapacityA = 0.0,
+
                     conductorMaterial = "",
                     insulationType = "",
                     installationMethodCode = "",
+
                     busbarMaterial =
                         connection.busbarMaterial.ifBlank {
                             "Copper"
@@ -1609,20 +1716,24 @@ class SldEditorActions(
     }
 
     private fun createNodeId(): String {
-        var id = "node-${System.nanoTime()}"
+
+        var id =
+            "node-${System.nanoTime()}"
 
         while (
             state.nodes.any {
                 it.id == id
             }
         ) {
-            id = "node-${System.nanoTime()}"
+            id =
+                "node-${System.nanoTime()}"
         }
 
         return id
     }
 
     private fun createConnectionId(): String {
+
         var id =
             "connection-${System.nanoTime()}"
 
