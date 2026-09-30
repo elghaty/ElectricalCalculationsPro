@@ -30,6 +30,11 @@ class SldEditorState {
 
     var selectedNodeId by mutableStateOf<String?>(null)
     var selectedConnectionId by mutableStateOf<String?>(null)
+
+    /**
+     * Non-null only while the user is actively creating
+     * a connection.
+     */
     var connectionStartId by mutableStateOf<String?>(null)
 
     var editingNodeId by mutableStateOf<String?>(null)
@@ -57,12 +62,6 @@ class SldEditorState {
     var generatorXd by mutableStateOf("15")
     var sourceMva by mutableStateOf("500")
 
-    /*
-     * ============================================================
-     * CONNECTION EDITOR STATE
-     * ============================================================
-     */
-
     var connectionType by mutableStateOf("CABLE")
 
     var conductorMaterial by mutableStateOf("Copper")
@@ -72,11 +71,6 @@ class SldEditorState {
     var busbarMaterial by mutableStateOf("Copper")
     var busbarRatedCurrent by mutableStateOf("400")
     var busbarShortCircuit by mutableStateOf("25")
-
-    /*
-     * Legacy cable fields are retained for compatibility
-     * with the existing engineering engines.
-     */
 
     var length by mutableStateOf("50")
     var resistance by mutableStateOf("0.125")
@@ -91,6 +85,12 @@ class SldEditorState {
         connectionStartId = null
     }
 
+    /**
+     * Closes every editor state and terminates connection mode.
+     *
+     * This is deliberately used after successful save and cancel
+     * so the connection dialog can never remain stuck on screen.
+     */
     fun clearDialogs() {
         showNodeDialog = false
         showConnectionDialog = false
