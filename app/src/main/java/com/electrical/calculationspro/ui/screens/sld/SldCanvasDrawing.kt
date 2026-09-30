@@ -2557,32 +2557,3 @@ return sqrt(
 )
 
 }
-
-/*
-
-* ================================================================
-* FORMATTER
-* ================================================================
-* 
-* Keep one local formatter here to avoid introducing any new
-* conflicting package-level fmt() function.
-  */
-
-private fun fmt(
-value: Double
-): String {
-
-return if (
-    value.isFinite()
-) {
-
-    "%.2f".format(
-        value
-    )
-
-} else {
-
-    "0.00"
-}
-
-}
