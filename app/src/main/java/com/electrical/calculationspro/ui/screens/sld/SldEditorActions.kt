@@ -58,19 +58,19 @@ class SldEditorActions(
     }
 
     /**
-     * The editor is allowed to contain an incomplete topology.
+     * The SLD editor is allowed to contain an incomplete topology.
      *
-     * Therefore engineering calculation must NOT be called until
-     * the current SLD passes the professional topology validator.
+     * Engineering calculation must therefore NEVER be executed
+     * against an invalid/incomplete drawing.
      *
      * Invalid/incomplete design:
      * - remains visible
      * - remains editable
      * - remains saved
-     * - receives a design/engineering message
+     * - receives a validation message
      *
      * Valid design:
-     * - full engineering package is calculated normally.
+     * - full engineering package is calculated
      */
     fun recalculateEngineering() {
 
@@ -78,6 +78,15 @@ class SldEditorActions(
 
         try {
 
+            /*
+             * IMPORTANT:
+             *
+             * Do not call calculateComplete() directly.
+             *
+             * A drawing operation such as adding LOAD, PANEL,
+             * BREAKER, BUS or SOURCE can temporarily produce an
+             * incomplete topology. That is a normal editor state.
+             */
             val validation =
                 SldEngineeringFacade.validate(
                     currentNetwork
@@ -85,6 +94,10 @@ class SldEditorActions(
 
             if (!validation.valid) {
 
+                /*
+                 * Never destroy the current drawing because the
+                 * engineering topology is not complete yet.
+                 */
                 state.engineeringPackage = null
 
                 val messages =
@@ -105,6 +118,10 @@ class SldEditorActions(
                 return
             }
 
+            /*
+             * Only a valid professional topology reaches the
+             * complete engineering engine.
+             */
             state.engineeringError = null
 
             state.engineeringPackage =
@@ -115,7 +132,10 @@ class SldEditorActions(
         } catch (e: Exception) {
 
             /*
-             * Calculation failure must never destroy the drawing.
+             * A calculation exception must NEVER remove nodes,
+             * connections, or leave the editor.
+             *
+             * The drawing remains intact and editable.
              */
             state.engineeringPackage = null
 
@@ -180,9 +200,9 @@ class SldEditorActions(
         state.nodeType = type
 
         /*
-         * BREAKER is always available as a drawing element.
+         * BREAKER is always a valid drawing operation.
          *
-         * If a PANEL exists:
+         * With PANEL:
          *
          *     PANEL
          *       |
@@ -190,14 +210,12 @@ class SldEditorActions(
          *       |
          *     BREAKER
          *
-         * If no PANEL exists:
+         * Without PANEL:
          *
          *     BREAKER
          *
-         * is still created at a free canvas position.
-         *
-         * Engineering study is deferred until the topology
-         * becomes valid.
+         * The second case is intentionally allowed because the
+         * editor and engineering-study phases are separated.
          */
         val selectedPanel =
             if (
@@ -225,30 +243,44 @@ class SldEditorActions(
         val node =
             SldNode(
                 id = createNodeId(),
-                name = defaultNodeName(type),
+
+                name =
+                    defaultNodeName(
+                        type
+                    ),
+
                 type = type,
+
                 x = position.first,
                 y = position.second,
+
                 voltage = 400.0,
+
                 loadKw =
                     if (
-                        type == SldNodeType.LOAD
+                        type ==
+                        SldNodeType.LOAD
                     ) {
                         100.0
                     } else {
                         0.0
                     },
+
                 powerFactor = 0.90,
+
                 demandFactor =
                     if (
-                        type == SldNodeType.LOAD
+                        type ==
+                        SldNodeType.LOAD
                     ) {
                         0.80
                     } else {
                         1.0
                     },
+
                 ratedKva =
                     when (type) {
+
                         SldNodeType.TRANSFORMER ->
                             500.0
 
@@ -261,6 +293,7 @@ class SldEditorActions(
                         else ->
                             0.0
                     },
+
                 transformerPercentZ =
                     if (
                         type ==
@@ -270,6 +303,7 @@ class SldEditorActions(
                     } else {
                         0.0
                     },
+
                 generatorXdSubtransient =
                     if (
                         type ==
@@ -279,6 +313,7 @@ class SldEditorActions(
                     } else {
                         0.0
                     },
+
                 sourceShortCircuitMva =
                     if (
                         type ==
@@ -291,19 +326,22 @@ class SldEditorActions(
             )
 
         /*
-         * Atomic topology update.
-         *
-         * The node is ALWAYS inserted first.
-         *
-         * BUSBAR is created only when a valid PANEL exists.
+         * Insert the node BEFORE attempting any engineering
+         * calculation.
          */
         state.nodes =
             state.nodes + node
 
+        /*
+         * Internal PANEL -> BREAKER BUSBAR is created only when
+         * a PANEL actually exists.
+         */
         if (
-            type == SldNodeType.BREAKER &&
+            type ==
+            SldNodeType.BREAKER &&
             selectedPanel != null
         ) {
+
             createBusbarConnection(
                 from = selectedPanel,
                 to = node
@@ -324,6 +362,12 @@ class SldEditorActions(
                 state.connections
             )
 
+        /*
+         * Recalculate safely.
+         *
+         * If the new drawing is incomplete, validation returns
+         * without entering the engineering engine.
+         */
         saveAndRecalculate()
     }
 
@@ -333,6 +377,7 @@ class SldEditorActions(
 
         val prefix =
             when (type) {
+
                 SldNodeType.SOURCE ->
                     "UTILITY"
 
@@ -382,24 +427,32 @@ class SldEditorActions(
     ) {
 
         state.editingNodeId = null
-        state.nodeType = type
+
+        state.nodeType =
+            type
+
         state.name = ""
-        state.voltage = "400"
+
+        state.voltage =
+            "400"
 
         state.loadKw =
             if (
-                type == SldNodeType.LOAD
+                type ==
+                SldNodeType.LOAD
             ) {
                 "100"
             } else {
                 "0"
             }
 
-        state.pf = "0.90"
+        state.pf =
+            "0.90"
 
         state.demand =
             if (
-                type == SldNodeType.LOAD
+                type ==
+                SldNodeType.LOAD
             ) {
                 "0.80"
             } else {
@@ -448,7 +501,8 @@ class SldEditorActions(
                 "0"
             }
 
-        state.showNodeDialog = true
+        state.showNodeDialog =
+            true
     }
 
     fun editNode(
@@ -496,7 +550,8 @@ class SldEditorActions(
             node.sourceShortCircuitMva
                 .toEngineeringString()
 
-        state.showNodeDialog = true
+        state.showNodeDialog =
+            true
     }
 
     fun saveNode() {
@@ -512,15 +567,12 @@ class SldEditorActions(
             }
 
         /*
-         * A BREAKER may be created before a PANEL exists.
+         * IMPORTANT:
          *
-         * If a PANEL exists, the insertion path below creates
-         * PANEL -> BREAKER as BUSBAR.
+         * A BREAKER is allowed to exist before a PANEL.
          *
-         * If no PANEL exists, the BREAKER remains an unconnected
-         * drawing element until the designer completes the topology.
-         *
-         * Never reject, delete, or roll back the element here.
+         * Never reject a drawing element because the engineering
+         * topology is incomplete.
          */
 
         val voltage =
@@ -535,7 +587,9 @@ class SldEditorActions(
         val loadKw =
             state.loadKw
                 .toDoubleOrNull()
-                ?.coerceAtLeast(0.0)
+                ?.coerceAtLeast(
+                    0.0
+                )
                 ?: existing?.loadKw
                 ?: 0.0
 
@@ -562,28 +616,36 @@ class SldEditorActions(
         val kva =
             state.kva
                 .toDoubleOrNull()
-                ?.coerceAtLeast(0.0)
+                ?.coerceAtLeast(
+                    0.0
+                )
                 ?: existing?.ratedKva
                 ?: 0.0
 
         val transformerZ =
             state.transformerZ
                 .toDoubleOrNull()
-                ?.coerceAtLeast(0.0)
+                ?.coerceAtLeast(
+                    0.0
+                )
                 ?: existing?.transformerPercentZ
                 ?: 0.0
 
         val generatorXd =
             state.generatorXd
                 .toDoubleOrNull()
-                ?.coerceAtLeast(0.0)
+                ?.coerceAtLeast(
+                    0.0
+                )
                 ?: existing?.generatorXdSubtransient
                 ?: 0.0
 
         val sourceMva =
             state.sourceMva
                 .toDoubleOrNull()
-                ?.coerceAtLeast(0.0)
+                ?.coerceAtLeast(
+                    0.0
+                )
                 ?: existing?.sourceShortCircuitMva
                 ?: 0.0
 
@@ -597,7 +659,15 @@ class SldEditorActions(
                         )
                 }
 
-        if (existing == null) {
+        /*
+         * ========================================================
+         * NEW NODE
+         * ========================================================
+         */
+
+        if (
+            existing == null
+        ) {
 
             val panel =
                 if (
@@ -615,10 +685,13 @@ class SldEditorActions(
                     SldNodeType.BREAKER &&
                     panel != null
                 ) {
+
                     findBreakerPosition(
                         panel
                     )
+
                 } else {
+
                     findFreeNodePosition(
                         state.nodeType
                     )
@@ -626,19 +699,25 @@ class SldEditorActions(
 
             val node =
                 SldNode(
+
                     id =
                         editingId
                             ?: createNodeId(),
 
-                    name = cleanName,
+                    name =
+                        cleanName,
 
                     type =
                         state.nodeType,
 
-                    x = position.first,
-                    y = position.second,
+                    x =
+                        position.first,
 
-                    voltage = voltage,
+                    y =
+                        position.second,
+
+                    voltage =
+                        voltage,
 
                     loadKw =
                         if (
@@ -650,9 +729,14 @@ class SldEditorActions(
                             0.0
                         },
 
-                    powerFactor = pf,
-                    demandFactor = demand,
-                    ratedKva = kva,
+                    powerFactor =
+                        pf,
+
+                    demandFactor =
+                        demand,
+
+                    ratedKva =
+                        kva,
 
                     transformerPercentZ =
                         transformerZ,
@@ -665,20 +749,20 @@ class SldEditorActions(
                 )
 
             /*
-             * Always insert the node.
+             * Always insert.
              */
             state.nodes =
                 state.nodes + node
 
             /*
-             * Create the internal BUSBAR only if a valid
-             * PANEL exists.
+             * Internal BUSBAR only when PANEL exists.
              */
             if (
                 node.type ==
                 SldNodeType.BREAKER &&
                 panel != null
             ) {
+
                 createBusbarConnection(
                     panel,
                     node
@@ -690,14 +774,23 @@ class SldEditorActions(
 
         } else {
 
+            /*
+             * ====================================================
+             * EXISTING NODE
+             * ====================================================
+             */
+
             val updated =
                 existing.copy(
-                    name = cleanName,
+
+                    name =
+                        cleanName,
 
                     type =
                         state.nodeType,
 
-                    voltage = voltage,
+                    voltage =
+                        voltage,
 
                     loadKw =
                         if (
@@ -709,9 +802,14 @@ class SldEditorActions(
                             0.0
                         },
 
-                    powerFactor = pf,
-                    demandFactor = demand,
-                    ratedKva = kva,
+                    powerFactor =
+                        pf,
+
+                    demandFactor =
+                        demand,
+
+                    ratedKva =
+                        kva,
 
                     transformerPercentZ =
                         transformerZ,
@@ -753,6 +851,10 @@ class SldEditorActions(
                 state.connections
             )
 
+        /*
+         * Saving a LOAD must not navigate away from SLD.
+         * The engineering layer is entered only after validation.
+         */
         saveAndRecalculate()
     }
 
@@ -766,7 +868,7 @@ class SldEditorActions(
         SldNode? {
 
         /*
-         * 1. Selected PANEL has priority.
+         * Selected PANEL has priority.
          */
         val selected =
             state.selectedNodeId?.let { id ->
@@ -778,12 +880,14 @@ class SldEditorActions(
                 }
             }
 
-        if (selected != null) {
+        if (
+            selected != null
+        ) {
             return selected
         }
 
         /*
-         * 2. Otherwise use the first PANEL.
+         * Otherwise use first PANEL.
          */
         return state.nodes.firstOrNull {
             it.type ==
@@ -835,9 +939,13 @@ class SldEditorActions(
         val candidates =
             buildList {
 
-                add(panelCenter)
+                add(
+                    panelCenter
+                )
 
-                for (i in 1..40) {
+                for (
+                    i in 1..40
+                ) {
 
                     val offset =
                         i *
@@ -910,8 +1018,8 @@ class SldEditorActions(
             mutableListOf<Pair<Float, Float>>()
 
         /*
-         * If adding a BREAKER without a PANEL,
-         * deliberately do NOT depend on PANEL positioning.
+         * BREAKER without PANEL must still have a valid free
+         * drawing position.
          */
         if (
             type ==
@@ -933,7 +1041,9 @@ class SldEditorActions(
                         panel.y +
                             BREAKER_Y_GAP
 
-                    for (i in 0..20) {
+                    for (
+                        i in 0..20
+                    ) {
 
                         val sign =
                             if (
@@ -949,17 +1059,22 @@ class SldEditorActions(
 
                         candidates +=
                             snapToGrid(
+
                                 center +
                                     sign *
                                     index *
                                     BREAKER_SLOT -
                                     NODE_WIDTH / 2f,
+
                                 y
                             )
                     }
                 }
         }
 
+        /*
+         * General grid.
+         */
         for (
             row in 0..20
         ) {
@@ -970,6 +1085,7 @@ class SldEditorActions(
 
                 candidates +=
                     snapToGrid(
+
                         DEFAULT_X +
                             column *
                             POSITION_STEP_X,
@@ -981,6 +1097,9 @@ class SldEditorActions(
             }
         }
 
+        /*
+         * Positions around existing nodes.
+         */
         state.nodes.forEach { node ->
 
             candidates +=
@@ -1075,6 +1194,7 @@ class SldEditorActions(
                     y
                 )
             ) {
+
                 return snapToGrid(
                     x,
                     y
@@ -1087,6 +1207,7 @@ class SldEditorActions(
             if (
                 x > 5000f
             ) {
+
                 x =
                     DEFAULT_X
 
@@ -1153,13 +1274,16 @@ class SldEditorActions(
 
         state.nodes =
             state.nodes.map {
+
                 if (
                     it.id == nodeId
                 ) {
+
                     it.copy(
                         x = newX,
                         y = newY
                     )
+
                 } else {
                     it
                 }
@@ -1217,6 +1341,7 @@ class SldEditorActions(
         if (
             startId == target.id
         ) {
+
             state.connectionStartId =
                 null
 
@@ -1231,6 +1356,7 @@ class SldEditorActions(
         if (
             from == null
         ) {
+
             state.connectionStartId =
                 null
 
@@ -1292,12 +1418,23 @@ class SldEditorActions(
         state.connectionType =
             SldConnectionType.CABLE.name
 
-        state.length = "50"
-        state.resistance = "0.125"
-        state.reactance = "0.080"
-        state.cableSize = "240"
-        state.parallelRuns = "1"
-        state.capacity = "350"
+        state.length =
+            "50"
+
+        state.resistance =
+            "0.125"
+
+        state.reactance =
+            "0.080"
+
+        state.cableSize =
+            "240"
+
+        state.parallelRuns =
+            "1"
+
+        state.capacity =
+            "350"
 
         state.showConnectionDialog =
             true
@@ -1314,6 +1451,9 @@ class SldEditorActions(
         to: SldNode
     ) {
 
+        /*
+         * BUSBAR is strictly internal to PANEL.
+         */
         if (
             from.type !=
                 SldNodeType.PANEL ||
@@ -1357,6 +1497,7 @@ class SldEditorActions(
 
         val connection =
             SldConnection(
+
                 id =
                     createConnectionId(),
 
@@ -1369,6 +1510,9 @@ class SldEditorActions(
                 connectionType =
                     SldConnectionType.BUSBAR,
 
+                /*
+                 * BUSBAR never uses cable length.
+                 */
                 lengthMeters =
                     0.0,
 
@@ -1506,6 +1650,7 @@ class SldEditorActions(
             } catch (
                 _: Exception
             ) {
+
                 SldConnectionType.CABLE
             }
 
@@ -1564,14 +1709,18 @@ class SldEditorActions(
                         busbarRatedCurrentA =
                             state.busbarRatedCurrent
                                 .toDoubleOrNull()
-                                ?.coerceAtLeast(0.0)
+                                ?.coerceAtLeast(
+                                    0.0
+                                )
                                 ?: existing
                                     .busbarRatedCurrentA,
 
                         busbarShortCircuitKA =
                             state.busbarShortCircuit
                                 .toDoubleOrNull()
-                                ?.coerceAtLeast(0.0)
+                                ?.coerceAtLeast(
+                                    0.0
+                                )
                                 ?: existing
                                     .busbarShortCircuitKA
                     )
@@ -1650,6 +1799,7 @@ class SldEditorActions(
 
             state.connections =
                 state.connections.map {
+
                     if (
                         it.id ==
                         existing.id
@@ -1932,12 +2082,17 @@ class SldEditorActions(
 
         try {
 
+            val currentNetwork =
+                network()
+
             val validation =
                 SldEngineeringFacade.validate(
-                    network()
+                    currentNetwork
                 )
 
-            if (!validation.valid) {
+            if (
+                !validation.valid
+            ) {
 
                 state.engineeringError =
                     validation.errors
@@ -1952,6 +2107,7 @@ class SldEditorActions(
                             " • "
                         )
                         .ifBlank {
+
                             if (arabic) {
                                 "المخطط غير مكتمل لحساب القصر."
                             } else {
@@ -1965,7 +2121,7 @@ class SldEditorActions(
             val study =
                 SldEngineeringFacade
                     .calculateShortCircuit(
-                        network()
+                        currentNetwork
                     )
 
             state.reportTitle =
@@ -2030,7 +2186,9 @@ class SldEditorActions(
                     currentNetwork
                 )
 
-            if (!validation.valid) {
+            if (
+                !validation.valid
+            ) {
 
                 state.engineeringError =
                     validation.errors
@@ -2045,6 +2203,7 @@ class SldEditorActions(
                             " • "
                         )
                         .ifBlank {
+
                             if (arabic) {
                                 "المخطط غير مكتمل لإنشاء جدول اللوحة."
                             } else {
@@ -2059,6 +2218,7 @@ class SldEditorActions(
                 SldEngineeringFacade.calculateComplete(
                     network =
                         currentNetwork,
+
                     panelNodeId =
                         panel.id
                 )
@@ -2118,8 +2278,11 @@ class SldEditorActions(
             to.type ==
                 SldNodeType.BREAKER
         ) {
+
             SldConnectionType.BUSBAR
+
         } else {
+
             SldConnectionType.CABLE
         }
 
@@ -2169,6 +2332,9 @@ class SldEditorActions(
 
                 connection.copy(
 
+                    /*
+                     * BUSBAR never carries cable data.
+                     */
                     lengthMeters =
                         0.0,
 
@@ -2208,6 +2374,7 @@ class SldEditorActions(
                 )
 
             } else {
+
                 connection
             }
         }
