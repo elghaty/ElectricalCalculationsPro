@@ -73,12 +73,6 @@ fun SldEditorScreen(
     val arabic = language == AppLanguage.ARABIC
     val context = LocalContext.current
 
-    /*
-     * ============================================================
-     * PDF EXPORT
-     * ============================================================
-     */
-
     val pdfLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument(
@@ -118,21 +112,9 @@ fun SldEditorScreen(
             }
         }
 
-    /*
-     * ============================================================
-     * INITIAL LOAD
-     * ============================================================
-     */
-
     LaunchedEffect(Unit) {
         actions.loadProjectNetwork()
     }
-
-    /*
-     * ============================================================
-     * MAIN SCREEN
-     * ============================================================
-     */
 
     Column(
         modifier = Modifier
@@ -141,12 +123,6 @@ fun SldEditorScreen(
                 MaterialTheme.colorScheme.background
             )
     ) {
-
-        /*
-         * ========================================================
-         * HEADER
-         * ========================================================
-         */
 
         Row(
             modifier = Modifier
@@ -223,12 +199,6 @@ fun SldEditorScreen(
                 )
             }
         }
-
-        /*
-         * ========================================================
-         * ENGINEERING STATUS
-         * ========================================================
-         */
 
         val statusText =
             when {
@@ -307,12 +277,6 @@ fun SldEditorScreen(
             }
         }
 
-        /*
-         * ========================================================
-         * CONNECTION MODE
-         * ========================================================
-         */
-
         if (state.connectionStartId != null) {
 
             val startNode =
@@ -343,8 +307,7 @@ fun SldEditorScreen(
                 ) {
 
                     Icon(
-                        imageVector =
-                            Icons.Outlined.Link,
+                        imageVector = Icons.Outlined.Link,
                         contentDescription = null,
                         tint =
                             MaterialTheme.colorScheme.onSecondaryContainer
@@ -401,12 +364,6 @@ fun SldEditorScreen(
                 }
             }
         }
-
-        /*
-         * ========================================================
-         * TOOLBAR
-         * ========================================================
-         */
 
         Row(
             modifier = Modifier
@@ -515,7 +472,6 @@ fun SldEditorScreen(
                 icon = Icons.Outlined.PictureAsPdf,
                 text = "PDF",
                 onClick = {
-
                     if (state.reportText.isBlank()) {
                         actions.generateCompleteSld()
                     } else {
@@ -526,12 +482,6 @@ fun SldEditorScreen(
                 }
             )
         }
-
-        /*
-         * ========================================================
-         * DESIGN INFORMATION BAR
-         * ========================================================
-         */
 
         Card(
             modifier = Modifier
@@ -606,12 +556,6 @@ fun SldEditorScreen(
             }
         }
 
-        /*
-         * ========================================================
-         * CANVAS
-         * ========================================================
-         */
-
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -621,33 +565,22 @@ fun SldEditorScreen(
 
             SldCanvas(
                 modifier = Modifier.fillMaxSize(),
-
                 nodes = state.nodes,
-
                 connections = state.connections,
+                selectedNodeId = state.selectedNodeId,
+                selectedConnectionId = state.selectedConnectionId,
+                connectionStartId = state.connectionStartId,
+                engineering = state.engineeringPackage,
 
-                selectedNodeId =
-                    state.selectedNodeId,
-
-                selectedConnectionId =
-                    state.selectedConnectionId,
-
-                connectionStartId =
-                    state.connectionStartId,
-
-                engineering =
-                    state.engineeringPackage,
-
+                /*
+                 * IMPORTANT:
+                 *
+                 * The clicked ID is passed directly to the
+                 * action layer. We do not update selectedNodeId
+                 * and then read it again in the same callback.
+                 */
                 onSelectNode = { id ->
-
-                    state.selectedNodeId = id
-                    state.selectedConnectionId = null
-
-                    if (
-                        state.connectionStartId != null
-                    ) {
-                        actions.startOrCompleteConnection()
-                    }
+                    actions.startOrCompleteConnection(id)
                 },
 
                 onMoveNode = { id, dx, dy ->
@@ -707,47 +640,30 @@ fun SldEditorScreen(
         }
     }
 
-    /*
-     * ============================================================
-     * NODE EDITOR
-     * ============================================================
-     */
-
     if (state.showNodeDialog) {
 
         SldNodeEditorDialog(
             arabic = arabic,
-
             editing =
                 state.editingNodeId != null,
-
             type =
                 state.nodeType,
-
             name =
                 state.name,
-
             voltage =
                 state.voltage,
-
             loadKw =
                 state.loadKw,
-
             pf =
                 state.pf,
-
             demand =
                 state.demand,
-
             kva =
                 state.kva,
-
             transformerZ =
                 state.transformerZ,
-
             generatorXd =
                 state.generatorXd,
-
             sourceMva =
                 state.sourceMva,
 
@@ -798,54 +714,34 @@ fun SldEditorScreen(
         )
     }
 
-    /*
-     * ============================================================
-     * CONNECTION EDITOR
-     * ============================================================
-     */
-
     if (state.showConnectionDialog) {
 
         SldConnectionEditorDialog(
-            arabic =
-                arabic,
-
+            arabic = arabic,
             connectionType =
                 state.connectionType,
-
             conductorMaterial =
                 state.conductorMaterial,
-
             insulationType =
                 state.insulationType,
-
             installationMethodCode =
                 state.installationMethodCode,
-
             busbarMaterial =
                 state.busbarMaterial,
-
             busbarRatedCurrent =
                 state.busbarRatedCurrent,
-
             busbarShortCircuit =
                 state.busbarShortCircuit,
-
             length =
                 state.length,
-
             resistance =
                 state.resistance,
-
             reactance =
                 state.reactance,
-
             cableSize =
                 state.cableSize,
-
             parallelRuns =
                 state.parallelRuns,
-
             capacity =
                 state.capacity,
 
@@ -913,12 +809,6 @@ fun SldEditorScreen(
         )
     }
 
-    /*
-     * ============================================================
-     * ENGINEERING REPORT
-     * ============================================================
-     */
-
     if (state.showReport) {
 
         AlertDialog(
@@ -972,9 +862,7 @@ fun SldEditorScreen(
                 ) {
 
                     Text(
-                        text =
-                            state.reportText,
-
+                        text = state.reportText,
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -983,7 +871,6 @@ fun SldEditorScreen(
                                     rememberScrollState()
                                 )
                                 .padding(14.dp),
-
                         style =
                             MaterialTheme.typography.bodySmall
                     )
@@ -1044,12 +931,6 @@ fun SldEditorScreen(
     }
 }
 
-/*
- * ================================================================
- * TOOL BUTTON
- * ================================================================
- */
-
 @Composable
 private fun SldToolButton(
     icon: ImageVector,
@@ -1068,17 +949,9 @@ private fun SldToolButton(
             modifier = Modifier.width(5.dp)
         )
 
-        Text(
-            text = text
-        )
+        Text(text = text)
     }
 }
-
-/*
- * ================================================================
- * ADD COMPONENT MENU
- * ================================================================
- */
 
 @Composable
 private fun AddComponentMenu(
@@ -1139,7 +1012,6 @@ private fun AddComponentMenu(
                                     )
                             )
                         },
-
                         onClick = {
                             expanded = false
                             onType(type)
@@ -1149,12 +1021,6 @@ private fun AddComponentMenu(
         }
     }
 }
-
-/*
- * ================================================================
- * METRIC
- * ================================================================
- */
 
 @Composable
 private fun SldMetric(
@@ -1185,12 +1051,6 @@ private fun SldMetric(
         )
     }
 }
-
-/*
- * ================================================================
- * NODE LABEL
- * ================================================================
- */
 
 private fun sldNodeTypeLabel(
     type: SldNodeType,
