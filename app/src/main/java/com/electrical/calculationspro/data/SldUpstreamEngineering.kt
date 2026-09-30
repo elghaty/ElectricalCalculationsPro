@@ -23,26 +23,20 @@ import kotlin.math.tan
  *   ↓
  * LOAD
  *
- * The engine aggregates active and reactive power independently:
+ * Engineering rules:
  *
- * P = Σ kW
- * Q = Σ kVAr
- * S = √(P² + Q²)
- * I = S × 1000 / (√3 × V)
- *
- * Important engineering rules:
- *
- * 1. LOAD nodes carry the actual local load.
- * 2. SOURCE / TRANSFORMER / GENERATOR / BUS / BREAKER
- *    do not duplicate downstream load.
- * 3. Downstream load propagates automatically upstream.
- * 4. BUSBAR connections are not treated as cable feeders.
- * 5. BUSBAR connections have zero cable voltage drop.
- * 6. Cable adequacy is evaluated only for cable connections.
- * 7. The selected EngineeringContext is preserved.
- * 8. No engineering standard is silently substituted.
- * 9. Breaker selection uses the selected standard dataset.
- * 10. Transformer recommendation is based on calculated demand.
+ * 1. LOAD nodes carry actual local load.
+ * 2. Intermediate equipment does not duplicate downstream load.
+ * 3. Downstream demand propagates automatically upstream.
+ * 4. BUSBAR is an internal panel connection and is not a cable.
+ * 5. BUSBAR has zero cable voltage drop.
+ * 6. Cable adequacy is verified only for CABLE connections.
+ * 7. Zero cable capacity means NOT VERIFIED, not adequate.
+ * 8. Selected EngineeringContext is preserved.
+ * 9. No silent standard substitution when context is supplied.
+ * 10. Breaker selection uses the selected standard dataset when
+ *     available.
+ * 11. Transformer recommendation is based on calculated demand.
  *
  * ================================================================
  */
@@ -97,10 +91,10 @@ object SldUpstreamEngineering {
     )
 
     /**
-     * Backward-compatible fallback ratings.
+     * Compatibility fallback.
      *
-     * These are used only when no EngineeringContext is supplied.
-     * Context-aware calculations must use the selected standard.
+     * Used only when no engineering context is supplied through
+     * the legacy API.
      */
     private val defaultBreakerRatings =
         listOf(
@@ -166,7 +160,7 @@ object SldUpstreamEngineering {
         )
 
     /**
-     * Original API.
+     * Legacy API.
      */
     fun calculate(
         network: SldNetwork
@@ -178,7 +172,7 @@ object SldUpstreamEngineering {
     }
 
     /**
-     * Context-aware authoritative calculation.
+     * Authoritative context-aware calculation.
      */
     fun calculate(
         network: SldNetwork,
@@ -189,13 +183,23 @@ object SldUpstreamEngineering {
             "SLD network is empty."
         }
 
+        /*
+         * Basic engineering input validation.
+         */
         validate(network)
 
+        /*
+         * Topology validation is centralized in one engine.
+         *
+         * No second topology implementation is created here.
+         */
         val topology =
             SldTopologyEngine.build(network)
 
         val nodeMap =
-            network.nodes.associateBy { it.id }
+            network.nodes.associateBy {
+                it.id
+            }
 
         val breakerRatings =
             resolveBreakerRatings(
@@ -205,13 +209,28 @@ object SldUpstreamEngineering {
         val voltageDropLimitPercent =
             engineeringContext
                 ?.effectiveVoltageDropLimitPercent()
-                ?.takeIf { it > 0.0 }
+                ?.takeIf {
+                    it > 0.0
+                }
                 ?: 3.0
 
         /*
          * ==========================================================
          * DOWNSTREAM POWER AGGREGATION
          * ==========================================================
+         *
+         * Only LOAD nodes contribute local power.
+         *
+         * Therefore:
+         *
+         * SOURCE
+         * TRANSFORMER
+         * GENERATOR
+         * PANEL
+         * BUS
+         * BREAKER
+         *
+         * do not receive duplicated local load.
          */
 
         val powerCache =
@@ -226,50 +245,42 @@ object SldUpstreamEngineering {
                 return it
             }
 
-            require(stack.add(node.id)) {
+            require(
+                stack.add(node.id)
+            ) {
                 "Circular upstream path at ${node.name}."
             }
 
-            /*
-             * Only real load-bearing nodes receive local load.
-             *
-             * The SLD architecture uses LOAD nodes as the actual
-             * load representation. Intermediate equipment carries
-             * the accumulated downstream load automatically.
-             */
             val ownConnectedKw =
                 when (node.type) {
-                    SldNodeType.LOAD -> {
+
+                    SldNodeType.LOAD ->
                         node.loadKw.coerceAtLeast(0.0)
-                    }
 
                     SldNodeType.BUS,
                     SldNodeType.BREAKER,
                     SldNodeType.SOURCE,
                     SldNodeType.TRANSFORMER,
                     SldNodeType.GENERATOR,
-                    SldNodeType.PANEL -> {
+                    SldNodeType.PANEL ->
                         0.0
-                    }
 
-                    else -> {
-                        node.loadKw.coerceAtLeast(0.0)
-                    }
+                    else ->
+                        0.0
                 }
 
             val ownDemandKw =
                 when (node.type) {
-                    SldNodeType.LOAD -> {
+
+                    SldNodeType.LOAD ->
                         ownConnectedKw *
                             node.demandFactor.coerceIn(
                                 0.0,
                                 1.0
                             )
-                    }
 
-                    else -> {
+                    else ->
                         0.0
-                    }
                 }
 
             val ownReactiveKvar =
@@ -309,21 +320,17 @@ object SldUpstreamEngineering {
 
             stack.remove(node.id)
 
-            val result =
-                PowerResult(
-                    connectedKw = connectedKw,
-                    demandKw = demandKw,
-                    reactiveKvar = reactiveKvar
-                )
-
-            powerCache[node.id] =
-                result
-
-            return result
+            return PowerResult(
+                connectedKw = connectedKw,
+                demandKw = demandKw,
+                reactiveKvar = reactiveKvar
+            ).also {
+                powerCache[node.id] = it
+            }
         }
 
         /*
-         * First calculate from the authoritative source.
+         * Calculate the complete system from the actual source.
          */
         calculateNodePower(
             node = topology.source,
@@ -331,12 +338,10 @@ object SldUpstreamEngineering {
         )
 
         /*
-         * Safety calculation for every node.
-         *
-         * This keeps the engine robust if topology implementation
-         * changes in the future.
+         * Populate all node results.
          */
         network.nodes.forEach { node ->
+
             calculateNodePower(
                 node = node,
                 stack = mutableSetOf()
@@ -347,6 +352,17 @@ object SldUpstreamEngineering {
          * ==========================================================
          * CUMULATIVE VOLTAGE DROP
          * ==========================================================
+         *
+         * Voltage drop is accumulated along actual directed feeder
+         * sections.
+         *
+         * BUSBAR:
+         *
+         *     ΔV = 0
+         *
+         * CABLE:
+         *
+         *     ΔV is calculated from the feeder impedance.
          */
 
         fun cumulativeVoltageDrop(
@@ -371,24 +387,29 @@ object SldUpstreamEngineering {
                     topology.connections.firstOrNull {
                         it.fromNodeId == nodeId &&
                             it.toNodeId == child.id
-                    } ?: return@forEach
+                    }
+                        ?: return@forEach
+
+                val downstreamVoltage =
+                    child.voltage
+                        .takeIf {
+                            it > 0.0
+                        }
+                        ?: upstreamVoltage
 
                 /*
-                 * A busbar is an internal panel connection.
-                 * It is not a cable section and therefore has
-                 * no cable voltage drop.
+                 * BUSBAR has no cable voltage drop.
                  */
                 if (
                     connection.connectionType ==
                     SldConnectionType.BUSBAR
                 ) {
+
                     val downstreamDrop =
                         cumulativeVoltageDrop(
                             nodeId = child.id,
                             upstreamVoltage =
-                                child.voltage
-                                    .takeIf { it > 0.0 }
-                                    ?: upstreamVoltage
+                                downstreamVoltage
                         )
 
                     maximum =
@@ -401,7 +422,9 @@ object SldUpstreamEngineering {
                 }
 
                 val childPower =
-                    powerCache[child.id]
+                    powerCache[
+                        child.id
+                    ]
                         ?: return@forEach
 
                 val childKva =
@@ -413,26 +436,22 @@ object SldUpstreamEngineering {
                     )
 
                 /*
-                 * Current through a feeder is calculated using
-                 * the sending-end voltage.
+                 * Current is based on the sending-end voltage.
                  */
                 val current =
                     threePhaseCurrent(
                         kva = childKva,
-                        voltage = upstreamVoltage
+                        voltage =
+                            upstreamVoltage
                     )
 
                 val sectionDrop =
                     calculateVoltageDrop(
                         connection = connection,
                         currentA = current,
-                        voltage = upstreamVoltage
+                        voltage =
+                            upstreamVoltage
                     )
-
-                val downstreamVoltage =
-                    child.voltage
-                        .takeIf { it > 0.0 }
-                        ?: upstreamVoltage
 
                 val downstreamDrop =
                     cumulativeVoltageDrop(
@@ -444,7 +463,8 @@ object SldUpstreamEngineering {
                 maximum =
                     maxOf(
                         maximum,
-                        sectionDrop + downstreamDrop
+                        sectionDrop +
+                            downstreamDrop
                     )
             }
 
@@ -470,8 +490,10 @@ object SldUpstreamEngineering {
 
                 val kva =
                     apparentPower(
-                        activeKw = power.demandKw,
-                        reactiveKvar = power.reactiveKvar
+                        activeKw =
+                            power.demandKw,
+                        reactiveKvar =
+                            power.reactiveKvar
                     )
 
                 val current =
@@ -483,17 +505,21 @@ object SldUpstreamEngineering {
                 val breaker =
                     nextBreaker(
                         current = current,
-                        breakerRatings = breakerRatings
+                        breakerRatings =
+                            breakerRatings
                     )
 
                 val voltageDrop =
                     cumulativeVoltageDrop(
                         nodeId = node.id,
-                        upstreamVoltage = node.voltage
+                        upstreamVoltage =
+                            node.voltage
                     )
 
                 val loading =
-                    if (node.ratedKva > 0.0) {
+                    if (
+                        node.ratedKva > 0.0
+                    ) {
                         kva /
                             node.ratedKva *
                             100.0
@@ -503,7 +529,8 @@ object SldUpstreamEngineering {
 
                 val calculatedPf =
                     if (kva > 0.0) {
-                        power.demandKw / kva
+                        power.demandKw /
+                            kva
                     } else {
                         1.0
                     }
@@ -511,108 +538,119 @@ object SldUpstreamEngineering {
                 NodeResult(
                     nodeId = node.id,
                     nodeName = node.name,
-                    connectedKw = power.connectedKw,
-                    demandKw = power.demandKw,
-                    kva = kva,
-                    currentA = current,
-                    recommendedBreakerA = breaker,
-                    voltageDropPercent = voltageDrop,
-                    loadingPercent = loading,
-                    notes = buildList {
+                    connectedKw =
+                        power.connectedKw,
+                    demandKw =
+                        power.demandKw,
+                    kva =
+                        kva,
+                    currentA =
+                        current,
+                    recommendedBreakerA =
+                        breaker,
+                    voltageDropPercent =
+                        voltageDrop,
+                    loadingPercent =
+                        loading,
+                    notes =
+                        buildList {
 
-                        add(
-                            "Connected load = " +
-                                "%.2f kW".format(
-                                    power.connectedKw
-                                )
-                        )
-
-                        add(
-                            "Demand load = " +
-                                "%.2f kW".format(
-                                    power.demandKw
-                                )
-                        )
-
-                        add(
-                            "Required apparent power = " +
-                                "%.2f kVA".format(
-                                    kva
-                                )
-                        )
-
-                        add(
-                            "Calculated demand PF = " +
-                                "%.3f".format(
-                                    calculatedPf
-                                )
-                        )
-
-                        add(
-                            "Design current = " +
-                                "%.2f A".format(
-                                    current
-                                )
-                        )
-
-                        add(
-                            "Recommended breaker = " +
-                                "%.0f A".format(
-                                    breaker
-                                )
-                        )
-
-                        if (node.ratedKva > 0.0) {
                             add(
-                                "Equipment loading = " +
-                                    "%.1f %%".format(
-                                        loading
+                                "Connected load = " +
+                                    "%.2f kW".format(
+                                        power.connectedKw
                                     )
                             )
-                        }
 
-                        add(
-                            "Maximum downstream voltage drop = " +
-                                "%.2f %%".format(
-                                    voltageDrop
+                            add(
+                                "Demand load = " +
+                                    "%.2f kW".format(
+                                        power.demandKw
+                                    )
+                            )
+
+                            add(
+                                "Required apparent power = " +
+                                    "%.2f kVA".format(
+                                        kva
+                                    )
+                            )
+
+                            add(
+                                "Calculated demand PF = " +
+                                    "%.3f".format(
+                                        calculatedPf
+                                    )
+                            )
+
+                            add(
+                                "Design current = " +
+                                    "%.2f A".format(
+                                        current
+                                    )
+                            )
+
+                            add(
+                                "Recommended breaker = " +
+                                    "%.0f A".format(
+                                        breaker
+                                    )
+                            )
+
+                            if (
+                                node.ratedKva > 0.0
+                            ) {
+                                add(
+                                    "Equipment loading = " +
+                                        "%.1f %%".format(
+                                            loading
+                                        )
                                 )
-                        )
+                            }
 
-                        if (
-                            voltageDrop >
-                            voltageDropLimitPercent
-                        ) {
                             add(
-                                "WARNING: voltage drop exceeds " +
+                                "Maximum downstream voltage drop = " +
                                     "%.2f %%".format(
-                                        voltageDropLimitPercent
-                                    ) +
-                                    " limit."
+                                        voltageDrop
+                                    )
                             )
+
+                            if (
+                                voltageDrop >
+                                voltageDropLimitPercent
+                            ) {
+                                add(
+                                    "WARNING: voltage drop exceeds " +
+                                        "%.2f %%".format(
+                                            voltageDropLimitPercent
+                                        ) +
+                                        " limit."
+                                )
+                            }
+
+                            if (
+                                node.ratedKva > 0.0 &&
+                                loading > 100.0
+                            ) {
+                                add(
+                                    "WARNING: equipment loading exceeds 100%."
+                                )
+                            }
+
+                            engineeringContext?.let {
+                                context ->
+
+                                add(
+                                    "Engineering standard = " +
+                                        context.codeName
+                                )
+
+                                add(
+                                    "Standard revision = " +
+                                        context.codeRevision
+                                )
+                            }
                         }
-
-                        if (
-                            node.ratedKva > 0.0 &&
-                            loading > 100.0
-                        ) {
-                            add(
-                                "WARNING: equipment loading exceeds 100%."
-                            )
-                        }
-
-                        engineeringContext?.let { context ->
-
-                            add(
-                                "Engineering standard = " +
-                                    context.codeName
-                            )
-
-                            add(
-                                "Standard revision = " +
-                                    context.codeRevision
-                            )
-                        }
-                    }
                 )
             }
 
@@ -630,14 +668,14 @@ object SldUpstreamEngineering {
         val feederResults =
             topology.connections.map { connection ->
 
-                val child =
-                    nodeMap[
-                        connection.toNodeId
-                    ]
-
                 val parent =
                     nodeMap[
                         connection.fromNodeId
+                    ]
+
+                val child =
+                    nodeMap[
+                        connection.toNodeId
                     ]
 
                 val childResult =
@@ -661,11 +699,17 @@ object SldUpstreamEngineering {
                     childResult?.currentA
                         ?: 0.0
 
-                val voltage =
-                    parent?.voltage
-                        ?.takeIf { it > 0.0 }
-                        ?: child?.voltage
-                            ?.takeIf { it > 0.0 }
+                val sendingVoltage =
+                    parent
+                        ?.voltage
+                        ?.takeIf {
+                            it > 0.0
+                        }
+                        ?: child
+                            ?.voltage
+                            ?.takeIf {
+                                it > 0.0
+                            }
                         ?: 400.0
 
                 val isBusbar =
@@ -677,153 +721,242 @@ object SldUpstreamEngineering {
                         0.0
                     } else {
                         calculateVoltageDrop(
-                            connection = connection,
-                            currentA = current,
-                            voltage = voltage
+                            connection =
+                                connection,
+                            currentA =
+                                current,
+                            voltage =
+                                sendingVoltage
                         )
                     }
 
                 /*
-                 * Cable capacity applies only to cable feeders.
+                 * IMPORTANT:
                  *
-                 * BUSBAR connections must never fail cable
-                 * capacity checks because they are not cables.
+                 * For a cable:
+                 *
+                 * capacity <= 0
+                 *
+                 * means NOT VERIFIED.
+                 *
+                 * It must not be reported as adequate.
+                 *
+                 * Boolean compatibility is preserved:
+                 * false = not verified / not adequate.
                  */
-                val adequate =
+                val cableAdequate =
                     if (isBusbar) {
                         true
                     } else {
-                        connection.currentCapacityA <= 0.0 ||
+                        connection.currentCapacityA > 0.0 &&
                             connection.currentCapacityA >= current
                     }
 
                 val recommendedBreaker =
                     nextBreaker(
                         current = current,
-                        breakerRatings = breakerRatings
+                        breakerRatings =
+                            breakerRatings
                     )
 
                 FeederResult(
-                    connectionId = connection.id,
-                    fromNodeId = connection.fromNodeId,
-                    toNodeId = connection.toNodeId,
-                    connectedKw = connected,
-                    demandKw = demand,
-                    kva = kva,
-                    currentA = current,
-                    recommendedBreakerA = recommendedBreaker,
-                    voltageDropPercent = sectionDrop,
-                    cableAdequate = adequate,
-                    notes = buildList {
-
-                        add(
-                            if (isBusbar) {
-                                "Connection type = BUSBAR"
-                            } else {
-                                "Connection type = CABLE"
-                            }
-                        )
-
-                        add(
-                            "Connected load = " +
-                                "%.2f kW".format(
-                                    connected
-                                )
-                        )
-
-                        add(
-                            "Demand load = " +
-                                "%.2f kW".format(
-                                    demand
-                                )
-                        )
-
-                        add(
-                            "Required apparent power = " +
-                                "%.2f kVA".format(
-                                    kva
-                                )
-                        )
-
-                        add(
-                            "Design current = " +
-                                "%.2f A".format(
-                                    current
-                                )
-                        )
-
-                        if (isBusbar) {
+                    connectionId =
+                        connection.id,
+                    fromNodeId =
+                        connection.fromNodeId,
+                    toNodeId =
+                        connection.toNodeId,
+                    connectedKw =
+                        connected,
+                    demandKw =
+                        demand,
+                    kva =
+                        kva,
+                    currentA =
+                        current,
+                    recommendedBreakerA =
+                        recommendedBreaker,
+                    voltageDropPercent =
+                        sectionDrop,
+                    cableAdequate =
+                        cableAdequate,
+                    notes =
+                        buildList {
 
                             add(
-                                "BUSBAR: cable length, cable type, " +
-                                    "resistance and reactance are not applicable."
+                                if (isBusbar) {
+                                    "Connection type = BUSBAR"
+                                } else {
+                                    "Connection type = CABLE"
+                                }
                             )
 
                             add(
-                                "BUSBAR voltage drop = 0.00 %."
-                            )
-
-                        } else {
-
-                            if (
-                                connection.currentCapacityA >
-                                0.0
-                            ) {
-                                add(
-                                    "Cable capacity = " +
-                                        "%.2f A".format(
-                                            connection.currentCapacityA
-                                        )
-                                )
-                            }
-
-                            add(
-                                "Cable section voltage drop = " +
-                                    "%.2f %%".format(
-                                        sectionDrop
+                                "Connected load = " +
+                                    "%.2f kW".format(
+                                        connected
                                     )
                             )
 
-                            if (
-                                sectionDrop >
-                                voltageDropLimitPercent
-                            ) {
+                            add(
+                                "Demand load = " +
+                                    "%.2f kW".format(
+                                        demand
+                                    )
+                            )
+
+                            add(
+                                "Required apparent power = " +
+                                    "%.2f kVA".format(
+                                        kva
+                                    )
+                            )
+
+                            add(
+                                "Design current = " +
+                                    "%.2f A".format(
+                                        current
+                                    )
+                            )
+
+                            if (isBusbar) {
+
                                 add(
-                                    "WARNING: section voltage drop exceeds " +
+                                    "BUSBAR: cable length, " +
+                                        "cable size, cable capacity " +
+                                        "and cable impedance are not applicable."
+                                )
+
+                                add(
+                                    "BUSBAR voltage drop = 0.00 %."
+                                )
+
+                                if (
+                                    connection.busbarRatedCurrentA <=
+                                    0.0
+                                ) {
+                                    add(
+                                        "WARNING: BUSBAR rated current is not verified."
+                                    )
+                                }
+
+                                if (
+                                    connection.busbarShortCircuitKA <=
+                                    0.0
+                                ) {
+                                    add(
+                                        "WARNING: BUSBAR short-circuit withstand is not verified."
+                                    )
+                                }
+
+                            } else {
+
+                                if (
+                                    connection.currentCapacityA >
+                                    0.0
+                                ) {
+
+                                    add(
+                                        "Cable capacity = " +
+                                            "%.2f A".format(
+                                                connection.currentCapacityA
+                                            )
+                                    )
+
+                                    if (!cableAdequate) {
+                                        add(
+                                            "WARNING: cable capacity is below design current."
+                                        )
+                                    }
+
+                                } else {
+
+                                    add(
+                                        "NOT VERIFIED: cable current capacity has not been established."
+                                    )
+                                }
+
+                                if (
+                                    connection.cableSizeMm2 >
+                                    0.0
+                                ) {
+
+                                    add(
+                                        "Cable size = " +
+                                            "%.2f mm²".format(
+                                                connection.cableSizeMm2
+                                            )
+                                    )
+
+                                } else {
+
+                                    add(
+                                        "NOT VERIFIED: cable size has not been established."
+                                    )
+                                }
+
+                                if (
+                                    connection.lengthMeters >
+                                    0.0
+                                ) {
+
+                                    add(
+                                        "Cable length = " +
+                                            "%.2f m".format(
+                                                connection.lengthMeters
+                                            )
+                                    )
+
+                                } else {
+
+                                    add(
+                                        "WARNING: cable length is zero."
+                                    )
+                                }
+
+                                add(
+                                    "Cable section voltage drop = " +
                                         "%.2f %%".format(
-                                            voltageDropLimitPercent
-                                        ) +
-                                        " limit."
+                                            sectionDrop
+                                        )
                                 )
+
+                                if (
+                                    sectionDrop >
+                                    voltageDropLimitPercent
+                                ) {
+
+                                    add(
+                                        "WARNING: section voltage drop exceeds " +
+                                            "%.2f %%".format(
+                                                voltageDropLimitPercent
+                                            ) +
+                                            " limit."
+                                    )
+                                }
                             }
 
-                            if (!adequate) {
+                            add(
+                                "Recommended breaker = " +
+                                    "%.0f A".format(
+                                        recommendedBreaker
+                                    )
+                            )
+
+                            engineeringContext?.let {
+                                context ->
+
                                 add(
-                                    "WARNING: cable capacity is below design current."
+                                    "Engineering standard = " +
+                                        context.codeName
+                                )
+
+                                add(
+                                    "Standard revision = " +
+                                        context.codeRevision
                                 )
                             }
                         }
-
-                        add(
-                            "Recommended breaker = " +
-                                "%.0f A".format(
-                                    recommendedBreaker
-                                )
-                        )
-
-                        engineeringContext?.let { context ->
-
-                            add(
-                                "Engineering standard = " +
-                                    context.codeName
-                            )
-
-                            add(
-                                "Standard revision = " +
-                                    context.codeRevision
-                            )
-                        }
-                    }
                 )
             }
 
@@ -842,22 +975,22 @@ object SldUpstreamEngineering {
                 )
 
         /*
-         * Transformer recommendation.
-         *
-         * If the source itself is a transformer and has a rated
-         * capacity, preserve that installed rating.
-         *
-         * Otherwise select the next standard transformer rating
-         * capable of carrying the calculated source demand.
+         * ==========================================================
+         * TRANSFORMER RECOMMENDATION
+         * ==========================================================
          */
+
         val recommendedTransformer =
             if (
                 topology.source.type ==
                 SldNodeType.TRANSFORMER &&
                 topology.source.ratedKva > 0.0
             ) {
+
                 topology.source.ratedKva
+
             } else {
+
                 nextTransformer(
                     sourceResult.kva
                 )
@@ -865,7 +998,7 @@ object SldUpstreamEngineering {
 
         /*
          * ==========================================================
-         * WARNINGS
+         * ENGINEERING WARNINGS
          * ==========================================================
          */
 
@@ -876,15 +1009,61 @@ object SldUpstreamEngineering {
                     .filter {
                         !it.cableAdequate &&
                             !isBusbarConnection(
-                                network = network,
-                                connectionId = it.connectionId
+                                network =
+                                    network,
+                                connectionId =
+                                    it.connectionId
                             )
                     }
                     .forEach {
+
                         add(
-                            "Cable capacity warning at connection " +
+                            "Cable capacity not verified or inadequate at connection " +
                                 "${it.connectionId}."
                         )
+                    }
+
+                feederResults
+                    .filter {
+                        isBusbarConnection(
+                            network =
+                                network,
+                            connectionId =
+                                it.connectionId
+                        )
+                    }
+                    .forEach { feeder ->
+
+                        val connection =
+                            network.connections
+                                .firstOrNull {
+                                    it.id ==
+                                        feeder.connectionId
+                                }
+
+                        if (
+                            connection != null &&
+                            connection.busbarRatedCurrentA <=
+                            0.0
+                        ) {
+
+                            add(
+                                "BUSBAR current rating not verified at connection " +
+                                    "${feeder.connectionId}."
+                            )
+                        }
+
+                        if (
+                            connection != null &&
+                            connection.busbarShortCircuitKA <=
+                            0.0
+                        ) {
+
+                            add(
+                                "BUSBAR short-circuit rating not verified at connection " +
+                                    "${feeder.connectionId}."
+                            )
+                        }
                     }
 
                 nodeResults
@@ -892,6 +1071,7 @@ object SldUpstreamEngineering {
                         it.loadingPercent > 100.0
                     }
                     .forEach {
+
                         add(
                             "Equipment overload at " +
                                 "${it.nodeName}."
@@ -904,6 +1084,7 @@ object SldUpstreamEngineering {
                             voltageDropLimitPercent
                     }
                     .forEach {
+
                         add(
                             "Voltage drop above " +
                                 "%.2f %%".format(
@@ -919,14 +1100,19 @@ object SldUpstreamEngineering {
                     recommendedTransformer <
                     sourceResult.kva
                 ) {
+
                     add(
                         "Recommended transformer capacity is below calculated demand."
                     )
                 }
 
-                engineeringContext?.let { context ->
+                engineeringContext?.let {
+                    context ->
 
-                    if (!context.standardImplemented) {
+                    if (
+                        !context.standardImplemented
+                    ) {
+
                         add(
                             "WARNING: selected engineering standard " +
                                 "${context.codeName} is not fully implemented " +
@@ -934,7 +1120,10 @@ object SldUpstreamEngineering {
                         )
                     }
 
-                    if (breakerRatings.isEmpty()) {
+                    if (
+                        breakerRatings.isEmpty()
+                    ) {
+
                         add(
                             "WARNING: selected engineering standard " +
                                 "${context.codeName} provides no verified " +
@@ -992,16 +1181,22 @@ object SldUpstreamEngineering {
     }
 
     /**
-     * Resolve breaker ratings from the selected engineering
-     * standard.
+     * Resolve breaker ratings.
      *
-     * No silent standard substitution is permitted.
+     * When EngineeringContext exists, the selected standard is
+     * authoritative.
+     *
+     * Legacy fallback exists only for the old calculate(network)
+     * API.
      */
     private fun resolveBreakerRatings(
-        engineeringContext: SldEngineeringContext?
+        engineeringContext:
+            SldEngineeringContext?
     ): List<Double> {
 
-        if (engineeringContext == null) {
+        if (
+            engineeringContext == null
+        ) {
             return defaultBreakerRatings
         }
 
@@ -1017,6 +1212,8 @@ object SldUpstreamEngineering {
     }
 
     /**
+     * Reactive power:
+     *
      * Q = P × tan(acos(PF))
      */
     private fun calculateReactivePower(
@@ -1024,7 +1221,9 @@ object SldUpstreamEngineering {
         powerFactor: Double
     ): Double {
 
-        if (activeKw <= 0.0) {
+        if (
+            activeKw <= 0.0
+        ) {
             return 0.0
         }
 
@@ -1042,6 +1241,8 @@ object SldUpstreamEngineering {
     }
 
     /**
+     * Apparent power:
+     *
      * S = √(P² + Q²)
      */
     private fun apparentPower(
@@ -1087,13 +1288,13 @@ object SldUpstreamEngineering {
     }
 
     /**
-     * Voltage drop:
+     * Cable voltage drop.
      *
-     * ΔV = √3 × I × Z × L
+     * R and X are ohm/km.
      *
-     * R and X are in ohm/km.
+     * Parallel cable runs reduce effective impedance.
      *
-     * Parallel cable runs reduce the effective impedance.
+     * BUSBAR is explicitly excluded.
      */
     private fun calculateVoltageDrop(
         connection: SldConnection,
@@ -1150,19 +1351,17 @@ object SldUpstreamEngineering {
     }
 
     /**
-     * Select the smallest available breaker rating
-     * greater than or equal to the calculated current.
+     * Smallest available breaker >= design current.
      */
     private fun nextBreaker(
         current: Double,
         breakerRatings: List<Double>
     ): Double {
 
-        if (current <= 0.0) {
-            return 0.0
-        }
-
-        if (breakerRatings.isEmpty()) {
+        if (
+            current <= 0.0 ||
+            breakerRatings.isEmpty()
+        ) {
             return 0.0
         }
 
@@ -1172,14 +1371,15 @@ object SldUpstreamEngineering {
     }
 
     /**
-     * Select the smallest standard transformer rating
-     * greater than or equal to the calculated demand.
+     * Smallest standard transformer rating >= demand.
      */
     private fun nextTransformer(
         kva: Double
     ): Double {
 
-        if (kva <= 0.0) {
+        if (
+            kva <= 0.0
+        ) {
             return 0.0
         }
 
@@ -1189,7 +1389,7 @@ object SldUpstreamEngineering {
     }
 
     /**
-     * Check whether a connection is a BUSBAR connection.
+     * BUSBAR helper.
      */
     private fun isBusbarConnection(
         network: SldNetwork,
@@ -1205,9 +1405,10 @@ object SldUpstreamEngineering {
     }
 
     /**
-     * Basic local input validation.
+     * Basic numerical/input validation.
      *
-     * Topology validation is delegated to SldTopologyEngine.
+     * Topology validation remains centralized in
+     * SldTopologyEngine.
      */
     private fun validate(
         network: SldNetwork
@@ -1223,6 +1424,18 @@ object SldUpstreamEngineering {
                 ids.toSet().size
         ) {
             "Duplicate SLD node IDs."
+        }
+
+        val connectionIds =
+            network.connections.map {
+                it.id
+            }
+
+        require(
+            connectionIds.size ==
+                connectionIds.toSet().size
+        ) {
+            "Duplicate SLD connection IDs."
         }
 
         network.nodes.forEach { node ->
@@ -1318,6 +1531,20 @@ object SldUpstreamEngineering {
             }
 
             require(
+                connection.cableSizeMm2.isFinite() &&
+                    connection.cableSizeMm2 >= 0.0
+            ) {
+                "Connection ${connection.id}: cable size cannot be negative."
+            }
+
+            require(
+                connection.currentCapacityA.isFinite() &&
+                    connection.currentCapacityA >= 0.0
+            ) {
+                "Connection ${connection.id}: cable current capacity cannot be negative."
+            }
+
+            require(
                 connection.resistanceOhmPerKm.isFinite() &&
                     connection.resistanceOhmPerKm >= 0.0
             ) {
@@ -1332,10 +1559,17 @@ object SldUpstreamEngineering {
             }
 
             require(
-                connection.currentCapacityA.isFinite() &&
-                    connection.currentCapacityA >= 0.0
+                connection.busbarRatedCurrentA.isFinite() &&
+                    connection.busbarRatedCurrentA >= 0.0
             ) {
-                "Connection ${connection.id}: cable current capacity cannot be negative."
+                "Connection ${connection.id}: BUSBAR rated current cannot be negative."
+            }
+
+            require(
+                connection.busbarShortCircuitKA.isFinite() &&
+                    connection.busbarShortCircuitKA >= 0.0
+            ) {
+                "Connection ${connection.id}: BUSBAR short-circuit rating cannot be negative."
             }
         }
     }
