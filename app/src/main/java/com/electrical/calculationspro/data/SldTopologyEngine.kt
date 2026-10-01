@@ -1,79 +1,53 @@
 package com.electrical.calculationspro.data
 
 import java.util.ArrayDeque
+import kotlin.math.sqrt
 
 /**
  * ================================================================
  * PROFESSIONAL SLD TOPOLOGY ENGINE
  * ================================================================
  *
+ * Single authoritative topology layer for the SLD.
+ *
  * Responsibilities:
  *
- * 1. Validate the stored electrical graph.
- * 2. Preserve the stored electrical direction.
- * 3. Validate BUSBAR / CABLE semantics.
- * 4. Detect duplicate directed connections.
- * 5. Detect cycles.
- * 6. Enforce radial topology.
- * 7. Enforce one upstream parent per downstream node.
- * 8. Verify source reachability.
- * 9. Build parent/child maps for engineering calculations.
+ * - Validate the radial electrical graph.
+ * - Preserve engineering direction.
+ * - Normalize legacy/internal BUSBAR connections.
+ * - Reject invalid cable/busbar combinations.
+ * - Detect duplicate connections.
+ * - Detect cycles.
+ * - Enforce one upstream parent.
+ * - Verify SOURCE reachability.
+ * - Build authoritative parent/child maps.
  *
- * IMPORTANT:
+ * INTERNAL BUSBAR CONNECTIONS
  *
- * The topology engine NEVER reverses a connection automatically.
+ * Supported:
  *
- * Stored direction:
+ *     PANEL  -> BREAKER
+ *     PANEL  -> BUS
+ *     BUS    -> BREAKER
  *
- *     fromNodeId -> toNodeId
+ * These are internal switchboard/panel connections.
  *
- * is the engineering direction.
+ * They are NOT cables.
  *
- * Component type, screen position, distance, or node name must
- * never be used to silently change that direction.
+ * Therefore:
  *
- * Example:
+ *     lengthMeters        = 0
+ *     cableSizeMm2        = 0
+ *     currentCapacityA    = 0
+ *     parallelRuns        = 1
+ *     resistance          = 0
+ *     reactance           = 0
  *
- * SOURCE
- *    |
- * BREAKER
- *    |
- *  BUS
- *    |
- * TRANSFORMER
- *    |
- * BREAKER
- *    |
- * PANEL
- *    |
- * BREAKER
- *    |
- * LOAD
+ * BUSBAR engineering data:
  *
- * Current radial model:
+ *     busbarRatedCurrentA
+ *     busbarShortCircuitKA
  *
- * - One electrical SOURCE.
- * - One upstream parent per node.
- * - No directed cycles.
- * - Every node must be reachable from SOURCE.
- *
- * BUSBAR rule:
- *
- *     PANEL -> BREAKER
- *
- * represents an internal panel bus connection.
- *
- * BUSBAR is NOT a cable and therefore does not use:
- *
- * - cable length
- * - cable size
- * - cable ampacity
- * - cable parallel runs
- *
- * Instead it uses:
- *
- * - busbar rated current
- * - busbar short-circuit rating
  * ================================================================
  */
 object SldTopologyEngine {
@@ -85,44 +59,403 @@ object SldTopologyEngine {
         val parents: Map<String, List<SldNode>>
     )
 
-    /**
-     * Build and validate the electrical topology.
-     *
-     * The stored connection direction is preserved exactly.
-     */
-    fun build(
-        network: SldNetwork
-    ): Topology {
+    private enum class VisitState {
+        UNVISITED,
+        VISITING,
+        VISITED
+    }
 
-        require(network.nodes.isNotEmpty()) {
-            "SLD network is empty."
+    private companion object {
+
+        const val DEFAULT_BUSBAR_CURRENT_A = 400.0
+        const val DEFAULT_BUSBAR_SHORT_CIRCUIT_KA = 25.0
+    }
+
+    /**
+     * ============================================================
+     * INTERNAL BUSBAR PAIR
+     * ============================================================
+     */
+    private fun isInternalBusbarPair(
+        first: SldNodeType,
+        second: SldNodeType
+    ): Boolean {
+
+        return (
+            first == SldNodeType.PANEL &&
+                second == SldNodeType.BREAKER
+            ) ||
+            (
+                first == SldNodeType.BREAKER &&
+                    second == SldNodeType.PANEL
+                ) ||
+            (
+                first == SldNodeType.PANEL &&
+                    second == SldNodeType.BUS
+                ) ||
+            (
+                first == SldNodeType.BUS &&
+                    second == SldNodeType.PANEL
+                ) ||
+            (
+                first == SldNodeType.BUS &&
+                    second == SldNodeType.BREAKER
+                ) ||
+            (
+                first == SldNodeType.BREAKER &&
+                    second == SldNodeType.BUS
+                )
+    }
+
+    /**
+     * ============================================================
+     * BUSBAR DIRECTION
+     * ============================================================
+     *
+     * PANEL -> BUS
+     * PANEL -> BREAKER
+     * BUS   -> BREAKER
+     */
+    private fun normalizeBusbarDirection(
+        from: SldNode,
+        to: SldNode
+    ): Pair<SldNode, SldNode> {
+
+        return when {
+
+            from.type == SldNodeType.PANEL &&
+                to.type == SldNodeType.BREAKER ->
+                from to to
+
+            from.type == SldNodeType.BREAKER &&
+                to.type == SldNodeType.PANEL ->
+                to to from
+
+            from.type == SldNodeType.PANEL &&
+                to.type == SldNodeType.BUS ->
+                from to to
+
+            from.type == SldNodeType.BUS &&
+                to.type == SldNodeType.PANEL ->
+                to to from
+
+            from.type == SldNodeType.BUS &&
+                to.type == SldNodeType.BREAKER ->
+                from to to
+
+            from.type == SldNodeType.BREAKER &&
+                to.type == SldNodeType.BUS ->
+                to to from
+
+            else ->
+                from to to
+        }
+    }
+
+    /**
+     * ============================================================
+     * BUSBAR RATING
+     * ============================================================
+     */
+    private fun resolveBusbarCurrent(
+        from: SldNode,
+        to: SldNode,
+        connection: SldConnection
+    ): Double {
+
+        if (
+            connection.busbarRatedCurrentA.isFinite() &&
+            connection.busbarRatedCurrentA > 0.0
+        ) {
+            return connection.busbarRatedCurrentA
         }
 
+        val panel =
+            when {
+                from.type == SldNodeType.PANEL ->
+                    from
+
+                to.type == SldNodeType.PANEL ->
+                    to
+
+                else ->
+                    null
+            }
+
+        if (panel != null) {
+
+            val kva =
+                panel.ratedKva
+
+            val voltage =
+                panel.voltage
+
+            if (
+                kva.isFinite() &&
+                kva > 0.0 &&
+                voltage.isFinite() &&
+                voltage > 0.0
+            ) {
+
+                val calculated =
+                    kva *
+                        1000.0 /
+                        (
+                            sqrt(3.0) *
+                                voltage
+                            )
+
+                if (
+                    calculated.isFinite() &&
+                    calculated > 0.0
+                ) {
+
+                    return maxOf(
+                        DEFAULT_BUSBAR_CURRENT_A,
+                        calculated
+                    )
+                }
+            }
+        }
+
+        return DEFAULT_BUSBAR_CURRENT_A
+    }
+
+    /**
+     * ============================================================
+     * NORMALIZE ONE CONNECTION
+     * ============================================================
+     */
+    private fun normalizeConnection(
+        connection: SldConnection,
+        nodeMap: Map<String, SldNode>
+    ): SldConnection {
+
+        val from =
+            nodeMap[
+                connection.fromNodeId
+            ] ?: return connection
+
+        val to =
+            nodeMap[
+                connection.toNodeId
+            ] ?: return connection
+
+        val internalPair =
+            isInternalBusbarPair(
+                from.type,
+                to.type
+            )
+
         /*
-         * ============================================================
-         * NODE INDEX
-         * ============================================================
+         * Explicit BUSBAR or legacy internal PANEL/BUS/BREAKER
+         * relation is always normalized as BUSBAR.
          */
+        if (
+            connection.connectionType !=
+                SldConnectionType.BUSBAR &&
+            !internalPair
+        ) {
+            return connection
+        }
+
+        require(
+            internalPair
+        ) {
+            "Connection ${connection.id}: BUSBAR is only valid inside PANEL/BUS switchgear topology."
+        }
+
+        val direction =
+            normalizeBusbarDirection(
+                from,
+                to
+            )
+
+        val normalizedFrom =
+            direction.first
+
+        val normalizedTo =
+            direction.second
+
+        val ratedCurrent =
+            resolveBusbarCurrent(
+                normalizedFrom,
+                normalizedTo,
+                connection
+            )
+
+        val shortCircuit =
+            if (
+                connection.busbarShortCircuitKA.isFinite() &&
+                connection.busbarShortCircuitKA > 0.0
+            ) {
+                connection.busbarShortCircuitKA
+            } else {
+                DEFAULT_BUSBAR_SHORT_CIRCUIT_KA
+            }
+
+        return connection.copy(
+
+            fromNodeId =
+                normalizedFrom.id,
+
+            toNodeId =
+                normalizedTo.id,
+
+            connectionType =
+                SldConnectionType.BUSBAR,
+
+            /*
+             * ------------------------------------------------------
+             * Cable data MUST be removed from BUSBAR.
+             * ------------------------------------------------------
+             */
+            lengthMeters = 0.0,
+
+            resistanceOhmPerKm = 0.0,
+
+            reactanceOhmPerKm = 0.0,
+
+            cableSizeMm2 = 0.0,
+
+            parallelRuns = 1,
+
+            voltageDropPercent = 0.0,
+
+            currentCapacityA = 0.0,
+
+            conductorMaterial = "",
+
+            insulationType = "",
+
+            installationMethodCode = "",
+
+            loadedConductors = 0,
+
+            cableDesignation = "",
+
+            cableManufacturer = "",
+
+            cableModel = "",
+
+            busbarMaterial =
+                connection.busbarMaterial
+                    .ifBlank {
+                        "Copper"
+                    },
+
+            busbarRatedCurrentA =
+                ratedCurrent,
+
+            busbarShortCircuitKA =
+                shortCircuit
+        )
+    }
+
+    /**
+     * ============================================================
+     * NORMALIZE NETWORK
+     * ============================================================
+     */
+    private fun normalizeNetwork(
+        network: SldNetwork
+    ): SldNetwork {
 
         val nodeMap =
             network.nodes.associateBy {
                 it.id
             }
 
+        val normalized =
+            network.connections.map {
+                normalizeConnection(
+                    connection = it,
+                    nodeMap = nodeMap
+                )
+            }
+
+        val result =
+            mutableListOf<SldConnection>()
+
+        val seen =
+            mutableSetOf<String>()
+
+        normalized.forEach { connection ->
+
+            val key =
+                "${connection.fromNodeId}->" +
+                    "${connection.toNodeId}:" +
+                    connection.connectionType
+
+            if (
+                seen.add(key)
+            ) {
+                result += connection
+            }
+        }
+
+        return SldNetwork(
+            nodes = network.nodes,
+            connections = result
+        )
+    }
+
+    /**
+     * ============================================================
+     * BUILD
+     * ============================================================
+     */
+    fun build(
+        network: SldNetwork
+    ): Topology {
+
         require(
-            nodeMap.size == network.nodes.size
+            network.nodes.isNotEmpty()
+        ) {
+            "SLD network is empty."
+        }
+
+        /*
+         * Normalize first.
+         *
+         * This is the critical compatibility layer:
+         *
+         * old PANEL/BREAKER records
+         * old BUS/BREAKER cable records
+         * old busbar records carrying cable fields
+         *
+         * all become one consistent engineering representation.
+         */
+        val normalizedNetwork =
+            normalizeNetwork(
+                network
+            )
+
+        val nodes =
+            normalizedNetwork.nodes
+
+        val connections =
+            normalizedNetwork.connections
+
+        val nodeMap =
+            nodes.associateBy {
+                it.id
+            }
+
+        require(
+            nodeMap.size == nodes.size
         ) {
             "Duplicate SLD node IDs."
         }
 
         /*
          * ============================================================
-         * CONNECTION ID VALIDATION
+         * CONNECTION IDs
          * ============================================================
          */
 
         val connectionIds =
-            network.connections.map {
+            connections.map {
                 it.id
             }
 
@@ -135,25 +468,21 @@ object SldTopologyEngine {
 
         /*
          * ============================================================
-         * ELECTRICAL SOURCE
+         * SOURCE
          * ============================================================
-         *
-         * The professional radial engine requires one explicit
-         * SOURCE node.
-         *
-         * We do NOT infer a source from graphical position or
-         * from missing incoming connections.
          */
 
         val sourceNodes =
-            network.nodes.filter {
-                it.type == SldNodeType.SOURCE
+            nodes.filter {
+                it.type ==
+                    SldNodeType.SOURCE
             }
 
         require(
             sourceNodes.size == 1
         ) {
             when {
+
                 sourceNodes.isEmpty() ->
                     "SLD must contain one explicit electrical SOURCE."
 
@@ -167,23 +496,21 @@ object SldTopologyEngine {
 
         /*
          * ============================================================
-         * BASIC CONNECTION VALIDATION
+         * CONNECTION VALIDATION
          * ============================================================
          */
 
-        network.connections.forEach { connection ->
+        connections.forEach { connection ->
 
-            require(
-                connection.fromNodeId in nodeMap
-            ) {
-                "Connection ${connection.id}: source node does not exist."
-            }
+            val from =
+                nodeMap[
+                    connection.fromNodeId
+                ]!!
 
-            require(
-                connection.toNodeId in nodeMap
-            ) {
-                "Connection ${connection.id}: destination node does not exist."
-            }
+            val to =
+                nodeMap[
+                    connection.toNodeId
+                ]!!
 
             require(
                 connection.fromNodeId !=
@@ -192,11 +519,6 @@ object SldTopologyEngine {
                 "Connection ${connection.id}: node cannot connect to itself."
             }
 
-            /*
-             * Parallel-run data belongs to cable feeders.
-             *
-             * BUSBAR must use exactly one logical internal connection.
-             */
             if (
                 connection.connectionType ==
                     SldConnectionType.CABLE
@@ -225,15 +547,6 @@ object SldTopologyEngine {
                 ) {
                     "Connection ${connection.id}: cable current capacity cannot be negative."
                 }
-
-                /*
-                 * Zero capacity means that sizing has not yet been
-                 * verified. It is not treated as an adequate cable.
-                 *
-                 * Topology remains buildable so the engineering
-                 * calculation layer can report the missing sizing
-                 * information rather than crashing the SLD editor.
-                 */
             }
 
             if (
@@ -241,39 +554,18 @@ object SldTopologyEngine {
                     SldConnectionType.BUSBAR
             ) {
 
-                val fromNode =
-                    nodeMap[connection.fromNodeId]!!
-
-                val toNode =
-                    nodeMap[connection.toNodeId]!!
-
-                /*
-                 * ----------------------------------------------------
-                 * BUSBAR TOPOLOGY
-                 * ----------------------------------------------------
-                 *
-                 * Current supported internal panel connection:
-                 *
-                 *     PANEL -> BREAKER
-                 *
-                 * This prevents BUSBAR from being incorrectly used
-                 * as an external feeder.
-                 */
                 require(
-                    fromNode.type ==
-                        SldNodeType.PANEL &&
-                        toNode.type ==
-                        SldNodeType.BREAKER
+                    isInternalBusbarPair(
+                        from.type,
+                        to.type
+                    )
                 ) {
-                    "Connection ${connection.id}: BUSBAR is only valid for an internal PANEL -> BREAKER connection."
+                    "Connection ${connection.id}: invalid BUSBAR topology."
                 }
 
                 /*
-                 * ----------------------------------------------------
-                 * BUSBAR MUST NOT CONTAIN CABLE DATA
-                 * ----------------------------------------------------
+                 * BUSBAR must never carry cable engineering data.
                  */
-
                 require(
                     connection.lengthMeters == 0.0
                 ) {
@@ -298,13 +590,6 @@ object SldTopologyEngine {
                     "Connection ${connection.id}: BUSBAR must not contain cable parallel-run data."
                 }
 
-                /*
-                 * Busbar engineering data is checked when available.
-                 *
-                 * Zero values are allowed at topology level because
-                 * sizing may be performed later by the engineering
-                 * layer. They are NOT interpreted as adequate.
-                 */
                 require(
                     connection.busbarRatedCurrentA >= 0.0
                 ) {
@@ -323,25 +608,18 @@ object SldTopologyEngine {
          * ============================================================
          * DUPLICATE DIRECTED CONNECTIONS
          * ============================================================
-         *
-         * A -> B and another A -> B represent duplicated topology.
-         *
-         * They are rejected here.
-         *
-         * A -> B and B -> A are also invalid in the radial model and
-         * will be rejected by cycle detection.
          */
 
-        val directedConnectionKeys =
+        val directedKeys =
             mutableSetOf<String>()
 
-        network.connections.forEach { connection ->
+        connections.forEach { connection ->
 
             val key =
                 "${connection.fromNodeId}->${connection.toNodeId}"
 
             require(
-                directedConnectionKeys.add(key)
+                directedKeys.add(key)
             ) {
                 "Duplicate SLD connection detected: $key"
             }
@@ -349,14 +627,8 @@ object SldTopologyEngine {
 
         /*
          * ============================================================
-         * DIRECTED GRAPH
+         * GRAPH
          * ============================================================
-         *
-         * The graph is intentionally directed.
-         *
-         * fromNodeId -> toNodeId
-         *
-         * Never convert it to an undirected graph.
          */
 
         val childrenIds =
@@ -371,7 +643,7 @@ object SldTopologyEngine {
                 MutableList<String>
             >()
 
-        network.nodes.forEach { node ->
+        nodes.forEach { node ->
 
             childrenIds[node.id] =
                 mutableListOf()
@@ -380,7 +652,7 @@ object SldTopologyEngine {
                 mutableListOf()
         }
 
-        network.connections.forEach { connection ->
+        connections.forEach { connection ->
 
             childrenIds[
                 connection.fromNodeId
@@ -399,14 +671,14 @@ object SldTopologyEngine {
 
         /*
          * ============================================================
-         * SOURCE PARENT VALIDATION
+         * SOURCE ROOT
          * ============================================================
-         *
-         * SOURCE must be the root of the radial network.
          */
 
         require(
-            parentIds[source.id]
+            parentIds[
+                source.id
+            ]
                 .orEmpty()
                 .isEmpty()
         ) {
@@ -415,29 +687,23 @@ object SldTopologyEngine {
 
         /*
          * ============================================================
-         * RADIAL PARENT VALIDATION
+         * RADIAL PARENT RULE
          * ============================================================
-         *
-         * Every downstream node must have no more than one upstream
-         * feeder.
-         *
-         * This excludes transfer/changeover/ATS/synchronizing
-         * topologies from the current radial model.
          */
 
-        val multiParentNodes =
+        val multiParent =
             parentIds.filter {
                 it.value.size > 1
             }
 
         require(
-            multiParentNodes.isEmpty()
+            multiParent.isEmpty()
         ) {
 
             val names =
-                multiParentNodes.keys
-                    .mapNotNull { id ->
-                        nodeMap[id]?.name
+                multiParent.keys
+                    .mapNotNull {
+                        nodeMap[it]?.name
                     }
 
             "Invalid radial SLD: node(s) have multiple upstream feeders: " +
@@ -450,15 +716,15 @@ object SldTopologyEngine {
          * ============================================================
          */
 
-        val visitState =
+        val state =
             mutableMapOf<
                 String,
                 VisitState
             >()
 
-        network.nodes.forEach { node ->
+        nodes.forEach { node ->
 
-            visitState[node.id] =
+            state[node.id] =
                 VisitState.UNVISITED
         }
 
@@ -467,29 +733,28 @@ object SldTopologyEngine {
         ) {
 
             when (
-                visitState[nodeId]
+                state[nodeId]
             ) {
 
                 VisitState.VISITING -> {
 
-                    val nodeName =
+                    val name =
                         nodeMap[nodeId]?.name
                             ?: nodeId
 
                     throw IllegalArgumentException(
-                        "Circular SLD connection detected at $nodeName."
+                        "Circular SLD connection detected at $name."
                     )
                 }
 
-                VisitState.VISITED -> {
+                VisitState.VISITED ->
                     return
-                }
 
                 VisitState.UNVISITED,
                 null -> Unit
             }
 
-            visitState[nodeId] =
+            state[nodeId] =
                 VisitState.VISITING
 
             childrenIds[
@@ -497,26 +762,21 @@ object SldTopologyEngine {
             ]
                 .orEmpty()
                 .forEach { childId ->
-
                     dfs(
                         childId
                     )
                 }
 
-            visitState[nodeId] =
+            state[nodeId] =
                 VisitState.VISITED
         }
 
-        /*
-         * Check the complete graph, not only the source branch.
-         */
-        network.nodes.forEach { node ->
+        nodes.forEach { node ->
 
             if (
-                visitState[node.id] ==
+                state[node.id] ==
                     VisitState.UNVISITED
             ) {
-
                 dfs(
                     node.id
                 )
@@ -527,9 +787,6 @@ object SldTopologyEngine {
          * ============================================================
          * SOURCE REACHABILITY
          * ============================================================
-         *
-         * All engineering nodes must be reachable through the
-         * STORED electrical direction.
          */
 
         val reachable =
@@ -567,7 +824,6 @@ object SldTopologyEngine {
                         childId !in
                         reachable
                     ) {
-
                         queue.add(
                             childId
                         )
@@ -576,7 +832,7 @@ object SldTopologyEngine {
         }
 
         val disconnected =
-            network.nodes.filter {
+            nodes.filter {
                 it.id !in reachable
             }
 
@@ -584,26 +840,22 @@ object SldTopologyEngine {
             disconnected.isEmpty()
         ) {
 
-            val disconnectedNames =
+            val names =
                 disconnected.joinToString {
                     it.name
                 }
 
-            "Disconnected or incorrectly directed SLD nodes: " +
-                disconnectedNames +
-                ". Connections must point from upstream to downstream."
+            "Disconnected or incorrectly directed SLD nodes: $names. Connections must point from upstream to downstream."
         }
 
         /*
          * ============================================================
-         * MISSING PARENT VALIDATION
+         * MISSING PARENT
          * ============================================================
-         *
-         * Every node except SOURCE must have exactly one parent.
          */
 
         val missingParents =
-            network.nodes.filter { node ->
+            nodes.filter { node ->
 
                 node.id != source.id &&
                     parentIds[
@@ -627,18 +879,14 @@ object SldTopologyEngine {
 
         /*
          * ============================================================
-         * SOURCE OUTGOING CHECK
+         * SOURCE OUTPUT
          * ============================================================
-         *
-         * A source with no downstream path is structurally valid
-         * as a node but not useful for engineering design.
-         *
-         * This remains a topology error because the radial network
-         * has no electrical distribution path.
          */
 
         require(
-            childrenIds[source.id]
+            childrenIds[
+                source.id
+            ]
                 .orEmpty()
                 .isNotEmpty()
         ) {
@@ -647,7 +895,7 @@ object SldTopologyEngine {
 
         /*
          * ============================================================
-         * FINAL CHILDREN / PARENTS OBJECTS
+         * FINAL OBJECTS
          * ============================================================
          */
 
@@ -663,7 +911,7 @@ object SldTopologyEngine {
                 MutableList<SldNode>
             >()
 
-        network.nodes.forEach { node ->
+        nodes.forEach { node ->
 
             finalChildren[node.id] =
                 mutableListOf()
@@ -672,23 +920,17 @@ object SldTopologyEngine {
                 mutableListOf()
         }
 
-        network.connections.forEach { connection ->
+        connections.forEach { connection ->
 
             val from =
                 nodeMap[
                     connection.fromNodeId
-                ]
-                    ?: error(
-                        "Connection ${connection.id}: source node disappeared during topology build."
-                    )
+                ]!!
 
             val to =
                 nodeMap[
                     connection.toNodeId
-                ]
-                    ?: error(
-                        "Connection ${connection.id}: destination node disappeared during topology build."
-                    )
+                ]!!
 
             finalChildren[
                 from.id
@@ -705,47 +947,17 @@ object SldTopologyEngine {
                 )
         }
 
-        /*
-         * ============================================================
-         * FINAL TOPOLOGY
-         * ============================================================
-         *
-         * No connection is reversed.
-         *
-         * The engineering chain is:
-         *
-         * SLD EDITOR
-         *      ↓
-         * STORED CONNECTION DIRECTION
-         *      ↓
-         * TOPOLOGY VALIDATION
-         *      ↓
-         * UPSTREAM ENGINEERING
-         *
-         * This keeps topology and engineering calculations coherent.
-         */
-
         return Topology(
             source = source,
-
-            connections =
-                network.connections,
-
+            connections = connections,
             children =
                 finalChildren.mapValues {
                     it.value.toList()
                 },
-
             parents =
                 finalParents.mapValues {
                     it.value.toList()
                 }
         )
-    }
-
-    private enum class VisitState {
-        UNVISITED,
-        VISITING,
-        VISITED
     }
 }
