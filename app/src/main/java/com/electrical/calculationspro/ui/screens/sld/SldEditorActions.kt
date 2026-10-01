@@ -872,8 +872,7 @@ class SldEditorActions(
                             other.y +
                                 NODE_HEIGHT / 2f
                             )
-                        )
-                    )
+                          )
 
             dx <
                 NODE_WIDTH +
