@@ -24,8 +24,30 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 
+/*
+ * ================================================================
+ * NODE GEOMETRY
+ * ================================================================
+ *
+ * The symbol occupies the upper part of the node area.
+ *
+ * All textual engineering information is deliberately placed
+ * below the complete symbol envelope.
+ *
+ * This prevents:
+ *
+ *      SYMBOL
+ *        ↓
+ *      LABEL
+ *      NAME
+ *      DATA
+ *      RESULT
+ *
+ * from overlapping the electrical symbol.
+ */
+
 const val NODE_WIDTH = 180f
-const val NODE_HEIGHT = 118f
+const val NODE_HEIGHT = 150f
 
 private const val SYMBOL_Y = 30f
 
@@ -158,6 +180,7 @@ private fun startPort(
         SldConnectionType.BUSBAR &&
         node.type == SldNodeType.PANEL
     ) {
+
         val geometry =
             panelBusbarGeometry(
                 node,
@@ -240,16 +263,6 @@ private fun endPort(
  * ================================================================
  * PANEL BUSBAR GEOMETRY
  * ================================================================
- *
- * The geometry is calculated from actual breaker positions.
- *
- * Therefore:
- *
- *       CB1    CB2    CB3
- *        │      │      │
- *   ─────┴──────┴──────┴─────
- *
- * automatically grows as breakers are added.
  */
 
 private fun panelBusbarGeometry(
@@ -314,8 +327,7 @@ private fun panelBusbarGeometry(
             ?: panelCenter
 
     val span =
-        maxX -
-            minX
+        maxX - minX
 
     val halfWidth =
         maxOf(
@@ -340,11 +352,6 @@ private fun panelBusbarGeometry(
                 BUSBAR_SIDE_MARGIN
         )
 
-    /*
-     * Keep all breaker taps unique.
-     * In case two breakers have accidentally identical x
-     * coordinates, distribute their taps evenly.
-     */
     val ordered =
         breakerCenters.entries
             .sortedWith(
@@ -370,7 +377,8 @@ private fun panelBusbarGeometry(
         val available =
             maxOf(
                 0f,
-                right - left -
+                right -
+                    left -
                     2f *
                     BUSBAR_SIDE_MARGIN
             )
@@ -544,12 +552,6 @@ fun DrawScope.drawConnection(
             nodes = nodes
         )
 
-    /*
-     * BUSBAR:
-     *
-     * Always draw a pure vertical feeder from the
-     * calculated busbar tap to the breaker terminal.
-     */
     val points =
         if (
             isBusbar &&
@@ -565,12 +567,6 @@ fun DrawScope.drawConnection(
             val breakerX =
                 end.x
 
-            /*
-             * The editor normally puts the breaker directly
-             * under its tap. If it has been manually moved,
-             * preserve the node position but still use
-             * orthogonal engineering geometry.
-             */
             if (
                 abs(tapX - breakerX) < 1f
             ) {
@@ -621,6 +617,7 @@ fun DrawScope.drawConnection(
             }
 
         } else {
+
             route(
                 start,
                 end
@@ -1170,6 +1167,7 @@ private fun routeLabelPoint(
     }
 
     var bestLength = 0f
+
     var best =
         points[
             points.size / 2
@@ -1192,6 +1190,7 @@ private fun routeLabelPoint(
 
         if (length > bestLength) {
             bestLength = length
+
             best =
                 Offset(
                     (a.x + b.x) / 2f,
@@ -1228,6 +1227,10 @@ fun DrawScope.drawNode(
         node.y +
             SYMBOL_Y
 
+    /*
+     * Selection ring surrounds the symbol only.
+     * It does not interfere with the information block.
+     */
     if (
         selected ||
         connectionStart
@@ -1344,11 +1347,37 @@ fun DrawScope.drawNode(
             )
     }
 
+    /*
+     * ============================================================
+     * INFORMATION BLOCK
+     * ============================================================
+     *
+     * IMPORTANT:
+     * The first text line starts at +70f.
+     *
+     * All known symbols finish before this area.
+     */
+
+    val equipmentY =
+        node.y + 70f
+
+    val nameY =
+        node.y + 84f
+
+    val electricalY =
+        node.y + 100f
+
+    val engineeringY =
+        node.y + 116f
+
+    val resultY =
+        node.y + 132f
+
     drawCenteredText(
         textMeasurer = textMeasurer,
         text = equipmentLabel(node.type),
         centerX = centerX,
-        y = node.y + 51f,
+        y = equipmentY,
         style =
             TextStyle(
                 color = TEXT_SECONDARY,
@@ -1369,7 +1398,7 @@ fun DrawScope.drawNode(
         textMeasurer = textMeasurer,
         text = displayName.take(28),
         centerX = centerX,
-        y = node.y + 64f,
+        y = nameY,
         style =
             TextStyle(
                 color = TEXT,
@@ -1431,7 +1460,7 @@ fun DrawScope.drawNode(
         textMeasurer = textMeasurer,
         text = electrical,
         centerX = centerX,
-        y = node.y + 79f,
+        y = electricalY,
         style =
             TextStyle(
                 color = TEXT_SECONDARY,
@@ -1447,7 +1476,7 @@ fun DrawScope.drawNode(
                 "Pdem=${fmt(it.demandKw)} kW  " +
                     "S=${fmt(it.kva)} kVA",
             centerX = centerX,
-            y = node.y + 92f,
+            y = engineeringY,
             style =
                 TextStyle(
                     color = TEXT_SECONDARY,
@@ -1474,7 +1503,7 @@ fun DrawScope.drawNode(
                     "CB=${fmt(it.recommendedBreakerA)} A  " +
                     "ΔV=${fmt(it.voltageDropPercent)}%",
             centerX = centerX,
-            y = node.y + 106f,
+            y = resultY,
             style =
                 TextStyle(
                     color = resultColor,
@@ -1508,8 +1537,9 @@ private fun DrawScope.drawPanel(
         )
 
     /*
-     * The busbar is deliberately wider than the panel body.
-     * Its width follows actual breaker positions.
+     * Dynamic panel busbar.
+     *
+     * Width follows the actual breaker positions.
      */
     drawLine(
         color = BUSBAR,
@@ -1556,9 +1586,7 @@ private fun DrawScope.drawPanel(
     )
 
     /*
-     * Draw every busbar tap here.
-     *
-     * This guarantees one physical tap per breaker.
+     * Busbar taps.
      */
     geometry.tapPositions.forEach {
         (breakerId, tapX) ->
@@ -1598,8 +1626,7 @@ private fun DrawScope.drawPanel(
     }
 
     /*
-     * Panel enclosure marker.
-     * It is intentionally compact and does not cover the busbar.
+     * Compact panel enclosure marker.
      */
     drawRoundRect(
         color = BLACK,
@@ -1848,9 +1875,6 @@ private fun DrawScope.drawBreaker(
                     )
             )
 
-            /*
-             * Switch blade.
-             */
             drawLine(
                 color = BLACK,
                 start =
