@@ -4,6 +4,7 @@ import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.SldAutoLayoutEngine
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldConnectionType
+import com.electrical.calculationspro.data.SldDesignValidator
 import com.electrical.calculationspro.data.SldEngineeringFacade
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
@@ -42,8 +43,11 @@ class SldEditorActions(
         const val DEFAULT_BUSBAR_CURRENT_A = 400.0
         const val DEFAULT_BUSBAR_SHORT_CIRCUIT_KA = 25.0
 
+        /*
+         * Must stay synchronized with SldCanvasDrawing.
+         */
         const val NODE_WIDTH = 180f
-        const val NODE_HEIGHT = 118f
+        const val NODE_HEIGHT = 150f
     }
 
     // ============================================================
@@ -139,6 +143,68 @@ class SldEditorActions(
 
         try {
 
+            /*
+             * ========================================================
+             * EDITOR VALIDATION
+             * ========================================================
+             *
+             * This validation is intentionally non-blocking with
+             * respect to topology completeness.
+             *
+             * A designer is allowed to have:
+             *
+             * SOURCE
+             * SOURCE + PANEL
+             * SOURCE + PANEL + BREAKER
+             * or a newly added unconnected LOAD
+             *
+             * while constructing the drawing.
+             *
+             * Therefore we must NOT call the strict engineering
+             * topology first and treat its exception as an editor
+             * failure.
+             */
+
+            val editorValidation =
+                SldDesignValidator.validate(
+                    currentNetwork
+                )
+
+            if (!editorValidation.valid) {
+
+                state.engineeringPackage = null
+
+                val firstError =
+                    editorValidation.errors
+                        .firstOrNull()
+                        ?.message
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
+
+                state.engineeringError =
+                    firstError
+                        ?: if (arabic) {
+                            "بيانات المخطط تحتوي على خطأ هندسي. راجع العنصر أو التوصيل."
+                        } else {
+                            "The SLD contains an engineering data error. Check the component or connection."
+                        }
+
+                return
+            }
+
+            /*
+             * ========================================================
+             * STRICT ENGINEERING TOPOLOGY
+             * ========================================================
+             *
+             * Only a complete radial topology is allowed into the
+             * authoritative engineering calculation engines.
+             *
+             * An incomplete topology is a normal editor state.
+             * It must never close the SLD screen or crash the app.
+             */
+
             val topology =
                 SldEngineeringFacade.checkEngineeringTopology(
                     currentNetwork
@@ -150,7 +216,9 @@ class SldEditorActions(
 
                 state.engineeringError =
                     topology.errorMessage
-                        ?.takeIf { it.isNotBlank() }
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
                         ?: if (arabic) {
                             "المخطط غير مكتمل. أكمل التوصيلات ثم يتم الحساب تلقائيًا."
                         } else {
@@ -159,6 +227,12 @@ class SldEditorActions(
 
                 return
             }
+
+            /*
+             * ========================================================
+             * AUTHORITATIVE ENGINEERING PIPELINE
+             * ========================================================
+             */
 
             val result =
                 SldEngineeringFacade.calculateComplete(
@@ -170,11 +244,17 @@ class SldEditorActions(
 
         } catch (error: Throwable) {
 
+            /*
+             * No engineering exception is allowed to escape from
+             * the editor action layer.
+             */
             state.engineeringPackage = null
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "تعذر تنفيذ الدراسة الهندسية الحالية."
                     } else {
@@ -228,18 +308,21 @@ class SldEditorActions(
             state.selectedConnectionId = null
             state.connectionStartId = null
 
+            /*
+             * Old engineering results are no longer valid after
+             * adding a component.
+             */
             state.engineeringPackage = null
             state.engineeringError = null
 
             safePersist()
 
             /*
-             * Every new element immediately enters the engineering
-             * pipeline.
+             * Recalculate immediately.
              *
-             * If the topology is still incomplete, the calculation
-             * engine returns a normal engineering state/error instead
-             * of stopping the editor.
+             * If the new component is not connected yet, the editor
+             * remains open and the engineering state becomes
+             * "incomplete" instead of crashing.
              */
             recalculateEngineering()
 
@@ -247,7 +330,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "تعذر إضافة العنصر إلى المخطط."
                     } else {
@@ -263,14 +348,20 @@ class SldEditorActions(
 
         val safeX =
             if (position.first.isFinite()) {
-                max(MIN_X, position.first)
+                max(
+                    MIN_X,
+                    position.first
+                )
             } else {
                 DEFAULT_X
             }
 
         val safeY =
             if (position.second.isFinite()) {
-                max(MIN_Y, position.second)
+                max(
+                    MIN_Y,
+                    position.second
+                )
             } else {
                 DEFAULT_Y
             }
@@ -441,9 +532,12 @@ class SldEditorActions(
         state.pf = node.powerFactor.toEngineeringString()
         state.demand = node.demandFactor.toEngineeringString()
         state.kva = node.ratedKva.toEngineeringString()
-        state.transformerZ = node.transformerPercentZ.toEngineeringString()
-        state.generatorXd = node.generatorXdSubtransient.toEngineeringString()
-        state.sourceMva = node.sourceShortCircuitMva.toEngineeringString()
+        state.transformerZ =
+            node.transformerPercentZ.toEngineeringString()
+        state.generatorXd =
+            node.generatorXdSubtransient.toEngineeringString()
+        state.sourceMva =
+            node.sourceShortCircuitMva.toEngineeringString()
         state.showNodeDialog = true
     }
 
@@ -455,7 +549,8 @@ class SldEditorActions(
 
         try {
 
-            val editingId = state.editingNodeId
+            val editingId =
+                state.editingNodeId
 
             val existing =
                 editingId?.let { id ->
@@ -464,7 +559,8 @@ class SldEditorActions(
                     }
                 }
 
-            val type = state.nodeType
+            val type =
+                state.nodeType
 
             val voltage =
                 parsePositive(
@@ -608,7 +704,8 @@ class SldEditorActions(
                         }
                     }
 
-                state.selectedNodeId = updated.id
+                state.selectedNodeId =
+                    updated.id
             }
 
             state.showNodeDialog = false
@@ -622,9 +719,6 @@ class SldEditorActions(
             /*
              * Automatic engineering recalculation after every
              * successful node add/edit.
-             *
-             * If the topology is incomplete, the engineering layer
-             * reports that state without crashing the editor.
              */
             recalculateEngineering()
 
@@ -632,7 +726,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "تعذر حفظ العنصر، وتم الاحتفاظ بالمخطط."
                     } else {
@@ -928,7 +1024,9 @@ class SldEditorActions(
         y: Float
     ): Pair<Float, Float> {
 
-        fun safe(value: Float): Float {
+        fun safe(
+            value: Float
+        ): Float {
 
             if (!value.isFinite()) {
                 return 0f
@@ -1021,7 +1119,9 @@ class SldEditorActions(
         val selected =
             state.selectedNodeId ?: return
 
-        startOrCompleteConnection(selected)
+        startOrCompleteConnection(
+            selected
+        )
     }
 
     fun startOrCompleteConnection(
@@ -1052,10 +1152,17 @@ class SldEditorActions(
 
             if (startId == null) {
 
-                state.selectedNodeId = target.id
-                state.selectedConnectionId = null
-                state.connectionStartId = target.id
-                state.engineeringError = null
+                state.selectedNodeId =
+                    target.id
+
+                state.selectedConnectionId =
+                    null
+
+                state.connectionStartId =
+                    target.id
+
+                state.engineeringError =
+                    null
 
                 return
             }
@@ -1272,7 +1379,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "تعذر إنشاء الاتصال."
                     } else {
@@ -1341,9 +1450,11 @@ class SldEditorActions(
             SldConnection(
                 id = createConnectionId(),
 
-                fromNodeId = panel.id,
+                fromNodeId =
+                    panel.id,
 
-                toNodeId = breaker.id,
+                toNodeId =
+                    breaker.id,
 
                 connectionType =
                     SldConnectionType.BUSBAR,
@@ -1360,7 +1471,10 @@ class SldEditorActions(
 
                 voltageDropPercent = 0.0,
 
-                currentCapacityA = estimateBusbarCurrent(panel),
+                currentCapacityA =
+                    estimateBusbarCurrent(
+                        panel
+                    ),
 
                 conductorMaterial = "",
 
@@ -1406,22 +1520,27 @@ class SldEditorActions(
             connection.connectionType.name
 
         state.length =
-            connection.lengthMeters.toEngineeringString()
+            connection.lengthMeters
+                .toEngineeringString()
 
         state.resistance =
-            connection.resistanceOhmPerKm.toEngineeringString()
+            connection.resistanceOhmPerKm
+                .toEngineeringString()
 
         state.reactance =
-            connection.reactanceOhmPerKm.toEngineeringString()
+            connection.reactanceOhmPerKm
+                .toEngineeringString()
 
         state.cableSize =
-            connection.cableSizeMm2.toEngineeringString()
+            connection.cableSizeMm2
+                .toEngineeringString()
 
         state.parallelRuns =
             connection.parallelRuns.toString()
 
         state.capacity =
-            connection.currentCapacityA.toEngineeringString()
+            connection.currentCapacityA
+                .toEngineeringString()
 
         state.conductorMaterial =
             connection.conductorMaterial
@@ -1814,9 +1933,11 @@ class SldEditorActions(
                         SldConnection(
                             id = createConnectionId(),
 
-                            fromNodeId = first.id,
+                            fromNodeId =
+                                first.id,
 
-                            toNodeId = second.id,
+                            toNodeId =
+                                second.id,
 
                             connectionType =
                                 SldConnectionType.CABLE,
@@ -1851,7 +1972,8 @@ class SldEditorActions(
                                     ?.coerceAtLeast(1)
                                     ?: 1,
 
-                            voltageDropPercent = 0.0,
+                            voltageDropPercent =
+                                0.0,
 
                             currentCapacityA =
                                 parseNonNegative(
@@ -1987,7 +2109,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "تعذر حذف العنصر."
                     } else {
@@ -2027,7 +2151,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "فشل ترتيب المخطط."
                     } else {
@@ -2065,7 +2191,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "فشل إنشاء المخطط الكهربائي."
                     } else {
@@ -2094,7 +2222,9 @@ class SldEditorActions(
 
                 state.engineeringError =
                     topology.errorMessage
-                        ?.takeIf { it.isNotBlank() }
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
                         ?: if (arabic) {
                             "المخطط غير مكتمل لحساب القصر."
                         } else {
@@ -2126,7 +2256,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "فشل حساب القصر الكهربائي."
                     } else {
@@ -2172,7 +2304,9 @@ class SldEditorActions(
 
                 state.engineeringError =
                     topology.errorMessage
-                        ?.takeIf { it.isNotBlank() }
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
                         ?: if (arabic) {
                             "المخطط غير مكتمل لإنشاء جدول اللوحة."
                         } else {
@@ -2188,7 +2322,8 @@ class SldEditorActions(
                     panelNodeId = panel.id
                 )
 
-            state.engineeringPackage = result
+            state.engineeringPackage =
+                result
 
             state.reportTitle =
                 if (arabic) {
@@ -2212,7 +2347,9 @@ class SldEditorActions(
 
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
                         "فشل إنشاء جدول اللوحة."
                     } else {
@@ -2287,8 +2424,11 @@ class SldEditorActions(
         panel: SldNode
     ): Double {
 
-        val kva = panel.ratedKva
-        val voltage = panel.voltage
+        val kva =
+            panel.ratedKva
+
+        val voltage =
+            panel.voltage
 
         if (
             kva.isFinite() &&
