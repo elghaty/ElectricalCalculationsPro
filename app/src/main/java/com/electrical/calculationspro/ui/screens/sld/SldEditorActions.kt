@@ -152,9 +152,9 @@ class SldEditorActions(
                     topology.errorMessage
                         ?.takeIf { it.isNotBlank() }
                         ?: if (arabic) {
-                            "المخطط غير مكتمل. أكمل التوصيلات ثم اضغط حساب."
+                            "المخطط غير مكتمل. أكمل التوصيلات ثم يتم الحساب تلقائيًا."
                         } else {
-                            "The SLD is incomplete. Complete the connections and press Calculate."
+                            "The SLD is incomplete. Complete the connections and engineering calculation will run automatically."
                         }
 
                 return
@@ -229,15 +229,19 @@ class SldEditorActions(
             state.connectionStartId = null
 
             state.engineeringPackage = null
-
-            state.engineeringError =
-                if (arabic) {
-                    "تمت إضافة ${node.name}. العنصر غير متصل بعد."
-                } else {
-                    "${node.name} was added. The component is not connected yet."
-                }
+            state.engineeringError = null
 
             safePersist()
+
+            /*
+             * Every new element immediately enters the engineering
+             * pipeline.
+             *
+             * If the topology is still incomplete, the calculation
+             * engine returns a normal engineering state/error instead
+             * of stopping the editor.
+             */
+            recalculateEngineering()
 
         } catch (error: Throwable) {
 
@@ -611,15 +615,18 @@ class SldEditorActions(
             state.editingNodeId = null
             state.connectionStartId = null
             state.engineeringPackage = null
-
-            state.engineeringError =
-                if (arabic) {
-                    "تم حفظ العنصر. أكمل التوصيلات ثم اضغط حساب."
-                } else {
-                    "Component saved. Complete the connections and press Calculate."
-                }
+            state.engineeringError = null
 
             safePersist()
+
+            /*
+             * Automatic engineering recalculation after every
+             * successful node add/edit.
+             *
+             * If the topology is incomplete, the engineering layer
+             * reports that state without crashing the editor.
+             */
+            recalculateEngineering()
 
         } catch (error: Throwable) {
 
@@ -872,7 +879,7 @@ class SldEditorActions(
                             other.y +
                                 NODE_HEIGHT / 2f
                             )
-                          )
+                    )
 
             dx <
                 NODE_WIDTH +
@@ -1043,10 +1050,6 @@ class SldEditorActions(
             val startId =
                 state.connectionStartId
 
-            // ====================================================
-            // FIRST NODE
-            // ====================================================
-
             if (startId == null) {
 
                 state.selectedNodeId = target.id
@@ -1056,10 +1059,6 @@ class SldEditorActions(
 
                 return
             }
-
-            // ====================================================
-            // SAME NODE
-            // ====================================================
 
             if (startId == target.id) {
 
@@ -1093,23 +1092,11 @@ class SldEditorActions(
             }
 
             /*
-             * ====================================================
-             * PANEL + BREAKER SPECIAL RULE
-             * ====================================================
+             * PANEL + BREAKER
              *
-             * The physical/electrical meaning is always:
+             * Always normalized to:
              *
              * PANEL -> BREAKER = BUSBAR
-             *
-             * regardless of which one the user clicked first.
-             *
-             * Therefore:
-             *
-             * BREAKER -> PANEL
-             *
-             * is normalized to:
-             *
-             * PANEL -> BREAKER
              */
 
             val panel =
@@ -1158,8 +1145,8 @@ class SldEditorActions(
                                         it.fromNodeId == breaker.id &&
                                             it.toNodeId == panel.id
                                         )
-                                )
-                            }
+                                    )
+                    }
 
                 if (existing != null) {
 
@@ -1214,32 +1201,24 @@ class SldEditorActions(
                     null
 
                 state.engineeringError =
-                    if (arabic) {
-                        "تم توصيل ${breaker.name} بالباسبار."
-                    } else {
-                        "${breaker.name} connected to the panel busbar."
-                    }
+                    null
 
                 safePersist()
-
-                /*
-                 * Do not force engineering calculation here.
-                 *
-                 * The drawing may still be incomplete.
-                 * The user can press Calculate when ready.
-                 */
+                recalculateEngineering()
 
                 return
             }
 
-            // ====================================================
-            // NORMAL CONNECTION
-            // ====================================================
-
             val duplicate =
                 state.connections.any {
-                    it.fromNodeId == start.id &&
-                        it.toNodeId == target.id
+                    (
+                        it.fromNodeId == start.id &&
+                            it.toNodeId == target.id
+                        ) ||
+                        (
+                            it.fromNodeId == target.id &&
+                                it.toNodeId == start.id
+                            )
                 }
 
             if (duplicate) {
@@ -1260,9 +1239,6 @@ class SldEditorActions(
                 return
             }
 
-            /*
-             * The second node is the destination for normal cables.
-             */
             state.selectedNodeId =
                 target.id
 
@@ -1341,14 +1317,6 @@ class SldEditorActions(
                 else ->
                     return
             }
-
-        /*
-         * Normalize the stored topology.
-         *
-         * A BUSBAR is ALWAYS:
-         *
-         * PANEL -> BREAKER
-         */
 
         if (
             state.connections.any {
@@ -1506,18 +1474,11 @@ class SldEditorActions(
         val newToId =
             state.selectedNodeId
 
-        /*
-         * Close the dialog immediately.
-         */
         state.showConnectionDialog = false
         state.editingConnectionId = null
         state.connectionStartId = null
 
         try {
-
-            // ====================================================
-            // EDIT EXISTING CONNECTION
-            // ====================================================
 
             if (editingId != null) {
 
@@ -1727,10 +1688,6 @@ class SldEditorActions(
 
             } else {
 
-                // =================================================
-                // CREATE NEW CONNECTION
-                // =================================================
-
                 val first =
                     newFromId?.let { id ->
                         state.nodes.firstOrNull {
@@ -1771,10 +1728,6 @@ class SldEditorActions(
 
                     return
                 }
-
-                /*
-                 * Normalize PANEL/BREAKER regardless of click order.
-                 */
 
                 val panel =
                     when {
@@ -1830,14 +1783,16 @@ class SldEditorActions(
 
                 } else {
 
-                    /*
-                     * All other external connections are CABLE.
-                     */
-
                     val duplicate =
                         state.connections.any {
-                            it.fromNodeId == first.id &&
-                                it.toNodeId == second.id
+                            (
+                                it.fromNodeId == first.id &&
+                                    it.toNodeId == second.id
+                                ) ||
+                                (
+                                    it.fromNodeId == second.id &&
+                                        it.toNodeId == first.id
+                                    )
                         }
 
                     if (duplicate) {
@@ -1946,9 +1901,8 @@ class SldEditorActions(
             safePersist()
 
             /*
-             * Do not force strict engineering calculation after
-             * every drawing edit. The drawing must remain editable
-             * even when the topology is intentionally incomplete.
+             * Automatic engineering recalculation after every
+             * successful connection change.
              */
             recalculateEngineering()
 
