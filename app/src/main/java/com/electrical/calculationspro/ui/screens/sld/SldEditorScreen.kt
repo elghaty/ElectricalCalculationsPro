@@ -1,3 +1,5 @@
+// app/src/main/java/com/electrical/calculationspro/ui/screens/sld/SldEditorScreen.kt
+
 package com.electrical.calculationspro.ui.screens.sld
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,6 +51,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
+import com.electrical.calculationspro.data.SldEngineeringReportEngine
+import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.SldNodeType
 import com.electrical.calculationspro.ui.components.EngineeringStatus
 
@@ -76,6 +80,17 @@ fun SldEditorScreen(
 
     val context =
         LocalContext.current
+
+    /*
+     * ============================================================
+     * PDF EXPORT
+     * ============================================================
+     *
+     * The report is always generated from the current
+     * SldEngineeringPackage.
+     *
+     * No calculation is performed by the PDF layer.
+     */
 
     val pdfLauncher =
         rememberLauncherForActivityResult(
@@ -116,6 +131,9 @@ fun SldEditorScreen(
 
                     state.engineeringError =
                         error.message
+                            ?.takeIf {
+                                it.isNotBlank()
+                            }
                             ?: if (arabic) {
                                 "فشل تصدير التقرير PDF."
                             } else {
@@ -125,8 +143,106 @@ fun SldEditorScreen(
             }
         }
 
+    /*
+     * ============================================================
+     * LOAD
+     * ============================================================
+     */
+
     LaunchedEffect(Unit) {
         actions.loadProjectNetwork()
+    }
+
+    /*
+     * ============================================================
+     * REPORT SYNCHRONIZATION
+     * ============================================================
+     *
+     * Every successful engineering calculation automatically
+     * regenerates the report from the package.
+     *
+     * Therefore:
+     *
+     * SLD edit
+     *     ↓
+     * engineeringPackage invalidated
+     *     ↓
+     * engineering recalculation
+     *     ↓
+     * report regenerated
+     *
+     * An old report is never silently kept after a design change.
+     */
+
+    LaunchedEffect(
+        state.engineeringPackage,
+        state.nodes,
+        state.connections,
+        language
+    ) {
+
+        val engineering =
+            state.engineeringPackage
+
+        if (engineering == null) {
+
+            /*
+             * Do not keep an old engineering report after the
+             * engineering package becomes stale.
+             */
+            state.reportText = ""
+            state.reportTitle = ""
+
+            return@LaunchedEffect
+        }
+
+        runCatching {
+
+            val report =
+                SldEngineeringReportEngine.build(
+                    network =
+                        SldNetwork(
+                            nodes =
+                                state.nodes.toList(),
+                            connections =
+                                state.connections.toList()
+                        ),
+                    engineering =
+                        engineering
+                )
+
+            state.reportTitle =
+                if (arabic) {
+                    "تقرير التصميم الكهربائي - SLD"
+                } else {
+                    report.title
+                }
+
+            state.reportText =
+                report.asText()
+
+        }.onFailure { error ->
+
+            state.reportText = ""
+
+            state.reportTitle =
+                if (arabic) {
+                    "تقرير التصميم الكهربائي"
+                } else {
+                    "Electrical Engineering Design Report"
+                }
+
+            state.engineeringError =
+                error.message
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
+                    ?: if (arabic) {
+                        "تعذر إنشاء التقرير الهندسي من نتائج الدراسة."
+                    } else {
+                        "Unable to generate the engineering report from the study results."
+                    }
+        }
     }
 
     Column(
@@ -209,10 +325,9 @@ fun SldEditorScreen(
             }
 
             /*
-             * IMPORTANT:
+             * Calculate NEVER regenerates the SLD.
              *
-             * Calculate must NEVER regenerate the SLD.
-             * It only recalculates the existing topology.
+             * It only recalculates the existing network.
              */
             Button(
                 onClick = {
@@ -243,13 +358,24 @@ fun SldEditorScreen(
         }
 
         // ========================================================
-        // STATUS
+        // ENGINEERING STATUS
         // ========================================================
 
         val statusText =
             when {
 
+                state.engineeringError
+                    ?.isNotBlank() == true -> {
+
+                    if (arabic) {
+                        "تحتاج الدراسة إلى مراجعة"
+                    } else {
+                        "Engineering review required"
+                    }
+                }
+
                 state.connectionStartId != null -> {
+
                     if (arabic) {
                         "وضع التوصيل نشط — اختر العنصر الثاني"
                     } else {
@@ -257,7 +383,26 @@ fun SldEditorScreen(
                     }
                 }
 
+                state.engineeringPackage != null -> {
+
+                    if (arabic) {
+                        "الدراسة الهندسية محدثة"
+                    } else {
+                        "Engineering study is up to date"
+                    }
+                }
+
+                state.nodes.isEmpty() -> {
+
+                    if (arabic) {
+                        "مخطط فارغ"
+                    } else {
+                        "Empty SLD"
+                    }
+                }
+
                 state.selectedNodeId != null -> {
+
                     if (arabic) {
                         "تم تحديد عنصر"
                     } else {
@@ -266,6 +411,7 @@ fun SldEditorScreen(
                 }
 
                 state.selectedConnectionId != null -> {
+
                     if (arabic) {
                         "تم تحديد وصلة"
                     } else {
@@ -273,15 +419,8 @@ fun SldEditorScreen(
                     }
                 }
 
-                state.engineeringPackage != null -> {
-                    if (arabic) {
-                        "الدراسة الهندسية محدثة"
-                    } else {
-                        "Engineering study is up to date"
-                    }
-                }
-
                 else -> {
+
                     if (arabic) {
                         "جاهز للتصميم"
                     } else {
@@ -292,7 +431,8 @@ fun SldEditorScreen(
 
         EngineeringStatus(
             text = statusText,
-            success = state.engineeringError == null,
+            success =
+                state.engineeringError == null,
             modifier =
                 Modifier.padding(
                     horizontal = 8.dp,
@@ -300,7 +440,9 @@ fun SldEditorScreen(
                 )
         )
 
-        if (!state.engineeringError.isNullOrBlank()) {
+        if (
+            !state.engineeringError.isNullOrBlank()
+        ) {
 
             Card(
                 modifier =
@@ -334,11 +476,14 @@ fun SldEditorScreen(
         // CONNECTION MODE
         // ========================================================
 
-        if (state.connectionStartId != null) {
+        if (
+            state.connectionStartId != null
+        ) {
 
             val startNode =
                 state.nodes.firstOrNull {
-                    it.id == state.connectionStartId
+                    it.id ==
+                        state.connectionStartId
                 }
 
             Card(
@@ -408,6 +553,7 @@ fun SldEditorScreen(
 
                     OutlinedButton(
                         onClick = {
+
                             state.clearDialogs()
                             state.selectedNodeId = null
                             state.selectedConnectionId = null
@@ -455,9 +601,12 @@ fun SldEditorScreen(
             )
 
             SldToolButton(
-                icon = Icons.Outlined.Link,
+                icon =
+                    Icons.Outlined.Link,
                 text =
-                    if (state.connectionStartId == null) {
+                    if (
+                        state.connectionStartId == null
+                    ) {
                         if (arabic) {
                             "توصيل"
                         } else {
@@ -501,7 +650,8 @@ fun SldEditorScreen(
             )
 
             SldToolButton(
-                icon = Icons.Outlined.AutoFixHigh,
+                icon =
+                    Icons.Outlined.AutoFixHigh,
                 text =
                     if (arabic) {
                         "ترتيب تلقائي"
@@ -514,7 +664,8 @@ fun SldEditorScreen(
             )
 
             SldToolButton(
-                icon = Icons.Outlined.Delete,
+                icon =
+                    Icons.Outlined.Delete,
                 text =
                     if (arabic) {
                         "حذف"
@@ -527,7 +678,8 @@ fun SldEditorScreen(
             )
 
             SldToolButton(
-                icon = Icons.Outlined.Calculate,
+                icon =
+                    Icons.Outlined.Calculate,
                 text =
                     if (arabic) {
                         "قصر"
@@ -540,7 +692,8 @@ fun SldEditorScreen(
             )
 
             SldToolButton(
-                icon = Icons.Outlined.TableView,
+                icon =
+                    Icons.Outlined.TableView,
                 text =
                     if (arabic) {
                         "جدول اللوحة"
@@ -552,13 +705,9 @@ fun SldEditorScreen(
                 }
             )
 
-            /*
-             * Generate Complete SLD is intentionally a separate
-             * destructive operation. It is no longer confused
-             * with normal calculation.
-             */
             SldToolButton(
-                icon = Icons.Outlined.Settings,
+                icon =
+                    Icons.Outlined.Settings,
                 text =
                     if (arabic) {
                         "إنشاء الدراسة"
@@ -571,18 +720,11 @@ fun SldEditorScreen(
             )
 
             SldToolButton(
-                icon = Icons.Outlined.PictureAsPdf,
+                icon =
+                    Icons.Outlined.PictureAsPdf,
                 text = "PDF",
                 onClick = {
 
-                    /*
-                     * PDF export must never generate or replace
-                     * the current SLD.
-                     *
-                     * If no report exists, calculate the current
-                     * engineering package and let the user run
-                     * the dedicated report action.
-                     */
                     if (
                         state.reportText.isBlank()
                     ) {
@@ -591,9 +733,9 @@ fun SldEditorScreen(
 
                         state.engineeringError =
                             if (arabic) {
-                                "لا يوجد تقرير جاهز للتصدير. نفّذ الدراسة أو أنشئ التقرير أولاً."
+                                "لا يوجد تقرير جاهز للتصدير. يجب اكتمال الدراسة الهندسية أولاً."
                             } else {
-                                "No report is ready for export. Run the study or generate a report first."
+                                "No report is ready for export. Complete the engineering study first."
                             }
 
                     } else {
@@ -660,12 +802,15 @@ fun SldEditorScreen(
 
                 SldMetric(
                     value =
-                        if (
-                            state.engineeringPackage != null
-                        ) {
-                            "OK"
-                        } else {
-                            "—"
+                        when {
+                            state.engineeringPackage != null ->
+                                "OK"
+
+                            !state.engineeringError.isNullOrBlank() ->
+                                "—"
+
+                            else ->
+                                "…"
                         },
                     label =
                         if (arabic) {
@@ -676,7 +821,8 @@ fun SldEditorScreen(
                 )
 
                 Text(
-                    text = "SLD Engineering",
+                    text =
+                        "SLD Engineering",
                     style =
                         MaterialTheme.typography.labelMedium,
                     fontWeight =
@@ -721,19 +867,15 @@ fun SldEditorScreen(
                 engineering =
                     state.engineeringPackage,
 
-                /*
-                 * Normal click = SELECT ONLY.
-                 *
-                 * Click while connectionStartId is non-null =
-                 * COMPLETE CONNECTION.
-                 */
                 onSelectNode = { id ->
 
                     if (
                         state.connectionStartId != null
                     ) {
 
-                        actions.startOrCompleteConnection(id)
+                        actions.startOrCompleteConnection(
+                            id
+                        )
 
                     } else {
 
@@ -745,10 +887,6 @@ fun SldEditorScreen(
 
                 onMoveNode = { id, dx, dy ->
 
-                    /*
-                     * Nodes cannot accidentally move while the
-                     * connection tool is active.
-                     */
                     if (
                         state.connectionStartId == null
                     ) {
@@ -777,6 +915,12 @@ fun SldEditorScreen(
                                     node
                                 }
                             }
+
+                        /*
+                         * Existing engineering results are no longer
+                         * authoritative while a node is being moved.
+                         */
+                        state.engineeringPackage = null
                     }
                 },
 
@@ -785,6 +929,7 @@ fun SldEditorScreen(
                     if (
                         state.connectionStartId == null
                     ) {
+
                         actions.saveAndRecalculate()
                     }
                 },
@@ -803,7 +948,7 @@ fun SldEditorScreen(
                     actions.editConnection(it)
                 }
             )
-        }
+        )
     }
 
     // ============================================================
@@ -814,26 +959,37 @@ fun SldEditorScreen(
 
         SldNodeEditorDialog(
             arabic = arabic,
+
             editing =
                 state.editingNodeId != null,
+
             type =
                 state.nodeType,
+
             name =
                 state.name,
+
             voltage =
                 state.voltage,
+
             loadKw =
                 state.loadKw,
+
             pf =
                 state.pf,
+
             demand =
                 state.demand,
+
             kva =
                 state.kva,
+
             transformerZ =
                 state.transformerZ,
+
             generatorXd =
                 state.generatorXd,
+
             sourceMva =
                 state.sourceMva,
 
@@ -878,6 +1034,7 @@ fun SldEditorScreen(
             },
 
             onCancel = {
+
                 state.showNodeDialog = false
                 state.editingNodeId = null
             }
@@ -1037,9 +1194,9 @@ fun SldEditorScreen(
                     Text(
                         text =
                             if (arabic) {
-                                "نتائج دراسة المخطط الأحادي"
+                                "نتائج دراسة المخطط الأحادي الحالية"
                             } else {
-                                "Single line diagram engineering study"
+                                "Current single line diagram engineering study"
                             },
                         style =
                             MaterialTheme.typography.bodySmall,
@@ -1063,7 +1220,13 @@ fun SldEditorScreen(
 
                     Text(
                         text =
-                            state.reportText,
+                            state.reportText.ifBlank {
+                                if (arabic) {
+                                    "لا توجد نتائج هندسية جاهزة."
+                                } else {
+                                    "No engineering results are available."
+                                }
+                            },
                         modifier =
                             Modifier
                                 .fillMaxWidth()
@@ -1257,11 +1420,7 @@ private fun AddComponentMenu(
                                     }
 
                                 SldNodeType.BUS ->
-                                    if (arabic) {
-                                        "Bus"
-                                    } else {
-                                        "Bus"
-                                    }
+                                    "Bus"
 
                                 SldNodeType.PANEL ->
                                     if (arabic) {
