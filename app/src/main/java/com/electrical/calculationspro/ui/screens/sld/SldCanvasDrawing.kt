@@ -637,8 +637,11 @@ fun DrawScope.drawConnection(
         } ?: return
 
     /*
-     * A legacy PANEL/BREAKER cable is visually and electrically
-     * an internal busbar connection.
+     * BUSBAR is owned by the panel-enclosure drawing layer.
+     *
+     * It must never be rendered here as a normal connection.
+     * This also prevents legacy PANEL/BREAKER cable records
+     * from appearing as feeder cables.
      */
     val isBusbar =
         isBusbarConnection(
@@ -646,11 +649,9 @@ fun DrawScope.drawConnection(
             nodes
         )
 
-    val panelBreaker =
-        panelBreakerNodes(
-            connection,
-            nodes
-        )
+    if (isBusbar) {
+        return
+    }
 
     val start =
         startPort(
@@ -668,63 +669,7 @@ fun DrawScope.drawConnection(
         )
 
     val points =
-        if (
-            isBusbar &&
-            panelBreaker != null
-        ) {
-
-            val panel =
-                panelBreaker.first
-
-            val breaker =
-                panelBreaker.second
-
-            val geometry =
-                panelBusbarGeometry(
-                    panel,
-                    nodes,
-                    connections
-                )
-
-            val tapX =
-                geometry.tapPositions[
-                    breaker.id
-                ] ?: start.x
-
-            val breakerX =
-                end.x
-
-            val correctedStart =
-                Offset(
-                    tapX,
-                    geometry.y
-                )
-
-            if (
-                abs(
-                    tapX -
-                        breakerX
-                ) < 1f
-            ) {
-
-                listOf(
-                    correctedStart,
-                    end
-                )
-
-            } else {
-
-                listOf(
-                    correctedStart,
-                    Offset(
-                        tapX,
-                        end.y
-                    ),
-                    end
-                )
-            }
-
-        } else if (connection.routeAuto) {
+        if (connection.routeAuto) {
 
             professionalRoute(
                 start = start,
@@ -784,31 +729,21 @@ fun DrawScope.drawConnection(
         }
 
     val inadequate =
-        !isBusbar &&
-            feederResult != null &&
+        feederResult != null &&
             !feederResult.cableAdequate
 
     val lineColor =
         when {
             selected -> SELECTED
             inadequate -> FAULT
-            isBusbar -> BUSBAR
             else -> CABLE
         }
 
     val width =
-        if (isBusbar) {
-            if (selected) {
-                BUSBAR_WIDTH + 2f
-            } else {
-                BUSBAR_WIDTH
-            }
+        if (selected) {
+            SELECTED_CABLE_WIDTH
         } else {
-            if (selected) {
-                SELECTED_CABLE_WIDTH
-            } else {
-                CABLE_WIDTH
-            }
+            CABLE_WIDTH
         }
 
     drawPath(
@@ -821,63 +756,6 @@ fun DrawScope.drawConnection(
                 join = StrokeJoin.Miter
             )
     )
-
-    if (isBusbar) {
-
-        drawCircle(
-            color = BUSBAR,
-            radius = JUNCTION_RADIUS,
-            center = start
-        )
-
-        val busText =
-            buildString {
-
-                append("BUS")
-
-                if (
-                    connection.busbarRatedCurrentA >
-                    0.0
-                ) {
-
-                    append(" ")
-                    append(
-                        fmt(
-                            connection.busbarRatedCurrentA
-                        )
-                    )
-                    append(" A")
-                }
-
-                if (
-                    connection.busbarShortCircuitKA >
-                    0.0
-                ) {
-
-                    append("  ")
-                    append(
-                        fmt(
-                            connection.busbarShortCircuitKA
-                        )
-                    )
-                    append(" kA")
-                }
-            }
-
-        drawEngineeringLabel(
-            textMeasurer = textMeasurer,
-            text = busText,
-            point =
-                Offset(
-                    start.x + 8f,
-                    start.y - 18f
-                ),
-            color = BUSBAR,
-            fontSize = 8.5f
-        )
-
-        return
-    }
 
     drawFlowArrow(
         points = points,
@@ -1414,10 +1292,7 @@ fun DrawScope.drawNode(
         SldNodeType.PANEL ->
             drawPanel(
                 centerX,
-                symbolY,
-                node,
-                nodes,
-                connections
+                symbolY
             )
 
         SldNodeType.BREAKER -> {
@@ -1642,34 +1517,19 @@ fun DrawScope.drawNode(
 
 private fun DrawScope.drawPanel(
     x: Float,
-    y: Float,
-    node: SldNode,
-    nodes: List<SldNode>,
-    connections: List<SldConnection>
+    y: Float
 ) {
 
-    val geometry =
-        panelBusbarGeometry(
-            node,
-            nodes,
-            connections
-        )
-
-    drawLine(
-        color = BUSBAR,
-        start =
-            Offset(
-                geometry.left,
-                geometry.y
-            ),
-        end =
-            Offset(
-                geometry.right,
-                geometry.y
-            ),
-        strokeWidth = BUSBAR_WIDTH,
-        cap = StrokeCap.Square
-    )
+    /*
+     * The panel-enclosure layer owns:
+     *
+     * 1. The real enclosure/border.
+     * 2. The internal busbar.
+     * 3. Breaker busbar taps.
+     *
+     * This function intentionally draws only the IEC-style
+     * PANEL terminal symbol.
+     */
 
     drawLine(
         color = BLACK,
@@ -1695,43 +1555,6 @@ private fun DrawScope.drawPanel(
                 y
             )
     )
-
-    geometry.tapPositions.forEach {
-        (breakerId, tapX) ->
-
-        val breaker =
-            nodes.firstOrNull {
-                it.id == breakerId
-            } ?: return@forEach
-
-        val breakerTerminalY =
-            breaker.y
-
-        drawLine(
-            color = BLACK,
-            start =
-                Offset(
-                    tapX,
-                    geometry.y
-                ),
-            end =
-                Offset(
-                    tapX,
-                    breakerTerminalY
-                ),
-            strokeWidth = 2.8f
-        )
-
-        drawCircle(
-            color = BLACK,
-            radius = 3.2f,
-            center =
-                Offset(
-                    tapX,
-                    geometry.y
-                )
-        )
-    }
 
     drawRoundRect(
         color = BLACK,
@@ -2530,6 +2353,11 @@ fun findConnection(
                 nodes
             )
 
+        /*
+         * BUSBAR is no longer a drawable connection in this layer.
+         * It is still selectable using its logical geometry so
+         * existing editor behaviour is preserved.
+         */
         val points =
             if (
                 isBusbar &&
