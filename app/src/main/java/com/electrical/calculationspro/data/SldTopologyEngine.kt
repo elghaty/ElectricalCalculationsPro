@@ -65,11 +65,15 @@ object SldTopologyEngine {
         VISITED
     }
 
-    private companion object {
-
-        const val DEFAULT_BUSBAR_CURRENT_A = 400.0
-        const val DEFAULT_BUSBAR_SHORT_CIRCUIT_KA = 25.0
-    }
+    /*
+     * IMPORTANT:
+     *
+     * SldTopologyEngine is already an object.
+     * Kotlin does not allow a companion object inside another
+     * object. Keep these constants directly inside the object.
+     */
+    private const val DEFAULT_BUSBAR_CURRENT_A = 400.0
+    private const val DEFAULT_BUSBAR_SHORT_CIRCUIT_KA = 25.0
 
     /**
      * ============================================================
@@ -417,14 +421,6 @@ object SldTopologyEngine {
 
         /*
          * Normalize first.
-         *
-         * This is the critical compatibility layer:
-         *
-         * old PANEL/BREAKER records
-         * old BUS/BREAKER cable records
-         * old busbar records carrying cable fields
-         *
-         * all become one consistent engineering representation.
          */
         val normalizedNetwork =
             normalizeNetwork(
@@ -563,9 +559,6 @@ object SldTopologyEngine {
                     "Connection ${connection.id}: invalid BUSBAR topology."
                 }
 
-                /*
-                 * BUSBAR must never carry cable engineering data.
-                 */
                 require(
                     connection.lengthMeters == 0.0
                 ) {
