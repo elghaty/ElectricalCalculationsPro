@@ -3,6 +3,7 @@ package com.electrical.calculationspro.ui.screens.sld
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowBack
@@ -30,14 +30,16 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,7 +57,6 @@ fun SldEditorScreen(
     language: AppLanguage,
     onBack: (() -> Unit)? = null
 ) {
-
     val state = remember {
         SldEditorState()
     }
@@ -70,34 +71,17 @@ fun SldEditorScreen(
     val arabic = language == AppLanguage.ARABIC
     val context = LocalContext.current
 
-    /*
-     * IMPORTANT:
-     *
-     * There is deliberately NO loadProjectNetwork() call here.
-     *
-     * The current SldEditorActions does not expose that method.
-     * The editor therefore starts from SldEditorState and keeps
-     * the current design in memory.
-     *
-     * This was the direct cause of the previous compilation failure.
-     */
-
     val pdfLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument(
                 "application/pdf"
             )
         ) { uri ->
-
             if (uri != null && state.reportText.isNotBlank()) {
-
                 runCatching {
-
-                    context
-                        .contentResolver
+                    context.contentResolver
                         .openOutputStream(uri)
                         ?.use { output ->
-
                             SldPdfReportExporter.export(
                                 outputStream = output,
                                 title = state.reportTitle.ifBlank {
@@ -110,17 +94,14 @@ fun SldEditorScreen(
                                 reportText = state.reportText
                             )
                         }
-
                 }.onFailure { error ->
-
                     state.engineeringError =
-                        error.message?.takeIf {
-                            it.isNotBlank()
-                        } ?: if (arabic) {
-                            "فشل تصدير التقرير PDF."
-                        } else {
-                            "PDF export failed."
-                        }
+                        error.message?.takeIf { it.isNotBlank() }
+                            ?: if (arabic) {
+                                "فشل تصدير التقرير PDF."
+                            } else {
+                                "PDF export failed."
+                            }
                 }
             }
         }
@@ -128,23 +109,13 @@ fun SldEditorScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme.background
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
-
-        /*
-         * ========================================================
-         * HEADER
-         * ========================================================
-         */
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surface
-                )
+                .background(MaterialTheme.colorScheme.surface)
                 .padding(
                     horizontal = 8.dp,
                     vertical = 6.dp
@@ -153,7 +124,6 @@ fun SldEditorScreen(
         ) {
 
             if (onBack != null) {
-
                 Icon(
                     imageVector = Icons.Outlined.ArrowBack,
                     contentDescription = if (arabic) {
@@ -163,17 +133,15 @@ fun SldEditorScreen(
                     },
                     modifier = Modifier
                         .padding(8.dp)
-                )
-
-                androidx.compose.foundation.clickable(
-                    onClick = onBack
+                        .clickable {
+                            onBack()
+                        }
                 )
             }
 
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-
                 Text(
                     text = if (arabic) {
                         "مصمم المخطط الأحادي SLD"
@@ -200,7 +168,6 @@ fun SldEditorScreen(
                     actions.recalculateEngineering()
                 }
             ) {
-
                 Icon(
                     imageVector = Icons.Outlined.Calculate,
                     contentDescription = null
@@ -220,46 +187,35 @@ fun SldEditorScreen(
             }
         }
 
-        /*
-         * ========================================================
-         * STATUS
-         * ========================================================
-         */
-
         val statusText =
             when {
-
-                state.connectionStartId != null -> {
+                state.connectionStartId != null ->
                     if (arabic) {
                         "وضع التوصيل نشط — اختر العنصر الثاني"
                     } else {
                         "Connection mode active — select destination"
                     }
-                }
 
-                state.engineeringError != null -> {
+                state.engineeringError != null ->
                     if (arabic) {
                         "توجد ملاحظة هندسية — راجع البيانات"
                     } else {
                         "Engineering data requires review"
                     }
-                }
 
-                state.engineeringPackage != null -> {
+                state.engineeringPackage != null ->
                     if (arabic) {
                         "الدراسة الهندسية محدثة"
                     } else {
                         "Engineering study is up to date"
                     }
-                }
 
-                else -> {
+                else ->
                     if (arabic) {
                         "جاهز للتصميم"
                     } else {
                         "Ready for design"
                     }
-                }
             }
 
         EngineeringStatus(
@@ -272,7 +228,6 @@ fun SldEditorScreen(
         )
 
         if (!state.engineeringError.isNullOrBlank()) {
-
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -285,7 +240,6 @@ fun SldEditorScreen(
                         MaterialTheme.colorScheme.errorContainer
                 )
             ) {
-
                 Text(
                     text = state.engineeringError ?: "",
                     modifier = Modifier.padding(12.dp),
@@ -295,12 +249,6 @@ fun SldEditorScreen(
                 )
             }
         }
-
-        /*
-         * ========================================================
-         * CONNECTION MODE
-         * ========================================================
-         */
 
         if (state.connectionStartId != null) {
 
@@ -321,7 +269,6 @@ fun SldEditorScreen(
                         MaterialTheme.colorScheme.secondaryContainer
                 )
             ) {
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -341,7 +288,6 @@ fun SldEditorScreen(
                     Column(
                         modifier = Modifier.weight(1f)
                     ) {
-
                         Text(
                             text = if (arabic) {
                                 "وضع التوصيل"
@@ -368,7 +314,6 @@ fun SldEditorScreen(
                             state.engineeringError = null
                         }
                     ) {
-
                         Text(
                             text = if (arabic) {
                                 "إلغاء"
@@ -380,12 +325,6 @@ fun SldEditorScreen(
                 }
             }
         }
-
-        /*
-         * ========================================================
-         * TOOLBAR
-         * ========================================================
-         */
 
         Row(
             modifier = Modifier
@@ -412,17 +351,9 @@ fun SldEditorScreen(
                 icon = Icons.Outlined.Link,
                 text =
                     if (state.connectionStartId == null) {
-                        if (arabic) {
-                            "توصيل"
-                        } else {
-                            "Connect"
-                        }
+                        if (arabic) "توصيل" else "Connect"
                     } else {
-                        if (arabic) {
-                            "إلغاء"
-                        } else {
-                            "Cancel"
-                        }
+                        if (arabic) "إلغاء" else "Cancel"
                     },
                 onClick = {
 
@@ -438,7 +369,6 @@ fun SldEditorScreen(
                                 }
 
                         } else {
-
                             actions.startOrCompleteConnection()
                         }
 
@@ -520,7 +450,6 @@ fun SldEditorScreen(
                         actions.recalculateEngineering()
 
                         if (state.reportText.isBlank()) {
-
                             state.engineeringError =
                                 if (arabic) {
                                     "لا يوجد تقرير هندسي جاهز. أكمل التوصيلات ثم نفذ الدراسة."
@@ -539,12 +468,6 @@ fun SldEditorScreen(
             )
         }
 
-        /*
-         * ========================================================
-         * METRICS
-         * ========================================================
-         */
-
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -557,7 +480,6 @@ fun SldEditorScreen(
                     MaterialTheme.colorScheme.surface
             )
         ) {
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -570,20 +492,12 @@ fun SldEditorScreen(
 
                 SldMetric(
                     value = state.nodes.size.toString(),
-                    label = if (arabic) {
-                        "عناصر"
-                    } else {
-                        "Nodes"
-                    }
+                    label = if (arabic) "عناصر" else "Nodes"
                 )
 
                 SldMetric(
                     value = state.connections.size.toString(),
-                    label = if (arabic) {
-                        "وصلات"
-                    } else {
-                        "Connections"
-                    }
+                    label = if (arabic) "وصلات" else "Connections"
                 )
 
                 SldMetric(
@@ -593,11 +507,7 @@ fun SldEditorScreen(
                         } else {
                             "—"
                         },
-                    label = if (arabic) {
-                        "الحساب"
-                    } else {
-                        "Study"
-                    }
+                    label = if (arabic) "الحساب" else "Study"
                 )
 
                 Text(
@@ -609,12 +519,6 @@ fun SldEditorScreen(
             }
         }
 
-        /*
-         * ========================================================
-         * CANVAS
-         * ========================================================
-         */
-
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -624,31 +528,18 @@ fun SldEditorScreen(
 
             SldCanvas(
                 modifier = Modifier.fillMaxSize(),
-
                 nodes = state.nodes,
-
                 connections = state.connections,
-
-                selectedNodeId =
-                    state.selectedNodeId,
-
-                selectedConnectionId =
-                    state.selectedConnectionId,
-
-                connectionStartId =
-                    state.connectionStartId,
-
-                engineering =
-                    state.engineeringPackage,
+                selectedNodeId = state.selectedNodeId,
+                selectedConnectionId = state.selectedConnectionId,
+                connectionStartId = state.connectionStartId,
+                engineering = state.engineeringPackage,
 
                 onSelectNode = { id ->
 
                     if (state.connectionStartId != null) {
-
                         actions.startOrCompleteConnection(id)
-
                     } else {
-
                         state.selectedNodeId = id
                         state.selectedConnectionId = null
                         state.engineeringError = null
@@ -663,7 +554,6 @@ fun SldEditorScreen(
                             state.nodes.map { node ->
 
                                 if (node.id == id) {
-
                                     node.copy(
                                         x = kotlin.math.max(
                                             20f,
@@ -674,29 +564,22 @@ fun SldEditorScreen(
                                             node.y + dy
                                         )
                                     )
-
                                 } else {
                                     node
                                 }
                             }
 
-                        /*
-                         * A manual movement invalidates the previous
-                         * engineering result immediately.
-                         */
                         state.engineeringPackage = null
                     }
                 },
 
                 onMoveNodeEnd = {
-
                     if (state.connectionStartId == null) {
                         actions.saveAndRecalculate()
                     }
                 },
 
                 onSelectConnection = { id ->
-
                     state.selectedConnectionId = id
                     state.selectedNodeId = null
                 },
@@ -712,196 +595,113 @@ fun SldEditorScreen(
         }
     }
 
-    /*
-     * ============================================================
-     * NODE DIALOG
-     * ============================================================
-     */
-
     if (state.showNodeDialog) {
 
         SldNodeEditorDialog(
             arabic = arabic,
-
-            editing =
-                state.editingNodeId != null,
-
-            type =
-                state.nodeType,
-
-            name =
-                state.name,
-
-            voltage =
-                state.voltage,
-
-            loadKw =
-                state.loadKw,
-
-            pf =
-                state.pf,
-
-            demand =
-                state.demand,
-
-            kva =
-                state.kva,
-
-            transformerZ =
-                state.transformerZ,
-
-            generatorXd =
-                state.generatorXd,
-
-            sourceMva =
-                state.sourceMva,
+            editing = state.editingNodeId != null,
+            type = state.nodeType,
+            name = state.name,
+            voltage = state.voltage,
+            loadKw = state.loadKw,
+            pf = state.pf,
+            demand = state.demand,
+            kva = state.kva,
+            transformerZ = state.transformerZ,
+            generatorXd = state.generatorXd,
+            sourceMva = state.sourceMva,
 
             onNameChange = {
                 state.name = it
             },
-
             onVoltageChange = {
                 state.voltage = it
             },
-
             onLoadKwChange = {
                 state.loadKw = it
             },
-
             onPfChange = {
                 state.pf = it
             },
-
             onDemandChange = {
                 state.demand = it
             },
-
             onKvaChange = {
                 state.kva = it
             },
-
             onTransformerZChange = {
                 state.transformerZ = it
             },
-
             onGeneratorXdChange = {
                 state.generatorXd = it
             },
-
             onSourceMvaChange = {
                 state.sourceMva = it
             },
-
             onSave = {
                 actions.saveNode()
             },
-
             onCancel = {
-
                 state.showNodeDialog = false
                 state.editingNodeId = null
             }
         )
     }
 
-    /*
-     * ============================================================
-     * CONNECTION DIALOG
-     * ============================================================
-     */
-
     if (state.showConnectionDialog) {
 
         SldConnectionEditorDialog(
             arabic = arabic,
-
-            connectionType =
-                state.connectionType,
-
-            conductorMaterial =
-                state.conductorMaterial,
-
-            insulationType =
-                state.insulationType,
-
-            installationMethodCode =
-                state.installationMethodCode,
-
-            busbarMaterial =
-                state.busbarMaterial,
-
-            busbarRatedCurrent =
-                state.busbarRatedCurrent,
-
-            busbarShortCircuit =
-                state.busbarShortCircuit,
-
-            length =
-                state.length,
-
-            resistance =
-                state.resistance,
-
-            reactance =
-                state.reactance,
-
-            cableSize =
-                state.cableSize,
-
-            parallelRuns =
-                state.parallelRuns,
-
-            capacity =
-                state.capacity,
+            connectionType = state.connectionType,
+            conductorMaterial = state.conductorMaterial,
+            insulationType = state.insulationType,
+            installationMethodCode = state.installationMethodCode,
+            busbarMaterial = state.busbarMaterial,
+            busbarRatedCurrent = state.busbarRatedCurrent,
+            busbarShortCircuit = state.busbarShortCircuit,
+            length = state.length,
+            resistance = state.resistance,
+            reactance = state.reactance,
+            cableSize = state.cableSize,
+            parallelRuns = state.parallelRuns,
+            capacity = state.capacity,
 
             onConnectionTypeChange = {
                 state.connectionType = it
             },
-
             onConductorMaterialChange = {
                 state.conductorMaterial = it
             },
-
             onInsulationTypeChange = {
                 state.insulationType = it
             },
-
             onInstallationMethodChange = {
                 state.installationMethodCode = it
             },
-
             onBusbarMaterialChange = {
                 state.busbarMaterial = it
             },
-
             onBusbarRatedCurrentChange = {
                 state.busbarRatedCurrent = it
             },
-
             onBusbarShortCircuitChange = {
                 state.busbarShortCircuit = it
             },
-
             onLengthChange = {
                 state.length = it
             },
-
             onResistanceChange = {
                 state.resistance = it
             },
-
             onReactanceChange = {
                 state.reactance = it
             },
-
             onCableSizeChange = {
                 state.cableSize = it
             },
-
             onParallelRunsChange = {
                 state.parallelRuns = it
             },
-
             onCapacityChange = {
                 state.capacity = it
             },
@@ -911,7 +711,6 @@ fun SldEditorScreen(
             },
 
             onCancel = {
-
                 state.showConnectionDialog = false
                 state.editingConnectionId = null
                 state.connectionStartId = null
@@ -921,12 +720,6 @@ fun SldEditorScreen(
             }
         )
     }
-
-    /*
-     * ============================================================
-     * REPORT
-     * ============================================================
-     */
 
     if (state.showReport) {
 
@@ -946,23 +739,15 @@ fun SldEditorScreen(
     }
 }
 
-/*
- * ================================================================
- * TOOL BUTTON
- * ================================================================
- */
-
 @Composable
 private fun SldToolButton(
     icon: ImageVector,
     text: String,
     onClick: () -> Unit
 ) {
-
     OutlinedButton(
         onClick = onClick
     ) {
-
         Icon(
             imageVector = icon,
             contentDescription = null
@@ -976,18 +761,11 @@ private fun SldToolButton(
     }
 }
 
-/*
- * ================================================================
- * ADD COMPONENT MENU
- * ================================================================
- */
-
 @Composable
 private fun AddComponentMenu(
     arabic: Boolean,
     onType: (SldNodeType) -> Unit
 ) {
-
     var expanded by remember {
         mutableStateOf(false)
     }
@@ -999,7 +777,6 @@ private fun AddComponentMenu(
                 expanded = true
             }
         ) {
-
             Icon(
                 imageVector = Icons.Outlined.Add,
                 contentDescription = null
@@ -1018,7 +795,7 @@ private fun AddComponentMenu(
             )
         }
 
-        androidx.compose.material3.DropdownMenu(
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = {
                 expanded = false
@@ -1027,9 +804,8 @@ private fun AddComponentMenu(
 
             SldNodeType.values().forEach { type ->
 
-                androidx.compose.material3.DropdownMenuItem(
+                DropdownMenuItem(
                     text = {
-
                         Text(
                             when (type) {
 
@@ -1080,9 +856,7 @@ private fun AddComponentMenu(
                             }
                         )
                     },
-
                     onClick = {
-
                         expanded = false
                         onType(type)
                     }
@@ -1092,18 +866,11 @@ private fun AddComponentMenu(
     }
 }
 
-/*
- * ================================================================
- * METRIC
- * ================================================================
- */
-
 @Composable
 private fun SldMetric(
     value: String,
     label: String
 ) {
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
