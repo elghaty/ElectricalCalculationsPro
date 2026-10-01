@@ -43,20 +43,13 @@ class SldEditorActions(
         const val DEFAULT_BUSBAR_CURRENT_A = 400.0
         const val DEFAULT_BUSBAR_SHORT_CIRCUIT_KA = 25.0
 
-        /*
-         * These values belong to the drawing layer too, but are
-         * repeated here intentionally so this class never depends
-         * on drawing implementation details.
-         */
         const val NODE_WIDTH = 180f
         const val NODE_HEIGHT = 118f
     }
 
-    /*
-     * ============================================================
-     * NETWORK SNAPSHOT
-     * ============================================================
-     */
+    // ============================================================
+    // NETWORK
+    // ============================================================
 
     private fun network(): SldNetwork {
         return SldNetwork(
@@ -65,27 +58,13 @@ class SldEditorActions(
         )
     }
 
-    /*
-     * ============================================================
-     * SAFE PERSISTENCE
-     * ============================================================
-     *
-     * IMPORTANT:
-     *
-     * Saving is deliberately separated from node creation.
-     *
-     * A failure in persistence must NEVER:
-     *
-     * - remove a node
-     * - close the SLD
-     * - navigate Home
-     * - throw into Compose
-     */
+    // ============================================================
+    // SAFE PERSISTENCE
+    // ============================================================
 
     private fun safePersist() {
 
-        val callback =
-            onSave ?: return
+        val callback = onSave ?: return
 
         try {
 
@@ -109,26 +88,18 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * SAFE SAVE + ENGINEERING
-     * ============================================================
-     */
+    // ============================================================
+    // SAVE + RECALCULATE
+    // ============================================================
 
     fun saveAndRecalculate() {
 
-        /*
-         * Persistence first.
-         *
-         * The drawing is already authoritative at this point.
-         */
         safePersist()
 
-        /*
-         * Engineering is secondary and isolated.
-         */
         try {
+
             recalculateEngineering()
+
         } catch (error: Throwable) {
 
             state.engineeringPackage = null
@@ -144,11 +115,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * ENGINEERING
-     * ============================================================
-     */
+    // ============================================================
+    // ENGINEERING
+    // ============================================================
 
     fun recalculateEngineering() {
 
@@ -173,10 +142,6 @@ class SldEditorActions(
 
         try {
 
-            /*
-             * NEVER send an incomplete editor state to the strict
-             * calculation engines.
-             */
             val topology =
                 SldEngineeringFacade.checkEngineeringTopology(
                     currentNetwork
@@ -198,9 +163,6 @@ class SldEditorActions(
                 return
             }
 
-            /*
-             * Only a valid engineering topology reaches here.
-             */
             val result =
                 SldEngineeringFacade.calculateComplete(
                     network = currentNetwork
@@ -211,10 +173,6 @@ class SldEditorActions(
 
         } catch (error: Throwable) {
 
-            /*
-             * Calculation failure is an engineering-state failure,
-             * NOT an editor failure.
-             */
             state.engineeringPackage = null
 
             state.engineeringError =
@@ -230,12 +188,10 @@ class SldEditorActions(
 
     fun loadProjectNetwork() {
 
-        /*
-         * Loading a project must not cause the SLD to crash if the
-         * stored drawing is incomplete.
-         */
         try {
+
             recalculateEngineering()
+
         } catch (error: Throwable) {
 
             state.engineeringPackage = null
@@ -251,23 +207,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * NODE CREATION
-     * ============================================================
-     *
-     * CRITICAL DESIGN:
-     *
-     * addNode() is the ONLY operation required to put a component
-     * into the editor.
-     *
-     * It does NOT calculate.
-     * It does NOT validate topology.
-     * It does NOT require a panel.
-     * It does NOT require a connection.
-     *
-     * This guarantees that LOAD #2 / BREAKER #2 can always exist.
-     */
+    // ============================================================
+    // NODE CREATION
+    // ============================================================
 
     fun addNode(type: SldNodeType) {
 
@@ -275,11 +217,6 @@ class SldEditorActions(
 
             state.nodeType = type
 
-            /*
-             * Do not calculate anything here.
-             *
-             * The actual node is created immediately.
-             */
             val panel =
                 if (type == SldNodeType.BREAKER) {
                     findPanelForNewBreaker()
@@ -303,39 +240,12 @@ class SldEditorActions(
                     position = position
                 )
 
-            /*
-             * ====================================================
-             * ATOMIC DRAWING INSERT
-             * ====================================================
-             */
-
             state.nodes =
                 state.nodes + node
 
-            /*
-             * Selection is editor state only.
-             */
             state.selectedNodeId = node.id
             state.selectedConnectionId = null
             state.connectionStartId = null
-
-            /*
-             * Do NOT automatically create a BUSBAR here.
-             *
-             * This is intentional.
-             *
-             * The second BREAKER must first become a stable drawing
-             * object. Connection creation is a separate operation.
-             *
-             * This removes the exact failure chain:
-             *
-             * second breaker
-             *     -> automatic busbar
-             *     -> topology
-             *     -> engineering
-             *     -> drawing recalculation
-             *     -> crash
-             */
 
             state.engineeringPackage = null
 
@@ -346,18 +256,10 @@ class SldEditorActions(
                     "${node.name} was added. The component is not connected yet."
                 }
 
-            /*
-             * Persist only the drawing.
-             *
-             * No calculation is triggered.
-             */
             safePersist()
 
         } catch (error: Throwable) {
 
-            /*
-             * Never allow the UI event to propagate an exception.
-             */
             state.engineeringError =
                 error.message
                     ?.takeIf { it.isNotBlank() }
@@ -368,12 +270,6 @@ class SldEditorActions(
                     }
         }
     }
-
-    /*
-     * ============================================================
-     * DEFAULT NODE
-     * ============================================================
-     */
 
     private fun createDefaultNode(
         type: SldNodeType,
@@ -395,24 +291,17 @@ class SldEditorActions(
             }
 
         return SldNode(
+            id = createNodeId(),
 
-            id =
-                createNodeId(),
+            name = defaultNodeName(type),
 
-            name =
-                defaultNodeName(type),
+            type = type,
 
-            type =
-                type,
+            x = safeX,
 
-            x =
-                safeX,
+            y = safeY,
 
-            y =
-                safeY,
-
-            voltage =
-                400.0,
+            voltage = 400.0,
 
             loadKw =
                 if (type == SldNodeType.LOAD) {
@@ -421,8 +310,7 @@ class SldEditorActions(
                     0.0
                 },
 
-            powerFactor =
-                0.90,
+            powerFactor = 0.90,
 
             demandFactor =
                 if (type == SldNodeType.LOAD) {
@@ -516,11 +404,9 @@ class SldEditorActions(
         return "$prefix-$index"
     }
 
-    /*
-     * ============================================================
-     * NODE DIALOG
-     * ============================================================
-     */
+    // ============================================================
+    // NODE DIALOG
+    // ============================================================
 
     fun resetNodeEditor(
         type: SldNodeType
@@ -582,7 +468,6 @@ class SldEditorActions(
             }
 
         state.engineeringError = null
-
         state.showNodeDialog = true
     }
 
@@ -620,18 +505,9 @@ class SldEditorActions(
         state.showNodeDialog = true
     }
 
-    /*
-     * ============================================================
-     * SAVE NODE
-     * ============================================================
-     *
-     * This method is deliberately different from addNode().
-     *
-     * addNode() creates immediately.
-     *
-     * saveNode() edits an existing node or creates one from the
-     * dialog. Neither operation performs engineering calculation.
-     */
+    // ============================================================
+    // SAVE NODE
+    // ============================================================
 
     fun saveNode() {
 
@@ -647,8 +523,7 @@ class SldEditorActions(
                     }
                 }
 
-            val type =
-                state.nodeType
+            val type = state.nodeType
 
             val voltage =
                 parsePositive(
@@ -712,9 +587,6 @@ class SldEditorActions(
 
             if (existing == null) {
 
-                /*
-                 * Create directly.
-                 */
                 val panel =
                     if (type == SldNodeType.BREAKER) {
                         findPanelForNewBreaker()
@@ -734,24 +606,17 @@ class SldEditorActions(
 
                 val node =
                     SldNode(
+                        id = createNodeId(),
 
-                        id =
-                            createNodeId(),
+                        name = name,
 
-                        name =
-                            name,
+                        type = type,
 
-                        type =
-                            type,
+                        x = position.first,
 
-                        x =
-                            position.first,
+                        y = position.second,
 
-                        y =
-                            position.second,
-
-                        voltage =
-                            voltage,
+                        voltage = voltage,
 
                         loadKw =
                             if (type == SldNodeType.LOAD) {
@@ -760,53 +625,36 @@ class SldEditorActions(
                                 0.0
                             },
 
-                        powerFactor =
-                            pf,
+                        powerFactor = pf,
 
-                        demandFactor =
-                            demand,
+                        demandFactor = demand,
 
-                        ratedKva =
-                            kva,
+                        ratedKva = kva,
 
-                        transformerPercentZ =
-                            transformerZ,
+                        transformerPercentZ = transformerZ,
 
-                        generatorXdSubtransient =
-                            generatorXd,
+                        generatorXdSubtransient = generatorXd,
 
-                        sourceShortCircuitMva =
-                            sourceMva
+                        sourceShortCircuitMva = sourceMva
                     )
 
-                /*
-                 * ATOMIC INSERT.
-                 */
                 state.nodes =
                     state.nodes + node
 
-                state.selectedNodeId =
-                    node.id
-
-                state.selectedConnectionId =
-                    null
-
-                state.connectionStartId =
-                    null
+                state.selectedNodeId = node.id
+                state.selectedConnectionId = null
+                state.connectionStartId = null
 
             } else {
 
                 val updated =
                     existing.copy(
 
-                        name =
-                            name,
+                        name = name,
 
-                        type =
-                            type,
+                        type = type,
 
-                        voltage =
-                            voltage,
+                        voltage = voltage,
 
                         loadKw =
                             if (type == SldNodeType.LOAD) {
@@ -815,27 +663,22 @@ class SldEditorActions(
                                 0.0
                             },
 
-                        powerFactor =
-                            pf,
+                        powerFactor = pf,
 
-                        demandFactor =
-                            demand,
+                        demandFactor = demand,
 
-                        ratedKva =
-                            kva,
+                        ratedKva = kva,
 
-                        transformerPercentZ =
-                            transformerZ,
+                        transformerPercentZ = transformerZ,
 
-                        generatorXdSubtransient =
-                            generatorXd,
+                        generatorXdSubtransient = generatorXd,
 
-                        sourceShortCircuitMva =
-                            sourceMva
+                        sourceShortCircuitMva = sourceMva
                     )
 
                 state.nodes =
-                    state.nodes.map { node ->
+                    state.nodes.map {
+                        node ->
                         if (node.id == existing.id) {
                             updated
                         } else {
@@ -843,26 +686,13 @@ class SldEditorActions(
                         }
                     }
 
-                state.selectedNodeId =
-                    updated.id
+                state.selectedNodeId = updated.id
             }
 
-            /*
-             * Close the editor only after the state has been
-             * successfully updated.
-             */
             state.showNodeDialog = false
             state.editingNodeId = null
             state.connectionStartId = null
 
-            /*
-             * IMPORTANT:
-             *
-             * Do not sanitize or recalculate here.
-             *
-             * The drawing must survive even if its topology is
-             * temporarily invalid.
-             */
             state.engineeringPackage = null
 
             state.engineeringError =
@@ -887,11 +717,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * BREAKER POSITIONING
-     * ============================================================
-     */
+    // ============================================================
+    // BREAKER POSITION
+    // ============================================================
 
     private fun findPanelForNewBreaker(): SldNode? {
 
@@ -950,12 +778,6 @@ class SldEditorActions(
                 panel.y + BREAKER_Y_GAP
             )
 
-        /*
-         * Always generate many independent candidate slots.
-         *
-         * The second breaker therefore never receives the same
-         * position as the first one.
-         */
         val candidateCenters =
             buildList {
 
@@ -1001,19 +823,14 @@ class SldEditorActions(
         return fallbackFreePosition()
     }
 
-    /*
-     * ============================================================
-     * FREE POSITION
-     * ============================================================
-     */
+    // ============================================================
+    // FREE POSITION
+    // ============================================================
 
     private fun findFreeNodePosition(
         type: SldNodeType
     ): Pair<Float, Float> {
 
-        /*
-         * For breakers, try slots below panels first.
-         */
         if (type == SldNodeType.BREAKER) {
 
             val panels =
@@ -1068,9 +885,6 @@ class SldEditorActions(
             }
         }
 
-        /*
-         * Generic grid search.
-         */
         for (row in 0..30) {
 
             for (column in 0..30) {
@@ -1176,10 +990,6 @@ class SldEditorActions(
             }
         }
 
-        /*
-         * Even in a completely pathological drawing state,
-         * return a finite coordinate.
-         */
         return snapToGrid(
             DEFAULT_X,
             y + POSITION_STEP_Y
@@ -1216,11 +1026,9 @@ class SldEditorActions(
         )
     }
 
-    /*
-     * ============================================================
-     * NODE MOVEMENT
-     * ============================================================
-     */
+    // ============================================================
+    // NODE MOVEMENT
+    // ============================================================
 
     fun moveNode(
         nodeId: String,
@@ -1250,7 +1058,7 @@ class SldEditorActions(
         state.nodes =
             state.nodes.map {
 
-                if (it.id == nodeId) {
+                if (it.id == node.id) {
 
                     it.copy(
                         x =
@@ -1273,25 +1081,18 @@ class SldEditorActions(
 
     fun moveNodeEnd() {
 
-        /*
-         * Moving is an editor operation.
-         *
-         * Calculate only after movement has ended.
-         */
         safePersist()
 
         try {
             recalculateEngineering()
-        } catch (error: Throwable) {
+        } catch (_: Throwable) {
             state.engineeringPackage = null
         }
     }
 
-    /*
-     * ============================================================
-     * CONNECTION MODE
-     * ============================================================
-     */
+    // ============================================================
+    // CONNECTION MODE
+    // ============================================================
 
     fun startOrCompleteConnection() {
 
@@ -1312,10 +1113,28 @@ class SldEditorActions(
             val target =
                 state.nodes.firstOrNull {
                     it.id == nodeId
-                } ?: return
+                }
+
+            if (target == null) {
+
+                state.engineeringError =
+                    if (arabic) {
+                        "العنصر المحدد غير موجود."
+                    } else {
+                        "The selected component does not exist."
+                    }
+
+                return
+            }
 
             val startId =
                 state.connectionStartId
+
+            /*
+             * ====================================================
+             * FIRST CLICK
+             * ====================================================
+             */
 
             if (startId == null) {
 
@@ -1328,14 +1147,29 @@ class SldEditorActions(
                 state.connectionStartId =
                     target.id
 
+                state.engineeringError = null
+
                 return
             }
 
+            /*
+             * ====================================================
+             * SAME NODE
+             * ====================================================
+             */
+
             if (startId == target.id) {
 
-                state.connectionStartId =
-                    null
+                state.engineeringError =
+                    if (arabic) {
+                        "اختر عنصرًا آخر كطرف ثانٍ."
+                    } else {
+                        "Select another component as the destination."
+                    }
 
+                /*
+                 * Keep connection mode active.
+                 */
                 return
             }
 
@@ -1346,21 +1180,31 @@ class SldEditorActions(
 
             if (from == null) {
 
-                state.connectionStartId =
-                    null
+                state.connectionStartId = null
+
+                state.engineeringError =
+                    if (arabic) {
+                        "تعذر العثور على العنصر الأول."
+                    } else {
+                        "The first component could not be found."
+                    }
 
                 return
             }
 
             /*
-             * Duplicate check without invoking topology engine.
+             * ====================================================
+             * DUPLICATE
+             * ====================================================
              */
-            if (
+
+            val duplicate =
                 state.connections.any {
                     it.fromNodeId == from.id &&
                         it.toNodeId == target.id
                 }
-            ) {
+
+            if (duplicate) {
 
                 state.engineeringError =
                     if (arabic) {
@@ -1369,43 +1213,95 @@ class SldEditorActions(
                         "This connection already exists."
                     }
 
+                /*
+                 * Keep the first element selected so the user can
+                 * choose another destination.
+                 */
+                state.selectedNodeId =
+                    from.id
+
                 state.connectionStartId =
-                    null
+                    from.id
 
                 return
             }
+
+            /*
+             * ====================================================
+             * PANEL -> BREAKER = BUSBAR
+             * ====================================================
+             */
 
             if (
                 from.type == SldNodeType.PANEL &&
                 target.type == SldNodeType.BREAKER
             ) {
 
-                /*
-                 * BUSBAR is created directly and safely.
-                 *
-                 * No cable dialog.
-                 */
                 createBusbarConnection(
-                    from,
-                    target
+                    from = from,
+                    to = target
                 )
-
-                state.connectionStartId =
-                    null
 
                 state.selectedNodeId =
                     target.id
 
+                state.selectedConnectionId =
+                    state.connections
+                        .lastOrNull {
+                            it.fromNodeId == from.id &&
+                                it.toNodeId == target.id &&
+                                it.connectionType ==
+                                SldConnectionType.BUSBAR
+                        }
+                        ?.id
+
+                state.connectionStartId = null
+
+                state.engineeringError = null
+
                 safePersist()
+
+                /*
+                 * Recalculate only after the drawing operation has
+                 * completed.
+                 */
+                try {
+                    recalculateEngineering()
+                } catch (_: Throwable) {
+                    state.engineeringPackage = null
+                }
 
                 return
             }
 
             /*
-             * Cable connection:
-             * open the dialog only.
+             * ====================================================
+             * CABLE CONNECTION
+             * ====================================================
+             *
+             * CRITICAL FIX:
+             *
+             * The second node MUST become selectedNodeId before
+             * opening the dialog.
+             *
+             * saveConnection() uses:
+             *
+             * connectionStartId -> FROM
+             * selectedNodeId    -> TO
+             *
+             * Without this assignment the old implementation saw
+             * the first node as both FROM and TO.
              */
-            state.editingConnectionId = null
+
+            state.selectedNodeId =
+                target.id
+
+            state.selectedConnectionId =
+                null
+
+            state.editingConnectionId =
+                null
+
             state.connectionType =
                 SldConnectionType.CABLE.name
 
@@ -1418,7 +1314,16 @@ class SldEditorActions(
 
             state.showConnectionDialog = true
 
+            state.engineeringError = null
+
         } catch (error: Throwable) {
+
+            /*
+             * The dialog is never allowed to become a crash source.
+             */
+            state.showConnectionDialog = false
+
+            state.editingConnectionId = null
 
             state.connectionStartId = null
 
@@ -1433,20 +1338,15 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * BUSBAR
-     * ============================================================
-     */
+    // ============================================================
+    // BUSBAR
+    // ============================================================
 
     private fun createBusbarConnection(
         from: SldNode,
         to: SldNode
     ) {
 
-        /*
-         * Strict editor-side rule.
-         */
         if (
             from.type != SldNodeType.PANEL ||
             to.type != SldNodeType.BREAKER
@@ -1454,9 +1354,6 @@ class SldEditorActions(
             return
         }
 
-        /*
-         * Never create a duplicate busbar.
-         */
         if (
             state.connections.any {
                 it.connectionType ==
@@ -1484,37 +1381,27 @@ class SldEditorActions(
                     SldConnectionType.BUSBAR,
 
                 /*
-                 * BUSBAR never has cable parameters.
+                 * BUSBAR has no cable parameters.
                  */
-                lengthMeters =
-                    0.0,
+                lengthMeters = 0.0,
 
-                resistanceOhmPerKm =
-                    0.0,
+                resistanceOhmPerKm = 0.0,
 
-                reactanceOhmPerKm =
-                    0.0,
+                reactanceOhmPerKm = 0.0,
 
-                cableSizeMm2 =
-                    0.0,
+                cableSizeMm2 = 0.0,
 
-                parallelRuns =
-                    1,
+                parallelRuns = 1,
 
-                voltageDropPercent =
-                    0.0,
+                voltageDropPercent = 0.0,
 
-                currentCapacityA =
-                    0.0,
+                currentCapacityA = 0.0,
 
-                conductorMaterial =
-                    "",
+                conductorMaterial = "",
 
-                insulationType =
-                    "",
+                insulationType = "",
 
-                installationMethodCode =
-                    "",
+                installationMethodCode = "",
 
                 busbarMaterial =
                     state.busbarMaterial
@@ -1523,26 +1410,22 @@ class SldEditorActions(
                         },
 
                 busbarRatedCurrentA =
-                    estimateBusbarCurrent(
-                        from
-                    ),
+                    estimateBusbarCurrent(from),
 
                 busbarShortCircuitKA =
-                    DEFAULT_BUSBAR_SHORT_CIRCUIT_KA
+                    parseNonNegative(
+                        state.busbarShortCircuit,
+                        DEFAULT_BUSBAR_SHORT_CIRCUIT_KA
+                    )
             )
 
-        /*
-         * Atomic append.
-         */
         state.connections =
             state.connections + connection
     }
 
-    /*
-     * ============================================================
-     * CONNECTION EDITOR
-     * ============================================================
-     */
+    // ============================================================
+    // CONNECTION EDITOR
+    // ============================================================
 
     fun editConnection(
         connection: SldConnection
@@ -1574,48 +1457,203 @@ class SldEditorActions(
 
         state.conductorMaterial =
             connection.conductorMaterial
+                .ifBlank {
+                    "Copper"
+                }
 
         state.insulationType =
             connection.insulationType
+                .ifBlank {
+                    "PVC"
+                }
 
         state.installationMethodCode =
             connection.installationMethodCode
+                .ifBlank {
+                    "B1"
+                }
 
         state.busbarMaterial =
             connection.busbarMaterial
+                .ifBlank {
+                    "Copper"
+                }
 
         state.busbarRatedCurrent =
-            connection.busbarRatedCurrentA.toEngineeringString()
+            connection.busbarRatedCurrentA
+                .toEngineeringString()
 
         state.busbarShortCircuit =
-            connection.busbarShortCircuitKA.toEngineeringString()
+            connection.busbarShortCircuitKA
+                .toEngineeringString()
+
+        /*
+         * For editing an existing connection, endpoint IDs are
+         * not changed by the dialog.
+         */
+        state.connectionStartId = null
 
         state.showConnectionDialog = true
     }
 
+    // ============================================================
+    // SAVE CONNECTION
+    // ============================================================
+    //
+    // IMPORTANT:
+    //
+    // The dialog is closed BEFORE persistence/calculation.
+    //
+    // This prevents the Save button from leaving the dialog visible
+    // when an engineering calculation or persistence callback fails.
+    // ============================================================
+
     fun saveConnection() {
+
+        /*
+         * ========================================================
+         * CAPTURE ALL REQUIRED STATE FIRST
+         * ========================================================
+         */
+
+        val editingId =
+            state.editingConnectionId
+
+        val newFromId =
+            state.connectionStartId
+
+        val newToId =
+            state.selectedNodeId
+
+        /*
+         * ========================================================
+         * CLOSE DIALOG IMMEDIATELY
+         * ========================================================
+         *
+         * This is intentionally before any operation that may
+         * throw.
+         */
+
+        state.showConnectionDialog = false
+        state.editingConnectionId = null
+
+        /*
+         * Keep endpoint IDs in local variables.
+         *
+         * connectionStartId is cleared only after these local
+         * values have been captured.
+         */
+        state.connectionStartId = null
 
         try {
 
-            val editingId =
-                state.editingConnectionId
+            /*
+             * ====================================================
+             * EDIT EXISTING CONNECTION
+             * ====================================================
+             */
 
-            val existing =
-                editingId?.let { id ->
+            if (editingId != null) {
+
+                val existing =
                     state.connections.firstOrNull {
-                        it.id == id
+                        it.id == editingId
                     }
+
+                if (existing == null) {
+
+                    state.engineeringError =
+                        if (arabic) {
+                            "تعذر العثور على الوصلة المطلوب تعديلها."
+                        } else {
+                            "The connection to edit could not be found."
+                        }
+
+                    return
                 }
 
-            if (existing != null) {
-
                 /*
-                 * Existing BUSBAR remains a BUSBAR.
+                 * ------------------------------------------------
+                 * EXISTING BUSBAR
+                 * ------------------------------------------------
                  */
+
                 if (
                     existing.connectionType ==
                     SldConnectionType.BUSBAR
                 ) {
+
+                    val from =
+                        state.nodes.firstOrNull {
+                            it.id == existing.fromNodeId
+                        }
+
+                    val to =
+                        state.nodes.firstOrNull {
+                            it.id == existing.toNodeId
+                        }
+
+                    if (
+                        from == null ||
+                        to == null ||
+                        from.type != SldNodeType.PANEL ||
+                        to.type != SldNodeType.BREAKER
+                    ) {
+
+                        state.engineeringError =
+                            if (arabic) {
+                                "وصلة الـBUSBAR غير مرتبطة بلوحة وقاطع بشكل صحيح."
+                            } else {
+                                "The BUSBAR connection is not a valid PANEL-to-BREAKER connection."
+                            }
+
+                        return
+                    }
+
+                    val updated =
+                        existing.copy(
+
+                            connectionType =
+                                SldConnectionType.BUSBAR,
+
+                            lengthMeters = 0.0,
+
+                            resistanceOhmPerKm = 0.0,
+
+                            reactanceOhmPerKm = 0.0,
+
+                            cableSizeMm2 = 0.0,
+
+                            parallelRuns = 1,
+
+                            voltageDropPercent = 0.0,
+
+                            currentCapacityA = 0.0,
+
+                            conductorMaterial = "",
+
+                            insulationType = "",
+
+                            installationMethodCode = "",
+
+                            busbarMaterial =
+                                state.busbarMaterial
+                                    .ifBlank {
+                                        "Copper"
+                                    },
+
+                            busbarRatedCurrentA =
+                                parseNonNegative(
+                                    state.busbarRatedCurrent,
+                                    existing.busbarRatedCurrentA
+                                ),
+
+                            busbarShortCircuitKA =
+                                parseNonNegative(
+                                    state.busbarShortCircuit,
+                                    existing.busbarShortCircuitKA
+                                )
+                        )
 
                     state.connections =
                         state.connections.map {
@@ -1625,32 +1663,25 @@ class SldEditorActions(
                                 connection.id ==
                                 existing.id
                             ) {
-
-                                connection.copy(
-
-                                    lengthMeters = 0.0,
-                                    resistanceOhmPerKm = 0.0,
-                                    reactanceOhmPerKm = 0.0,
-                                    cableSizeMm2 = 0.0,
-                                    parallelRuns = 1,
-                                    voltageDropPercent = 0.0,
-                                    currentCapacityA = 0.0,
-                                    conductorMaterial = "",
-                                    insulationType = "",
-                                    installationMethodCode = "",
-                                    busbarMaterial =
-                                        state.busbarMaterial
-                                            .ifBlank {
-                                                "Copper"
-                                            }
-                                )
-
+                                updated
                             } else {
                                 connection
                             }
                         }
 
+                    state.selectedConnectionId =
+                        existing.id
+
+                    state.selectedNodeId =
+                        to.id
+
                 } else {
+
+                    /*
+                     * ------------------------------------------------
+                     * EXISTING CABLE
+                     * ------------------------------------------------
+                     */
 
                     val updated =
                         existing.copy(
@@ -1695,13 +1726,28 @@ class SldEditorActions(
                                 ),
 
                             conductorMaterial =
-                                state.conductorMaterial,
+                                state.conductorMaterial
+                                    .ifBlank {
+                                        existing.conductorMaterial
+                                    },
 
                             insulationType =
-                                state.insulationType,
+                                state.insulationType
+                                    .ifBlank {
+                                        existing.insulationType
+                                    },
 
                             installationMethodCode =
                                 state.installationMethodCode
+                                    .ifBlank {
+                                        existing.installationMethodCode
+                                    },
+
+                            busbarMaterial = "",
+
+                            busbarRatedCurrentA = 0.0,
+
+                            busbarShortCircuitKA = 0.0
                         )
 
                     state.connections =
@@ -1717,24 +1763,33 @@ class SldEditorActions(
                                 connection
                             }
                         }
-                }
 
-                state.selectedConnectionId =
-                    existing.id
+                    state.selectedConnectionId =
+                        existing.id
+
+                    state.selectedNodeId =
+                        state.nodes.firstOrNull {
+                            it.id == existing.toNodeId
+                        }?.id
+                }
 
             } else {
 
+                /*
+                 * ====================================================
+                 * CREATE NEW CONNECTION
+                 * ====================================================
+                 */
+
                 val from =
-                    state.connectionStartId?.let {
-                        id ->
+                    newFromId?.let { id ->
                         state.nodes.firstOrNull {
                             it.id == id
                         }
                     }
 
                 val to =
-                    state.selectedNodeId?.let {
-                        id ->
+                    newToId?.let { id ->
                         state.nodes.firstOrNull {
                             it.id == id
                         }
@@ -1742,19 +1797,60 @@ class SldEditorActions(
 
                 if (
                     from == null ||
-                    to == null ||
-                    from.id == to.id
+                    to == null
                 ) {
 
                     state.engineeringError =
                         if (arabic) {
-                            "حدد عنصري البداية والنهاية."
+                            "حدد عنصري البداية والنهاية قبل الحفظ."
                         } else {
-                            "Select valid start and destination components."
+                            "Select valid start and destination components before saving."
                         }
 
                     return
                 }
+
+                if (from.id == to.id) {
+
+                    state.engineeringError =
+                        if (arabic) {
+                            "لا يمكن توصيل العنصر بنفسه."
+                        } else {
+                            "A component cannot be connected to itself."
+                        }
+
+                    return
+                }
+
+                /*
+                 * Duplicate protection.
+                 */
+                val duplicate =
+                    state.connections.any {
+                        it.fromNodeId == from.id &&
+                            it.toNodeId == to.id
+                    }
+
+                if (duplicate) {
+
+                    state.selectedNodeId =
+                        to.id
+
+                    state.engineeringError =
+                        if (arabic) {
+                            "هذا الاتصال موجود بالفعل."
+                        } else {
+                            "This connection already exists."
+                        }
+
+                    return
+                }
+
+                /*
+                 * ------------------------------------------------
+                 * PANEL -> BREAKER = BUSBAR
+                 * ------------------------------------------------
+                 */
 
                 if (
                     from.type == SldNodeType.PANEL &&
@@ -1762,13 +1858,32 @@ class SldEditorActions(
                 ) {
 
                     createBusbarConnection(
-                        from,
-                        to
+                        from = from,
+                        to = to
                     )
+
+                    state.selectedNodeId =
+                        to.id
+
+                    state.selectedConnectionId =
+                        state.connections
+                            .lastOrNull {
+                                it.fromNodeId == from.id &&
+                                    it.toNodeId == to.id &&
+                                    it.connectionType ==
+                                    SldConnectionType.BUSBAR
+                            }
+                            ?.id
 
                 } else {
 
-                    val connection =
+                    /*
+                     * ------------------------------------------------
+                     * NORMAL EXTERNAL FEEDER = CABLE
+                     * ------------------------------------------------
+                     */
+
+                    val cable =
                         SldConnection(
 
                             id =
@@ -1813,8 +1928,7 @@ class SldEditorActions(
                                     ?.coerceAtLeast(1)
                                     ?: 1,
 
-                            voltageDropPercent =
-                                0.0,
+                            voltageDropPercent = 0.0,
 
                             currentCapacityA =
                                 parseNonNegative(
@@ -1823,63 +1937,115 @@ class SldEditorActions(
                                 ),
 
                             conductorMaterial =
-                                state.conductorMaterial,
+                                state.conductorMaterial
+                                    .ifBlank {
+                                        "Copper"
+                                    },
 
                             insulationType =
-                                state.insulationType,
+                                state.insulationType
+                                    .ifBlank {
+                                        "XLPE"
+                                    },
 
                             installationMethodCode =
-                                state.installationMethodCode,
+                                state.installationMethodCode
+                                    .ifBlank {
+                                        "C"
+                                    },
 
-                            busbarMaterial =
-                                "",
+                            busbarMaterial = "",
 
-                            busbarRatedCurrentA =
-                                0.0,
+                            busbarRatedCurrentA = 0.0,
 
-                            busbarShortCircuitKA =
-                                0.0
+                            busbarShortCircuitKA = 0.0
                         )
 
                     state.connections =
-                        state.connections + connection
+                        state.connections + cable
+
+                    state.selectedNodeId =
+                        to.id
 
                     state.selectedConnectionId =
-                        connection.id
+                        cable.id
                 }
             }
+
+            /*
+             * ====================================================
+             * DRAWING STATE IS NOW AUTHORITATIVE
+             * ====================================================
+             */
+
+            state.engineeringPackage = null
+            state.engineeringError = null
+
+            /*
+             * Persist the connection.
+             *
+             * safePersist itself catches persistence exceptions.
+             */
+            safePersist()
+
+            /*
+             * ====================================================
+             * ENGINEERING RECALCULATION
+             * ====================================================
+             *
+             * An incomplete topology is NOT a drawing failure.
+             */
+
+            try {
+
+                recalculateEngineering()
+
+            } catch (error: Throwable) {
+
+                state.engineeringPackage = null
+
+                state.engineeringError =
+                    error.message
+                        ?.takeIf {
+                            it.isNotBlank()
+                        }
+                        ?: if (arabic) {
+                            "تم حفظ التوصيل، لكن المخطط يحتاج إلى استكمال التوصيلات قبل الحساب."
+                        } else {
+                            "The connection was saved, but the SLD requires additional connections before calculation."
+                        }
+            }
+
+        } catch (error: Throwable) {
+
+            /*
+             * FINAL SAFETY NET
+             *
+             * The dialog has already been closed.
+             * Therefore an unexpected exception cannot leave the
+             * Save dialog stuck on screen.
+             */
 
             state.showConnectionDialog = false
             state.editingConnectionId = null
             state.connectionStartId = null
 
-            /*
-             * Do not force engineering immediately.
-             *
-             * The drawing is already valid as editor state.
-             */
-            safePersist()
-
-            state.engineeringPackage = null
-
-            try {
-                recalculateEngineering()
-            } catch (_: Throwable) {
-                state.engineeringPackage = null
-            }
-
-        } catch (error: Throwable) {
-
             state.engineeringError =
                 error.message
-                    ?.takeIf { it.isNotBlank() }
+                    ?.takeIf {
+                        it.isNotBlank()
+                    }
                     ?: if (arabic) {
-                        "تعذر حفظ الاتصال."
+                        "حدث خطأ أثناء حفظ التوصيل، وتم الاحتفاظ بالمخطط."
                     } else {
-                        "Unable to save the connection."
+                        "An error occurred while saving the connection. The drawing was preserved."
                     }
         }
     }
+
+    // ============================================================
+    // CANCEL CONNECTION
+    // ============================================================
 
     fun cancelConnectionEdit() {
 
@@ -1889,11 +2055,9 @@ class SldEditorActions(
         state.selectedConnectionId = null
     }
 
-    /*
-     * ============================================================
-     * DELETE
-     * ============================================================
-     */
+    // ============================================================
+    // DELETE
+    // ============================================================
 
     fun deleteSelected() {
 
@@ -1929,6 +2093,8 @@ class SldEditorActions(
 
             state.clearSelection()
 
+            state.engineeringPackage = null
+
             safePersist()
 
             try {
@@ -1950,11 +2116,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * AUTO LAYOUT
-     * ============================================================
-     */
+    // ============================================================
+    // AUTO LAYOUT
+    // ============================================================
 
     fun autoLayout() {
 
@@ -1972,6 +2136,8 @@ class SldEditorActions(
                 result.network.connections
 
             state.clearSelection()
+
+            state.engineeringPackage = null
 
             safePersist()
 
@@ -1994,11 +2160,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * GENERATE COMPLETE SLD
-     * ============================================================
-     */
+    // ============================================================
+    // GENERATE COMPLETE SLD
+    // ============================================================
 
     fun generateCompleteSld() {
 
@@ -2014,6 +2178,8 @@ class SldEditorActions(
                 generated.connections
 
             state.clearSelection()
+
+            state.engineeringPackage = null
 
             safePersist()
 
@@ -2036,11 +2202,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * SHORT CIRCUIT
-     * ============================================================
-     */
+    // ============================================================
+    // SHORT CIRCUIT
+    // ============================================================
 
     fun runShortCircuit() {
 
@@ -2099,11 +2263,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * PANEL SCHEDULE
-     * ============================================================
-     */
+    // ============================================================
+    // PANEL SCHEDULE
+    // ============================================================
 
     fun runPanelSchedule() {
 
@@ -2187,11 +2349,9 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * ============================================================
-     * NUMERIC HELPERS
-     * ============================================================
-     */
+    // ============================================================
+    // NUMERIC HELPERS
+    // ============================================================
 
     private fun parsePositive(
         value: String,
@@ -2204,7 +2364,9 @@ class SldEditorActions(
                 it.isFinite() &&
                     it > 0.0
             }
-            ?: fallback.coerceAtLeast(0.000001)
+            ?: fallback.coerceAtLeast(
+                0.000001
+            )
     }
 
     private fun parseNonNegative(
@@ -2218,7 +2380,9 @@ class SldEditorActions(
                 it.isFinite() &&
                     it >= 0.0
             }
-            ?: fallback.coerceAtLeast(0.0)
+            ?: fallback.coerceAtLeast(
+                0.0
+            )
     }
 
     private fun parseRange(
@@ -2243,11 +2407,9 @@ class SldEditorActions(
             )
     }
 
-    /*
-     * ============================================================
-     * BUSBAR CURRENT
-     * ============================================================
-     */
+    // ============================================================
+    // BUSBAR CURRENT
+    // ============================================================
 
     private fun estimateBusbarCurrent(
         panel: SldNode
@@ -2289,11 +2451,9 @@ class SldEditorActions(
         return DEFAULT_BUSBAR_CURRENT_A
     }
 
-    /*
-     * ============================================================
-     * IDS
-     * ============================================================
-     */
+    // ============================================================
+    // IDS
+    // ============================================================
 
     private fun createNodeId(): String {
 
@@ -2347,11 +2507,9 @@ class SldEditorActions(
         return id
     }
 
-    /*
-     * ============================================================
-     * FORMATTING
-     * ============================================================
-     */
+    // ============================================================
+    // FORMATTING
+    // ============================================================
 
     private fun Double.toEngineeringString(): String {
 
