@@ -24,28 +24,6 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
 
-/*
- * ================================================================
- * NODE GEOMETRY
- * ================================================================
- *
- * The symbol occupies the upper part of the node area.
- *
- * All textual engineering information is deliberately placed
- * below the complete symbol envelope.
- *
- * This prevents:
- *
- *      SYMBOL
- *        ↓
- *      LABEL
- *      NAME
- *      DATA
- *      RESULT
- *
- * from overlapping the electrical symbol.
- */
-
 const val NODE_WIDTH = 180f
 const val NODE_HEIGHT = 150f
 
@@ -259,12 +237,6 @@ private fun endPort(
     )
 }
 
-/*
- * ================================================================
- * PANEL BUSBAR GEOMETRY
- * ================================================================
- */
-
 private fun panelBusbarGeometry(
     panel: SldNode,
     nodes: List<SldNode>,
@@ -422,12 +394,6 @@ private fun panelBusbarGeometry(
     )
 }
 
-/*
- * ================================================================
- * BACKGROUND
- * ================================================================
- */
-
 fun DrawScope.drawSldEngineeringBackground() {
 
     drawRect(
@@ -504,12 +470,6 @@ fun DrawScope.drawSldEngineeringBackground() {
         y += 40f
     }
 }
-
-/*
- * ================================================================
- * CONNECTIONS
- * ================================================================
- */
 
 fun DrawScope.drawConnection(
     connection: SldConnection,
@@ -834,12 +794,6 @@ fun DrawScope.drawConnection(
         )
     }
 }
-
-/*
- * ================================================================
- * ROUTING
- * ================================================================
- */
 
 private fun nodeRect(
     node: SldNode
@@ -1202,12 +1156,6 @@ private fun routeLabelPoint(
     return best
 }
 
-/*
- * ================================================================
- * NODE DRAWING
- * ================================================================
- */
-
 fun DrawScope.drawNode(
     node: SldNode,
     selected: Boolean,
@@ -1227,10 +1175,6 @@ fun DrawScope.drawNode(
         node.y +
             SYMBOL_Y
 
-    /*
-     * Selection ring surrounds the symbol only.
-     * It does not interfere with the information block.
-     */
     if (
         selected ||
         connectionStart
@@ -1346,17 +1290,6 @@ fun DrawScope.drawNode(
                 symbolY
             )
     }
-
-    /*
-     * ============================================================
-     * INFORMATION BLOCK
-     * ============================================================
-     *
-     * IMPORTANT:
-     * The first text line starts at +70f.
-     *
-     * All known symbols finish before this area.
-     */
 
     val equipmentY =
         node.y + 70f
@@ -1515,12 +1448,6 @@ fun DrawScope.drawNode(
     }
 }
 
-/*
- * ================================================================
- * PANEL
- * ================================================================
- */
-
 private fun DrawScope.drawPanel(
     x: Float,
     y: Float,
@@ -1536,11 +1463,6 @@ private fun DrawScope.drawPanel(
             connections
         )
 
-    /*
-     * Dynamic panel busbar.
-     *
-     * Width follows the actual breaker positions.
-     */
     drawLine(
         color = BUSBAR,
         start =
@@ -1557,9 +1479,6 @@ private fun DrawScope.drawPanel(
         cap = StrokeCap.Square
     )
 
-    /*
-     * Panel incoming terminal.
-     */
     drawLine(
         color = BLACK,
         start =
@@ -1585,9 +1504,6 @@ private fun DrawScope.drawPanel(
             )
     )
 
-    /*
-     * Busbar taps.
-     */
     geometry.tapPositions.forEach {
         (breakerId, tapX) ->
 
@@ -1625,9 +1541,6 @@ private fun DrawScope.drawPanel(
         )
     }
 
-    /*
-     * Compact panel enclosure marker.
-     */
     drawRoundRect(
         color = BLACK,
         topLeft =
@@ -1651,12 +1564,6 @@ private fun DrawScope.drawPanel(
             )
     )
 }
-
-/*
- * ================================================================
- * ELECTRICAL SYMBOLS
- * ================================================================
- */
 
 private fun DrawScope.drawSource(
     x: Float,
@@ -1833,12 +1740,6 @@ private fun DrawScope.drawBus(
         cap = StrokeCap.Square
     )
 }
-
-/*
- * ================================================================
- * BREAKER SYMBOL
- * ================================================================
- */
 
 private fun DrawScope.drawBreaker(
     x: Float,
@@ -2168,12 +2069,6 @@ private fun DrawScope.drawLoad(
     )
 }
 
-/*
- * ================================================================
- * LABELS
- * ================================================================
- */
-
 private fun equipmentLabel(
     type: SldNodeType
 ): String =
@@ -2278,12 +2173,6 @@ private fun DrawScope.drawEngineeringLabel(
     )
 }
 
-/*
- * ================================================================
- * FLOW ARROW
- * ================================================================
- */
-
 private fun DrawScope.drawFlowArrow(
     points: List<Offset>,
     color: Color
@@ -2370,12 +2259,6 @@ private fun DrawScope.drawFlowArrow(
         color = color
     )
 }
-
-/*
- * ================================================================
- * HIT TESTING
- * ================================================================
- */
 
 fun findNode(
     point: Offset,
@@ -2477,20 +2360,78 @@ fun findConnection(
                     end
                 )
 
+            } else if (connection.routeAuto) {
+
+                professionalRoute(
+                    start =
+                        startPort(
+                            from,
+                            connection,
+                            connections,
+                            nodes
+                        ),
+                    end =
+                        endPort(
+                            to,
+                            connection,
+                            nodes
+                        ),
+                    nodes = nodes,
+                    fromId =
+                        connection.fromNodeId,
+                    toId =
+                        connection.toNodeId
+                )
+
+            } else if (
+                connection.routePoints.isNotEmpty()
+            ) {
+
+                buildList {
+
+                    add(
+                        startPort(
+                            from,
+                            connection,
+                            connections,
+                            nodes
+                        )
+                    )
+
+                    addAll(
+                        connection.routePoints.map {
+                            Offset(
+                                it.x,
+                                it.y
+                            )
+                        }
+                    )
+
+                    add(
+                        endPort(
+                            to,
+                            connection,
+                            nodes
+                        )
+                    )
+                }
+
             } else {
 
-                listOf(
-                    startPort(
-                        from,
-                        connection,
-                        connections,
-                        nodes
-                    ),
-                    endPort(
-                        to,
-                        connection,
-                        nodes
-                    )
+                route(
+                    start =
+                        startPort(
+                            from,
+                            connection,
+                            connections,
+                            nodes
+                        ),
+                    end =
+                        endPort(
+                            to,
+                            connection,
+                            nodes
+                        )
                 )
             }
 
