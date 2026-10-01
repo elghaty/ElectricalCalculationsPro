@@ -8,11 +8,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldConnectionType
@@ -81,6 +80,114 @@ private data class PanelBusbarGeometry(
     val y: Float,
     val tapPositions: Map<String, Float>
 )
+
+/*
+ * ============================================================
+ * CONNECTION TYPE HELPERS
+ * ============================================================
+ *
+ * PANEL <-> BREAKER is physically an internal panel busbar
+ * connection, regardless of how an old persisted record was
+ * stored.
+ */
+
+private fun isPanelBreakerPair(
+    first: SldNode,
+    second: SldNode
+): Boolean {
+
+    return (
+        first.type == SldNodeType.PANEL &&
+            second.type == SldNodeType.BREAKER
+        ) ||
+        (
+            first.type == SldNodeType.BREAKER &&
+                second.type == SldNodeType.PANEL
+            )
+}
+
+private fun isPanelBreakerConnection(
+    connection: SldConnection,
+    nodes: List<SldNode>
+): Boolean {
+
+    val from =
+        nodes.firstOrNull {
+            it.id == connection.fromNodeId
+        } ?: return false
+
+    val to =
+        nodes.firstOrNull {
+            it.id == connection.toNodeId
+        } ?: return false
+
+    return isPanelBreakerPair(
+        from,
+        to
+    )
+}
+
+private fun isBusbarConnection(
+    connection: SldConnection,
+    nodes: List<SldNode>
+): Boolean {
+
+    return connection.connectionType ==
+        SldConnectionType.BUSBAR ||
+        isPanelBreakerConnection(
+            connection,
+            nodes
+        )
+}
+
+/*
+ * Always resolve PANEL/BREAKER direction from topology,
+ * not from the old stored connection direction.
+ */
+private fun panelBreakerNodes(
+    connection: SldConnection,
+    nodes: List<SldNode>
+): Pair<SldNode, SldNode>? {
+
+    val from =
+        nodes.firstOrNull {
+            it.id == connection.fromNodeId
+        } ?: return null
+
+    val to =
+        nodes.firstOrNull {
+            it.id == connection.toNodeId
+        } ?: return null
+
+    if (
+        !isPanelBreakerPair(
+            from,
+            to
+        )
+    ) {
+        return null
+    }
+
+    val panel =
+        if (
+            from.type == SldNodeType.PANEL
+        ) {
+            from
+        } else {
+            to
+        }
+
+    val breaker =
+        if (
+            from.type == SldNodeType.BREAKER
+        ) {
+            from
+        } else {
+            to
+        }
+
+    return panel to breaker
+}
 
 private fun nodeCenter(
     node: SldNode
@@ -154,8 +261,10 @@ private fun startPort(
 ): Offset {
 
     if (
-        connection.connectionType ==
-        SldConnectionType.BUSBAR &&
+        isBusbarConnection(
+            connection,
+            nodes
+        ) &&
         node.type == SldNodeType.PANEL
     ) {
 
@@ -205,8 +314,10 @@ private fun endPort(
 ): Offset {
 
     if (
-        connection.connectionType ==
-        SldConnectionType.BUSBAR &&
+        isBusbarConnection(
+            connection,
+            nodes
+        ) &&
         node.type == SldNodeType.BREAKER
     ) {
         return Offset(
@@ -243,31 +354,63 @@ private fun panelBusbarGeometry(
     connections: List<SldConnection>
 ): PanelBusbarGeometry {
 
+    /*
+     * Do NOT rely only on connectionType here.
+     * Legacy PANEL/BREAKER cable records are treated as busbar.
+     */
     val busbarConnections =
-        connections.filter {
-            it.connectionType ==
-                SldConnectionType.BUSBAR &&
-                it.fromNodeId ==
-                panel.id
+        connections.filter { connection ->
+
+            val pair =
+                panelBreakerNodes(
+                    connection,
+                    nodes
+                )
+
+            (
+                connection.connectionType ==
+                    SldConnectionType.BUSBAR &&
+                    connection.fromNodeId ==
+                    panel.id
+                ) ||
+                (
+                    pair != null &&
+                        pair.first.id ==
+                        panel.id
+                    )
         }
 
     val breakerCenters =
         busbarConnections
             .mapNotNull { connection ->
-                nodes.firstOrNull {
-                    it.id ==
-                        connection.toNodeId &&
-                        it.type ==
-                        SldNodeType.BREAKER
+
+                val pair =
+                    panelBreakerNodes(
+                        connection,
+                        nodes
+                    )
+
+                val breaker =
+                    if (pair != null) {
+                        pair.second
+                    } else {
+                        nodes.firstOrNull {
+                            it.id ==
+                                connection.toNodeId &&
+                                it.type ==
+                                SldNodeType.BREAKER
+                        }
+                    }
+
+                breaker?.let {
+                    it.id to
+                        (
+                            it.x +
+                                NODE_WIDTH / 2f
+                            )
                 }
             }
-            .associate {
-                it.id to
-                    (
-                        it.x +
-                            NODE_WIDTH / 2f
-                        )
-            }
+            .toMap()
 
     val panelCenter =
         panel.x +
@@ -493,9 +636,21 @@ fun DrawScope.drawConnection(
                 connection.toNodeId
         } ?: return
 
+    /*
+     * A legacy PANEL/BREAKER cable is visually and electrically
+     * an internal busbar connection.
+     */
     val isBusbar =
-        connection.connectionType ==
-            SldConnectionType.BUSBAR
+        isBusbarConnection(
+            connection,
+            nodes
+        )
+
+    val panelBreaker =
+        panelBreakerNodes(
+            connection,
+            nodes
+        )
 
     val start =
         startPort(
@@ -515,28 +670,52 @@ fun DrawScope.drawConnection(
     val points =
         if (
             isBusbar &&
-            from.type ==
-            SldNodeType.PANEL &&
-            to.type ==
-            SldNodeType.BREAKER
+            panelBreaker != null
         ) {
 
+            val panel =
+                panelBreaker.first
+
+            val breaker =
+                panelBreaker.second
+
+            val geometry =
+                panelBusbarGeometry(
+                    panel,
+                    nodes,
+                    connections
+                )
+
             val tapX =
-                start.x
+                geometry.tapPositions[
+                    breaker.id
+                ] ?: start.x
 
             val breakerX =
                 end.x
 
+            val correctedStart =
+                Offset(
+                    tapX,
+                    geometry.y
+                )
+
             if (
-                abs(tapX - breakerX) < 1f
+                abs(
+                    tapX -
+                        breakerX
+                ) < 1f
             ) {
+
                 listOf(
-                    start,
+                    correctedStart,
                     end
                 )
+
             } else {
+
                 listOf(
-                    start,
+                    correctedStart,
                     Offset(
                         tapX,
                         end.y
@@ -636,7 +815,7 @@ fun DrawScope.drawConnection(
         path = path,
         color = lineColor,
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = width,
                 cap = StrokeCap.Square,
                 join = StrokeJoin.Miter
@@ -660,6 +839,7 @@ fun DrawScope.drawConnection(
                     connection.busbarRatedCurrentA >
                     0.0
                 ) {
+
                     append(" ")
                     append(
                         fmt(
@@ -673,6 +853,7 @@ fun DrawScope.drawConnection(
                     connection.busbarShortCircuitKA >
                     0.0
                 ) {
+
                     append("  ")
                     append(
                         fmt(
@@ -724,6 +905,7 @@ fun DrawScope.drawConnection(
                 if (
                     connection.parallelRuns > 1
                 ) {
+
                     append(" × ")
                     append(
                         connection.parallelRuns
@@ -991,6 +1173,7 @@ private fun route(
         abs(start.x - end.x) < 1f ||
         abs(start.y - end.y) < 1f
     ) {
+
         return listOf(
             start,
             end
@@ -1108,6 +1291,7 @@ private fun routeLabelPoint(
 ): Offset {
 
     if (points.size <= 2) {
+
         return Offset(
             (
                 points.first().x +
@@ -1143,6 +1327,7 @@ private fun routeLabelPoint(
             )
 
         if (length > bestLength) {
+
             bestLength = length
 
             best =
@@ -1194,7 +1379,7 @@ fun DrawScope.drawNode(
                     symbolY
                 ),
             style =
-                Stroke(
+                androidx.compose.ui.graphics.drawscope.Stroke(
                     width = 3f
                 )
         )
@@ -1262,11 +1447,16 @@ fun DrawScope.drawNode(
                     }
                 }
 
+            val incomingIsBusbar =
+                incoming?.let {
+                    isBusbarConnection(
+                        it,
+                        nodes
+                    )
+                } == true
+
             val direction =
-                if (
-                    incoming?.connectionType ==
-                    SldConnectionType.BUSBAR
-                ) {
+                if (incomingIsBusbar) {
                     Direction.DOWN
                 } else {
                     connected?.let {
@@ -1367,6 +1557,7 @@ fun DrawScope.drawNode(
             if (
                 node.loadKw > 0.0
             ) {
+
                 append("  P=")
                 append(
                     fmt(
@@ -1379,6 +1570,7 @@ fun DrawScope.drawNode(
             if (
                 node.ratedKva > 0.0
             ) {
+
                 append("  R=")
                 append(
                     fmt(
@@ -1559,7 +1751,7 @@ private fun DrawScope.drawPanel(
                 3f
             ),
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 1.5f
             )
     )
@@ -1575,7 +1767,7 @@ private fun DrawScope.drawSource(
         radius = 25f,
         center = Offset(x, y),
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 2.8f
             )
     )
@@ -1611,7 +1803,7 @@ private fun DrawScope.drawSource(
         path = wave,
         color = BLACK,
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 2.4f,
                 cap = StrokeCap.Round
             )
@@ -1632,7 +1824,7 @@ private fun DrawScope.drawTransformer(
                 y
             ),
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 2.8f
             )
     )
@@ -1646,7 +1838,7 @@ private fun DrawScope.drawTransformer(
                 y
             ),
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 2.8f
             )
     )
@@ -1677,7 +1869,7 @@ private fun DrawScope.drawGenerator(
         radius = 25f,
         center = Offset(x, y),
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 2.8f
             )
     )
@@ -1698,7 +1890,7 @@ private fun DrawScope.drawGenerator(
                 30f
             ),
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 2.2f
             )
     )
@@ -2033,7 +2225,7 @@ private fun DrawScope.drawLoad(
         radius = 22f,
         center = Offset(x, y),
         style =
-            Stroke(
+            androidx.compose.ui.graphics.drawscope.Stroke(
                 width = 2.8f
             )
     )
@@ -2326,39 +2518,78 @@ fun findConnection(
                     connection.toNodeId
             } ?: return@forEach
 
+        val isBusbar =
+            isBusbarConnection(
+                connection,
+                nodes
+            )
+
+        val panelBreaker =
+            panelBreakerNodes(
+                connection,
+                nodes
+            )
+
         val points =
             if (
-                connection.connectionType ==
-                SldConnectionType.BUSBAR &&
-                from.type ==
-                SldNodeType.PANEL &&
-                to.type ==
-                SldNodeType.BREAKER
+                isBusbar &&
+                panelBreaker != null
             ) {
 
+                val panel =
+                    panelBreaker.first
+
+                val breaker =
+                    panelBreaker.second
+
+                val geometry =
+                    panelBusbarGeometry(
+                        panel,
+                        nodes,
+                        connections
+                    )
+
                 val start =
-                    startPort(
-                        from,
-                        connection,
-                        connections,
-                        nodes
+                    Offset(
+                        geometry.tapPositions[
+                            breaker.id
+                        ] ?: (
+                            panel.x +
+                                NODE_WIDTH / 2f
+                            ),
+                        geometry.y
                     )
 
                 val end =
                     endPort(
-                        to,
+                        breaker,
                         connection,
                         nodes
                     )
 
-                listOf(
-                    start,
-                    Offset(
-                        start.x,
-                        end.y
-                    ),
-                    end
-                )
+                if (
+                    abs(
+                        start.x -
+                            end.x
+                    ) < 1f
+                ) {
+
+                    listOf(
+                        start,
+                        end
+                    )
+
+                } else {
+
+                    listOf(
+                        start,
+                        Offset(
+                            start.x,
+                            end.y
+                        ),
+                        end
+                    )
+                }
 
             } else if (connection.routeAuto) {
 
@@ -2481,6 +2712,7 @@ private fun distanceToSegment(
         abs(dx) < 0.001f &&
         abs(dy) < 0.001f
     ) {
+
         return sqrt(
             (point.x - a.x) *
                 (point.x - a.x) +
