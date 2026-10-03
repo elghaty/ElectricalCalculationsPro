@@ -3,7 +3,6 @@ package com.electrical.calculationspro.data.sewage
 import com.electrical.calculationspro.data.project.DesignCalculationStatus
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectEngine
-import com.electrical.calculationspro.data.project.DesignProjects
 import com.electrical.calculationspro.data.project.RisingMainDesign
 import com.electrical.calculationspro.data.project.SewagePump
 import com.electrical.calculationspro.data.project.WetWellDesign
@@ -17,19 +16,20 @@ object SewageDesignModule {
         minimumFlowM3PerDay: Double
     ): DesignProject {
 
-        return DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    averageFlowM3PerDay =
-                        averageFlowM3PerDay.coerceAtLeast(0.0),
-                    peakFlowM3PerDay =
-                        peakFlowM3PerDay.coerceAtLeast(0.0),
-                    minimumFlowM3PerDay =
-                        minimumFlowM3PerDay.coerceAtLeast(0.0),
-                    status =
-                        DesignCalculationStatus.IN_PROGRESS
-                )
+        val sewage =
+            project.sewage.copy(
+                averageFlowM3PerDay =
+                    averageFlowM3PerDay.coerceAtLeast(0.0),
+                peakFlowM3PerDay =
+                    peakFlowM3PerDay.coerceAtLeast(0.0),
+                minimumFlowM3PerDay =
+                    minimumFlowM3PerDay.coerceAtLeast(0.0),
+                status =
+                    DesignCalculationStatus.IN_PROGRESS
             )
+
+        return DesignProjectEngine.recalculateSewage(
+            project.withSewage(sewage)
         )
     }
 
@@ -38,15 +38,16 @@ object SewageDesignModule {
         staticHeadM: Double
     ): DesignProject {
 
-        return DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    staticHeadM =
-                        staticHeadM.coerceAtLeast(0.0),
-                    status =
-                        DesignCalculationStatus.IN_PROGRESS
-                )
+        val sewage =
+            project.sewage.copy(
+                staticHeadM =
+                    staticHeadM.coerceAtLeast(0.0),
+                status =
+                    DesignCalculationStatus.IN_PROGRESS
             )
+
+        return DesignProjectEngine.recalculateSewage(
+            project.withSewage(sewage)
         )
     }
 
@@ -55,14 +56,15 @@ object SewageDesignModule {
         wetWell: WetWellDesign
     ): DesignProject {
 
-        return DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    wetWell = wetWell,
-                    status =
-                        DesignCalculationStatus.IN_PROGRESS
-                )
+        val sewage =
+            project.sewage.copy(
+                wetWell = wetWell,
+                status =
+                    DesignCalculationStatus.IN_PROGRESS
             )
+
+        return DesignProjectEngine.recalculateSewage(
+            project.withSewage(sewage)
         )
     }
 
@@ -71,14 +73,15 @@ object SewageDesignModule {
         risingMain: RisingMainDesign
     ): DesignProject {
 
-        return DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    risingMain = risingMain,
-                    status =
-                        DesignCalculationStatus.IN_PROGRESS
-                )
+        val sewage =
+            project.sewage.copy(
+                risingMain = risingMain,
+                status =
+                    DesignCalculationStatus.IN_PROGRESS
             )
+
+        return DesignProjectEngine.recalculateSewage(
+            project.withSewage(sewage)
         )
     }
 
@@ -87,75 +90,64 @@ object SewageDesignModule {
         pump: SewagePump
     ): DesignProject {
 
-        val pumps =
-            project.sewage.pumps
-                .filterNot { it.id == pump.id } +
-                pump
-
-        return DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    pumps = pumps,
-                    status =
-                        DesignCalculationStatus.IN_PROGRESS
-                )
+        val sewage =
+            project.sewage.copy(
+                pumps =
+                    project.sewage.pumps
+                        .filterNot { it.id == pump.id } +
+                        pump,
+                status =
+                    DesignCalculationStatus.IN_PROGRESS
             )
+
+        return DesignProjectEngine.recalculateSewage(
+            project.withSewage(sewage)
         )
     }
 
     fun recalculate(
         project: DesignProject
     ): DesignProject =
-        DesignProjectEngine
-            .recalculateSewage(project)
+        DesignProjectEngine.recalculateSewage(
+            project
+        )
 
     fun updateRisingMainCalculatedValues(
         project: DesignProject,
-        risingMainId: String,
         flowM3PerHour: Double,
         velocityMPerS: Double,
         frictionLossM: Double,
         minorLossHeadM: Double
     ): DesignProject {
 
-        if (
-            !flowM3PerHour.isFinite() ||
-            !velocityMPerS.isFinite() ||
-            !frictionLossM.isFinite() ||
-            !minorLossHeadM.isFinite()
-        ) {
-            return project
-        }
-
-        val main =
+        val current =
             project.sewage.risingMain
-                ?.takeIf {
-                    it.id == risingMainId
-                }
-                ?: return project
 
-        return DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    risingMain =
-                        main.copy(
-                            flowM3PerHour =
-                                flowM3PerHour,
-                            velocityMPerS =
-                                velocityMPerS,
-                            frictionLossM =
-                                frictionLossM,
-                            minorLossHeadM =
-                                minorLossHeadM,
-                            status =
-                                DesignCalculationStatus
-                                    .CALCULATED
-                        ),
-                    status =
-                        DesignCalculationStatus.IN_PROGRESS
+        val updated =
+            current?.copy(
+                flowM3PerHour =
+                    flowM3PerHour.coerceAtLeast(0.0),
+                velocityMPerS =
+                    velocityMPerS.coerceAtLeast(0.0),
+                frictionLossM =
+                    frictionLossM.coerceAtLeast(0.0),
+                minorLossHeadM =
+                    minorLossHeadM.coerceAtLeast(0.0),
+                status =
+                    DesignCalculationStatus.CALCULATED
+            )
+
+        return if (updated == null) {
+            project
+        } else {
+            DesignProjectEngine.recalculateSewage(
+                project.withSewage(
+                    project.sewage.copy(
+                        risingMain = updated
+                    )
                 )
             )
-        )
+        }
     }
 
     fun updatePumpCalculatedValues(
@@ -165,32 +157,27 @@ object SewageDesignModule {
         yearlyEnergyKwh: Double
     ): DesignProject {
 
-        if (
-            !motorPowerKw.isFinite() ||
-            !yearlyEnergyKwh.isFinite()
-        ) {
-            return project
-        }
+        val pumps =
+            project.sewage.pumps.map { pump ->
 
-        return DesignProjects.save(
+                if (pump.id != pumpId) {
+                    pump
+                } else {
+                    pump.copy(
+                        motorPowerKw =
+                            motorPowerKw.coerceAtLeast(0.0),
+                        yearlyEnergyKwh =
+                            yearlyEnergyKwh.coerceAtLeast(0.0),
+                        status =
+                            DesignCalculationStatus.CALCULATED
+                    )
+                }
+            }
+
+        return DesignProjectEngine.recalculateSewage(
             project.withSewage(
                 project.sewage.copy(
-                    pumps =
-                        project.sewage.pumps.map {
-                            if (it.id == pumpId) {
-                                it.copy(
-                                    motorPowerKw =
-                                        motorPowerKw,
-                                    yearlyEnergyKwh =
-                                        yearlyEnergyKwh,
-                                    status =
-                                        DesignCalculationStatus
-                                            .CALCULATED
-                                )
-                            } else {
-                                it
-                            }
-                        }
+                    pumps = pumps
                 )
             )
         )
@@ -199,48 +186,40 @@ object SewageDesignModule {
     fun markInProgress(
         project: DesignProject
     ): DesignProject =
-        DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    status =
-                        DesignCalculationStatus.IN_PROGRESS
-                )
+        project.withSewage(
+            project.sewage.copy(
+                status =
+                    DesignCalculationStatus.IN_PROGRESS
             )
         )
 
     fun markCalculated(
         project: DesignProject
     ): DesignProject =
-        DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    status =
-                        DesignCalculationStatus.CALCULATED
-                )
+        project.withSewage(
+            project.sewage.copy(
+                status =
+                    DesignCalculationStatus.CALCULATED
             )
         )
 
     fun markDataIncomplete(
         project: DesignProject
     ): DesignProject =
-        DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    status =
-                        DesignCalculationStatus.DATA_INCOMPLETE
-                )
+        project.withSewage(
+            project.sewage.copy(
+                status =
+                    DesignCalculationStatus.DATA_INCOMPLETE
             )
         )
 
     fun markInvalid(
         project: DesignProject
     ): DesignProject =
-        DesignProjects.save(
-            project.withSewage(
-                project.sewage.copy(
-                    status =
-                        DesignCalculationStatus.INVALID
-                )
+        project.withSewage(
+            project.sewage.copy(
+                status =
+                    DesignCalculationStatus.INVALID
             )
         )
 }
