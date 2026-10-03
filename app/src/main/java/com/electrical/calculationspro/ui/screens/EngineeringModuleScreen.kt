@@ -1,5 +1,9 @@
 package com.electrical.calculationspro.ui.screens
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.weight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material3.DropdownMenu
@@ -10,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.ConductorSizingInput
@@ -442,7 +447,10 @@ private fun ConductorSizingScreen(
                         )
 
                     result = buildString {
-                        appendLine("Design Current = %.2f A".format(calculation.designCurrent))
+                        appendLine(
+                            "Design Current = %.2f A"
+                                .format(calculation.designCurrent)
+                        )
                         appendLine(
                             "Recommended Section = %.1f mm²"
                                 .format(calculation.recommendedSection)
@@ -1428,104 +1436,133 @@ private fun WaterEngineeringModuleScreen(
     EngineeringPage(
         title = if (arabic) "تصميم المياه" else "Water Design",
         subtitle = if (arabic) {
-            "حساب التدفق والقطر والسرعة والفواقد وTDH وربط النتائج بالمشروع"
+            "التدفق والقطر والسرعة والفواقد وTDH وتصميم المضخة"
         } else {
-            "Flow, diameter, velocity, losses, TDH and project integration"
+            "Flow, diameter, velocity, losses, TDH and pump design"
         },
         onBack = onBack
     ) {
         EngineeringCard(
-            title = if (arabic) "بيانات شبكة المياه" else "Water Design Data"
+            title = if (arabic) "البيانات الهيدروليكية" else "Hydraulic Data"
         ) {
-            EngineeringInput(
-                label = "Flow (m³/h)",
-                value = flow,
-                onValueChange = {
-                    flow = it
-                    result = null
-                    error = null
-                }
-            )
 
-            EngineeringInput(
-                label = "Diameter (mm)",
-                value = diameter,
-                onValueChange = {
-                    diameter = it
-                    result = null
-                    error = null
-                }
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.dp(8)
+                )
+            ) {
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Flow (m³/h)",
+                    value = flow,
+                    onValueChange = {
+                        flow = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Velocity (m/s) - optional",
-                value = velocity,
-                onValueChange = {
-                    velocity = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Diameter (mm)",
+                    value = diameter,
+                    onValueChange = {
+                        diameter = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Head Loss (m) - optional",
-                value = headLoss,
-                onValueChange = {
-                    headLoss = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Velocity (m/s)",
+                    value = velocity,
+                    onValueChange = {
+                        velocity = it
+                        result = null
+                        error = null
+                    }
+                )
+            }
 
-            EngineeringInput(
-                label = "Pipe Length (m)",
-                value = length,
-                onValueChange = {
-                    length = it
-                    result = null
-                    error = null
-                }
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.dp(8)
+                )
+            ) {
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Head Loss (m)",
+                    value = headLoss,
+                    onValueChange = {
+                        headLoss = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Pipe Material",
-                value = material,
-                onValueChange = {
-                    material = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Pipe Length (m)",
+                    value = length,
+                    onValueChange = {
+                        length = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Static Head (m)",
-                value = staticHead,
-                onValueChange = {
-                    staticHead = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Material",
+                    value = material,
+                    isNumeric = false,
+                    onValueChange = {
+                        material = it
+                        result = null
+                        error = null
+                    }
+                )
+            }
 
-            EngineeringInput(
-                label = "Minor Loss (m)",
-                value = minorLoss,
-                onValueChange = {
-                    minorLoss = it
-                    result = null
-                    error = null
-                }
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.dp(8)
+                )
+            ) {
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Static Head (m)",
+                    value = staticHead,
+                    onValueChange = {
+                        staticHead = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Required Pressure Head (m)",
-                value = pressureHead,
-                onValueChange = {
-                    pressureHead = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Minor Loss (m)",
+                    value = minorLoss,
+                    onValueChange = {
+                        minorLoss = it
+                        result = null
+                        error = null
+                    }
+                )
+
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Pressure Head (m)",
+                    value = pressureHead,
+                    onValueChange = {
+                        pressureHead = it
+                        result = null
+                        error = null
+                    }
+                )
+            }
         }
 
         EngineeringPrimaryButton(
@@ -1555,24 +1592,96 @@ private fun WaterEngineeringModuleScreen(
                     require(minor >= 0.0)
                     require(pressure >= 0.0)
 
-                    val calculated =
-                        WaterDesignEngine.calculateAuto(
-                            flowM3PerHour = q,
-                            diameterMm = d,
-                            velocityMPerS = v,
-                            headLossM = hf,
+                    require(q != null || v != null) {
+                        if (arabic) {
+                            "أدخل التدفق أو السرعة."
+                        } else {
+                            "Enter flow or velocity."
+                        }
+                    }
+
+                    require(d != null || v != null) {
+                        if (arabic) {
+                            "أدخل القطر أو السرعة."
+                        } else {
+                            "Enter diameter or velocity."
+                        }
+                    }
+
+                    val resolvedFlow: Double
+                    val resolvedDiameter: Double
+                    val resolvedVelocity: Double
+
+                    when {
+                        q != null && d != null -> {
+                            resolvedFlow = q
+                            resolvedDiameter = d
+                            resolvedVelocity =
+                                WaterDesignEngine.calculateVelocity(
+                                    flowM3PerHour = q,
+                                    diameterMm = d
+                                )
+                        }
+
+                        d != null && v != null -> {
+                            resolvedDiameter = d
+                            resolvedVelocity = v
+                            resolvedFlow =
+                                WaterDesignEngine.calculateFlow(
+                                    diameterMm = d,
+                                    velocityMPerS = v
+                                )
+                        }
+
+                        q != null && v != null -> {
+                            resolvedFlow = q
+                            resolvedVelocity = v
+                            resolvedDiameter =
+                                WaterDesignEngine.calculateDiameter(
+                                    flowM3PerHour = q,
+                                    velocityMPerS = v
+                                )
+                        }
+
+                        else -> {
+                            throw IllegalArgumentException(
+                                if (arabic) {
+                                    "أدخل أي قيمتين من التدفق والقطر والسرعة."
+                                } else {
+                                    "Enter any two of flow, diameter and velocity."
+                                }
+                            )
+                        }
+                    }
+
+                    require(
+                        resolvedFlow > 0.0 &&
+                            resolvedDiameter > 0.0 &&
+                            resolvedVelocity > 0.0
+                    )
+
+                    val calculatedHeadLoss =
+                        hf ?: WaterDesignEngine.calculateFrictionLoss(
+                            flowM3PerHour = resolvedFlow,
+                            diameterMm = resolvedDiameter,
                             lengthM = l,
                             material = material
                         )
 
-                    require(calculated.valid) {
-                        calculated.message
-                    }
+                    require(calculatedHeadLoss >= 0.0)
 
-                    flow = "%.3f".format(calculated.flowM3PerHour)
-                    diameter = "%.1f".format(calculated.diameterMm)
-                    velocity = "%.3f".format(calculated.velocityMPerS)
-                    headLoss = "%.3f".format(calculated.headLossM)
+                    val calculatedTdh =
+                        WaterDesignEngine.calculateTdh(
+                            staticHeadM = static,
+                            frictionHeadM = calculatedHeadLoss,
+                            minorLossHeadM = minor,
+                            requiredPressureHeadM = pressure
+                        )
+
+                    flow = "%.3f".format(resolvedFlow)
+                    diameter = "%.1f".format(resolvedDiameter)
+                    velocity = "%.3f".format(resolvedVelocity)
+                    headLoss = "%.3f".format(calculatedHeadLoss)
 
                     var project =
                         DesignProjectCoreBridge.getActiveProject()
@@ -1587,15 +1696,12 @@ private fun WaterEngineeringModuleScreen(
                     val pipe =
                         WaterPipe(
                             name = "Main Water Pipe",
-                            diameterMm = calculated.diameterMm,
+                            diameterMm = resolvedDiameter,
                             lengthM = l,
                             material = material,
-                            flowM3PerHour =
-                                calculated.flowM3PerHour,
-                            velocityMPerS =
-                                calculated.velocityMPerS,
-                            frictionLossM =
-                                calculated.headLossM
+                            flowM3PerHour = resolvedFlow,
+                            velocityMPerS = resolvedVelocity,
+                            frictionLossM = calculatedHeadLoss
                         )
 
                     project =
@@ -1607,11 +1713,9 @@ private fun WaterEngineeringModuleScreen(
                     project =
                         WaterDesignModule.updateHydraulicDesign(
                             project = project,
-                            flowM3PerHour =
-                                calculated.flowM3PerHour,
+                            flowM3PerHour = resolvedFlow,
                             staticHeadM = static,
-                            frictionHeadM =
-                                calculated.headLossM,
+                            frictionHeadM = calculatedHeadLoss,
                             minorLossHeadM = minor,
                             requiredPressureHeadM = pressure
                         )
@@ -1620,23 +1724,31 @@ private fun WaterEngineeringModuleScreen(
                         buildString {
                             appendLine(
                                 "Flow = %.3f m³/h"
-                                    .format(calculated.flowM3PerHour)
+                                    .format(resolvedFlow)
                             )
                             appendLine(
                                 "Diameter = %.1f mm"
-                                    .format(calculated.diameterMm)
+                                    .format(resolvedDiameter)
                             )
                             appendLine(
                                 "Velocity = %.3f m/s"
-                                    .format(calculated.velocityMPerS)
+                                    .format(resolvedVelocity)
                             )
                             appendLine(
                                 "Friction Loss = %.3f m"
-                                    .format(calculated.headLossM)
+                                    .format(calculatedHeadLoss)
+                            )
+                            appendLine(
+                                "Minor Loss = %.3f m"
+                                    .format(minor)
+                            )
+                            appendLine(
+                                "Pressure Head = %.3f m"
+                                    .format(pressure)
                             )
                             appendLine(
                                 "TDH = %.3f m"
-                                    .format(project.water.tdhM)
+                                    .format(calculatedTdh)
                             )
                         }
 
@@ -1672,9 +1784,9 @@ private fun WaterEngineeringModuleScreen(
             EngineeringEmptyState(
                 title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
                 message = if (arabic) {
-                    "أدخل البيانات ثم اضغط احسب واحفظ بالمشروع."
+                    "أدخل أي قيمتين من التدفق والقطر والسرعة ثم اضغط احسب."
                 } else {
-                    "Enter the data and calculate."
+                    "Enter any two of flow, diameter and velocity, then calculate."
                 }
             )
         } else {
@@ -1717,117 +1829,167 @@ private fun SewageEngineeringModuleScreen(
         onBack = onBack
     ) {
         EngineeringCard(
-            title = if (arabic) "بيانات الصرف" else "Sewage Design Data"
+            title = if (arabic) "التدفقات" else "Flow Data"
         ) {
-            EngineeringInput(
-                label = "Average Flow (m³/day)",
-                value = averageFlow,
-                onValueChange = {
-                    averageFlow = it
-                    result = null
-                    error = null
-                }
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.dp(8)
+                )
+            ) {
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Average Flow (m³/day)",
+                    value = averageFlow,
+                    onValueChange = {
+                        averageFlow = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Peak Flow (m³/day)",
-                value = peakFlow,
-                onValueChange = {
-                    peakFlow = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Peak Flow (m³/day)",
+                    value = peakFlow,
+                    onValueChange = {
+                        peakFlow = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Minimum Flow (m³/day)",
-                value = minimumFlow,
-                onValueChange = {
-                    minimumFlow = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Minimum Flow (m³/day)",
+                    value = minimumFlow,
+                    onValueChange = {
+                        minimumFlow = it
+                        result = null
+                        error = null
+                    }
+                )
+            }
+        }
 
-            EngineeringInput(
-                label = "Rising Main Flow (m³/h)",
-                value = flow,
-                onValueChange = {
-                    flow = it
-                    result = null
-                    error = null
-                }
-            )
+        EngineeringCard(
+            title = if (arabic) "الخط الهيدروليكي" else "Rising Main Hydraulic Data"
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.dp(8)
+                )
+            ) {
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Flow (m³/h)",
+                    value = flow,
+                    onValueChange = {
+                        flow = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Diameter (mm)",
-                value = diameter,
-                onValueChange = {
-                    diameter = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Diameter (mm)",
+                    value = diameter,
+                    onValueChange = {
+                        diameter = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Velocity (m/s) - optional",
-                value = velocity,
-                onValueChange = {
-                    velocity = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Velocity (m/s)",
+                    value = velocity,
+                    onValueChange = {
+                        velocity = it
+                        result = null
+                        error = null
+                    }
+                )
+            }
 
-            EngineeringInput(
-                label = "Head Loss (m) - optional",
-                value = headLoss,
-                onValueChange = {
-                    headLoss = it
-                    result = null
-                    error = null
-                }
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.dp(8)
+                )
+            ) {
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Head Loss (m)",
+                    value = headLoss,
+                    onValueChange = {
+                        headLoss = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Rising Main Length (m)",
-                value = length,
-                onValueChange = {
-                    length = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Length (m)",
+                    value = length,
+                    onValueChange = {
+                        length = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Pipe Material",
-                value = material,
-                onValueChange = {
-                    material = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Material",
+                    value = material,
+                    isNumeric = false,
+                    onValueChange = {
+                        material = it
+                        result = null
+                        error = null
+                    }
+                )
+            }
 
-            EngineeringInput(
-                label = "Static Head (m)",
-                value = staticHead,
-                onValueChange = {
-                    staticHead = it
-                    result = null
-                    error = null
-                }
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.dp(8)
+                )
+            ) {
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Static Head (m)",
+                    value = staticHead,
+                    onValueChange = {
+                        staticHead = it
+                        result = null
+                        error = null
+                    }
+                )
 
-            EngineeringInput(
-                label = "Minor Loss (m)",
-                value = minorLoss,
-                onValueChange = {
-                    minorLoss = it
-                    result = null
-                    error = null
-                }
-            )
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Minor Loss (m)",
+                    value = minorLoss,
+                    onValueChange = {
+                        minorLoss = it
+                        result = null
+                        error = null
+                    }
+                )
+
+                EngineeringInput(
+                    modifier = Modifier.weight(1f),
+                    label = "Peak Flow (m³/h)",
+                    value = "%.3f".format(
+                        peakFlow.toDoubleOrNull()?.div(24.0) ?: 0.0
+                    ),
+                    enabled = false,
+                    onValueChange = {}
+                )
+            }
         }
 
         EngineeringPrimaryButton(
@@ -1866,39 +2028,76 @@ private fun SewageEngineeringModuleScreen(
                     val q =
                         qInput ?: peak / 24.0
 
-                    val calculated =
-                        SewageDesignEngine.calculateAuto(
-                            flowM3PerHour = q,
-                            diameterMm = dInput,
-                            velocityMPerS = vInput,
-                            headLossM = hfInput,
+                    val resolvedFlow: Double
+                    val resolvedDiameter: Double
+                    val resolvedVelocity: Double
+
+                    when {
+                        dInput != null -> {
+                            resolvedFlow = q
+                            resolvedDiameter = dInput
+                            resolvedVelocity =
+                                SewageDesignEngine.calculateVelocity(
+                                    flowM3PerHour = q,
+                                    diameterMm = dInput
+                                )
+                        }
+
+                        vInput != null -> {
+                            resolvedFlow = q
+                            resolvedVelocity = vInput
+                            resolvedDiameter =
+                                SewageDesignEngine.calculateDiameter(
+                                    flowM3PerHour = q,
+                                    velocityMPerS = vInput
+                                )
+                        }
+
+                        else -> {
+                            throw IllegalArgumentException(
+                                if (arabic) {
+                                    "أدخل القطر أو السرعة لخط الطرد."
+                                } else {
+                                    "Enter diameter or velocity for the rising main."
+                                }
+                            )
+                        }
+                    }
+
+                    require(
+                        resolvedFlow > 0.0 &&
+                            resolvedDiameter > 0.0 &&
+                            resolvedVelocity > 0.0
+                    )
+
+                    val calculatedHeadLoss =
+                        hfInput ?: SewageDesignEngine.calculateFrictionLoss(
+                            flowM3PerHour = resolvedFlow,
+                            diameterMm = resolvedDiameter,
                             lengthM = l,
                             material = material
                         )
 
-                    require(calculated.valid) {
-                        calculated.message
-                    }
+                    require(calculatedHeadLoss >= 0.0)
+
+                    val tdh =
+                        SewageDesignEngine.calculateTdh(
+                            staticHeadM = static,
+                            frictionHeadM = calculatedHeadLoss,
+                            minorLossHeadM = minor
+                        )
 
                     flow =
-                        "%.3f".format(
-                            calculated.flowM3PerHour
-                        )
+                        "%.3f".format(resolvedFlow)
 
                     diameter =
-                        "%.1f".format(
-                            calculated.diameterMm
-                        )
+                        "%.1f".format(resolvedDiameter)
 
                     velocity =
-                        "%.3f".format(
-                            calculated.velocityMPerS
-                        )
+                        "%.3f".format(resolvedVelocity)
 
                     headLoss =
-                        "%.3f".format(
-                            calculated.headLossM
-                        )
+                        "%.3f".format(calculatedHeadLoss)
 
                     var project =
                         DesignProjectCoreBridge.getActiveProject()
@@ -1925,15 +2124,15 @@ private fun SewageEngineeringModuleScreen(
                                 RisingMainDesign(
                                     name = "Main Rising Main",
                                     diameterMm =
-                                        calculated.diameterMm,
+                                        resolvedDiameter,
                                     lengthM = l,
                                     material = material,
                                     flowM3PerHour =
-                                        calculated.flowM3PerHour,
+                                        resolvedFlow,
                                     velocityMPerS =
-                                        calculated.velocityMPerS,
+                                        resolvedVelocity,
                                     frictionLossM =
-                                        calculated.headLossM,
+                                        calculatedHeadLoss,
                                     minorLossHeadM = minor
                                 )
                         )
@@ -1942,14 +2141,6 @@ private fun SewageEngineeringModuleScreen(
                         SewageDesignModule.setStaticHead(
                             project = project,
                             staticHeadM = static
-                        )
-
-                    val tdh =
-                        SewageDesignEngine.calculateTdh(
-                            staticHeadM = static,
-                            frictionHeadM =
-                                calculated.headLossM,
-                            minorLossHeadM = minor
                         )
 
                     result =
@@ -1968,27 +2159,23 @@ private fun SewageEngineeringModuleScreen(
                             )
                             appendLine(
                                 "Rising Main Flow = %.3f m³/h"
-                                    .format(
-                                        calculated.flowM3PerHour
-                                    )
+                                    .format(resolvedFlow)
                             )
                             appendLine(
                                 "Diameter = %.1f mm"
-                                    .format(
-                                        calculated.diameterMm
-                                    )
+                                    .format(resolvedDiameter)
                             )
                             appendLine(
                                 "Velocity = %.3f m/s"
-                                    .format(
-                                        calculated.velocityMPerS
-                                    )
+                                    .format(resolvedVelocity)
                             )
                             appendLine(
                                 "Friction Loss = %.3f m"
-                                    .format(
-                                        calculated.headLossM
-                                    )
+                                    .format(calculatedHeadLoss)
+                            )
+                            appendLine(
+                                "Minor Loss = %.3f m"
+                                    .format(minor)
                             )
                             appendLine(
                                 "TDH = %.3f m"
@@ -2028,9 +2215,9 @@ private fun SewageEngineeringModuleScreen(
             EngineeringEmptyState(
                 title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
                 message = if (arabic) {
-                    "أدخل البيانات ثم اضغط احسب واحفظ بالمشروع."
+                    "أدخل بيانات التدفق والقطر أو السرعة ثم اضغط احسب."
                 } else {
-                    "Enter the data and calculate."
+                    "Enter flow and diameter or velocity, then calculate."
                 }
             )
         } else {
