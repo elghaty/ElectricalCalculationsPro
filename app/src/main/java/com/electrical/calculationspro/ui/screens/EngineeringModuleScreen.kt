@@ -4,11 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -27,7 +24,11 @@ import com.electrical.calculationspro.data.ConductorSizingInput
 import com.electrical.calculationspro.data.iecInstallationMethods
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
+import com.electrical.calculationspro.data.project.RisingMainDesign
+import com.electrical.calculationspro.data.project.WaterPipe
+import com.electrical.calculationspro.data.sewage.SewageDesignEngine
 import com.electrical.calculationspro.data.sewage.SewageDesignModule
+import com.electrical.calculationspro.data.water.WaterDesignEngine
 import com.electrical.calculationspro.data.water.WaterDesignModule
 import com.electrical.calculationspro.ui.components.EngineeringCard
 import com.electrical.calculationspro.ui.components.EngineeringEmptyState
@@ -383,9 +384,7 @@ private fun ConductorSizingScreen(
                     val input = ConductorSizingInput(
                         currentType = CurrentType.AlternatingThreePhase,
                         voltage = cableVoltage,
-                        load = designCurrent *
-                            cableVoltage *
-                            0.90,
+                        load = designCurrent * cableVoltage * 0.90,
                         powerFactor = 0.90,
                         lineLength = cableLength,
                         installationMethod = iecInstallationMethods.first(),
@@ -1451,6 +1450,19 @@ private fun ProtectionEngineeringScreen(
     }
 }
 
+/*
+ * WATER
+ *
+ * The screen uses the hydraulic calculation engine instead of treating
+ * friction/head/flow as independent values.
+ *
+ * Q + D -> V
+ * Q + V -> D
+ * D + V -> Q
+ *
+ * Head loss is calculated from the selected hydraulic geometry and
+ * pipe length/material.
+ */
 @Composable
 private fun WaterEngineeringModuleScreen(
     language: AppLanguage,
@@ -1473,6 +1485,31 @@ private fun WaterEngineeringModuleScreen(
         )
     }
 
+    var diameter by remember { mutableStateOf("") }
+
+    var velocity by remember { mutableStateOf("") }
+
+    var length by remember {
+        mutableStateOf(
+            project?.water?.pipes
+                ?.firstOrNull()
+                ?.lengthM
+                ?.takeIf { it > 0.0 }
+                ?.toString()
+                ?: "30"
+        )
+    }
+
+    var material by remember {
+        mutableStateOf(
+            project?.water?.pipes
+                ?.firstOrNull()
+                ?.material
+                ?.takeIf { it.isNotBlank() }
+                ?: "PVC"
+        )
+    }
+
     var staticHead by remember {
         mutableStateOf(
             project?.water?.staticHeadM
@@ -1482,49 +1519,39 @@ private fun WaterEngineeringModuleScreen(
         )
     }
 
-    var friction by remember {
-        mutableStateOf(
-            project?.water?.frictionHeadM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: ""
-        )
-    }
-
-    var minor by remember {
+    var minorLoss by remember {
         mutableStateOf(
             project?.water?.minorLossHeadM
                 ?.takeIf { it > 0.0 }
                 ?.toString()
-                ?: ""
+                ?: "0"
         )
     }
 
-    var pressure by remember {
+    var pressureHead by remember {
         mutableStateOf(
             project?.water?.requiredPressureHeadM
                 ?.takeIf { it > 0.0 }
                 ?.toString()
-                ?: ""
+                ?: "0"
         )
     }
+
+    var result by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     EngineeringPage(
         title = if (arabic) "تصميم المياه" else "Water Design",
         subtitle = if (arabic) {
-            "التدفق والرأس الكلي والمضخات"
+            "حساب التصرف والسرعة والقطر والفواقد و TDH وربطها بالمشروع"
         } else {
-            "Flow, total head and pumps"
+            "Flow, velocity, diameter, losses, TDH and project integration"
         },
         onBack = onBack
     ) {
         EngineeringCard {
             EngineeringSectionTitle(
-                text = if (arabic) {
-                    "بيانات التصميم"
-                } else {
-                    "Design Inputs"
-                }
+                text = if (arabic) "المدخلات الهيدروليكية" else "Hydraulic Inputs"
             )
 
             Row(
@@ -1533,26 +1560,63 @@ private fun WaterEngineeringModuleScreen(
             ) {
                 EngineeringInput(
                     value = flow,
-                    label = if (arabic) {
-                        "التدفق m³/h"
-                    } else {
-                        "Flow m³/h"
-                    },
+                    label = if (arabic) "التصرف m³/h" else "Flow m³/h",
                     onValueChange = {
                         flow = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
 
                 EngineeringInput(
-                    value = staticHead,
-                    label = if (arabic) {
-                        "الرأس الساكن m"
-                    } else {
-                        "Static head m"
-                    },
+                    value = velocity,
+                    label = if (arabic) "السرعة m/s" else "Velocity m/s",
                     onValueChange = {
-                        staticHead = it
+                        velocity = it
+                        result = null
+                        error = null
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            EngineeringInput(
+                value = diameter,
+                label = if (arabic) {
+                    "القطر mm — اتركه فارغًا للحساب"
+                } else {
+                    "Diameter mm — leave blank to calculate"
+                },
+                onValueChange = {
+                    diameter = it
+                    result = null
+                    error = null
+                }
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                EngineeringInput(
+                    value = length,
+                    label = if (arabic) "طول الخط m" else "Pipe Length m",
+                    onValueChange = {
+                        length = it
+                        result = null
+                        error = null
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                EngineeringInput(
+                    value = material,
+                    label = if (arabic) "الخامة" else "Material",
+                    onValueChange = {
+                        material = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -1563,144 +1627,339 @@ private fun WaterEngineeringModuleScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EngineeringInput(
-                    value = friction,
-                    label = if (arabic) {
-                        "فاقد الاحتكاك m"
-                    } else {
-                        "Friction loss m"
-                    },
+                    value = staticHead,
+                    label = if (arabic) "الرأس الساكن m" else "Static Head m",
                     onValueChange = {
-                        friction = it
+                        staticHead = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
 
                 EngineeringInput(
-                    value = minor,
-                    label = if (arabic) {
-                        "الفواقد الثانوية m"
-                    } else {
-                        "Minor losses m"
-                    },
+                    value = minorLoss,
+                    label = if (arabic) "الفواقد الثانوية m" else "Minor Loss m",
                     onValueChange = {
-                        minor = it
+                        minorLoss = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
             }
 
             EngineeringInput(
-                value = pressure,
+                value = pressureHead,
                 label = if (arabic) {
                     "رأس الضغط المطلوب m"
                 } else {
-                    "Required pressure head m"
+                    "Required Pressure Head m"
                 },
                 onValueChange = {
-                    pressure = it
+                    pressureHead = it
+                    result = null
+                    error = null
                 }
             )
+        }
 
-            EngineeringPrimaryButton(
-                text = if (arabic) {
-                    "احسب واحفظ التصميم"
-                } else {
-                    "Calculate & Save Design"
-                },
-                onClick = {
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "احسب واحفظ في المشروع"
+            } else {
+                "Calculate & Save to Project"
+            },
+            onClick = {
+                try {
                     val current =
                         project
-                            ?: DesignProjectCoreBridge
-                                .getActiveProject()
+                            ?: DesignProjectCoreBridge.getActiveProject()
+                            ?: throw IllegalStateException(
+                                if (arabic) {
+                                    "لا يوجد مشروع نشط."
+                                } else {
+                                    "No active project."
+                                }
+                            )
 
-                    if (current != null) {
-                        project =
-                            WaterDesignModule
-                                .updateHydraulicDesign(
-                                    project = current,
-                                    flowM3PerHour =
-                                        flow.toDoubleOrNull()
-                                            ?: 0.0,
-                                    staticHeadM =
-                                        staticHead.toDoubleOrNull()
-                                            ?: 0.0,
-                                    frictionHeadM =
-                                        friction.toDoubleOrNull()
-                                            ?: 0.0,
-                                    minorLossHeadM =
-                                        minor.toDoubleOrNull()
-                                            ?: 0.0,
-                                    requiredPressureHeadM =
-                                        pressure.toDoubleOrNull()
-                                            ?: 0.0
-                                )
+                    val q = flow.toDoubleOrNull()
+                    val d = diameter.toDoubleOrNull()
+                    val v = velocity.toDoubleOrNull()
+                    val l = length.toDoubleOrNull() ?: 0.0
+
+                    require(l > 0.0) {
+                        if (arabic) {
+                            "طول خط المياه يجب أن يكون أكبر من صفر."
+                        } else {
+                            "Pipe length must be greater than zero."
+                        }
                     }
+
+                    require(q != null || d != null || v != null) {
+                        if (arabic) {
+                            "أدخل قيمًا هيدروليكية."
+                        } else {
+                            "Enter hydraulic values."
+                        }
+                    }
+
+                    val calculatedFlow: Double
+                    val calculatedDiameter: Double
+                    val calculatedVelocity: Double
+
+                    when {
+                        q != null && q > 0.0 &&
+                            d != null && d > 0.0 -> {
+
+                            calculatedFlow = q
+                            calculatedDiameter = d
+                            calculatedVelocity =
+                                WaterDesignEngine.calculateVelocity(
+                                    flowM3PerHour = q,
+                                    diameterMm = d
+                                )
+                        }
+
+                        q != null && q > 0.0 &&
+                            v != null && v > 0.0 -> {
+
+                            calculatedFlow = q
+                            calculatedVelocity = v
+
+                            calculatedDiameter =
+                                waterDiameterFromFlowAndVelocity(
+                                    flowM3PerHour = q,
+                                    velocityMPerS = v
+                                )
+                        }
+
+                        d != null && d > 0.0 &&
+                            v != null && v > 0.0 -> {
+
+                            calculatedDiameter = d
+                            calculatedVelocity = v
+
+                            calculatedFlow =
+                                waterFlowFromDiameterAndVelocity(
+                                    diameterMm = d,
+                                    velocityMPerS = v
+                                )
+                        }
+
+                        q != null && q > 0.0 -> {
+                            throw IllegalArgumentException(
+                                if (arabic) {
+                                    "أدخل القطر أو السرعة لحساب باقي البيانات."
+                                } else {
+                                    "Enter diameter or velocity to complete the hydraulic calculation."
+                                }
+                            )
+                        }
+
+                        else -> {
+                            throw IllegalArgumentException(
+                                if (arabic) {
+                                    "أدخل أي قيمتين من التصرف والقطر والسرعة."
+                                } else {
+                                    "Enter any two of flow, diameter and velocity."
+                                }
+                            )
+                        }
+                    }
+
+                    val calculatedFriction =
+                        WaterDesignEngine.calculateFrictionLoss(
+                            flowM3PerHour = calculatedFlow,
+                            diameterMm = calculatedDiameter,
+                            lengthM = l,
+                            material = material
+                        )
+
+                    val calculatedTdh =
+                        WaterDesignEngine.calculateTdh(
+                            staticHeadM =
+                                staticHead.toDoubleOrNull()
+                                    ?: 0.0,
+                            frictionHeadM = calculatedFriction,
+                            minorLossHeadM =
+                                minorLoss.toDoubleOrNull()
+                                    ?: 0.0,
+                            requiredPressureHeadM =
+                                pressureHead.toDoubleOrNull()
+                                    ?: 0.0
+                        )
+
+                    val pipe = WaterPipe(
+                        name = "Main Water Line",
+                        diameterMm = calculatedDiameter,
+                        lengthM = l,
+                        material = material,
+                        flowM3PerHour = calculatedFlow,
+                        velocityMPerS = calculatedVelocity,
+                        frictionLossM = calculatedFriction
+                    )
+
+                    var updated =
+                        WaterDesignModule.updateHydraulicDesign(
+                            project = current,
+                            flowM3PerHour = calculatedFlow,
+                            staticHeadM =
+                                staticHead.toDoubleOrNull()
+                                    ?.coerceAtLeast(0.0)
+                                    ?: 0.0,
+                            frictionHeadM = calculatedFriction,
+                            minorLossHeadM =
+                                minorLoss.toDoubleOrNull()
+                                    ?.coerceAtLeast(0.0)
+                                    ?: 0.0,
+                            requiredPressureHeadM =
+                                pressureHead.toDoubleOrNull()
+                                    ?.coerceAtLeast(0.0)
+                                    ?: 0.0,
+                            tdhM = calculatedTdh
+                        )
+
+                    updated =
+                        WaterDesignModule.addPipe(
+                            project = updated,
+                            pipe = pipe
+                        )
+
+                    project = updated
+
+                    flow = "%.3f".format(calculatedFlow)
+                    diameter = "%.1f".format(calculatedDiameter)
+                    velocity = "%.3f".format(calculatedVelocity)
+
+                    result =
+                        if (arabic) {
+                            "التصرف = %.2f m³/h\n".format(
+                                calculatedFlow
+                            ) +
+                            "القطر = %.1f mm\n".format(
+                                calculatedDiameter
+                            ) +
+                            "السرعة = %.3f m/s\n".format(
+                                calculatedVelocity
+                            ) +
+                            "فاقد الاحتكاك = %.2f m\n".format(
+                                calculatedFriction
+                            ) +
+                            "TDH = %.2f m".format(
+                                calculatedTdh
+                            )
+                        } else {
+                            "Flow = %.2f m³/h\n".format(
+                                calculatedFlow
+                            ) +
+                            "Diameter = %.1f mm\n".format(
+                                calculatedDiameter
+                            ) +
+                            "Velocity = %.3f m/s\n".format(
+                                calculatedVelocity
+                            ) +
+                            "Friction Loss = %.2f m\n".format(
+                                calculatedFriction
+                            ) +
+                            "TDH = %.2f m".format(
+                                calculatedTdh
+                            )
+                        }
+
+                    error = null
+                } catch (e: Exception) {
+                    result = null
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر تنفيذ تصميم المياه."
+                        } else {
+                            "Water design calculation failed."
+                        }
                 }
+            }
+        )
+
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
+            )
+        }
+
+        result?.let {
+            EngineeringResult(
+                title = if (arabic) {
+                    "نتيجة التصميم الهيدروليكي"
+                } else {
+                    "Hydraulic Design Result"
+                },
+                value = it
             )
         }
 
         project?.water?.let { water ->
             EngineeringResult(
-                title = if (arabic) "الحالة" else "Status",
+                title = if (arabic) "حالة المشروع" else "Project Status",
                 value = water.status.name,
                 success = water.status.name != "INVALID"
             )
 
             EngineeringCard {
                 EngineeringSectionTitle(
-                    text = if (arabic) "النتائج" else "Results"
+                    text = if (arabic) "نتائج المشروع" else "Project Results"
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) "التدفق" else "Flow",
+                    label = if (arabic) "التصرف" else "Flow",
                     value = "%.2f m³/h".format(
                         water.requiredFlowM3PerHour
                     )
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) {
-                        "الرأس الساكن"
-                    } else {
-                        "Static head"
-                    },
+                    label = if (arabic) "الرأس الساكن" else "Static Head",
                     value = "%.2f m".format(
                         water.staticHeadM
                     )
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) {
-                        "فاقد الاحتكاك"
-                    } else {
-                        "Friction loss"
-                    },
+                    label = if (arabic) "فاقد الاحتكاك" else "Friction Loss",
                     value = "%.2f m".format(
                         water.frictionHeadM
                     )
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) {
-                        "الفواقد الثانوية"
-                    } else {
-                        "Minor losses"
-                    },
+                    label = if (arabic) "الفواقد الثانوية" else "Minor Losses",
                     value = "%.2f m".format(
                         water.minorLossHeadM
                     )
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) {
-                        "الرأس الكلي TDH"
-                    } else {
-                        "Total Dynamic Head"
-                    },
+                    label = if (arabic) "الرأس الكلي TDH" else "Total Dynamic Head",
                     value = "%.2f m".format(
                         water.tdhM
                     )
                 )
+
+                water.pipes.forEach { pipe ->
+                    EngineeringValueRow(
+                        label = if (arabic) {
+                            "خط ${pipe.name}"
+                        } else {
+                            "Pipe ${pipe.name}"
+                        },
+                        value =
+                            "%.1f mm | %.3f m/s | %.2f m".format(
+                                pipe.diameterMm,
+                                pipe.velocityMPerS,
+                                pipe.frictionLossM
+                            )
+                    )
+                }
 
                 water.pumps.forEach { pump ->
                     EngineeringValueRow(
@@ -1716,11 +1975,7 @@ private fun WaterEngineeringModuleScreen(
                 }
             }
         } ?: EngineeringEmptyState(
-            title = if (arabic) {
-                "لا يوجد مشروع نشط"
-            } else {
-                "No active project"
-            },
+            title = if (arabic) "لا يوجد مشروع نشط" else "No Active Project",
             message = if (arabic) {
                 "أنشئ أو اختر مشروعًا أولًا."
             } else {
@@ -1730,6 +1985,23 @@ private fun WaterEngineeringModuleScreen(
     }
 }
 
+/*
+ * SEWAGE
+ *
+ * Sewage design is kept project-based:
+ *
+ * Average flow
+ *      ↓
+ * Peak flow
+ *      ↓
+ * Rising-main hydraulic calculation
+ *      ↓
+ * Velocity / Diameter / Friction
+ *      ↓
+ * TDH
+ *      ↓
+ * SewageDesignEngine / Pump calculation
+ */
 @Composable
 private fun SewageEngineeringModuleScreen(
     language: AppLanguage,
@@ -1770,6 +2042,27 @@ private fun SewageEngineeringModuleScreen(
         )
     }
 
+    var diameter by remember { mutableStateOf("") }
+
+    var velocity by remember { mutableStateOf("") }
+
+    var length by remember {
+        mutableStateOf(
+            project?.sewage?.risingMain?.lengthM
+                ?.takeIf { it > 0.0 }
+                ?.toString()
+                ?: "30"
+        )
+    }
+
+    var material by remember {
+        mutableStateOf(
+            project?.sewage?.risingMain?.material
+                ?.takeIf { it.isNotBlank() }
+                ?: "PVC"
+        )
+    }
+
     var staticHead by remember {
         mutableStateOf(
             project?.sewage?.staticHeadM
@@ -1779,26 +2072,30 @@ private fun SewageEngineeringModuleScreen(
         )
     }
 
+    var minorLoss by remember {
+        mutableStateOf(
+            project?.sewage?.risingMain?.minorLossHeadM
+                ?.takeIf { it > 0.0 }
+                ?.toString()
+                ?: "0"
+        )
+    }
+
+    var result by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
     EngineeringPage(
-        title = if (arabic) {
-            "تصميم الصرف الصحي"
-        } else {
-            "Sewage Design"
-        },
+        title = if (arabic) "تصميم الصرف الصحي" else "Sewage Design",
         subtitle = if (arabic) {
-            "التدفقات والرأس والمضخات"
+            "التصرف والقطر والسرعة والفواقد و TDH وربطها بالمشروع"
         } else {
-            "Flows, head and pumps"
+            "Flow, diameter, velocity, losses, TDH and project integration"
         },
         onBack = onBack
     ) {
         EngineeringCard {
             EngineeringSectionTitle(
-                text = if (arabic) {
-                    "بيانات التصميم"
-                } else {
-                    "Design Inputs"
-                }
+                text = if (arabic) "بيانات التصرف" else "Flow Data"
             )
 
             Row(
@@ -1814,6 +2111,8 @@ private fun SewageEngineeringModuleScreen(
                     },
                     onValueChange = {
                         average = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -1827,6 +2126,65 @@ private fun SewageEngineeringModuleScreen(
                     },
                     onValueChange = {
                         peak = it
+                        result = null
+                        error = null
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            EngineeringInput(
+                value = minimum,
+                label = if (arabic) {
+                    "الأدنى m³/day"
+                } else {
+                    "Minimum m³/day"
+                },
+                onValueChange = {
+                    minimum = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringSectionTitle(
+                text = if (arabic) {
+                    "تصميم خط الطرد"
+                } else {
+                    "Rising Main Design"
+                }
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                EngineeringInput(
+                    value = diameter,
+                    label = if (arabic) {
+                        "القطر mm"
+                    } else {
+                        "Diameter mm"
+                    },
+                    onValueChange = {
+                        diameter = it
+                        result = null
+                        error = null
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                EngineeringInput(
+                    value = velocity,
+                    label = if (arabic) {
+                        "السرعة m/s"
+                    } else {
+                        "Velocity m/s"
+                    },
+                    onValueChange = {
+                        velocity = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -1837,27 +2195,66 @@ private fun SewageEngineeringModuleScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EngineeringInput(
-                    value = minimum,
+                    value = length,
                     label = if (arabic) {
-                        "الأدنى m³/day"
+                        "طول الخط m"
                     } else {
-                        "Minimum m³/day"
+                        "Main Length m"
                     },
                     onValueChange = {
-                        minimum = it
+                        length = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
 
                 EngineeringInput(
+                    value = material,
+                    label = if (arabic) {
+                        "الخامة"
+                    } else {
+                        "Material"
+                    },
+                    onValueChange = {
+                        material = it
+                        result = null
+                        error = null
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                EngineeringInput(
                     value = staticHead,
                     label = if (arabic) {
                         "الرأس الساكن m"
                     } else {
-                        "Static head m"
+                        "Static Head m"
                     },
                     onValueChange = {
                         staticHead = it
+                        result = null
+                        error = null
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                EngineeringInput(
+                    value = minorLoss,
+                    label = if (arabic) {
+                        "الفواقد الثانوية m"
+                    } else {
+                        "Minor Loss m"
+                    },
+                    onValueChange = {
+                        minorLoss = it
+                        result = null
+                        error = null
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -1865,28 +2262,192 @@ private fun SewageEngineeringModuleScreen(
 
             EngineeringPrimaryButton(
                 text = if (arabic) {
-                    "احسب واحفظ التصميم"
+                    "احسب واحفظ في المشروع"
                 } else {
-                    "Calculate & Save Design"
+                    "Calculate & Save to Project"
                 },
                 onClick = {
-                    val current =
-                        project
-                            ?: DesignProjectCoreBridge
-                                .getActiveProject()
+                    try {
+                        val current =
+                            project
+                                ?: DesignProjectCoreBridge
+                                    .getActiveProject()
+                                ?: throw IllegalStateException(
+                                    if (arabic) {
+                                        "لا يوجد مشروع نشط."
+                                    } else {
+                                        "No active project."
+                                    }
+                                )
 
-                    if (current != null) {
+                        val averageFlow =
+                            average.toDoubleOrNull()
+                                ?: throw IllegalArgumentException(
+                                    if (arabic) {
+                                        "أدخل متوسط التصرف."
+                                    } else {
+                                        "Enter average flow."
+                                    }
+                                )
+
+                        require(averageFlow > 0.0)
+
+                        val enteredPeak =
+                            peak.toDoubleOrNull()
+
+                        val calculatedPeak =
+                            if (enteredPeak != null &&
+                                enteredPeak > 0.0
+                            ) {
+                                enteredPeak
+                            } else {
+                                val factor =
+                                    SewageDesignEngine.calculatePeakFactor(
+                                        averageFlowM3PerDay =
+                                            averageFlow,
+                                        peakFlowM3PerDay =
+                                            null
+                                    )
+
+                                SewageDesignEngine.calculatePeakFlow(
+                                    averageFlowM3PerDay =
+                                        averageFlow,
+                                    peakFactor = factor
+                                )
+                            }
+
+                        require(calculatedPeak >= averageFlow) {
+                            if (arabic) {
+                                "التصرف الأقصى يجب ألا يقل عن المتوسط."
+                            } else {
+                                "Peak flow must not be lower than average flow."
+                            }
+                        }
+
+                        val peakHourly =
+                            calculatedPeak / 24.0
+
+                        val enteredVelocity =
+                            velocity.toDoubleOrNull()
+
+                        val enteredDiameter =
+                            diameter.toDoubleOrNull()
+
+                        val calculatedVelocity: Double
+                        val calculatedDiameter: Double
+
+                        when {
+                            enteredDiameter != null &&
+                                enteredDiameter > 0.0 -> {
+
+                                calculatedDiameter =
+                                    enteredDiameter
+
+                                calculatedVelocity =
+                                    SewageDesignEngine.calculateVelocity(
+                                        flowM3PerHour =
+                                            peakHourly,
+                                        diameterMm =
+                                            calculatedDiameter
+                                    )
+                            }
+
+                            enteredVelocity != null &&
+                                enteredVelocity > 0.0 -> {
+
+                                calculatedVelocity =
+                                    enteredVelocity
+
+                                calculatedDiameter =
+                                    sewageDiameterFromFlowAndVelocity(
+                                        flowM3PerHour =
+                                            peakHourly,
+                                        velocityMPerS =
+                                            calculatedVelocity
+                                    )
+                            }
+
+                            else -> {
+                                throw IllegalArgumentException(
+                                    if (arabic) {
+                                        "أدخل القطر أو السرعة لخط الطرد."
+                                    } else {
+                                        "Enter rising-main diameter or velocity."
+                                    }
+                                )
+                            }
+                        }
+
+                        val mainLength =
+                            length.toDoubleOrNull()
+                                ?: throw IllegalArgumentException(
+                                    if (arabic) {
+                                        "أدخل طول خط الطرد."
+                                    } else {
+                                        "Enter rising-main length."
+                                    }
+                                )
+
+                        require(mainLength > 0.0)
+
+                        val calculatedFriction =
+                            SewageDesignEngine.calculateFrictionLoss(
+                                flowM3PerHour =
+                                    peakHourly,
+                                diameterMm =
+                                    calculatedDiameter,
+                                lengthM =
+                                    mainLength,
+                                material =
+                                    material
+                            )
+
+                        val calculatedMinor =
+                            minorLoss.toDoubleOrNull()
+                                ?.coerceAtLeast(0.0)
+                                ?: 0.0
+
+                        val calculatedTdh =
+                            SewageDesignEngine.calculateTdh(
+                                staticHeadM =
+                                    staticHead.toDoubleOrNull()
+                                        ?.coerceAtLeast(0.0)
+                                        ?: 0.0,
+                                frictionLossM =
+                                    calculatedFriction,
+                                minorLossHeadM =
+                                    calculatedMinor
+                            )
+
+                        val risingMain =
+                            RisingMainDesign(
+                                name = "Main Rising Main",
+                                diameterMm =
+                                    calculatedDiameter,
+                                lengthM =
+                                    mainLength,
+                                material =
+                                    material,
+                                flowM3PerHour =
+                                    peakHourly,
+                                velocityMPerS =
+                                    calculatedVelocity,
+                                frictionLossM =
+                                    calculatedFriction,
+                                minorLossHeadM =
+                                    calculatedMinor
+                            )
+
                         var updated =
                             SewageDesignModule.updateFlows(
                                 project = current,
                                 averageFlowM3PerDay =
-                                    average.toDoubleOrNull()
-                                        ?: 0.0,
+                                    averageFlow,
                                 peakFlowM3PerDay =
-                                    peak.toDoubleOrNull()
-                                        ?: 0.0,
+                                    calculatedPeak,
                                 minimumFlowM3PerDay =
                                     minimum.toDoubleOrNull()
+                                        ?.coerceAtLeast(0.0)
                                         ?: 0.0
                             )
 
@@ -1895,32 +2456,133 @@ private fun SewageEngineeringModuleScreen(
                                 project = updated,
                                 staticHeadM =
                                     staticHead.toDoubleOrNull()
+                                        ?.coerceAtLeast(0.0)
                                         ?: 0.0
                             )
 
+                        updated =
+                            SewageDesignModule.setRisingMain(
+                                project = updated,
+                                risingMain = risingMain
+                            )
+
                         project = updated
+
+                        peak =
+                            "%.2f".format(
+                                calculatedPeak
+                            )
+
+                        diameter =
+                            "%.1f".format(
+                                calculatedDiameter
+                            )
+
+                        velocity =
+                            "%.3f".format(
+                                calculatedVelocity
+                            )
+
+                        result =
+                            if (arabic) {
+                                "المتوسط = %.2f m³/day\n".format(
+                                    averageFlow
+                                ) +
+                                "الأقصى = %.2f m³/day\n".format(
+                                    calculatedPeak
+                                ) +
+                                "تصرف خط الطرد = %.2f m³/h\n".format(
+                                    peakHourly
+                                ) +
+                                "القطر = %.1f mm\n".format(
+                                    calculatedDiameter
+                                ) +
+                                "السرعة = %.3f m/s\n".format(
+                                    calculatedVelocity
+                                ) +
+                                "فاقد الاحتكاك = %.2f m\n".format(
+                                    calculatedFriction
+                                ) +
+                                "TDH = %.2f m".format(
+                                    calculatedTdh
+                                )
+                            } else {
+                                "Average = %.2f m³/day\n".format(
+                                    averageFlow
+                                ) +
+                                "Peak = %.2f m³/day\n".format(
+                                    calculatedPeak
+                                ) +
+                                "Rising Main Flow = %.2f m³/h\n".format(
+                                    peakHourly
+                                ) +
+                                "Diameter = %.1f mm\n".format(
+                                    calculatedDiameter
+                                ) +
+                                "Velocity = %.3f m/s\n".format(
+                                    calculatedVelocity
+                                ) +
+                                "Friction Loss = %.2f m\n".format(
+                                    calculatedFriction
+                                ) +
+                                "TDH = %.2f m".format(
+                                    calculatedTdh
+                                )
+                            }
+
+                        error = null
+                    } catch (e: Exception) {
+                        result = null
+                        error = e.message
+                            ?: if (arabic) {
+                                "تعذر تنفيذ تصميم الصرف الصحي."
+                            } else {
+                                "Sewage design calculation failed."
+                            }
                     }
                 }
             )
         }
 
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
+            )
+        }
+
+        result?.let {
+            EngineeringResult(
+                title = if (arabic) {
+                    "نتيجة التصميم الهيدروليكي"
+                } else {
+                    "Hydraulic Design Result"
+                },
+                value = it
+            )
+        }
+
         project?.sewage?.let { sewage ->
             EngineeringResult(
-                title = if (arabic) "الحالة" else "Status",
+                title = if (arabic) "حالة المشروع" else "Project Status",
                 value = sewage.status.name,
                 success = sewage.status.name != "INVALID"
             )
 
             EngineeringCard {
                 EngineeringSectionTitle(
-                    text = if (arabic) "النتائج" else "Results"
+                    text = if (arabic) {
+                        "نتائج مشروع الصرف"
+                    } else {
+                        "Sewage Project Results"
+                    }
                 )
 
                 EngineeringValueRow(
                     label = if (arabic) {
-                        "المتوسط"
+                        "التصرف المتوسط"
                     } else {
-                        "Average flow"
+                        "Average Flow"
                     },
                     value = "%.2f m³/day".format(
                         sewage.averageFlowM3PerDay
@@ -1929,9 +2591,9 @@ private fun SewageEngineeringModuleScreen(
 
                 EngineeringValueRow(
                     label = if (arabic) {
-                        "الأقصى"
+                        "التصرف الأقصى"
                     } else {
-                        "Peak flow"
+                        "Peak Flow"
                     },
                     value = "%.2f m³/day".format(
                         sewage.peakFlowM3PerDay
@@ -1940,9 +2602,20 @@ private fun SewageEngineeringModuleScreen(
 
                 EngineeringValueRow(
                     label = if (arabic) {
+                        "التصرف الأقصى بالساعة"
+                    } else {
+                        "Peak Hourly Flow"
+                    },
+                    value = "%.2f m³/h".format(
+                        sewage.peakFlowM3PerDay / 24.0
+                    )
+                )
+
+                EngineeringValueRow(
+                    label = if (arabic) {
                         "الرأس الساكن"
                     } else {
-                        "Static head"
+                        "Static Head"
                     },
                     value = "%.2f m".format(
                         sewage.staticHeadM
@@ -1963,9 +2636,9 @@ private fun SewageEngineeringModuleScreen(
                 sewage.wetWell?.let { wetWell ->
                     EngineeringValueRow(
                         label = if (arabic) {
-                            "حجم الحوض"
+                            "حجم الحوض الرطب"
                         } else {
-                            "Wet well volume"
+                            "Wet Well Volume"
                         },
                         value = "%.2f m³".format(
                             wetWell.operatingVolumeM3
@@ -1976,11 +2649,22 @@ private fun SewageEngineeringModuleScreen(
                 sewage.risingMain?.let { risingMain ->
                     EngineeringValueRow(
                         label = if (arabic) {
+                            "قطر خط الطرد"
+                        } else {
+                            "Rising Main Diameter"
+                        },
+                        value = "%.1f mm".format(
+                            risingMain.diameterMm
+                        )
+                    )
+
+                    EngineeringValueRow(
+                        label = if (arabic) {
                             "سرعة خط الطرد"
                         } else {
-                            "Rising main velocity"
+                            "Rising Main Velocity"
                         },
-                        value = "%.2f m/s".format(
+                        value = "%.3f m/s".format(
                             risingMain.velocityMPerS
                         )
                     )
@@ -1989,10 +2673,21 @@ private fun SewageEngineeringModuleScreen(
                         label = if (arabic) {
                             "فاقد الاحتكاك"
                         } else {
-                            "Friction loss"
+                            "Friction Loss"
                         },
                         value = "%.2f m".format(
                             risingMain.frictionLossM
+                        )
+                    )
+
+                    EngineeringValueRow(
+                        label = if (arabic) {
+                            "الفواقد الثانوية"
+                        } else {
+                            "Minor Loss"
+                        },
+                        value = "%.2f m".format(
+                            risingMain.minorLossHeadM
                         )
                     )
                 }
@@ -2008,14 +2703,21 @@ private fun SewageEngineeringModuleScreen(
                             pump.motorPowerKw
                         )
                     )
+
+                    EngineeringValueRow(
+                        label = if (arabic) {
+                            "الطاقة السنوية ${pump.name}"
+                        } else {
+                            "Yearly Energy ${pump.name}"
+                        },
+                        value = "%.0f kWh".format(
+                            pump.yearlyEnergyKwh
+                        )
+                    )
                 }
             }
         } ?: EngineeringEmptyState(
-            title = if (arabic) {
-                "لا يوجد مشروع نشط"
-            } else {
-                "No active project"
-            },
+            title = if (arabic) "لا يوجد مشروع نشط" else "No Active Project",
             message = if (arabic) {
                 "أنشئ أو اختر مشروعًا أولًا."
             } else {
@@ -2277,4 +2979,78 @@ private fun MaterialSelector(
             )
         }
     }
+}
+
+/*
+ * Hydraulic helper calculations.
+ *
+ * These helpers are intentionally isolated from the composables so the
+ * UI does not contain scattered hydraulic equations.
+ *
+ * Q is m³/h.
+ * V is m/s.
+ * D is mm.
+ */
+private fun waterDiameterFromFlowAndVelocity(
+    flowM3PerHour: Double,
+    velocityMPerS: Double
+): Double {
+    require(flowM3PerHour > 0.0)
+    require(velocityMPerS > 0.0)
+
+    val flowM3PerSecond =
+        flowM3PerHour / 3600.0
+
+    val area =
+        flowM3PerSecond / velocityMPerS
+
+    val diameterM =
+        kotlin.math.sqrt(
+            4.0 * area / kotlin.math.PI
+        )
+
+    return diameterM * 1000.0
+}
+
+private fun waterFlowFromDiameterAndVelocity(
+    diameterMm: Double,
+    velocityMPerS: Double
+): Double {
+    require(diameterMm > 0.0)
+    require(velocityMPerS > 0.0)
+
+    val diameterM =
+        diameterMm / 1000.0
+
+    val area =
+        kotlin.math.PI *
+            diameterM *
+            diameterM /
+            4.0
+
+    val flowM3PerSecond =
+        area * velocityMPerS
+
+    return flowM3PerSecond * 3600.0
+}
+
+private fun sewageDiameterFromFlowAndVelocity(
+    flowM3PerHour: Double,
+    velocityMPerS: Double
+): Double {
+    require(flowM3PerHour > 0.0)
+    require(velocityMPerS > 0.0)
+
+    val flowM3PerSecond =
+        flowM3PerHour / 3600.0
+
+    val area =
+        flowM3PerSecond / velocityMPerS
+
+    val diameterM =
+        kotlin.math.sqrt(
+            4.0 * area / kotlin.math.PI
+        )
+
+    return diameterM * 1000.0
 }
