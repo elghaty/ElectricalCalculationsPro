@@ -8,10 +8,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldConnectionType
@@ -19,9 +20,45 @@ import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
 import com.electrical.calculationspro.data.SldUpstreamEngineering
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.sqrt
+
+/*
+ * ================================================================
+ * PROFESSIONAL SLD CANVAS DRAWING
+ * ================================================================
+ *
+ * DRAWING ONLY.
+ *
+ * Engineering calculations remain in:
+ *
+ *     SldUpstreamEngineering
+ *     SldEngineeringFacade
+ *
+ * Panel enclosure / physical busbar remains in:
+ *
+ *     SldPanelEnclosureDrawing.kt
+ *
+ * IMPORTANT:
+ *
+ * PANEL and BUS are NOT drawn here.
+ *
+ * PANEL:
+ *     physical enclosure -> SldPanelEnclosureDrawing
+ *
+ * BUS:
+ *     physical busbar -> SldPanelEnclosureDrawing
+ *
+ * BREAKER:
+ *     equipment symbol is drawn here.
+ *
+ * BUSBAR connections:
+ *     never drawn as cables.
+ *
+ * CABLE connections:
+ *     drawn as external feeders.
+ *
+ * ================================================================
+ */
 
 const val NODE_WIDTH = 180f
 const val NODE_HEIGHT = 150f
@@ -30,8 +67,6 @@ private const val SYMBOL_Y = 30f
 
 private const val CABLE_WIDTH = 3f
 private const val SELECTED_CABLE_WIDTH = 5.5f
-
-private const val BUSBAR_WIDTH = 8f
 
 private val BACKGROUND =
     Color(0xFFF7F9FB)
@@ -81,91 +116,75 @@ private enum class Direction {
     DOWN
 }
 
-private data class PanelBreakerPair(
-    val panel: SldNode,
-    val breaker: SldNode
-)
-
 /*
  * ================================================================
- * INTERNAL PANEL DETECTION
+ * INTERNAL / BUSBAR CLASSIFICATION
+ * ================================================================
+ *
+ * DO NOT classify every PANEL/BUS/BREAKER connection as BUSBAR.
+ *
+ * Only:
+ *
+ *   explicit BUSBAR
+ *
+ * OR:
+ *
+ *   PANEL <-> BREAKER
+ *   PANEL <-> BUS
+ *   BUS   <-> BREAKER
+ *
+ * is considered internal.
+ *
+ * This prevents an accidental internal-looking CABLE from
+ * disappearing from the drawing.
  * ================================================================
  */
 
 private fun isInternalPanelType(
     type: SldNodeType
 ): Boolean {
-
-    return type ==
-        SldNodeType.PANEL ||
-        type ==
-        SldNodeType.BUS ||
-        type ==
-        SldNodeType.BREAKER
+    return type == SldNodeType.PANEL ||
+        type == SldNodeType.BUS ||
+        type == SldNodeType.BREAKER
 }
 
 private fun isPanelBreakerPair(
     first: SldNode,
     second: SldNode
 ): Boolean {
-
     return (
-        first.type ==
-            SldNodeType.PANEL &&
-            second.type ==
-            SldNodeType.BREAKER
-        ) ||
-        (
-            first.type ==
-                SldNodeType.BREAKER &&
-                second.type ==
-                    SldNodeType.PANEL
-            )
+        first.type == SldNodeType.PANEL &&
+            second.type == SldNodeType.BREAKER
+        ) || (
+        first.type == SldNodeType.BREAKER &&
+            second.type == SldNodeType.PANEL
+        )
 }
 
-private fun panelBreakerPair(
-    connection: SldConnection,
-    nodes: List<SldNode>
-): PanelBreakerPair? {
-
-    val from =
-        nodes.firstOrNull {
-            it.id ==
-                connection.fromNodeId
-        } ?: return null
-
-    val to =
-        nodes.firstOrNull {
-            it.id ==
-                connection.toNodeId
-        } ?: return null
-
-    if (
-        !isPanelBreakerPair(
-            from,
-            to
+private fun isPanelBusPair(
+    first: SldNode,
+    second: SldNode
+): Boolean {
+    return (
+        first.type == SldNodeType.PANEL &&
+            second.type == SldNodeType.BUS
+        ) || (
+        first.type == SldNodeType.BUS &&
+            second.type == SldNodeType.PANEL
         )
-    ) {
-        return null
-    }
+}
 
-    return if (
-        from.type ==
-            SldNodeType.PANEL
-    ) {
-
-        PanelBreakerPair(
-            panel = from,
-            breaker = to
+private fun isBusBreakerPair(
+    first: SldNode,
+    second: SldNode
+): Boolean {
+    return (
+        first.type == SldNodeType.BUS &&
+            second.type == SldNodeType.BREAKER
+        ) || (
+        first.type == SldNodeType.BREAKER &&
+            second.type == SldNodeType.BUS
         )
-
-    } else {
-
-        PanelBreakerPair(
-            panel = to,
-            breaker = from
-        )
-    }
 }
 
 private fun isBusbarConnection(
@@ -173,6 +192,9 @@ private fun isBusbarConnection(
     nodes: List<SldNode>
 ): Boolean {
 
+    /*
+     * Explicit engineering classification is authoritative.
+     */
     if (
         connection.connectionType ==
             SldConnectionType.BUSBAR
@@ -182,24 +204,29 @@ private fun isBusbarConnection(
 
     val from =
         nodes.firstOrNull {
-            it.id ==
-                connection.fromNodeId
+            it.id == connection.fromNodeId
         } ?: return false
 
     val to =
         nodes.firstOrNull {
-            it.id ==
-                connection.toNodeId
+            it.id == connection.toNodeId
         } ?: return false
 
-    return (
-        isInternalPanelType(
-            from.type
-        ) &&
-        isInternalPanelType(
-            to.type
-        )
-        )
+    /*
+     * Legacy / repaired records.
+     *
+     * Only recognized internal equipment pairs are BUSBAR.
+     */
+    return isPanelBreakerPair(
+        from,
+        to
+    ) || isPanelBusPair(
+        from,
+        to
+    ) || isBusBreakerPair(
+        from,
+        to
+    )
 }
 
 /*
@@ -211,14 +238,9 @@ private fun isBusbarConnection(
 private fun nodeCenter(
     node: SldNode
 ): Offset {
-
     return Offset(
-        node.x +
-            NODE_WIDTH /
-            2f,
-
-        node.y +
-            SYMBOL_Y
+        node.x + NODE_WIDTH / 2f,
+        node.y + SYMBOL_Y
     )
 }
 
@@ -240,23 +262,15 @@ private fun directionBetween(
         b.y - a.y
 
     return if (
-        abs(dx) >=
-            abs(dy)
+        abs(dx) >= abs(dy)
     ) {
-
-        if (
-            dx >= 0f
-        ) {
+        if (dx >= 0f) {
             Direction.RIGHT
         } else {
             Direction.LEFT
         }
-
     } else {
-
-        if (
-            dy >= 0f
-        ) {
+        if (dy >= 0f) {
             Direction.DOWN
         } else {
             Direction.UP
@@ -269,42 +283,30 @@ private fun standardPort(
     direction: Direction
 ): Offset {
 
-    return when (
-        direction
-    ) {
+    return when (direction) {
 
         Direction.LEFT ->
             Offset(
                 node.x,
-                node.y +
-                    SYMBOL_Y
+                node.y + SYMBOL_Y
             )
 
         Direction.RIGHT ->
             Offset(
-                node.x +
-                    NODE_WIDTH,
-                node.y +
-                    SYMBOL_Y
+                node.x + NODE_WIDTH,
+                node.y + SYMBOL_Y
             )
 
         Direction.UP ->
             Offset(
-                node.x +
-                    NODE_WIDTH /
-                    2f,
-
+                node.x + NODE_WIDTH / 2f,
                 node.y
             )
 
         Direction.DOWN ->
             Offset(
-                node.x +
-                    NODE_WIDTH /
-                    2f,
-
-                node.y +
-                    NODE_HEIGHT
+                node.x + NODE_WIDTH / 2f,
+                node.y + NODE_HEIGHT
             )
     }
 }
@@ -317,13 +319,10 @@ private fun startPort(
 
     val target =
         nodes.firstOrNull {
-            it.id ==
-                connection.toNodeId
+            it.id == connection.toNodeId
         }
 
-    if (
-        target == null
-    ) {
+    if (target == null) {
         return standardPort(
             node,
             Direction.DOWN
@@ -347,13 +346,10 @@ private fun endPort(
 
     val source =
         nodes.firstOrNull {
-            it.id ==
-                connection.fromNodeId
+            it.id == connection.fromNodeId
         }
 
-    if (
-        source == null
-    ) {
+    if (source == null) {
         return standardPort(
             node,
             Direction.UP
@@ -378,8 +374,7 @@ private fun endPort(
 fun DrawScope.drawSldEngineeringBackground() {
 
     drawRect(
-        color =
-            BACKGROUND
+        color = BACKGROUND
     )
 
     var x = 0f
@@ -389,36 +384,25 @@ fun DrawScope.drawSldEngineeringBackground() {
     ) {
 
         val major =
-            x.toInt() %
-                200 ==
-                0
+            x.toInt() % 200 == 0
 
         drawLine(
             color =
-                if (
-                    major
-                ) {
+                if (major) {
                     GRID_MAJOR
                 } else {
                     GRID
                 },
-
-            start =
-                Offset(
-                    x,
-                    0f
-                ),
-
-            end =
-                Offset(
-                    x,
-                    size.height
-                ),
-
+            start = Offset(
+                x,
+                0f
+            ),
+            end = Offset(
+                x,
+                size.height
+            ),
             strokeWidth =
-                if (
-                    major
-                ) {
+                if (major) {
                     1.4f
                 } else {
                     0.7f
@@ -435,36 +419,25 @@ fun DrawScope.drawSldEngineeringBackground() {
     ) {
 
         val major =
-            y.toInt() %
-                200 ==
-                0
+            y.toInt() % 200 == 0
 
         drawLine(
             color =
-                if (
-                    major
-                ) {
+                if (major) {
                     GRID_MAJOR
                 } else {
                     GRID
                 },
-
-            start =
-                Offset(
-                    0f,
-                    y
-                ),
-
-            end =
-                Offset(
-                    size.width,
-                    y
-                ),
-
+            start = Offset(
+                0f,
+                y
+            ),
+            end = Offset(
+                size.width,
+                y
+            ),
             strokeWidth =
-                if (
-                    major
-                ) {
+                if (major) {
                     1.4f
                 } else {
                     0.7f
@@ -497,10 +470,7 @@ private fun route(
     }
 
     val middleX =
-        (
-            start.x +
-                end.x
-            ) / 2f
+        (start.x + end.x) / 2f
 
     return listOf(
         start,
@@ -541,14 +511,12 @@ private fun professionalRoute(
 
     val dx =
         abs(
-            end.x -
-                start.x
+            end.x - start.x
         )
 
     val dy =
         abs(
-            end.y -
-                start.y
+            end.y - start.y
         )
 
     return if (
@@ -556,10 +524,7 @@ private fun professionalRoute(
     ) {
 
         val midX =
-            (
-                start.x +
-                    end.x
-                ) / 2f
+            (start.x + end.x) / 2f
 
         listOf(
             start,
@@ -577,10 +542,7 @@ private fun professionalRoute(
     } else {
 
         val midY =
-            (
-                start.y +
-                    end.y
-                ) / 2f
+            (start.y + end.y) / 2f
 
         listOf(
             start,
@@ -602,8 +564,10 @@ private fun professionalRoute(
  * EXTERNAL FEEDER
  * ================================================================
  *
- * BUSBAR is NEVER drawn here.
+ * BUSBAR is NEVER drawn as a cable here.
+ * ================================================================
  */
+
 fun DrawScope.drawConnection(
     connection: SldConnection,
     nodes: List<SldNode>,
@@ -616,16 +580,18 @@ fun DrawScope.drawConnection(
 
     val from =
         nodes.firstOrNull {
-            it.id ==
-                connection.fromNodeId
+            it.id == connection.fromNodeId
         } ?: return
 
     val to =
         nodes.firstOrNull {
-            it.id ==
-                connection.toNodeId
+            it.id == connection.toNodeId
         } ?: return
 
+    /*
+     * Real internal busbar is drawn by
+     * SldPanelEnclosureDrawing.
+     */
     if (
         isBusbarConnection(
             connection,
@@ -637,26 +603,16 @@ fun DrawScope.drawConnection(
 
     val start =
         startPort(
-            node =
-                from,
-
-            connection =
-                connection,
-
-            nodes =
-                nodes
+            node = from,
+            connection = connection,
+            nodes = nodes
         )
 
     val end =
         endPort(
-            node =
-                to,
-
-            connection =
-                connection,
-
-            nodes =
-                nodes
+            node = to,
+            connection = connection,
+            nodes = nodes
         )
 
     val points =
@@ -670,8 +626,7 @@ fun DrawScope.drawConnection(
             )
 
         } else if (
-            connection.routePoints
-                .isNotEmpty()
+            connection.routePoints.isNotEmpty()
         ) {
 
             buildList {
@@ -679,13 +634,12 @@ fun DrawScope.drawConnection(
                 add(start)
 
                 addAll(
-                    connection.routePoints
-                        .map {
-                            Offset(
-                                it.x,
-                                it.y
-                            )
-                        }
+                    connection.routePoints.map {
+                        Offset(
+                            it.x,
+                            it.y
+                        )
+                    }
                 )
 
                 add(end)
@@ -741,53 +695,35 @@ fun DrawScope.drawConnection(
         }
 
     drawPath(
-        path =
-            path,
-
-        color =
-            lineColor,
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        if (
-                            selected
-                        ) {
-                            SELECTED_CABLE_WIDTH
-                        } else {
-                            CABLE_WIDTH
-                        },
-
-                    cap =
-                        StrokeCap.Square,
-
-                    join =
-                        StrokeJoin.Miter
-                )
+        path = path,
+        color = lineColor,
+        style = Stroke(
+            width =
+                if (selected) {
+                    SELECTED_CABLE_WIDTH
+                } else {
+                    CABLE_WIDTH
+                },
+            cap = StrokeCap.Square,
+            join = StrokeJoin.Miter
+        )
     )
 
     drawFlowArrow(
-        points =
-            points,
-
-        color =
-            lineColor
+        points = points,
+        color = lineColor
     )
 
     val labelPoint =
         points[
-            points.size /
-                2
+            points.size / 2
         ]
 
     val cableText =
         buildString {
 
             if (
-                connection.cableSizeMm2 >
-                    0.0
+                connection.cableSizeMm2 > 0.0
             ) {
 
                 append(
@@ -801,8 +737,7 @@ fun DrawScope.drawConnection(
                 )
 
                 if (
-                    connection.parallelRuns >
-                        1
+                    connection.parallelRuns > 1
                 ) {
 
                     append(
@@ -816,8 +751,7 @@ fun DrawScope.drawConnection(
             }
 
             if (
-                connection.lengthMeters >
-                    0.0
+                connection.lengthMeters > 0.0
             ) {
 
                 if (
@@ -849,30 +783,109 @@ fun DrawScope.drawConnection(
         }
 
     drawEngineeringLabel(
-        textMeasurer =
-            textMeasurer,
-
-        text =
-            cableText,
-
-        point =
-            Offset(
-                labelPoint.x,
-                labelPoint.y - 14f
-            ),
-
+        textMeasurer = textMeasurer,
+        text = cableText,
+        point = Offset(
+            labelPoint.x,
+            labelPoint.y - 14f
+        ),
         color =
-            if (
-                inadequate
-            ) {
+            if (inadequate) {
                 FAULT
             } else {
                 TEXT_SECONDARY
             },
-
-        fontSize =
-            7.5f
+        fontSize = 7.5f
     )
+
+    /*
+     * Engineering information.
+     */
+    if (
+        feederResult != null
+    ) {
+
+        val engineeringText =
+            buildString {
+
+                if (
+                    feederResult.currentA > 0.0
+                ) {
+                    append(
+                        "Ib "
+                    )
+                    append(
+                        fmt(
+                            feederResult.currentA
+                        )
+                    )
+                    append(
+                        " A"
+                    )
+                }
+
+                if (
+                    feederResult.kva > 0.0
+                ) {
+
+                    if (isNotEmpty()) {
+                        append("  ")
+                    }
+
+                    append(
+                        fmt(
+                            feederResult.kva
+                        )
+                    )
+
+                    append(
+                        " kVA"
+                    )
+                }
+
+                if (
+                    feederResult.voltageDropPercent > 0.0
+                ) {
+
+                    if (isNotEmpty()) {
+                        append("  ")
+                    }
+
+                    append(
+                        "ΔV "
+                    )
+
+                    append(
+                        fmt(
+                            feederResult.voltageDropPercent
+                        )
+                    )
+
+                    append("%")
+                }
+            }
+
+        if (
+            engineeringText.isNotBlank()
+        ) {
+
+            drawEngineeringLabel(
+                textMeasurer = textMeasurer,
+                text = engineeringText,
+                point = Offset(
+                    labelPoint.x,
+                    labelPoint.y + 17f
+                ),
+                color =
+                    if (inadequate) {
+                        FAULT
+                    } else {
+                        OK
+                    },
+                fontSize = 7f
+            )
+        }
+    }
 }
 
 /*
@@ -893,40 +906,23 @@ fun DrawScope.drawNode(
 ) {
 
     /*
-     * CRITICAL:
+     * PANEL and BUS are physical structures handled by
+     * SldPanelEnclosureDrawing.
      *
-     * PANEL and BUS are NOT equipment symbols anymore.
-     *
-     * PANEL:
-     *   rendered by drawPanelEnclosures().
-     *
-     * BUS:
-     *   rendered as a real busbar by drawPanelEnclosures().
-     *
-     * This prevents:
-     *
-     *   small PANEL rectangle inside PANEL enclosure
-     *   BUS circle/line + cable
-     *
-     * from appearing together.
+     * Never draw a second rectangle/circle here.
      */
     if (
-        node.type ==
-            SldNodeType.PANEL ||
-        node.type ==
-            SldNodeType.BUS
+        node.type == SldNodeType.PANEL ||
+        node.type == SldNodeType.BUS
     ) {
         return
     }
 
     val centerX =
-        node.x +
-            NODE_WIDTH /
-            2f
+        node.x + NODE_WIDTH / 2f
 
     val symbolY =
-        node.y +
-            SYMBOL_Y
+        node.y + SYMBOL_Y
 
     if (
         selected ||
@@ -935,30 +931,19 @@ fun DrawScope.drawNode(
 
         drawCircle(
             color =
-                if (
-                    connectionStart
-                ) {
+                if (connectionStart) {
                     START
                 } else {
                     SELECTED
                 },
-
-            radius =
-                39f,
-
-            center =
-                Offset(
-                    centerX,
-                    symbolY
-                ),
-
-            style =
-                androidx.compose.ui.graphics
-                    .drawscope
-                    .Stroke(
-                        width =
-                            3f
-                    )
+            radius = 39f,
+            center = Offset(
+                centerX,
+                symbolY
+            ),
+            style = Stroke(
+                width = 3f
+            )
         )
     }
 
@@ -988,53 +973,34 @@ fun DrawScope.drawNode(
 
             val incoming =
                 connections.firstOrNull {
-                    it.toNodeId ==
-                        node.id
+                    it.toNodeId == node.id
                 }
 
             val outgoing =
                 connections.firstOrNull {
-                    it.fromNodeId ==
-                        node.id
+                    it.fromNodeId == node.id
                 }
 
             val connected =
                 incoming?.let {
-                    nodes.firstOrNull {
-                        it.id ==
+                    nodes.firstOrNull { candidate ->
+                        candidate.id ==
                             incoming.fromNodeId
                     }
                 } ?: outgoing?.let {
-                    nodes.firstOrNull {
-                        it.id ==
+                    nodes.firstOrNull { candidate ->
+                        candidate.id ==
                             outgoing.toNodeId
                     }
                 }
 
-            val incomingBusbar =
-                incoming?.let {
-                    isBusbarConnection(
-                        it,
-                        nodes
-                    )
-                } == true
-
             val direction =
-                if (
-                    incomingBusbar
-                ) {
-
-                    Direction.DOWN
-
-                } else {
-
-                    connected?.let {
-                        directionBetween(
-                            node,
-                            it
-                        )
-                    } ?: Direction.DOWN
-                }
+                connected?.let {
+                    directionBetween(
+                        node,
+                        it
+                    )
+                } ?: Direction.DOWN
 
             drawBreaker(
                 centerX,
@@ -1050,261 +1016,189 @@ fun DrawScope.drawNode(
             )
 
         SldNodeType.PANEL,
-        SldNodeType.BUS -> {
-            return
-        }
+        SldNodeType.BUS -> Unit
     }
 
-    val equipmentY =
-        node.y +
-            70f
-
-    val nameY =
-        node.y +
-            84f
-
-    val electricalY =
-        node.y +
-            100f
-
-    val engineeringY =
-        node.y +
-            116f
-
-    val resultY =
-        node.y +
-            132f
-
+    /*
+     * Equipment label.
+     */
     drawCenteredText(
-        textMeasurer =
-            textMeasurer,
+        textMeasurer = textMeasurer,
+        text =
+            node.name
+                .trim()
+                .ifBlank {
+                    equipmentLabel(
+                        node.type
+                    )
+                },
+        centerX = centerX,
+        y = node.y + 65f,
+        style = TextStyle(
+            color = TEXT,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+    )
 
+    /*
+     * Type.
+     */
+    drawCenteredText(
+        textMeasurer = textMeasurer,
         text =
             equipmentLabel(
                 node.type
             ),
-
-        centerX =
-            centerX,
-
-        y =
-            equipmentY,
-
-        style =
-            TextStyle(
-                color =
-                    TEXT_SECONDARY,
-
-                fontSize =
-                    7.5.sp,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
+        centerX = centerX,
+        y = node.y + 83f,
+        style = TextStyle(
+            color = TEXT_SECONDARY,
+            fontSize = 7.sp
+        )
     )
 
-    val displayName =
-        if (
-            node.tag.isNotBlank()
-        ) {
-            "${node.tag}  ${node.name}"
-        } else {
-            node.name
-        }
+    /*
+     * Engineering values.
+     */
+    engineeringResult?.let {
+        result ->
 
-    drawCenteredText(
-        textMeasurer =
-            textMeasurer,
+        val engineeringLine =
+            buildString {
 
-        text =
-            displayName.take(
-                28
-            ),
-
-        centerX =
-            centerX,
-
-        y =
-            nameY,
-
-        style =
-            TextStyle(
-                color =
-                    TEXT,
-
-                fontSize =
-                    10.sp,
-
-                fontWeight =
-                    FontWeight.Bold
-            )
-    )
-
-    val electrical =
-        buildString {
-
-            append(
-                "V="
-            )
-
-            append(
-                fmt(
-                    node.voltage
-                )
-            )
-
-            append(
-                " V  "
-            )
-
-            append(
-                when (
-                    node.phaseSystem.name
+                if (
+                    result.demandKw > 0.0
                 ) {
 
-                    "THREE_PHASE" ->
-                        "3Φ"
+                    append(
+                        fmt(
+                            result.demandKw
+                        )
+                    )
 
-                    "SINGLE_PHASE" ->
-                        "1Φ"
-
-                    else ->
-                        "DC"
+                    append(
+                        " kW"
+                    )
                 }
+
+                if (
+                    result.kva > 0.0
+                ) {
+
+                    if (isNotEmpty()) {
+                        append("  ")
+                    }
+
+                    append(
+                        fmt(
+                            result.kva
+                        )
+                    )
+
+                    append(
+                        " kVA"
+                    )
+                }
+
+                if (
+                    result.currentA > 0.0
+                ) {
+
+                    if (isNotEmpty()) {
+                        append("  ")
+                    }
+
+                    append(
+                        "Ib "
+                    )
+
+                    append(
+                        fmt(
+                            result.currentA
+                        )
+                    )
+
+                    append(
+                        " A"
+                    )
+                }
+            }
+
+        if (
+            engineeringLine.isNotBlank()
+        ) {
+
+            drawCenteredText(
+                textMeasurer = textMeasurer,
+                text = engineeringLine,
+                centerX = centerX,
+                y = node.y + 99f,
+                style = TextStyle(
+                    color =
+                        if (
+                            result.voltageDropPercent >
+                            3.0
+                        ) {
+                            WARNING
+                        } else {
+                            OK
+                        },
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Bold
+                )
             )
-
-            if (
-                node.loadKw >
-                    0.0
-            ) {
-
-                append(
-                    "  P="
-                )
-
-                append(
-                    fmt(
-                        node.loadKw
-                    )
-                )
-
-                append(
-                    " kW"
-                )
-            }
-
-            if (
-                node.ratedKva >
-                    0.0
-            ) {
-
-                append(
-                    "  R="
-                )
-
-                append(
-                    fmt(
-                        node.ratedKva
-                    )
-                )
-
-                append(
-                    " kVA"
-                )
-            }
         }
 
-    drawCenteredText(
-        textMeasurer =
-            textMeasurer,
+        if (
+            result.recommendedBreakerA > 0.0
+        ) {
 
-        text =
-            electrical,
-
-        centerX =
-            centerX,
-
-        y =
-            electricalY,
-
-        style =
-            TextStyle(
-                color =
-                    TEXT_SECONDARY,
-
-                fontSize =
-                    7.2.sp
+            drawCenteredText(
+                textMeasurer = textMeasurer,
+                text =
+                    "CB " +
+                        fmt(
+                            result.recommendedBreakerA
+                        ) +
+                        " A",
+                centerX = centerX,
+                y = node.y + 113f,
+                style = TextStyle(
+                    color = TEXT_SECONDARY,
+                    fontSize = 7.sp
+                )
             )
-    )
+        }
 
-    engineeringResult?.let {
+        if (
+            result.voltageDropPercent > 0.0
+        ) {
 
-        drawCenteredText(
-            textMeasurer =
-                textMeasurer,
-
-            text =
-                "Pdem=${fmt(it.demandKw)} kW  " +
-                    "S=${fmt(it.kva)} kVA",
-
-            centerX =
-                centerX,
-
-            y =
-                engineeringY,
-
-            style =
-                TextStyle(
+            drawCenteredText(
+                textMeasurer = textMeasurer,
+                text =
+                    "ΔV " +
+                        fmt(
+                            result.voltageDropPercent
+                        ) +
+                        "%",
+                centerX = centerX,
+                y = node.y + 127f,
+                style = TextStyle(
                     color =
-                        TEXT_SECONDARY,
-
-                    fontSize =
-                        7.2.sp
+                        if (
+                            result.voltageDropPercent >
+                            3.0
+                        ) {
+                            FAULT
+                        } else {
+                            OK
+                        },
+                    fontSize = 7.sp
                 )
-        )
-
-        val resultColor =
-            when {
-
-                it.loadingPercent >
-                    100.0 ->
-                    FAULT
-
-                it.voltageDropPercent >
-                    3.0 ->
-                    WARNING
-
-                else ->
-                    OK
-            }
-
-        drawCenteredText(
-            textMeasurer =
-                textMeasurer,
-
-            text =
-                "Ib=${fmt(it.currentA)} A  " +
-                    "CB=${fmt(it.recommendedBreakerA)} A  " +
-                    "ΔV=${fmt(it.voltageDropPercent)}%",
-
-            centerX =
-                centerX,
-
-            y =
-                resultY,
-
-            style =
-                TextStyle(
-                    color =
-                        resultColor,
-
-                    fontSize =
-                        7.2.sp,
-
-                    fontWeight =
-                        FontWeight.Bold
-                )
-        )
+            )
+        }
     }
 }
 
@@ -1320,71 +1214,67 @@ private fun DrawScope.drawSource(
 ) {
 
     drawCircle(
-        color =
-            BLACK,
-
-        radius =
-            25f,
-
-        center =
-            Offset(
-                x,
-                y
-            ),
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        2.8f
-                )
+        color = BLACK,
+        radius = 25f,
+        center = Offset(
+            x,
+            y
+        ),
+        style = Stroke(
+            width = 2.8f
+        )
     )
 
-    val wave =
-        Path().apply {
+    drawLine(
+        color = BLACK,
+        start = Offset(
+            x - 11f,
+            y - 8f
+        ),
+        end = Offset(
+            x,
+            y + 9f
+        ),
+        strokeWidth = 2.5f
+    )
 
-            moveTo(
-                x - 14f,
-                y
-            )
+    drawLine(
+        color = BLACK,
+        start = Offset(
+            x,
+            y + 9f
+        ),
+        end = Offset(
+            x + 11f,
+            y - 8f
+        ),
+        strokeWidth = 2.5f
+    )
 
-            cubicTo(
-                x - 9f,
-                y - 11f,
-                x - 3f,
-                y - 11f,
-                x,
-                y
-            )
+    drawLine(
+        color = BLACK,
+        start = Offset(
+            x - 8f,
+            y - 14f
+        ),
+        end = Offset(
+            x + 8f,
+            y - 14f
+        ),
+        strokeWidth = 2f
+    )
 
-            cubicTo(
-                x + 3f,
-                y + 11f,
-                x + 9f,
-                y + 11f,
-                x + 14f,
-                y
-            )
-        }
-
-    drawPath(
-        path =
-            wave,
-
-        color =
-            BLACK,
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        2.4f,
-
-                    cap =
-                        StrokeCap.Round
-                )
+    drawLine(
+        color = BLACK,
+        start = Offset(
+            x - 8f,
+            y + 14f
+        ),
+        end = Offset(
+            x + 8f,
+            y + 14f
+        ),
+        strokeWidth = 2f
     )
 }
 
@@ -1400,67 +1290,53 @@ private fun DrawScope.drawTransformer(
 ) {
 
     drawCircle(
-        color =
-            BLACK,
-
-        radius =
-            18f,
-
-        center =
-            Offset(
-                x - 12f,
-                y
-            ),
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        2.8f
-                )
+        color = BLACK,
+        radius = 19f,
+        center = Offset(
+            x - 12f,
+            y
+        ),
+        style = Stroke(
+            width = 2.4f
+        )
     )
 
     drawCircle(
-        color =
-            BLACK,
-
-        radius =
-            18f,
-
-        center =
-            Offset(
-                x + 12f,
-                y
-            ),
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        2.8f
-                )
+        color = BLACK,
+        radius = 19f,
+        center = Offset(
+            x + 12f,
+            y
+        ),
+        style = Stroke(
+            width = 2.4f
+        )
     )
 
     drawLine(
-        color =
-            BLACK,
+        color = BLACK,
+        start = Offset(
+            x - 40f,
+            y
+        ),
+        end = Offset(
+            x - 31f,
+            y
+        ),
+        strokeWidth = 2.5f
+    )
 
-        start =
-            Offset(
-                x,
-                y - 25f
-            ),
-
-        end =
-            Offset(
-                x,
-                y + 25f
-            ),
-
-        strokeWidth =
-            1.6f
+    drawLine(
+        color = BLACK,
+        start = Offset(
+            x + 31f,
+            y
+        ),
+        end = Offset(
+            x + 40f,
+            y
+        ),
+        strokeWidth = 2.5f
     )
 }
 
@@ -1476,85 +1352,53 @@ private fun DrawScope.drawGenerator(
 ) {
 
     drawCircle(
-        color =
-            BLACK,
-
-        radius =
-            25f,
-
-        center =
-            Offset(
-                x,
-                y
-            ),
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        2.8f
-                )
-    )
-
-    drawArc(
-        color =
-            BLACK,
-
-        startAngle =
-            -55f,
-
-        sweepAngle =
-            290f,
-
-        useCenter =
-            false,
-
-        topLeft =
-            Offset(
-                x - 15f,
-                y - 15f
-            ),
-
-        size =
-            Size(
-                30f,
-                30f
-            ),
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        2.2f
-                )
+        color = BLACK,
+        radius = 27f,
+        center = Offset(
+            x,
+            y
+        ),
+        style = Stroke(
+            width = 2.5f
+        )
     )
 
     drawLine(
-        color =
-            BLACK,
+        color = BLACK,
+        start = Offset(
+            x - 12f,
+            y - 10f
+        ),
+        end = Offset(
+            x + 12f,
+            y + 10f
+        ),
+        strokeWidth = 2f
+    )
 
-        start =
-            Offset(
-                x - 9f,
-                y
-            ),
-
-        end =
-            Offset(
-                x + 9f,
-                y
-            ),
-
-        strokeWidth =
-            2f
+    drawLine(
+        color = BLACK,
+        start = Offset(
+            x - 12f,
+            y + 10f
+        ),
+        end = Offset(
+            x + 12f,
+            y - 10f
+        ),
+        strokeWidth = 2f
     )
 }
 
 /*
  * ================================================================
  * BREAKER
+ * ================================================================
+ *
+ * Direction is determined from the actual connected equipment.
+ *
+ * This keeps the breaker symbol aligned with the feeder instead
+ * of always drawing vertically.
  * ================================================================
  */
 
@@ -1571,364 +1415,240 @@ private fun DrawScope.drawBreaker(
         Direction.DOWN -> {
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x,
-                        y - 31f
-                    ),
-
-                end =
-                    Offset(
-                        x,
-                        y - 8f
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x,
+                    y - 34f
+                ),
+                end = Offset(
+                    x,
+                    y - 9f
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x,
-                        y - 8f
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x,
+                    y - 9f
+                )
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x,
-                        y - 8f
-                    ),
-
-                end =
-                    Offset(
-                        x + 17f,
-                        y + 10f
-                    ),
-
-                strokeWidth =
-                    3.2f
+                color = BLACK,
+                start = Offset(
+                    x,
+                    y - 9f
+                ),
+                end = Offset(
+                    x + 17f,
+                    y + 10f
+                ),
+                strokeWidth = 3.2f
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x + 17f,
-                        y + 10f
-                    ),
-
-                end =
-                    Offset(
-                        x + 17f,
-                        y + 31f
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x + 17f,
+                    y + 10f
+                ),
+                end = Offset(
+                    x + 17f,
+                    y + 34f
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x + 17f,
-                        y + 31f
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x + 17f,
+                    y + 34f
+                )
             )
         }
 
         Direction.UP -> {
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x,
-                        y + 31f
-                    ),
-
-                end =
-                    Offset(
-                        x,
-                        y + 8f
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x,
+                    y + 34f
+                ),
+                end = Offset(
+                    x,
+                    y + 9f
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x,
-                        y + 8f
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x,
+                    y + 9f
+                )
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x,
-                        y + 8f
-                    ),
-
-                end =
-                    Offset(
-                        x + 17f,
-                        y - 10f
-                    ),
-
-                strokeWidth =
-                    3.2f
+                color = BLACK,
+                start = Offset(
+                    x,
+                    y + 9f
+                ),
+                end = Offset(
+                    x + 17f,
+                    y - 10f
+                ),
+                strokeWidth = 3.2f
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x + 17f,
-                        y - 10f
-                    ),
-
-                end =
-                    Offset(
-                        x + 17f,
-                        y - 31f
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x + 17f,
+                    y - 10f
+                ),
+                end = Offset(
+                    x + 17f,
+                    y - 34f
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x + 17f,
-                        y - 31f
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x + 17f,
+                    y - 34f
+                )
             )
         }
 
         Direction.RIGHT -> {
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x - 31f,
-                        y
-                    ),
-
-                end =
-                    Offset(
-                        x - 8f,
-                        y
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x - 34f,
+                    y
+                ),
+                end = Offset(
+                    x - 9f,
+                    y
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x - 8f,
-                        y
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x - 9f,
+                    y
+                )
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x - 8f,
-                        y
-                    ),
-
-                end =
-                    Offset(
-                        x + 10f,
-                        y - 17f
-                    ),
-
-                strokeWidth =
-                    3.2f
+                color = BLACK,
+                start = Offset(
+                    x - 9f,
+                    y
+                ),
+                end = Offset(
+                    x + 10f,
+                    y + 17f
+                ),
+                strokeWidth = 3.2f
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x + 10f,
-                        y - 17f
-                    ),
-
-                end =
-                    Offset(
-                        x + 31f,
-                        y - 17f
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x + 10f,
+                    y + 17f
+                ),
+                end = Offset(
+                    x + 34f,
+                    y + 17f
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x + 31f,
-                        y - 17f
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x + 34f,
+                    y + 17f
+                )
             )
         }
 
         Direction.LEFT -> {
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x + 31f,
-                        y
-                    ),
-
-                end =
-                    Offset(
-                        x + 8f,
-                        y
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x + 34f,
+                    y
+                ),
+                end = Offset(
+                    x + 9f,
+                    y
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x + 8f,
-                        y
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x + 9f,
+                    y
+                )
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x + 8f,
-                        y
-                    ),
-
-                end =
-                    Offset(
-                        x - 10f,
-                        y - 17f
-                    ),
-
-                strokeWidth =
-                    3.2f
+                color = BLACK,
+                start = Offset(
+                    x + 9f,
+                    y
+                ),
+                end = Offset(
+                    x - 10f,
+                    y + 17f
+                ),
+                strokeWidth = 3.2f
             )
 
             drawLine(
-                color =
-                    BLACK,
-
-                start =
-                    Offset(
-                        x - 10f,
-                        y - 17f
-                    ),
-
-                end =
-                    Offset(
-                        x - 31f,
-                        y - 17f
-                    ),
-
-                strokeWidth =
-                    2.8f
+                color = BLACK,
+                start = Offset(
+                    x - 10f,
+                    y + 17f
+                ),
+                end = Offset(
+                    x - 34f,
+                    y + 17f
+                ),
+                strokeWidth = 2.8f
             )
 
             drawCircle(
-                color =
-                    BLACK,
-
-                radius =
-                    3.2f,
-
-                center =
-                    Offset(
-                        x - 31f,
-                        y - 17f
-                    )
+                color = BLACK,
+                radius = 3.2f,
+                center = Offset(
+                    x - 34f,
+                    y + 17f
+                )
             )
         }
     }
@@ -1946,65 +1666,41 @@ private fun DrawScope.drawLoad(
 ) {
 
     drawCircle(
-        color =
-            BLACK,
-
-        radius =
-            22f,
-
-        center =
-            Offset(
-                x,
-                y
-            ),
-
-        style =
-            androidx.compose.ui.graphics
-                .drawscope
-                .Stroke(
-                    width =
-                        2.8f
-                )
+        color = BLACK,
+        radius = 22f,
+        center = Offset(
+            x,
+            y
+        ),
+        style = Stroke(
+            width = 2.8f
+        )
     )
 
     drawLine(
-        color =
-            BLACK,
-
-        start =
-            Offset(
-                x - 12f,
-                y + 12f
-            ),
-
-        end =
-            Offset(
-                x + 12f,
-                y - 12f
-            ),
-
-        strokeWidth =
-            2.8f
+        color = BLACK,
+        start = Offset(
+            x - 12f,
+            y + 12f
+        ),
+        end = Offset(
+            x + 12f,
+            y - 12f
+        ),
+        strokeWidth = 2.8f
     )
 
     drawLine(
-        color =
-            BLACK,
-
-        start =
-            Offset(
-                x - 12f,
-                y - 12f
-            ),
-
-        end =
-            Offset(
-                x + 12f,
-                y + 12f
-            ),
-
-        strokeWidth =
-            1.8f
+        color = BLACK,
+        start = Offset(
+            x - 12f,
+            y - 12f
+        ),
+        end = Offset(
+            x + 12f,
+            y + 12f
+        ),
+        strokeWidth = 1.8f
     )
 }
 
@@ -2061,31 +1757,19 @@ private fun DrawScope.drawCenteredText(
 
     val measured =
         textMeasurer.measure(
-            text =
-                text,
-
-            style =
-                style
+            text = text,
+            style = style
         )
 
     drawText(
-        textMeasurer =
-            textMeasurer,
-
-        text =
-            text,
-
-        topLeft =
-            Offset(
-                centerX -
-                    measured.size.width /
-                    2f,
-
-                y
-            ),
-
-        style =
-            style
+        textMeasurer = textMeasurer,
+        text = text,
+        topLeft = Offset(
+            centerX -
+                measured.size.width / 2f,
+            y
+        ),
+        style = style
     )
 }
 
@@ -2105,74 +1789,44 @@ private fun DrawScope.drawEngineeringLabel(
 
     val style =
         TextStyle(
-            color =
-                color,
-
-            fontSize =
-                fontSize.sp,
-
-            fontWeight =
-                FontWeight.Bold
+            color = color,
+            fontSize = fontSize.sp,
+            fontWeight = FontWeight.Bold
         )
 
     val measured =
         textMeasurer.measure(
-            text =
-                text,
-
-            style =
-                style
+            text = text,
+            style = style
         )
 
     drawRoundRect(
-        color =
-            LABEL_BG,
-
-        topLeft =
-            Offset(
-                point.x -
-                    measured.size.width /
-                    2f -
-                    5f,
-
-                point.y -
-                    3f
-            ),
-
-        size =
-            Size(
-                measured.size.width +
-                    10f,
-
-                measured.size.height +
-                    7f
-            ),
-
-        cornerRadius =
-            CornerRadius(
-                3f,
-                3f
-            )
+        color = LABEL_BG,
+        topLeft = Offset(
+            point.x -
+                measured.size.width / 2f -
+                5f,
+            point.y - 3f
+        ),
+        size = Size(
+            measured.size.width + 10f,
+            measured.size.height + 7f
+        ),
+        cornerRadius = CornerRadius(
+            3f,
+            3f
+        )
     )
 
     drawText(
-        textMeasurer =
-            textMeasurer,
-
-        text =
-            text,
-
-        topLeft =
-            Offset(
-                point.x -
-                    measured.size.width /
-                    2f,
-
-                point.y
-            ),
-
-        style =
-            style
+        textMeasurer = textMeasurer,
+        text = text,
+        topLeft = Offset(
+            point.x -
+                measured.size.width / 2f,
+            point.y
+        ),
+        style = style
     )
 }
 
@@ -2220,12 +1874,10 @@ private fun DrawScope.drawFlowArrow(
     }
 
     val ux =
-        dx /
-            length
+        dx / length
 
     val uy =
-        dy /
-            length
+        dy / length
 
     val arrowLength =
         10f
@@ -2236,12 +1888,9 @@ private fun DrawScope.drawFlowArrow(
     val base =
         Offset(
             b.x -
-                ux *
-                arrowLength,
-
+                ux * arrowLength,
             b.y -
-                uy *
-                arrowLength
+                uy * arrowLength
         )
 
     val px =
@@ -2260,39 +1909,30 @@ private fun DrawScope.drawFlowArrow(
 
             lineTo(
                 base.x +
-                    px *
-                    arrowWidth,
-
+                    px * arrowWidth,
                 base.y +
-                    py *
-                    arrowWidth
+                    py * arrowWidth
             )
 
             lineTo(
                 base.x -
-                    px *
-                    arrowWidth,
-
+                    px * arrowWidth,
                 base.y -
-                    py *
-                    arrowWidth
+                    py * arrowWidth
             )
 
             close()
         }
 
     drawPath(
-        path =
-            path,
-
-        color =
-            color
+        path = path,
+        color = color
     )
 }
 
 /*
  * ================================================================
- * HIT TEST - NODE
+ * NODE HIT TEST
  * ================================================================
  */
 
@@ -2306,8 +1946,7 @@ fun findNode(
         .filter { node ->
 
             point.x >=
-                node.x -
-                12f &&
+                node.x - 12f &&
 
                 point.x <=
                 node.x +
@@ -2315,8 +1954,7 @@ fun findNode(
                 12f &&
 
                 point.y >=
-                node.y -
-                12f &&
+                node.y - 12f &&
 
                 point.y <=
                 node.y +
@@ -2345,13 +1983,14 @@ fun findNode(
 
 /*
  * ================================================================
- * HIT TEST - CONNECTION
+ * CONNECTION HIT TEST
  * ================================================================
  *
- * Internal BUSBAR is intentionally not treated as a cable.
- *
- * External feeder remains selectable.
+ * BUSBAR is not selectable as a cable.
+ * External CABLE feeders remain selectable.
+ * ================================================================
  */
+
 fun findConnection(
     point: Offset,
     nodes: List<SldNode>,
@@ -2368,6 +2007,10 @@ fun findConnection(
     connections.forEach {
         connection ->
 
+        /*
+         * Internal physical busbar is handled by the panel
+         * enclosure and is not a cable connection.
+         */
         if (
             isBusbarConnection(
                 connection,
@@ -2389,74 +2032,63 @@ fun findConnection(
                     connection.toNodeId
             } ?: return@forEach
 
+        val start =
+            startPort(
+                from,
+                connection,
+                nodes
+            )
+
+        val end =
+            endPort(
+                to,
+                connection,
+                nodes
+            )
+
         val points =
             if (
-                connection.routePoints
-                    .isNotEmpty()
+                connection.routePoints.isNotEmpty()
             ) {
 
                 buildList {
 
-                    add(
-                        startPort(
-                            from,
-                            connection,
-                            nodes
-                        )
-                    )
+                    add(start)
 
                     addAll(
-                        connection.routePoints
-                            .map {
-                                Offset(
-                                    it.x,
-                                    it.y
-                                )
-                            }
+                        connection.routePoints.map {
+                            Offset(
+                                it.x,
+                                it.y
+                            )
+                        }
                     )
 
-                    add(
-                        endPort(
-                            to,
-                            connection,
-                            nodes
-                        )
-                    )
+                    add(end)
                 }
 
             } else {
 
                 professionalRoute(
-                    startPort(
-                        from,
-                        connection,
-                        nodes
-                    ),
-
-                    endPort(
-                        to,
-                        connection,
-                        nodes
-                    )
+                    start,
+                    end
                 )
             }
 
         for (
-            index in 0 until
-                points.lastIndex
+            index in 0 until points.lastIndex
         ) {
 
             val distance =
                 distanceToSegment(
-                    point,
-                    points[index],
-                    points[index + 1]
+                    point = point,
+                    a = points[index],
+                    b = points[index + 1]
                 )
 
             if (
                 distance < 18f &&
-                distance <
-                    bestDistance
+                distance < bestDistance
             ) {
 
                 bestDistance =
@@ -2470,6 +2102,12 @@ fun findConnection(
 
     return best
 }
+
+/*
+ * ================================================================
+ * DISTANCE TO LINE SEGMENT
+ * ================================================================
+ */
 
 private fun distanceToSegment(
     point: Offset,
@@ -2503,11 +2141,8 @@ private fun distanceToSegment(
 
     val t =
         (
-            (point.x - a.x) *
-                dx +
-
-                (point.y - a.y) *
-                dy
+            (point.x - a.x) * dx +
+                (point.y - a.y) * dy
             ) /
             denominator
 
@@ -2519,13 +2154,11 @@ private fun distanceToSegment(
 
     val px =
         a.x +
-            clamped *
-            dx
+            clamped * dx
 
     val py =
         a.y +
-            clamped *
-            dy
+            clamped * dy
 
     return sqrt(
         (point.x - px) *
