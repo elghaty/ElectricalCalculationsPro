@@ -7,20 +7,39 @@ import kotlin.math.sqrt
 /**
  * Professional voltage-drop mathematical engine.
  *
- * This class performs only the electrical calculation.
+ * The section-based overload derives conductor resistance from:
  *
- * Final design verification should use manufacturer/catalogue
- * R and X values for the selected cable.
+ *      R = rho × L / S
+ *
+ * Manufacturer/catalogue data should be preferred for final design.
+ *
+ * Catalogue-data overload accepts R and X directly in ohm/km.
  */
 object VoltageDropCalculator {
 
     private const val EPSILON = 1.0e-9
 
-    /**
-     * Legacy/public API preserved for UI compatibility.
+    /*
+     * Approximate conductor resistivity at 20 °C.
      *
-     * Uses engineering default R/X values when exact manufacturer
-     * impedance data are not supplied.
+     * These values are used only when manufacturer R/X data
+     * are not supplied through the catalogue-data overload.
+     */
+    private const val COPPER_RESISTIVITY_OHM_MM2_PER_M = 0.0175
+    private const val ALUMINUM_RESISTIVITY_OHM_MM2_PER_M = 0.0282
+
+    /*
+     * Typical engineering reactance used only by the legacy
+     * section/material overload.
+     *
+     * Final design should use the manufacturer's X value.
+     */
+    private const val DEFAULT_AC_REACTANCE_OHM_PER_KM = 0.08
+
+    /**
+     * Legacy/public API.
+     *
+     * Section size is now actually used in the resistance calculation.
      */
     fun calculate(
         current: Double,
@@ -32,16 +51,59 @@ object VoltageDropCalculator {
         voltage: Double
     ): Pair<Double, Double> {
 
-        val resistanceOhmPerKm =
+        require(current >= 0.0) {
+            "Current cannot be negative."
+        }
+
+        require(length >= 0.0) {
+            "Length cannot be negative."
+        }
+
+        require(sectionMm2 > EPSILON) {
+            "Conductor section must be greater than zero."
+        }
+
+        require(voltage > EPSILON) {
+            "Voltage must be greater than zero."
+        }
+
+        require(
+            powerFactor > EPSILON &&
+                powerFactor <= 1.0
+        ) {
+            "Power factor must be > 0 and <= 1."
+        }
+
+        val resistivityOhmMm2PerM =
             when (material) {
-                ConductorMaterial.Copper -> 22.5
-                ConductorMaterial.Aluminum -> 36.0
+                ConductorMaterial.Copper ->
+                    COPPER_RESISTIVITY_OHM_MM2_PER_M
+
+                ConductorMaterial.Aluminum ->
+                    ALUMINUM_RESISTIVITY_OHM_MM2_PER_M
             }
+
+        /*
+         * rho is in ohm.mm²/m.
+         *
+         * Convert the result to ohm/km:
+         *
+         * R/km = rho × 1000 / S
+         */
+        val resistanceOhmPerKm =
+            resistivityOhmMm2PerM *
+                1000.0 /
+                sectionMm2
 
         val reactanceOhmPerKm =
             when (currentType) {
-                CurrentType.DirectCurrent -> 0.0
-                else -> 0.08
+                CurrentType.DirectCurrent ->
+                    0.0
+
+                CurrentType.AlternatingSinglePhase,
+                CurrentType.AlternatingTwoPhase,
+                CurrentType.AlternatingThreePhase ->
+                    DEFAULT_AC_REACTANCE_OHM_PER_KM
             }
 
         return calculate(
@@ -58,8 +120,10 @@ object VoltageDropCalculator {
     /**
      * Professional catalogue-data calculation.
      *
-     * R and X are supplied directly from the selected cable
-     * manufacturer catalogue in ohm/km.
+     * R and X must be supplied in ohm/km.
+     *
+     * For final engineering design these values should preferably
+     * come from the selected cable manufacturer's catalogue.
      */
     fun calculate(
         current: Double,
@@ -106,6 +170,14 @@ object VoltageDropCalculator {
                     ).coerceAtLeast(0.0)
             )
 
+        /*
+         * Voltage-drop loop factors:
+         *
+         * DC              -> 2
+         * Single phase    -> 2
+         * Two phase       -> 2
+         * Three phase     -> sqrt(3)
+         */
         val loopFactor =
             when (currentType) {
 
@@ -122,6 +194,11 @@ object VoltageDropCalculator {
                     sqrt(3.0)
             }
 
+        /*
+         * Input length is metres.
+         *
+         * R/X are ohm/km.
+         */
         val resistanceOhm =
             resistanceOhmPerKm *
                 (length / 1000.0)
@@ -130,6 +207,9 @@ object VoltageDropCalculator {
             reactanceOhmPerKm *
                 (length / 1000.0)
 
+        /*
+         * ΔV = K × I × (R cosφ + X sinφ)
+         */
         val voltageDropVolts =
             loopFactor *
                 current *
@@ -157,8 +237,9 @@ object VoltageDropCalculator {
         currentType: CurrentType,
         material: ConductorMaterial,
         voltage: Double
-    ): Double =
-        calculate(
+    ): Double {
+
+        return calculate(
             current = current,
             length = length,
             sectionMm2 = sectionMm2,
@@ -167,6 +248,7 @@ object VoltageDropCalculator {
             material = material,
             voltage = voltage
         ).first
+    }
 
     fun voltageDropVolts(
         current: Double,
@@ -176,8 +258,9 @@ object VoltageDropCalculator {
         currentType: CurrentType,
         material: ConductorMaterial,
         voltage: Double
-    ): Double =
-        calculate(
+    ): Double {
+
+        return calculate(
             current = current,
             length = length,
             sectionMm2 = sectionMm2,
@@ -186,6 +269,7 @@ object VoltageDropCalculator {
             material = material,
             voltage = voltage
         ).second
+    }
 
     fun voltageDropPercent(
         current: Double,
@@ -195,8 +279,9 @@ object VoltageDropCalculator {
         voltage: Double,
         resistanceOhmPerKm: Double,
         reactanceOhmPerKm: Double
-    ): Double =
-        calculate(
+    ): Double {
+
+        return calculate(
             current = current,
             length = length,
             powerFactor = powerFactor,
@@ -205,6 +290,7 @@ object VoltageDropCalculator {
             resistanceOhmPerKm = resistanceOhmPerKm,
             reactanceOhmPerKm = reactanceOhmPerKm
         ).first
+    }
 
     fun voltageDropVolts(
         current: Double,
@@ -214,8 +300,9 @@ object VoltageDropCalculator {
         voltage: Double,
         resistanceOhmPerKm: Double,
         reactanceOhmPerKm: Double
-    ): Double =
-        calculate(
+    ): Double {
+
+        return calculate(
             current = current,
             length = length,
             powerFactor = powerFactor,
@@ -224,4 +311,5 @@ object VoltageDropCalculator {
             resistanceOhmPerKm = resistanceOhmPerKm,
             reactanceOhmPerKm = reactanceOhmPerKm
         ).second
+    }
 }
