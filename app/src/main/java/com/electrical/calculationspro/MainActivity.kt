@@ -67,11 +67,8 @@ import com.electrical.calculationspro.ui.project.DesignGridItem
 import com.electrical.calculationspro.ui.project.FourColumnDesignGrid
 import com.electrical.calculationspro.ui.project.ProjectDashboardScreen
 
-import com.electrical.calculationspro.ui.screens.ConductorSizingScreen
-import com.electrical.calculationspro.ui.screens.CurrentCalculationScreen
 import com.electrical.calculationspro.ui.screens.EngineeringModule
 import com.electrical.calculationspro.ui.screens.EngineeringModuleScreen
-import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
 import com.electrical.calculationspro.ui.screens.PumpEngineeringScreen
 
 import com.electrical.calculationspro.ui.screens.sld.SldEditorScreen
@@ -203,8 +200,10 @@ private fun ElectricalCalculationsProApp() {
 
         AppScreen.CURRENT -> {
 
-            CurrentCalculationScreen(
+            EngineeringModuleScreen(
+                module = EngineeringModule.CURRENT,
                 language = language,
+                standard = standard,
 
                 onBack = {
                     screen = AppScreen.HOME
@@ -218,7 +217,8 @@ private fun ElectricalCalculationsProApp() {
 
         AppScreen.CABLE -> {
 
-            ConductorSizingScreen(
+            EngineeringModuleScreen(
+                module = EngineeringModule.CABLE,
                 language = language,
                 standard = standard,
 
@@ -234,7 +234,8 @@ private fun ElectricalCalculationsProApp() {
 
         AppScreen.VOLTAGE_DROP -> {
 
-            ProfessionalVoltageDropScreen(
+            EngineeringModuleScreen(
+                module = EngineeringModule.VOLTAGE_DROP,
                 language = language,
                 standard = standard,
 
@@ -390,9 +391,6 @@ private fun ElectricalCalculationsProApp() {
         /*
          * ====================================================
          * DIRECT PROFESSIONAL SLD SCREEN
-         *
-         * There is intentionally NO SLD Home screen here.
-         * SLD is a primary engineering workspace.
          * ====================================================
          */
         AppScreen.SLD -> {
@@ -439,10 +437,6 @@ private fun ElectricalCalculationsProApp() {
 
                 mainTab = selected
 
-                /*
-                 * SLD is a primary workspace.
-                 * Selecting it opens the designer directly.
-                 */
                 screen =
                     if (selected == MainTab.SLD) {
                         AppScreen.SLD
@@ -468,9 +462,6 @@ private fun ElectricalCalculationsProApp() {
                         screen = AppScreen.HOME
                     },
 
-                    /*
-                     * DIRECT SLD NAVIGATION
-                     */
                     onOpenSld = {
                         mainTab = MainTab.SLD
                         screen = AppScreen.SLD
@@ -538,10 +529,6 @@ private fun ElectricalCalculationsProApp() {
 
                 mainTab = selected
 
-                /*
-                 * SLD is a primary workspace.
-                 * Selecting it opens the designer directly.
-                 */
                 screen =
                     if (selected == MainTab.SLD) {
                         AppScreen.SLD
@@ -567,9 +554,6 @@ private fun ElectricalCalculationsProApp() {
                         screen = AppScreen.HOME
                     },
 
-                    /*
-                     * DIRECT SLD NAVIGATION
-                     */
                     onOpenSld = {
                         mainTab = MainTab.SLD
                         screen = AppScreen.SLD
@@ -777,9 +761,6 @@ private fun PhoneApplicationShell(
 /**
  * ============================================================
  * MAIN CONTENT ROUTER
- *
- * SLD is intentionally not rendered here.
- * It is routed directly through AppScreen.SLD.
  * ============================================================
  */
 @Composable
@@ -847,13 +828,6 @@ private fun MainWorkspaceContent(
         }
 
 
-        /*
-         * Normally unreachable because selecting SLD
-         * changes AppScreen to AppScreen.SLD immediately.
-         *
-         * Kept as a safe fallback so the router remains
-         * exhaustive without creating an SLD Home screen.
-         */
         MainTab.SLD -> {
 
             onOpenSld()
