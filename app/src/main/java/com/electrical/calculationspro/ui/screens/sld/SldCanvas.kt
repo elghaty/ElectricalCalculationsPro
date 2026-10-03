@@ -45,9 +45,6 @@ private const val BUTTON_ZOOM_FACTOR = 1.20f
 private const val DOUBLE_TAP_TIMEOUT = 350L
 private const val DOUBLE_TAP_DISTANCE = 48f
 
-/*
- * Geometry is defined only in SldCanvasDrawing.kt.
- */
 private const val NODE_CENTER_Y = 75f
 private const val TAP_SLOP = 6f
 
@@ -123,7 +120,6 @@ fun SldCanvas(
         }
 
     fun safeZoom(): Float {
-
         return zoom
             .takeIf {
                 it.isFinite() &&
@@ -225,7 +221,6 @@ fun SldCanvas(
     }
 
     fun resetView() {
-
         zoom = 1f
         panX = 0f
         panY = 0f
@@ -272,11 +267,7 @@ fun SldCanvas(
                                 )
 
                             /*
-                             * IMPORTANT:
-                             * Connection hit-testing has priority over
-                             * node hit-testing. This prevents a busbar
-                             * connection/tap inside a panel from being
-                             * swallowed by the panel hit rectangle.
+                             * Connection hit testing has priority.
                              */
                             val firstConnection =
                                 findConnection(
@@ -359,7 +350,7 @@ fun SldCanvas(
 
                                 /*
                                  * ==================================================
-                                 * TWO OR MORE FINGERS
+                                 * MULTI TOUCH
                                  * ==================================================
                                  */
                                 if (
@@ -449,7 +440,6 @@ fun SldCanvas(
                                     if (
                                         pan != Offset.Zero
                                     ) {
-
                                         panX += pan.x
                                         panY += pan.y
                                     }
@@ -630,8 +620,12 @@ fun SldCanvas(
             }) {
 
                 /*
-                 * Connections are rendered first so that nodes remain
-                 * visually dominant and connection taps remain clear.
+                 * ==========================================================
+                 * EXTERNAL FEEDERS
+                 * ==========================================================
+                 *
+                 * drawConnection() intentionally ignores BUSBAR
+                 * connections. Only real external feeders are drawn here.
                  */
                 currentConnections.forEach {
                     connection ->
@@ -667,6 +661,36 @@ fun SldCanvas(
                     )
                 }
 
+                /*
+                 * ==========================================================
+                 * REAL PANEL ENCLOSURES + REAL INTERNAL BUSBARS
+                 * ==========================================================
+                 *
+                 * This layer is deliberately between feeders and
+                 * equipment symbols.
+                 *
+                 * It owns:
+                 * - panel border
+                 * - internal busbar
+                 * - breaker taps
+                 * - panel/bus/breaker enclosure grouping
+                 */
+                drawPanelEnclosures(
+                    nodes =
+                        currentNodes,
+
+                    connections =
+                        currentConnections,
+
+                    textMeasurer =
+                        textMeasurer
+                )
+
+                /*
+                 * ==========================================================
+                 * EQUIPMENT SYMBOLS
+                 * ==========================================================
+                 */
                 currentNodes.forEach {
                     node ->
 
@@ -706,8 +730,9 @@ fun SldCanvas(
                 }
 
                 /*
-                 * Connection-start indicator uses the same node
-                 * center geometry as the drawing layer.
+                 * ==========================================================
+                 * CONNECTION START INDICATOR
+                 * ==========================================================
                  */
                 currentConnectionStartId
                     ?.let { startId ->
@@ -753,6 +778,11 @@ fun SldCanvas(
             }
         }
 
+        /*
+         * ================================================================
+         * VIEW CONTROLS
+         * ================================================================
+         */
         Column(
             modifier =
                 Modifier
