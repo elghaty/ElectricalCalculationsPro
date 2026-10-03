@@ -30,7 +30,7 @@ import kotlin.math.sqrt
  *     PANEL  -> BUS
  *     BUS    -> BREAKER
  *
- * These are internal switchboard/panel connections.
+ * These are internal switchgear/panel connections.
  *
  * They are NOT cables.
  *
@@ -65,13 +65,6 @@ object SldTopologyEngine {
         VISITED
     }
 
-    /*
-     * IMPORTANT:
-     *
-     * SldTopologyEngine is already an object.
-     * Kotlin does not allow a companion object inside another
-     * object. Keep these constants directly inside the object.
-     */
     private const val DEFAULT_BUSBAR_CURRENT_A = 400.0
     private const val DEFAULT_BUSBAR_SHORT_CIRCUIT_KA = 25.0
 
@@ -79,36 +72,36 @@ object SldTopologyEngine {
      * ============================================================
      * INTERNAL BUSBAR PAIR
      * ============================================================
+     *
+     * Supported:
+     *
+     * PANEL   <-> BREAKER
+     * PANEL   <-> BUS
+     * BUS     <-> BREAKER
      */
     private fun isInternalBusbarPair(
         first: SldNodeType,
         second: SldNodeType
     ): Boolean {
-
         return (
             first == SldNodeType.PANEL &&
                 second == SldNodeType.BREAKER
-            ) ||
-            (
-                first == SldNodeType.BREAKER &&
-                    second == SldNodeType.PANEL
-                ) ||
-            (
-                first == SldNodeType.PANEL &&
-                    second == SldNodeType.BUS
-                ) ||
-            (
-                first == SldNodeType.BUS &&
-                    second == SldNodeType.PANEL
-                ) ||
-            (
-                first == SldNodeType.BUS &&
-                    second == SldNodeType.BREAKER
-                ) ||
-            (
-                first == SldNodeType.BREAKER &&
-                    second == SldNodeType.BUS
-                )
+            ) || (
+            first == SldNodeType.BREAKER &&
+                second == SldNodeType.PANEL
+            ) || (
+            first == SldNodeType.PANEL &&
+                second == SldNodeType.BUS
+            ) || (
+            first == SldNodeType.BUS &&
+                second == SldNodeType.PANEL
+            ) || (
+            first == SldNodeType.BUS &&
+                second == SldNodeType.BREAKER
+            ) || (
+            first == SldNodeType.BREAKER &&
+                second == SldNodeType.BUS
+            )
     }
 
     /**
@@ -116,9 +109,13 @@ object SldTopologyEngine {
      * BUSBAR DIRECTION
      * ============================================================
      *
+     * Authoritative direction:
+     *
      * PANEL -> BUS
      * PANEL -> BREAKER
      * BUS   -> BREAKER
+     *
+     * Reverse legacy relations are normalized.
      */
     private fun normalizeBusbarDirection(
         from: SldNode,
@@ -128,31 +125,38 @@ object SldTopologyEngine {
         return when {
 
             from.type == SldNodeType.PANEL &&
-                to.type == SldNodeType.BREAKER ->
+                to.type == SldNodeType.BREAKER -> {
                 from to to
+            }
 
             from.type == SldNodeType.BREAKER &&
-                to.type == SldNodeType.PANEL ->
+                to.type == SldNodeType.PANEL -> {
                 to to from
+            }
 
             from.type == SldNodeType.PANEL &&
-                to.type == SldNodeType.BUS ->
+                to.type == SldNodeType.BUS -> {
                 from to to
+            }
 
             from.type == SldNodeType.BUS &&
-                to.type == SldNodeType.PANEL ->
+                to.type == SldNodeType.PANEL -> {
                 to to from
+            }
 
             from.type == SldNodeType.BUS &&
-                to.type == SldNodeType.BREAKER ->
+                to.type == SldNodeType.BREAKER -> {
                 from to to
+            }
 
             from.type == SldNodeType.BREAKER &&
-                to.type == SldNodeType.BUS ->
+                to.type == SldNodeType.BUS -> {
                 to to from
+            }
 
-            else ->
+            else -> {
                 from to to
+            }
         }
     }
 
@@ -160,6 +164,14 @@ object SldTopologyEngine {
      * ============================================================
      * BUSBAR RATING
      * ============================================================
+     *
+     * Existing valid busbar rating is preserved.
+     *
+     * Otherwise:
+     *
+     *     I = S / (sqrt(3) x V)
+     *
+     * Minimum default busbar rating = 400 A.
      */
     private fun resolveBusbarCurrent(
         from: SldNode,
@@ -176,23 +188,23 @@ object SldTopologyEngine {
 
         val panel =
             when {
-                from.type == SldNodeType.PANEL ->
+                from.type == SldNodeType.PANEL -> {
                     from
+                }
 
-                to.type == SldNodeType.PANEL ->
+                to.type == SldNodeType.PANEL -> {
                     to
+                }
 
-                else ->
+                else -> {
                     null
+                }
             }
 
         if (panel != null) {
 
-            val kva =
-                panel.ratedKva
-
-            val voltage =
-                panel.voltage
+            val kva = panel.ratedKva
+            val voltage = panel.voltage
 
             if (
                 kva.isFinite() &&
@@ -213,7 +225,6 @@ object SldTopologyEngine {
                     calculated.isFinite() &&
                     calculated > 0.0
                 ) {
-
                     return maxOf(
                         DEFAULT_BUSBAR_CURRENT_A,
                         calculated
@@ -229,6 +240,11 @@ object SldTopologyEngine {
      * ============================================================
      * NORMALIZE ONE CONNECTION
      * ============================================================
+     *
+     * Explicit BUSBAR or legacy internal
+     * PANEL/BUS/BREAKER relations are normalized as BUSBAR.
+     *
+     * BUSBAR never carries cable engineering data.
      */
     private fun normalizeConnection(
         connection: SldConnection,
@@ -252,8 +268,10 @@ object SldTopologyEngine {
             )
 
         /*
-         * Explicit BUSBAR or legacy internal PANEL/BUS/BREAKER
-         * relation is always normalized as BUSBAR.
+         * Normal non-internal connections remain CABLE.
+         *
+         * Explicit BUSBAR connections must be valid internal
+         * switchgear relations.
          */
         if (
             connection.connectionType !=
@@ -309,11 +327,6 @@ object SldTopologyEngine {
             connectionType =
                 SldConnectionType.BUSBAR,
 
-            /*
-             * ------------------------------------------------------
-             * Cable data MUST be removed from BUSBAR.
-             * ------------------------------------------------------
-             */
             lengthMeters = 0.0,
 
             resistanceOhmPerKm = 0.0,
@@ -386,6 +399,12 @@ object SldTopologyEngine {
 
         normalized.forEach { connection ->
 
+            /*
+             * Logical duplicate key.
+             *
+             * Type is retained in the key because the normalized
+             * topology explicitly distinguishes BUSBAR and CABLE.
+             */
             val key =
                 "${connection.fromNodeId}->" +
                     "${connection.toNodeId}:" +
@@ -406,7 +425,7 @@ object SldTopologyEngine {
 
     /**
      * ============================================================
-     * BUILD
+     * BUILD AUTHORITATIVE TOPOLOGY
      * ============================================================
      */
     fun build(
@@ -420,7 +439,7 @@ object SldTopologyEngine {
         }
 
         /*
-         * Normalize first.
+         * Normalize before any topology validation.
          */
         val normalizedNetwork =
             normalizeNetwork(
@@ -445,9 +464,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * CONNECTION IDs
-         * ============================================================
+         * ==========================================================
          */
 
         val connectionIds =
@@ -463,9 +482,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * SOURCE
-         * ============================================================
+         * ==========================================================
          */
 
         val sourceNodes =
@@ -491,9 +510,9 @@ object SldTopologyEngine {
             sourceNodes.single()
 
         /*
-         * ============================================================
+         * ==========================================================
          * CONNECTION VALIDATION
-         * ============================================================
+         * ==========================================================
          */
 
         connections.forEach { connection ->
@@ -515,6 +534,11 @@ object SldTopologyEngine {
                 "Connection ${connection.id}: node cannot connect to itself."
             }
 
+            /*
+             * ------------------------------------------------------
+             * CABLE
+             * ------------------------------------------------------
+             */
             if (
                 connection.connectionType ==
                     SldConnectionType.CABLE
@@ -545,6 +569,11 @@ object SldTopologyEngine {
                 }
             }
 
+            /*
+             * ------------------------------------------------------
+             * BUSBAR
+             * ------------------------------------------------------
+             */
             if (
                 connection.connectionType ==
                     SldConnectionType.BUSBAR
@@ -598,9 +627,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * DUPLICATE DIRECTED CONNECTIONS
-         * ============================================================
+         * ==========================================================
          */
 
         val directedKeys =
@@ -619,22 +648,22 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * GRAPH
-         * ============================================================
+         * ==========================================================
          */
 
         val childrenIds =
             mutableMapOf<
                 String,
                 MutableList<String>
-            >()
+                >()
 
         val parentIds =
             mutableMapOf<
                 String,
                 MutableList<String>
-            >()
+                >()
 
         nodes.forEach { node ->
 
@@ -663,9 +692,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * SOURCE ROOT
-         * ============================================================
+         * ==========================================================
          */
 
         require(
@@ -679,9 +708,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * RADIAL PARENT RULE
-         * ============================================================
+         * ==========================================================
          */
 
         val multiParent =
@@ -704,16 +733,16 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * CYCLE DETECTION
-         * ============================================================
+         * ==========================================================
          */
 
         val state =
             mutableMapOf<
                 String,
                 VisitState
-            >()
+                >()
 
         nodes.forEach { node ->
 
@@ -755,6 +784,7 @@ object SldTopologyEngine {
             ]
                 .orEmpty()
                 .forEach { childId ->
+
                     dfs(
                         childId
                     )
@@ -768,8 +798,9 @@ object SldTopologyEngine {
 
             if (
                 state[node.id] ==
-                    VisitState.UNVISITED
+                VisitState.UNVISITED
             ) {
+
                 dfs(
                     node.id
                 )
@@ -777,9 +808,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * SOURCE REACHABILITY
-         * ============================================================
+         * ==========================================================
          */
 
         val reachable =
@@ -817,6 +848,7 @@ object SldTopologyEngine {
                         childId !in
                         reachable
                     ) {
+
                         queue.add(
                             childId
                         )
@@ -842,9 +874,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * MISSING PARENT
-         * ============================================================
+         * ==========================================================
          */
 
         val missingParents =
@@ -871,9 +903,9 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
+         * ==========================================================
          * SOURCE OUTPUT
-         * ============================================================
+         * ==========================================================
          */
 
         require(
@@ -887,22 +919,22 @@ object SldTopologyEngine {
         }
 
         /*
-         * ============================================================
-         * FINAL OBJECTS
-         * ============================================================
+         * ==========================================================
+         * FINAL AUTHORITATIVE OBJECTS
+         * ==========================================================
          */
 
         val finalChildren =
             mutableMapOf<
                 String,
                 MutableList<SldNode>
-            >()
+                >()
 
         val finalParents =
             mutableMapOf<
                 String,
                 MutableList<SldNode>
-            >()
+                >()
 
         nodes.forEach { node ->
 
