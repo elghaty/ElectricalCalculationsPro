@@ -3,25 +3,13 @@ package com.electrical.calculationspro.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountTree
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.ElectricalServices
-import androidx.compose.material.icons.outlined.Factory
-import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.Power
-import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -77,90 +65,103 @@ fun EngineeringModuleScreen(
     onOpenSld: (() -> Unit)? = null
 ) {
     when (module) {
-        EngineeringModule.LOAD ->
+        EngineeringModule.LOAD -> {
             LoadEngineeringScreen(
                 language = language,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.CURRENT ->
+        EngineeringModule.CURRENT -> {
             CurrentCalculationScreen(
                 language = language,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.CABLE ->
+        EngineeringModule.CABLE -> {
             ConductorSizingScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.VOLTAGE_DROP ->
+        EngineeringModule.VOLTAGE_DROP -> {
             ProfessionalVoltageDropScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.BREAKER ->
+        EngineeringModule.BREAKER -> {
             BreakerEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.TRANSFORMER ->
+        EngineeringModule.TRANSFORMER -> {
             TransformerEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.GENERATOR ->
+        EngineeringModule.GENERATOR -> {
             GeneratorEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.PANEL ->
+        EngineeringModule.PANEL -> {
             PanelEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack,
                 onOpenSld = onOpenSld
             )
+        }
 
-        EngineeringModule.SHORT_CIRCUIT ->
+        EngineeringModule.SHORT_CIRCUIT -> {
             ShortCircuitEngineeringScreen(
                 language = language,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.PROTECTION ->
+        EngineeringModule.PROTECTION -> {
             ProtectionEngineeringScreen(
                 language = language,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.WATER ->
+        EngineeringModule.WATER -> {
             WaterEngineeringModuleScreen(
                 language = language,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.SEWAGE ->
+        EngineeringModule.SEWAGE -> {
             SewageEngineeringModuleScreen(
                 language = language,
                 onBack = onBack
             )
+        }
 
-        EngineeringModule.REPORT ->
+        EngineeringModule.REPORT -> {
             EngineeringReportModuleScreen(
                 language = language,
                 onBack = onBack
             )
+        }
     }
 }
 
@@ -199,8 +200,8 @@ private fun LoadEngineeringScreen(
                 value = loadKw,
                 onValueChange = {
                     loadKw = it
-                    error = null
                     result = null
+                    error = null
                 }
             )
 
@@ -209,8 +210,8 @@ private fun LoadEngineeringScreen(
                 value = voltage,
                 onValueChange = {
                     voltage = it
-                    error = null
                     result = null
+                    error = null
                 }
             )
 
@@ -219,8 +220,8 @@ private fun LoadEngineeringScreen(
                 value = pf,
                 onValueChange = {
                     pf = it
-                    error = null
                     result = null
+                    error = null
                 }
             )
 
@@ -229,43 +230,23 @@ private fun LoadEngineeringScreen(
                 value = currentType,
                 onChange = {
                     currentType = it
-                    error = null
                     result = null
+                    error = null
                 }
             )
         }
 
         EngineeringPrimaryButton(
-            text = if (arabic) {
-                "احسب تيار التصميم"
-            } else {
-                "Calculate Design Current"
-            },
+            text = if (arabic) "احسب تيار التصميم" else "Calculate Design Current",
             onClick = {
                 try {
                     val load = loadKw.toDouble()
                     val v = voltage.toDouble()
                     val factor = pf.toDouble()
 
-                    if (load <= 0.0 || v <= 0.0) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "الحمل والجهد يجب أن يكونا أكبر من صفر."
-                            } else {
-                                "Load and voltage must be greater than zero."
-                            }
-                        )
-                    }
-
-                    if (factor <= 0.0 || factor > 1.0) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "Power Factor يجب أن يكون بين 0 و1."
-                            } else {
-                                "Power Factor must be between 0 and 1."
-                            }
-                        )
-                    }
+                    require(load > 0.0)
+                    require(v > 0.0)
+                    require(factor > 0.0 && factor <= 1.0)
 
                     result =
                         ElectricalCalculations.calculateDesignCurrentFromKw(
@@ -276,15 +257,14 @@ private fun LoadEngineeringScreen(
                         )
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "بيانات الإدخال غير صحيحة."
-                            } else {
-                                "Invalid input data."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "بيانات الإدخال غير صحيحة."
+                        } else {
+                            "Invalid input data."
+                        }
                 }
             }
         )
@@ -309,149 +289,6 @@ private fun LoadEngineeringScreen(
                         "أدخل بيانات الحمل ثم اضغط حساب."
                     } else {
                         "Enter the load data and calculate."
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CurrentCalculationScreen(
-    language: AppLanguage,
-    onBack: () -> Unit
-) {
-    val arabic = language == AppLanguage.ARABIC
-
-    var powerKw by remember { mutableStateOf("100") }
-    var voltage by remember { mutableStateOf("400") }
-    var pf by remember { mutableStateOf("0.90") }
-
-    var currentType by remember {
-        mutableStateOf(CurrentType.AlternatingThreePhase)
-    }
-
-    var result by remember { mutableStateOf<Double?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    EngineeringPage(
-        title = if (arabic) "حساب التيار" else "Current Calculation",
-        subtitle = if (arabic) {
-            "حساب التيار من القدرة والجهد ومعامل القدرة"
-        } else {
-            "Current from power, voltage and power factor"
-        },
-        onBack = onBack
-    ) {
-        EngineeringCard(
-            title = if (arabic) "بيانات الحساب" else "Calculation Data"
-        ) {
-            EngineeringInput(
-                label = "Power (kW)",
-                value = powerKw,
-                onValueChange = {
-                    powerKw = it
-                    result = null
-                    error = null
-                }
-            )
-
-            EngineeringInput(
-                label = "Voltage (V)",
-                value = voltage,
-                onValueChange = {
-                    voltage = it
-                    result = null
-                    error = null
-                }
-            )
-
-            EngineeringInput(
-                label = "Power Factor",
-                value = pf,
-                onValueChange = {
-                    pf = it
-                    result = null
-                    error = null
-                }
-            )
-
-            CurrentTypeSelector(
-                language = language,
-                value = currentType,
-                onChange = {
-                    currentType = it
-                    result = null
-                    error = null
-                }
-            )
-        }
-
-        EngineeringPrimaryButton(
-            text = if (arabic) "احسب التيار" else "Calculate Current",
-            onClick = {
-                try {
-                    val power = powerKw.toDouble()
-                    val v = voltage.toDouble()
-                    val factor = pf.toDouble()
-
-                    if (
-                        power <= 0.0 ||
-                        v <= 0.0 ||
-                        factor <= 0.0 ||
-                        factor > 1.0
-                    ) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "راجع القدرة والجهد ومعامل القدرة."
-                            } else {
-                                "Check power, voltage and power factor."
-                            }
-                        )
-                    }
-
-                    result =
-                        ElectricalCalculations.calculateDesignCurrentFromKw(
-                            loadKw = power,
-                            voltage = v,
-                            powerFactor = factor,
-                            currentType = currentType
-                        )
-
-                    error = null
-                } catch (exception: Exception) {
-                    result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر تنفيذ الحساب."
-                            } else {
-                                "Calculation failed."
-                            }
-                }
-            }
-        )
-
-        error?.let {
-            EngineeringStatus(
-                text = it,
-                success = false
-            )
-        }
-
-        result?.let {
-            EngineeringResult(
-                title = if (arabic) "التيار المحسوب" else "Calculated Current",
-                value = "%.2f A".format(it)
-            )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل البيانات ثم اضغط حساب."
-                    } else {
-                        "Enter the data and calculate."
                     }
                 )
             }
@@ -539,53 +376,25 @@ private fun ConductorSizingScreen(
                     val cableLength = length.toDouble()
                     val cableVoltage = voltage.toDouble()
 
-                    if (
-                        designCurrent <= 0.0 ||
-                        cableLength < 0.0 ||
-                        cableVoltage <= 0.0
-                    ) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "راجع تيار التصميم والطول والجهد."
-                            } else {
-                                "Check design current, length and voltage."
-                            }
-                        )
-                    }
+                    require(designCurrent > 0.0)
+                    require(cableLength >= 0.0)
+                    require(cableVoltage > 0.0)
 
-                    val input =
-                        ConductorSizingInput(
-                            currentType =
-                                CurrentType.AlternatingThreePhase,
-                            voltage =
-                                cableVoltage,
-                            load =
-                                designCurrent *
-                                    cableVoltage *
-                                    0.90,
-                            powerFactor = 0.90,
-                            lineLength =
-                                cableLength,
-                            installationMethod =
-                                iecInstallationMethods.first(),
-                            ambientTemp = 30.0,
-                            conductor = material,
-                            insulation = InsulationType.PVC,
-                            circuitsInConduit = 1,
-                            maxVoltageDrop = 4.0
-                        )
-
-                    val sizing =
-                        ElectricalCalculations.evaluateSelectedSection(
-                            input = input,
-                            selectedSection =
-                                ElectricalCalculations
-                                    .standardEngine(standard)
-                                    .standardConductorSections()
-                                    .firstOrNull()
-                                    ?: 1.5,
-                            standard = standard
-                        )
+                    val input = ConductorSizingInput(
+                        currentType = CurrentType.AlternatingThreePhase,
+                        voltage = cableVoltage,
+                        load = designCurrent *
+                            cableVoltage *
+                            0.90,
+                        powerFactor = 0.90,
+                        lineLength = cableLength,
+                        installationMethod = iecInstallationMethods.first(),
+                        ambientTemp = 30.0,
+                        conductor = material,
+                        insulation = InsulationType.PVC,
+                        circuitsInConduit = 1,
+                        maxVoltageDrop = 4.0
+                    )
 
                     val automatic =
                         ElectricalCalculations.sizeConductor(
@@ -594,30 +403,32 @@ private fun ConductorSizingScreen(
                         )
 
                     result =
-                        "Required / Recommended = %.1f mm²\n" +
-                            "Selected = %.1f mm²\n" +
-                            "Ampacity = %.1f A\n" +
-                            "Voltage Drop = %.2f %% (%.2f V)\n" +
-                            "Breaker = %.0f A"
-                            .format(
-                                automatic.recommendedSection,
-                                automatic.selectedSection,
-                                automatic.ampacity,
-                                automatic.voltageDropPercent,
-                                automatic.voltageDropVolts,
-                                automatic.protectiveDevice
-                            )
+                        "Required / Recommended = %.1f mm²\n".format(
+                            automatic.recommendedSection
+                        ) +
+                        "Selected = %.1f mm²\n".format(
+                            automatic.selectedSection
+                        ) +
+                        "Ampacity = %.1f A\n".format(
+                            automatic.ampacity
+                        ) +
+                        "Voltage Drop = %.2f %% (%.2f V)\n".format(
+                            automatic.voltageDropPercent,
+                            automatic.voltageDropVolts
+                        ) +
+                        "Breaker = %.0f A".format(
+                            automatic.protectiveDevice
+                        )
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر اختيار الكابل."
-                            } else {
-                                "Cable selection failed."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر اختيار الكابل."
+                        } else {
+                            "Cable selection failed."
+                        }
                 }
             }
         )
@@ -755,31 +566,20 @@ private fun ProfessionalVoltageDropScreen(
                     val v = voltage.toDouble()
                     val l = length.toDouble()
                     val s = section.toDouble()
-                    val powerFactor = pf.toDouble()
+                    val factor = pf.toDouble()
 
-                    if (
-                        i <= 0.0 ||
-                        v <= 0.0 ||
-                        l < 0.0 ||
-                        s <= 0.0 ||
-                        powerFactor <= 0.0 ||
-                        powerFactor > 1.0
-                    ) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "راجع بيانات التيار والجهد والطول والمقطع ومعامل القدرة."
-                            } else {
-                                "Check current, voltage, length, section and power factor."
-                            }
-                        )
-                    }
+                    require(i > 0.0)
+                    require(v > 0.0)
+                    require(l >= 0.0)
+                    require(s > 0.0)
+                    require(factor > 0.0 && factor <= 1.0)
 
                     val calculation =
                         ElectricalCalculations.calculateVoltageDrop(
                             current = i,
                             length = l,
                             sectionMm2 = s,
-                            powerFactor = powerFactor,
+                            powerFactor = factor,
                             currentType =
                                 CurrentType.AlternatingThreePhase,
                             material = material,
@@ -787,22 +587,22 @@ private fun ProfessionalVoltageDropScreen(
                         )
 
                     result =
-                        "Voltage Drop = %.3f V\nVoltage Drop = %.3f %%"
-                            .format(
-                                calculation.second,
-                                calculation.first
-                            )
+                        "Voltage Drop = %.3f V\n".format(
+                            calculation.second
+                        ) +
+                        "Voltage Drop = %.3f %%".format(
+                            calculation.first
+                        )
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر تنفيذ الحساب."
-                            } else {
-                                "Calculation failed."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر تنفيذ الحساب."
+                        } else {
+                            "Calculation failed."
+                        }
                 }
             }
         )
@@ -816,7 +616,11 @@ private fun ProfessionalVoltageDropScreen(
 
         result?.let {
             EngineeringResult(
-                title = if (arabic) "نتيجة هبوط الجهد" else "Voltage Drop Result",
+                title = if (arabic) {
+                    "نتيجة هبوط الجهد"
+                } else {
+                    "Voltage Drop Result"
+                },
                 value = it
             )
         } ?: run {
@@ -900,15 +704,9 @@ private fun BreakerEngineeringScreen(
                     val ampacity = cableAmpacity.toDouble()
                     val fault = shortCircuit.toDouble()
 
-                    if (current <= 0.0 || ampacity <= 0.0 || fault < 0.0) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "راجع قيم التيار والسعة وتيار القصر."
-                            } else {
-                                "Check current, ampacity and fault current."
-                            }
-                        )
-                    }
+                    require(current > 0.0)
+                    require(ampacity > 0.0)
+                    require(fault >= 0.0)
 
                     val rating =
                         ElectricalCalculations.selectBreakerRating(
@@ -932,26 +730,24 @@ private fun BreakerEngineeringScreen(
                         )
 
                     result =
-                        "Engineering Breaker = %.0f A\n" +
-                            "Coordination = %s\n" +
-                            "Catalog = %s"
-                            .format(
-                                rating,
-                                if (coordination) "PASS" else "CHECK",
-                                catalog.selected?.model
-                                    ?: "NOT VERIFIED"
-                            )
+                        "Engineering Breaker = %.0f A\n".format(rating) +
+                        "Coordination = %s\n".format(
+                            if (coordination) "PASS" else "CHECK"
+                        ) +
+                        "Catalog = ${
+                            catalog.selected?.model
+                                ?: "NOT VERIFIED"
+                        }"
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "بيانات الإدخال غير صحيحة."
-                            } else {
-                                "Invalid input data."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "بيانات الإدخال غير صحيحة."
+                        } else {
+                            "Invalid input data."
+                        }
                 }
             }
         )
@@ -998,7 +794,6 @@ private fun TransformerEngineeringScreen(
     var loadKw by remember { mutableStateOf("500") }
     var pf by remember { mutableStateOf("0.90") }
     var growth by remember { mutableStateOf("1.15") }
-    var voltage by remember { mutableStateOf("400") }
 
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1006,15 +801,13 @@ private fun TransformerEngineeringScreen(
     EngineeringPage(
         title = if (arabic) "اختيار المحول" else "Transformer Sizing",
         subtitle = if (arabic) {
-            "حساب القدرة المطلوبة واختيار أقرب مقاس قياسي"
+            "حساب القدرة المطلوبة واختيار المقاس القياسي"
         } else {
             "Required transformer capacity and standard rating"
         },
         onBack = onBack
     ) {
-        EngineeringCard(
-            title = if (arabic) "بيانات المحول" else "Transformer Data"
-        ) {
+        EngineeringCard {
             EngineeringInput(
                 label = "Load (kW)",
                 value = loadKw,
@@ -1044,16 +837,6 @@ private fun TransformerEngineeringScreen(
                     error = null
                 }
             )
-
-            EngineeringInput(
-                label = "LV Voltage (V)",
-                value = voltage,
-                onValueChange = {
-                    voltage = it
-                    result = null
-                    error = null
-                }
-            )
         }
 
         EngineeringPrimaryButton(
@@ -1063,23 +846,10 @@ private fun TransformerEngineeringScreen(
                     val load = loadKw.toDouble()
                     val factor = pf.toDouble()
                     val growthFactor = growth.toDouble()
-                    val lvVoltage = voltage.toDouble()
 
-                    if (
-                        load <= 0.0 ||
-                        factor <= 0.0 ||
-                        factor > 1.0 ||
-                        growthFactor <= 0.0 ||
-                        lvVoltage <= 0.0
-                    ) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "راجع قيم الحمل وPower Factor ومعامل النمو والجهد."
-                            } else {
-                                "Check load, power factor, growth factor and voltage."
-                            }
-                        )
-                    }
+                    require(load > 0.0)
+                    require(factor > 0.0 && factor <= 1.0)
+                    require(growthFactor > 0.0)
 
                     val required =
                         ElectricalCalculations.calculateRequiredTransformerKva(
@@ -1100,26 +870,22 @@ private fun TransformerEngineeringScreen(
                         )
 
                     result =
-                        "Required = %.1f kVA\n" +
-                            "Standard Selection = %.0f kVA\n" +
-                            "Catalog = %s"
-                            .format(
-                                required,
-                                selected,
-                                catalog.selected?.model
-                                    ?: "NOT VERIFIED"
-                            )
+                        "Required = %.1f kVA\n".format(required) +
+                        "Standard Selection = %.0f kVA\n".format(selected) +
+                        "Catalog = ${
+                            catalog.selected?.model
+                                ?: "NOT VERIFIED"
+                        }"
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر حساب المحول."
-                            } else {
-                                "Transformer calculation failed."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر حساب المحول."
+                        } else {
+                            "Transformer calculation failed."
+                        }
                 }
             }
         )
@@ -1161,7 +927,7 @@ private fun GeneratorEngineeringScreen(
 
     var loadKw by remember { mutableStateOf("300") }
     var pf by remember { mutableStateOf("0.80") }
-    var motorStartingFactor by remember { mutableStateOf("1.50") }
+    var startingFactor by remember { mutableStateOf("1.50") }
 
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1169,15 +935,13 @@ private fun GeneratorEngineeringScreen(
     EngineeringPage(
         title = if (arabic) "اختيار المولد" else "Generator Sizing",
         subtitle = if (arabic) {
-            "تقدير قدرة المولد مع هامش بدء الأحمال واختيار كتالوج"
+            "حساب قدرة المولد واختيار كتالوج"
         } else {
-            "Generator sizing with starting-load allowance and catalog selection"
+            "Generator sizing and catalog selection"
         },
         onBack = onBack
     ) {
-        EngineeringCard(
-            title = if (arabic) "بيانات المولد" else "Generator Data"
-        ) {
+        EngineeringCard {
             EngineeringInput(
                 label = "Load (kW)",
                 value = loadKw,
@@ -1200,9 +964,9 @@ private fun GeneratorEngineeringScreen(
 
             EngineeringInput(
                 label = "Starting Factor",
-                value = motorStartingFactor,
+                value = startingFactor,
                 onValueChange = {
-                    motorStartingFactor = it
+                    startingFactor = it
                     result = null
                     error = null
                 }
@@ -1215,39 +979,16 @@ private fun GeneratorEngineeringScreen(
                 try {
                     val load = loadKw.toDouble()
                     val factor = pf.toDouble()
-                    val starting = motorStartingFactor.toDouble()
+                    val starting = startingFactor.toDouble()
 
-                    if (
-                        load <= 0.0 ||
-                        factor <= 0.0 ||
-                        factor > 1.0 ||
-                        starting <= 0.0
-                    ) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "راجع قيم الحمل ومعامل القدرة ومعامل البدء."
-                            } else {
-                                "Check load, power factor and starting factor."
-                            }
-                        )
-                    }
+                    require(load > 0.0)
+                    require(factor > 0.0 && factor <= 1.0)
+                    require(starting > 0.0)
 
-                    /*
-                     * GeneratorSizingCalculator is not exposed by the
-                     * current facade. The engineering requirement is:
-                     *
-                     * Required kVA =
-                     * Load kW / PF × Starting Factor
-                     *
-                     * Catalog selection is then delegated to the
-                     * professional generator catalog through the facade.
-                     */
                     val required =
                         ElectricalCalculations.calculateKvaFromKw(
-                            kw =
-                                load * starting,
-                            powerFactor =
-                                factor
+                            kw = load * starting,
+                            powerFactor = factor
                         )
 
                     val catalog =
@@ -1261,31 +1002,24 @@ private fun GeneratorEngineeringScreen(
 
                     result =
                         if (selected != null) {
-                            "Required = %.1f kVA\n" +
-                                "Standard Selection = %.1f kVA\n" +
-                                "Catalog = %s"
-                                .format(
-                                    required,
-                                    selected,
-                                    catalog.selected.model
-                                )
+                            "Required = %.1f kVA\n".format(required) +
+                            "Selected = %.1f kVA\n".format(selected) +
+                            "Catalog = ${catalog.selected.model}"
                         } else {
-                            "Required = %.1f kVA\n" +
-                                "Standard Selection = NOT VERIFIED\n" +
-                                "Catalog = NOT VERIFIED"
-                                .format(required)
+                            "Required = %.1f kVA\n".format(required) +
+                            "Selected = NOT VERIFIED\n" +
+                            "Catalog = NOT VERIFIED"
                         }
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر حساب المولد."
-                            } else {
-                                "Generator calculation failed."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر حساب المولد."
+                        } else {
+                            "Generator calculation failed."
+                        }
                 }
             }
         )
@@ -1309,7 +1043,7 @@ private fun GeneratorEngineeringScreen(
                     message = if (arabic) {
                         "أدخل بيانات المولد ثم احسب القدرة المطلوبة."
                     } else {
-                        "Enter generator data and calculate the required capacity."
+                        "Enter generator data and calculate."
                     }
                 )
             }
@@ -1333,15 +1067,13 @@ private fun PanelEngineeringScreen(
     EngineeringPage(
         title = if (arabic) "اختيار اللوحة" else "Panel Engineering",
         subtitle = if (arabic) {
-            "اختيار إطار اللوحة والقاطع الرئيسي"
+            "اختيار القاطع الرئيسي للوحة"
         } else {
-            "Panel frame and main breaker selection"
+            "Panel main-breaker engineering"
         },
         onBack = onBack
     ) {
-        EngineeringCard(
-            title = if (arabic) "بيانات اللوحة" else "Panel Data"
-        ) {
+        EngineeringCard {
             EngineeringInput(
                 label = "Design Current (A)",
                 value = current,
@@ -1359,15 +1091,7 @@ private fun PanelEngineeringScreen(
                 try {
                     val designCurrent = current.toDouble()
 
-                    if (designCurrent <= 0.0) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "تيار التصميم يجب أن يكون أكبر من صفر."
-                            } else {
-                                "Design current must be greater than zero."
-                            }
-                        )
-                    }
+                    require(designCurrent > 0.0)
 
                     val breaker =
                         ElectricalCalculations.selectBreakerRating(
@@ -1376,33 +1100,19 @@ private fun PanelEngineeringScreen(
                             standard = standard
                         )
 
-                    val catalog =
-                        ElectricalCalculations.selectPanelFromCatalog(
-                            currentA = designCurrent,
-                            standard = standard
-                        )
-
                     result =
-                        "Panel In = %.1f A\n" +
-                            "Main Breaker = %.0f A\n" +
-                            "Catalog = %s"
-                            .format(
-                                designCurrent,
-                                breaker,
-                                catalog.selected?.model
-                                    ?: "NOT VERIFIED"
-                            )
+                        "Panel In = %.1f A\n".format(designCurrent) +
+                        "Main Breaker = %.0f A".format(breaker)
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر اختيار اللوحة."
-                            } else {
-                                "Panel selection failed."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر اختيار اللوحة."
+                        } else {
+                            "Panel selection failed."
+                        }
                 }
             }
         )
@@ -1419,29 +1129,27 @@ private fun PanelEngineeringScreen(
                 title = if (arabic) "نتيجة اللوحة" else "Panel Result",
                 value = it
             )
+        } ?: run {
+            if (error == null) {
+                EngineeringEmptyState(
+                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                    message = if (arabic) {
+                        "أدخل تيار اللوحة ثم اضغط اختيار اللوحة."
+                    } else {
+                        "Enter the panel current and run the selection."
+                    }
+                )
+            }
         }
 
         if (onOpenSld != null) {
             EngineeringSecondaryButton(
-                text = if (arabic) "فتح مصمم SLD" else "Open SLD Designer",
-                onClick = onOpenSld,
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.AccountTree,
-                        contentDescription = null
-                    )
-                }
-            )
-        }
-
-        if (result == null && error == null) {
-            EngineeringEmptyState(
-                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                message = if (arabic) {
-                    "أدخل تيار اللوحة ثم اضغط اختيار اللوحة."
+                text = if (arabic) {
+                    "فتح مصمم SLD"
                 } else {
-                    "Enter the panel current and run the selection."
-                }
+                    "Open SLD Designer"
+                },
+                onClick = onOpenSld
             )
         }
     }
@@ -1475,9 +1183,7 @@ private fun ShortCircuitEngineeringScreen(
         },
         onBack = onBack
     ) {
-        EngineeringCard(
-            title = if (arabic) "بيانات القصر" else "Short-Circuit Data"
-        ) {
+        EngineeringCard {
             EngineeringInput(
                 label = "Voltage (V)",
                 value = voltage,
@@ -1534,30 +1240,20 @@ private fun ShortCircuitEngineeringScreen(
             onClick = {
                 try {
                     val v = voltage.toDouble()
-                    val cableLength = length.toDouble()
-                    val cableSection = section.toDouble()
+                    val l = length.toDouble()
+                    val s = section.toDouble()
                     val source = sourceIk.toDouble()
 
-                    if (
-                        v <= 0.0 ||
-                        cableLength < 0.0 ||
-                        cableSection <= 0.0 ||
-                        source <= 0.0
-                    ) {
-                        throw IllegalArgumentException(
-                            if (arabic) {
-                                "راجع قيم الجهد والكابل وتيار المصدر."
-                            } else {
-                                "Check voltage, cable and source fault current."
-                            }
-                        )
-                    }
+                    require(v > 0.0)
+                    require(l >= 0.0)
+                    require(s > 0.0)
+                    require(source > 0.0)
 
                     val calculation =
                         ElectricalCalculations.calculateShortCircuitCurrent(
                             voltage = v,
-                            length = cableLength,
-                            sectionMm2 = cableSection,
+                            length = l,
+                            sectionMm2 = s,
                             material = material,
                             currentType =
                                 CurrentType.AlternatingThreePhase,
@@ -1566,15 +1262,14 @@ private fun ShortCircuitEngineeringScreen(
 
                     result = calculation.toString()
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر تنفيذ الحساب."
-                            } else {
-                                "Calculation could not be completed."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر تنفيذ الحساب."
+                        } else {
+                            "Calculation could not be completed."
+                        }
                 }
             }
         )
@@ -1588,7 +1283,11 @@ private fun ShortCircuitEngineeringScreen(
 
         result?.let {
             EngineeringResult(
-                title = if (arabic) "نتيجة دراسة القصر" else "Short-Circuit Study Result",
+                title = if (arabic) {
+                    "نتيجة دراسة القصر"
+                } else {
+                    "Short-Circuit Study Result"
+                },
                 value = it
             )
         } ?: run {
@@ -1631,9 +1330,7 @@ private fun ProtectionEngineeringScreen(
         },
         onBack = onBack
     ) {
-        EngineeringCard(
-            title = if (arabic) "بيانات الحماية" else "Protection Data"
-        ) {
+        EngineeringCard {
             EngineeringInput(
                 label = "Design Current (A)",
                 value = designCurrent,
@@ -1715,15 +1412,14 @@ private fun ProtectionEngineeringScreen(
                         }"
 
                     error = null
-                } catch (exception: Exception) {
+                } catch (e: Exception) {
                     result = null
-                    error =
-                        exception.message
-                            ?: if (arabic) {
-                                "تعذر تنفيذ فحص الحماية."
-                            } else {
-                                "Protection validation could not be completed."
-                            }
+                    error = e.message
+                        ?: if (arabic) {
+                            "تعذر تنفيذ فحص الحماية."
+                        } else {
+                            "Protection validation failed."
+                        }
                 }
             }
         )
@@ -1763,7 +1459,9 @@ private fun WaterEngineeringModuleScreen(
     val arabic = language == AppLanguage.ARABIC
 
     var project by remember {
-        mutableStateOf(DesignProjectCoreBridge.getActiveProject())
+        mutableStateOf(
+            DesignProjectCoreBridge.getActiveProject()
+        )
     }
 
     var flow by remember {
@@ -1822,41 +1520,71 @@ private fun WaterEngineeringModuleScreen(
     ) {
         EngineeringCard {
             EngineeringSectionTitle(
-                if (arabic) "بيانات التصميم" else "Design Inputs"
+                text = if (arabic) {
+                    "بيانات التصميم"
+                } else {
+                    "Design Inputs"
+                }
             )
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EngineeringInput(
                     value = flow,
-                    label = if (arabic) "التدفق m³/h" else "Flow m³/h",
-                    onValueChange = { flow = it },
+                    label = if (arabic) {
+                        "التدفق m³/h"
+                    } else {
+                        "Flow m³/h"
+                    },
+                    onValueChange = {
+                        flow = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
 
                 EngineeringInput(
                     value = staticHead,
-                    label = if (arabic) "الرأس الساكن m" else "Static head m",
-                    onValueChange = { staticHead = it },
+                    label = if (arabic) {
+                        "الرأس الساكن m"
+                    } else {
+                        "Static head m"
+                    },
+                    onValueChange = {
+                        staticHead = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EngineeringInput(
                     value = friction,
-                    label = if (arabic) "فاقد الاحتكاك m" else "Friction loss m",
-                    onValueChange = { friction = it },
+                    label = if (arabic) {
+                        "فاقد الاحتكاك m"
+                    } else {
+                        "Friction loss m"
+                    },
+                    onValueChange = {
+                        friction = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
 
                 EngineeringInput(
                     value = minor,
-                    label = if (arabic) "الفواقد الثانوية m" else "Minor losses m",
-                    onValueChange = { minor = it },
+                    label = if (arabic) {
+                        "الفواقد الثانوية m"
+                    } else {
+                        "Minor losses m"
+                    },
+                    onValueChange = {
+                        minor = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1868,7 +1596,9 @@ private fun WaterEngineeringModuleScreen(
                 } else {
                     "Required pressure head m"
                 },
-                onValueChange = { pressure = it }
+                onValueChange = {
+                    pressure = it
+                }
             )
 
             EngineeringPrimaryButton(
@@ -1879,23 +1609,31 @@ private fun WaterEngineeringModuleScreen(
                 },
                 onClick = {
                     val current =
-                        project ?: DesignProjectCoreBridge.getActiveProject()
+                        project
+                            ?: DesignProjectCoreBridge
+                                .getActiveProject()
 
                     if (current != null) {
                         project =
-                            WaterDesignModule.updateHydraulicDesign(
-                                project = current,
-                                flowM3PerHour =
-                                    flow.toDoubleOrNull() ?: 0.0,
-                                staticHeadM =
-                                    staticHead.toDoubleOrNull() ?: 0.0,
-                                frictionHeadM =
-                                    friction.toDoubleOrNull() ?: 0.0,
-                                minorLossHeadM =
-                                    minor.toDoubleOrNull() ?: 0.0,
-                                requiredPressureHeadM =
-                                    pressure.toDoubleOrNull() ?: 0.0
-                            )
+                            WaterDesignModule
+                                .updateHydraulicDesign(
+                                    project = current,
+                                    flowM3PerHour =
+                                        flow.toDoubleOrNull()
+                                            ?: 0.0,
+                                    staticHeadM =
+                                        staticHead.toDoubleOrNull()
+                                            ?: 0.0,
+                                    frictionHeadM =
+                                        friction.toDoubleOrNull()
+                                            ?: 0.0,
+                                    minorLossHeadM =
+                                        minor.toDoubleOrNull()
+                                            ?: 0.0,
+                                    requiredPressureHeadM =
+                                        pressure.toDoubleOrNull()
+                                            ?: 0.0
+                                )
                     }
                 }
             )
@@ -1910,7 +1648,7 @@ private fun WaterEngineeringModuleScreen(
 
             EngineeringCard {
                 EngineeringSectionTitle(
-                    if (arabic) "النتائج" else "Results"
+                    text = if (arabic) "النتائج" else "Results"
                 )
 
                 EngineeringValueRow(
@@ -1921,18 +1659,36 @@ private fun WaterEngineeringModuleScreen(
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) "الرأس الساكن" else "Static head",
-                    value = "%.2f m".format(water.staticHeadM)
+                    label = if (arabic) {
+                        "الرأس الساكن"
+                    } else {
+                        "Static head"
+                    },
+                    value = "%.2f m".format(
+                        water.staticHeadM
+                    )
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) "فاقد الاحتكاك" else "Friction loss",
-                    value = "%.2f m".format(water.frictionHeadM)
+                    label = if (arabic) {
+                        "فاقد الاحتكاك"
+                    } else {
+                        "Friction loss"
+                    },
+                    value = "%.2f m".format(
+                        water.frictionHeadM
+                    )
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) "الفواقد الثانوية" else "Minor losses",
-                    value = "%.2f m".format(water.minorLossHeadM)
+                    label = if (arabic) {
+                        "الفواقد الثانوية"
+                    } else {
+                        "Minor losses"
+                    },
+                    value = "%.2f m".format(
+                        water.minorLossHeadM
+                    )
                 )
 
                 EngineeringValueRow(
@@ -1941,7 +1697,9 @@ private fun WaterEngineeringModuleScreen(
                     } else {
                         "Total Dynamic Head"
                     },
-                    value = "%.2f m".format(water.tdhM)
+                    value = "%.2f m".format(
+                        water.tdhM
+                    )
                 )
 
                 water.pumps.forEach { pump ->
@@ -1958,7 +1716,11 @@ private fun WaterEngineeringModuleScreen(
                 }
             }
         } ?: EngineeringEmptyState(
-            title = if (arabic) "لا يوجد مشروع نشط" else "No active project",
+            title = if (arabic) {
+                "لا يوجد مشروع نشط"
+            } else {
+                "No active project"
+            },
             message = if (arabic) {
                 "أنشئ أو اختر مشروعًا أولًا."
             } else {
@@ -1976,7 +1738,9 @@ private fun SewageEngineeringModuleScreen(
     val arabic = language == AppLanguage.ARABIC
 
     var project by remember {
-        mutableStateOf(DesignProjectCoreBridge.getActiveProject())
+        mutableStateOf(
+            DesignProjectCoreBridge.getActiveProject()
+        )
     }
 
     var average by remember {
@@ -2016,7 +1780,11 @@ private fun SewageEngineeringModuleScreen(
     }
 
     EngineeringPage(
-        title = if (arabic) "تصميم الصرف الصحي" else "Sewage Design",
+        title = if (arabic) {
+            "تصميم الصرف الصحي"
+        } else {
+            "Sewage Design"
+        },
         subtitle = if (arabic) {
             "التدفقات والرأس والمضخات"
         } else {
@@ -2026,10 +1794,15 @@ private fun SewageEngineeringModuleScreen(
     ) {
         EngineeringCard {
             EngineeringSectionTitle(
-                if (arabic) "بيانات التصميم" else "Design Inputs"
+                text = if (arabic) {
+                    "بيانات التصميم"
+                } else {
+                    "Design Inputs"
+                }
             )
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EngineeringInput(
@@ -2039,7 +1812,9 @@ private fun SewageEngineeringModuleScreen(
                     } else {
                         "Average m³/day"
                     },
-                    onValueChange = { average = it },
+                    onValueChange = {
+                        average = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
 
@@ -2050,12 +1825,15 @@ private fun SewageEngineeringModuleScreen(
                     } else {
                         "Peak m³/day"
                     },
-                    onValueChange = { peak = it },
+                    onValueChange = {
+                        peak = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
 
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EngineeringInput(
@@ -2065,7 +1843,9 @@ private fun SewageEngineeringModuleScreen(
                     } else {
                         "Minimum m³/day"
                     },
-                    onValueChange = { minimum = it },
+                    onValueChange = {
+                        minimum = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
 
@@ -2076,7 +1856,9 @@ private fun SewageEngineeringModuleScreen(
                     } else {
                         "Static head m"
                     },
-                    onValueChange = { staticHead = it },
+                    onValueChange = {
+                        staticHead = it
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -2089,25 +1871,31 @@ private fun SewageEngineeringModuleScreen(
                 },
                 onClick = {
                     val current =
-                        project ?: DesignProjectCoreBridge.getActiveProject()
+                        project
+                            ?: DesignProjectCoreBridge
+                                .getActiveProject()
 
                     if (current != null) {
                         var updated =
                             SewageDesignModule.updateFlows(
                                 project = current,
                                 averageFlowM3PerDay =
-                                    average.toDoubleOrNull() ?: 0.0,
+                                    average.toDoubleOrNull()
+                                        ?: 0.0,
                                 peakFlowM3PerDay =
-                                    peak.toDoubleOrNull() ?: 0.0,
+                                    peak.toDoubleOrNull()
+                                        ?: 0.0,
                                 minimumFlowM3PerDay =
-                                    minimum.toDoubleOrNull() ?: 0.0
+                                    minimum.toDoubleOrNull()
+                                        ?: 0.0
                             )
 
                         updated =
                             SewageDesignModule.setStaticHead(
                                 project = updated,
                                 staticHeadM =
-                                    staticHead.toDoubleOrNull() ?: 0.0
+                                    staticHead.toDoubleOrNull()
+                                        ?: 0.0
                             )
 
                         project = updated
@@ -2125,18 +1913,26 @@ private fun SewageEngineeringModuleScreen(
 
             EngineeringCard {
                 EngineeringSectionTitle(
-                    if (arabic) "النتائج" else "Results"
+                    text = if (arabic) "النتائج" else "Results"
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) "المتوسط" else "Average flow",
+                    label = if (arabic) {
+                        "المتوسط"
+                    } else {
+                        "Average flow"
+                    },
                     value = "%.2f m³/day".format(
                         sewage.averageFlowM3PerDay
                     )
                 )
 
                 EngineeringValueRow(
-                    label = if (arabic) "الأقصى" else "Peak flow",
+                    label = if (arabic) {
+                        "الأقصى"
+                    } else {
+                        "Peak flow"
+                    },
                     value = "%.2f m³/day".format(
                         sewage.peakFlowM3PerDay
                     )
@@ -2215,7 +2011,11 @@ private fun SewageEngineeringModuleScreen(
                 }
             }
         } ?: EngineeringEmptyState(
-            title = if (arabic) "لا يوجد مشروع نشط" else "No active project",
+            title = if (arabic) {
+                "لا يوجد مشروع نشط"
+            } else {
+                "No active project"
+            },
             message = if (arabic) {
                 "أنشئ أو اختر مشروعًا أولًا."
             } else {
@@ -2233,7 +2033,11 @@ private fun EngineeringReportModuleScreen(
     val arabic = language == AppLanguage.ARABIC
 
     EngineeringPage(
-        title = if (arabic) "التقرير الهندسي" else "Engineering Report",
+        title = if (arabic) {
+            "التقرير الهندسي"
+        } else {
+            "Engineering Report"
+        },
         subtitle = if (arabic) {
             "مركز مخرجات التصميم والحسابات"
         } else {
@@ -2242,7 +2046,11 @@ private fun EngineeringReportModuleScreen(
         onBack = onBack
     ) {
         EngineeringCard(
-            title = if (arabic) "مخرجات المشروع" else "Project Deliverables"
+            title = if (arabic) {
+                "مخرجات المشروع"
+            } else {
+                "Project Deliverables"
+            }
         ) {
             EngineeringStatus(
                 text = if (arabic) {
@@ -2263,7 +2071,11 @@ private fun EngineeringReportModuleScreen(
             )
 
             EngineeringValueRow(
-                label = if (arabic) "الحسابات" else "Calculations",
+                label = if (arabic) {
+                    "الحسابات"
+                } else {
+                    "Calculations"
+                },
                 value = "Electrical / Water / Sewage"
             )
 
@@ -2274,11 +2086,7 @@ private fun EngineeringReportModuleScreen(
 
             EngineeringValueRow(
                 label = "PDF",
-                value = if (arabic) {
-                    "Engineering Report"
-                } else {
-                    "Engineering Report"
-                }
+                value = "Engineering Report"
             )
         }
 
@@ -2312,16 +2120,32 @@ private fun CurrentTypeSelector(
     EngineeringSecondaryButton(
         text = when (value) {
             CurrentType.DirectCurrent ->
-                if (arabic) "تيار مستمر — DC" else "DC"
+                if (arabic) {
+                    "تيار مستمر — DC"
+                } else {
+                    "DC"
+                }
 
             CurrentType.AlternatingSinglePhase ->
-                if (arabic) "أحادي الطور — 1 Phase" else "1 Phase"
+                if (arabic) {
+                    "أحادي الطور — 1 Phase"
+                } else {
+                    "1 Phase"
+                }
 
             CurrentType.AlternatingTwoPhase ->
-                if (arabic) "ثنائي الطور — 2 Phase" else "2 Phase"
+                if (arabic) {
+                    "ثنائي الطور — 2 Phase"
+                } else {
+                    "2 Phase"
+                }
 
             CurrentType.AlternatingThreePhase ->
-                if (arabic) "ثلاثي الطور — 3 Phase" else "3 Phase"
+                if (arabic) {
+                    "ثلاثي الطور — 3 Phase"
+                } else {
+                    "3 Phase"
+                }
         },
         onClick = {
             expanded = true
@@ -2342,19 +2166,35 @@ private fun CurrentTypeSelector(
         ).forEach { type ->
             DropdownMenuItem(
                 text = {
-                    androidx.compose.material3.Text(
+                    Text(
                         when (type) {
                             CurrentType.DirectCurrent ->
-                                if (arabic) "تيار مستمر — DC" else "DC"
+                                if (arabic) {
+                                    "تيار مستمر — DC"
+                                } else {
+                                    "DC"
+                                }
 
                             CurrentType.AlternatingSinglePhase ->
-                                if (arabic) "أحادي الطور — 1 Phase" else "1 Phase"
+                                if (arabic) {
+                                    "أحادي الطور — 1 Phase"
+                                } else {
+                                    "1 Phase"
+                                }
 
                             CurrentType.AlternatingTwoPhase ->
-                                if (arabic) "ثنائي الطور — 2 Phase" else "2 Phase"
+                                if (arabic) {
+                                    "ثنائي الطور — 2 Phase"
+                                } else {
+                                    "2 Phase"
+                                }
 
                             CurrentType.AlternatingThreePhase ->
-                                if (arabic) "ثلاثي الطور — 3 Phase" else "3 Phase"
+                                if (arabic) {
+                                    "ثلاثي الطور — 3 Phase"
+                                } else {
+                                    "3 Phase"
+                                }
                         }
                     )
                 },
@@ -2380,18 +2220,20 @@ private fun MaterialSelector(
     }
 
     EngineeringSecondaryButton(
-        text = if (value == ConductorMaterial.Copper) {
-            if (arabic) {
-                "موصل نحاس — Copper"
-            } else {
-                "Copper"
-            }
-        } else {
-            if (arabic) {
-                "موصل ألومنيوم — Aluminum"
-            } else {
-                "Aluminum"
-            }
+        text = when (value) {
+            ConductorMaterial.Copper ->
+                if (arabic) {
+                    "الموصل: نحاس"
+                } else {
+                    "Conductor: Copper"
+                }
+
+            ConductorMaterial.Aluminum ->
+                if (arabic) {
+                    "الموصل: ألومنيوم"
+                } else {
+                    "Conductor: Aluminum"
+                }
         },
         onClick = {
             expanded = true
@@ -2404,36 +2246,35 @@ private fun MaterialSelector(
             expanded = false
         }
     ) {
-        DropdownMenuItem(
-            text = {
-                androidx.compose.material3.Text(
-                    if (arabic) {
-                        "موصل نحاس — Copper"
-                    } else {
-                        "Copper"
-                    }
-                )
-            },
-            onClick = {
-                onChange(ConductorMaterial.Copper)
-                expanded = false
-            }
-        )
+        listOf(
+            ConductorMaterial.Copper,
+            ConductorMaterial.Aluminum
+        ).forEach { material ->
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        when (material) {
+                            ConductorMaterial.Copper ->
+                                if (arabic) {
+                                    "نحاس"
+                                } else {
+                                    "Copper"
+                                }
 
-        DropdownMenuItem(
-            text = {
-                androidx.compose.material3.Text(
-                    if (arabic) {
-                        "موصل ألومنيوم — Aluminum"
-                    } else {
-                        "Aluminum"
-                    }
-                )
-            },
-            onClick = {
-                onChange(ConductorMaterial.Aluminum)
-                expanded = false
-            }
-        )
+                            ConductorMaterial.Aluminum ->
+                                if (arabic) {
+                                    "ألومنيوم"
+                                } else {
+                                    "Aluminum"
+                                }
+                        }
+                    )
+                },
+                onClick = {
+                    onChange(material)
+                    expanded = false
+                }
+            )
+        }
     }
 }
