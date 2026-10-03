@@ -1,28 +1,23 @@
 package com.electrical.calculationspro.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ConductorMaterial
+import com.electrical.calculationspro.data.ConductorSizingInput
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.Standard
-import com.electrical.calculationspro.data.ConductorSizingInput
 import com.electrical.calculationspro.data.iecInstallationMethods
-import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
 import com.electrical.calculationspro.data.project.RisingMainDesign
 import com.electrical.calculationspro.data.project.WaterPipe
@@ -66,103 +61,91 @@ fun EngineeringModuleScreen(
     onOpenSld: (() -> Unit)? = null
 ) {
     when (module) {
-        EngineeringModule.LOAD -> {
+
+        EngineeringModule.LOAD ->
             LoadEngineeringScreen(
                 language = language,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.CURRENT -> {
+        EngineeringModule.CURRENT ->
             CurrentCalculationScreen(
                 language = language,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.CABLE -> {
+        EngineeringModule.CABLE ->
             ConductorSizingScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.VOLTAGE_DROP -> {
+        EngineeringModule.VOLTAGE_DROP ->
             ProfessionalVoltageDropScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.BREAKER -> {
+        EngineeringModule.BREAKER ->
             BreakerEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.TRANSFORMER -> {
+        EngineeringModule.TRANSFORMER ->
             TransformerEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.GENERATOR -> {
+        EngineeringModule.GENERATOR ->
             GeneratorEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.PANEL -> {
+        EngineeringModule.PANEL ->
             PanelEngineeringScreen(
                 language = language,
                 standard = standard,
                 onBack = onBack,
                 onOpenSld = onOpenSld
             )
-        }
 
-        EngineeringModule.SHORT_CIRCUIT -> {
+        EngineeringModule.SHORT_CIRCUIT ->
             ShortCircuitEngineeringScreen(
                 language = language,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.PROTECTION -> {
+        EngineeringModule.PROTECTION ->
             ProtectionEngineeringScreen(
                 language = language,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.WATER -> {
+        EngineeringModule.WATER ->
             WaterEngineeringModuleScreen(
                 language = language,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.SEWAGE -> {
+        EngineeringModule.SEWAGE ->
             SewageEngineeringModuleScreen(
                 language = language,
                 onBack = onBack
             )
-        }
 
-        EngineeringModule.REPORT -> {
+        EngineeringModule.REPORT ->
             EngineeringReportModuleScreen(
                 language = language,
                 onBack = onBack
             )
-        }
     }
 }
 
@@ -197,7 +180,7 @@ private fun LoadEngineeringScreen(
             title = if (arabic) "بيانات الحمل" else "Load Data"
         ) {
             EngineeringInput(
-                label = if (arabic) "الحمل (kW)" else "Load (kW)",
+                label = "Load (kW)",
                 value = loadKw,
                 onValueChange = {
                     loadKw = it
@@ -207,7 +190,7 @@ private fun LoadEngineeringScreen(
             )
 
             EngineeringInput(
-                label = if (arabic) "الجهد (V)" else "Voltage (V)",
+                label = "Voltage (V)",
                 value = voltage,
                 onValueChange = {
                     voltage = it
@@ -238,7 +221,11 @@ private fun LoadEngineeringScreen(
         }
 
         EngineeringPrimaryButton(
-            text = if (arabic) "احسب تيار التصميم" else "Calculate Design Current",
+            text = if (arabic) {
+                "احسب تيار التصميم"
+            } else {
+                "Calculate Design Current"
+            },
             onClick = {
                 try {
                     val load = loadKw.toDouble()
@@ -260,12 +247,11 @@ private fun LoadEngineeringScreen(
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "بيانات الإدخال غير صحيحة."
-                        } else {
-                            "Invalid input data."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "بيانات الإدخال غير صحيحة."
+                    } else {
+                        "Invalid input data."
+                    }
                 }
             }
         )
@@ -282,17 +268,15 @@ private fun LoadEngineeringScreen(
                 title = if (arabic) "تيار التصميم" else "Design Current",
                 value = "%.2f A".format(it)
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل بيانات الحمل ثم اضغط حساب."
-                    } else {
-                        "Enter the load data and calculate."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل البيانات ثم اضغط حساب."
+                } else {
+                    "Enter the data and calculate."
+                }
+            )
         }
     }
 }
@@ -305,12 +289,24 @@ private fun ConductorSizingScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var current by remember { mutableStateOf("100") }
-    var length by remember { mutableStateOf("30") }
+    var load by remember { mutableStateOf("100") }
     var voltage by remember { mutableStateOf("400") }
+    var pf by remember { mutableStateOf("0.90") }
+    var length by remember { mutableStateOf("50") }
+    var ambient by remember { mutableStateOf("30") }
+    var circuits by remember { mutableStateOf("1") }
+    var maxDrop by remember { mutableStateOf("4") }
+
+    var currentType by remember {
+        mutableStateOf(CurrentType.AlternatingThreePhase)
+    }
 
     var material by remember {
         mutableStateOf(ConductorMaterial.Copper)
+    }
+
+    var insulation by remember {
+        mutableStateOf(InsulationType.XLPE)
     }
 
     var result by remember { mutableStateOf<String?>(null) }
@@ -319,9 +315,9 @@ private fun ConductorSizingScreen(
     EngineeringPage(
         title = if (arabic) "اختيار الكابل" else "Cable Sizing",
         subtitle = if (arabic) {
-            "اختيار مقطع الموصل والتحقق من السعة وهبوط الجهد"
+            "اختيار الموصل طبقًا لتيار التصميم والهبوط والقواعد الهندسية"
         } else {
-            "Conductor sizing with ampacity and voltage-drop verification"
+            "Professional conductor sizing"
         },
         onBack = onBack
     ) {
@@ -329,10 +325,30 @@ private fun ConductorSizingScreen(
             title = if (arabic) "بيانات الكابل" else "Cable Data"
         ) {
             EngineeringInput(
-                label = "Design Current (A)",
-                value = current,
+                label = "Load (kW)",
+                value = load,
                 onValueChange = {
-                    current = it
+                    load = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Voltage (V)",
+                value = voltage,
+                onValueChange = {
+                    voltage = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Power Factor",
+                value = pf,
+                onValueChange = {
+                    pf = it
                     result = null
                     error = null
                 }
@@ -349,10 +365,40 @@ private fun ConductorSizingScreen(
             )
 
             EngineeringInput(
-                label = "Voltage (V)",
-                value = voltage,
+                label = "Ambient Temperature (°C)",
+                value = ambient,
                 onValueChange = {
-                    voltage = it
+                    ambient = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Circuits in Conduit",
+                value = circuits,
+                onValueChange = {
+                    circuits = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Maximum Voltage Drop (%)",
+                value = maxDrop,
+                onValueChange = {
+                    maxDrop = it
+                    result = null
+                    error = null
+                }
+            )
+
+            CurrentTypeSelector(
+                language = language,
+                value = currentType,
+                onChange = {
+                    currentType = it
                     result = null
                     error = null
                 }
@@ -370,64 +416,83 @@ private fun ConductorSizingScreen(
         }
 
         EngineeringPrimaryButton(
-            text = if (arabic) "اختيار مقطع الكابل" else "Select Cable Size",
+            text = if (arabic) "حساب واختيار الكابل" else "Calculate & Select Cable",
             onClick = {
                 try {
-                    val designCurrent = current.toDouble()
-                    val cableLength = length.toDouble()
-                    val cableVoltage = voltage.toDouble()
-
-                    require(designCurrent > 0.0)
-                    require(cableLength >= 0.0)
-                    require(cableVoltage > 0.0)
-
                     val input = ConductorSizingInput(
-                        currentType = CurrentType.AlternatingThreePhase,
-                        voltage = cableVoltage,
-                        load = designCurrent * cableVoltage * 0.90,
-                        powerFactor = 0.90,
-                        lineLength = cableLength,
+                        currentType = currentType,
+                        voltage = voltage.toDouble(),
+                        load = load.toDouble(),
+                        powerFactor = pf.toDouble(),
+                        lineLength = length.toDouble(),
                         installationMethod = iecInstallationMethods.first(),
-                        ambientTemp = 30.0,
+                        ambientTemp = ambient.toDouble(),
                         conductor = material,
-                        insulation = InsulationType.PVC,
-                        circuitsInConduit = 1,
-                        maxVoltageDrop = 4.0
+                        insulation = insulation,
+                        circuitsInConduit = circuits.toInt(),
+                        maxVoltageDrop = maxDrop.toDouble()
                     )
 
-                    val automatic =
+                    val calculation =
                         ElectricalCalculations.sizeConductor(
                             input = input,
                             standard = standard
                         )
 
-                    result =
-                        "Required / Recommended = %.1f mm²\n".format(
-                            automatic.recommendedSection
-                        ) +
-                        "Selected = %.1f mm²\n".format(
-                            automatic.selectedSection
-                        ) +
-                        "Ampacity = %.1f A\n".format(
-                            automatic.ampacity
-                        ) +
-                        "Voltage Drop = %.2f %% (%.2f V)\n".format(
-                            automatic.voltageDropPercent,
-                            automatic.voltageDropVolts
-                        ) +
-                        "Breaker = %.0f A".format(
-                            automatic.protectiveDevice
+                    result = buildString {
+                        appendLine("Design Current = %.2f A".format(calculation.designCurrent))
+                        appendLine(
+                            "Recommended Section = %.1f mm²"
+                                .format(calculation.recommendedSection)
                         )
+                        appendLine(
+                            "Selected Section = %.1f mm²"
+                                .format(calculation.selectedSection)
+                        )
+                        appendLine(
+                            "Ampacity = %.2f A"
+                                .format(calculation.ampacity)
+                        )
+                        appendLine(
+                            "Voltage Drop = %.2f %%"
+                                .format(calculation.voltageDropPercent)
+                        )
+                        appendLine(
+                            "Breaker = %.0f A"
+                                .format(calculation.protectiveDevice)
+                        )
+                        appendLine(
+                            "Short Circuit = %.2f kA"
+                                .format(calculation.shortCircuitCurrentKA)
+                        )
+                        appendLine(
+                            "Cable Capacity = ${
+                                if (calculation.breakerWithinCableCapacity) {
+                                    "PASS"
+                                } else {
+                                    "CHECK"
+                                }
+                            }"
+                        )
+                        appendLine(
+                            "Voltage Drop = ${
+                                if (calculation.voltageDropWithinLimit) {
+                                    "PASS"
+                                } else {
+                                    "CHECK"
+                                }
+                            }"
+                        )
+                    }
 
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر اختيار الكابل."
-                        } else {
-                            "Cable selection failed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر تنفيذ حساب الكابل."
+                    } else {
+                        "Cable calculation failed."
+                    }
                 }
             }
         )
@@ -441,24 +506,18 @@ private fun ConductorSizingScreen(
 
         result?.let {
             EngineeringResult(
-                title = if (arabic) {
-                    "نتيجة اختيار الكابل"
-                } else {
-                    "Cable Selection Result"
-                },
+                title = if (arabic) "نتيجة الكابل" else "Cable Result",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل تيار التصميم ثم اختر مقطع الكابل."
-                    } else {
-                        "Enter design current and select cable size."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل بيانات الكابل ثم نفذ الحساب."
+                } else {
+                    "Enter cable data and calculate."
+                }
+            )
         }
     }
 }
@@ -472,10 +531,14 @@ private fun ProfessionalVoltageDropScreen(
     val arabic = language == AppLanguage.ARABIC
 
     var current by remember { mutableStateOf("100") }
-    var voltage by remember { mutableStateOf("400") }
-    var length by remember { mutableStateOf("30") }
-    var section by remember { mutableStateOf("70") }
+    var length by remember { mutableStateOf("50") }
+    var section by remember { mutableStateOf("35") }
     var pf by remember { mutableStateOf("0.90") }
+    var voltage by remember { mutableStateOf("400") }
+
+    var currentType by remember {
+        mutableStateOf(CurrentType.AlternatingThreePhase)
+    }
 
     var material by remember {
         mutableStateOf(ConductorMaterial.Copper)
@@ -487,30 +550,20 @@ private fun ProfessionalVoltageDropScreen(
     EngineeringPage(
         title = if (arabic) "هبوط الجهد" else "Voltage Drop",
         subtitle = if (arabic) {
-            "التحقق من هبوط الجهد في المغذي"
+            "حساب هبوط الجهد بالنسبة المئوية والفولت"
         } else {
-            "Feeder voltage-drop verification"
+            "Voltage-drop calculation"
         },
         onBack = onBack
     ) {
         EngineeringCard(
-            title = if (arabic) "بيانات هبوط الجهد" else "Voltage Drop Data"
+            title = if (arabic) "بيانات الدائرة" else "Circuit Data"
         ) {
             EngineeringInput(
                 label = "Current (A)",
                 value = current,
                 onValueChange = {
                     current = it
-                    result = null
-                    error = null
-                }
-            )
-
-            EngineeringInput(
-                label = "Voltage (V)",
-                value = voltage,
-                onValueChange = {
-                    voltage = it
                     result = null
                     error = null
                 }
@@ -546,6 +599,26 @@ private fun ProfessionalVoltageDropScreen(
                 }
             )
 
+            EngineeringInput(
+                label = "Voltage (V)",
+                value = voltage,
+                onValueChange = {
+                    voltage = it
+                    result = null
+                    error = null
+                }
+            )
+
+            CurrentTypeSelector(
+                language = language,
+                value = currentType,
+                onChange = {
+                    currentType = it
+                    result = null
+                    error = null
+                }
+            )
+
             MaterialSelector(
                 language = language,
                 value = material,
@@ -561,47 +634,29 @@ private fun ProfessionalVoltageDropScreen(
             text = if (arabic) "احسب هبوط الجهد" else "Calculate Voltage Drop",
             onClick = {
                 try {
-                    val i = current.toDouble()
-                    val v = voltage.toDouble()
-                    val l = length.toDouble()
-                    val s = section.toDouble()
-                    val factor = pf.toDouble()
-
-                    require(i > 0.0)
-                    require(v > 0.0)
-                    require(l >= 0.0)
-                    require(s > 0.0)
-                    require(factor > 0.0 && factor <= 1.0)
-
-                    val calculation =
+                    val values =
                         ElectricalCalculations.calculateVoltageDrop(
-                            current = i,
-                            length = l,
-                            sectionMm2 = s,
-                            powerFactor = factor,
-                            currentType =
-                                CurrentType.AlternatingThreePhase,
+                            current = current.toDouble(),
+                            length = length.toDouble(),
+                            sectionMm2 = section.toDouble(),
+                            powerFactor = pf.toDouble(),
+                            currentType = currentType,
                             material = material,
-                            voltage = v
+                            voltage = voltage.toDouble()
                         )
 
                     result =
-                        "Voltage Drop = %.3f V\n".format(
-                            calculation.second
-                        ) +
-                        "Voltage Drop = %.3f %%".format(
-                            calculation.first
-                        )
+                        "Voltage Drop = %.3f V\nVoltage Drop = %.3f %%"
+                            .format(values.first, values.second)
 
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر تنفيذ الحساب."
-                        } else {
-                            "Calculation failed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر حساب هبوط الجهد."
+                    } else {
+                        "Voltage-drop calculation failed."
+                    }
                 }
             }
         )
@@ -615,24 +670,18 @@ private fun ProfessionalVoltageDropScreen(
 
         result?.let {
             EngineeringResult(
-                title = if (arabic) {
-                    "نتيجة هبوط الجهد"
-                } else {
-                    "Voltage Drop Result"
-                },
+                title = if (arabic) "نتيجة هبوط الجهد" else "Voltage Drop Result",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل بيانات المغذي ثم اضغط حساب."
-                    } else {
-                        "Enter feeder data and calculate."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل بيانات الدائرة ثم اضغط حساب."
+                } else {
+                    "Enter circuit data and calculate."
+                }
+            )
         }
     }
 }
@@ -655,9 +704,9 @@ private fun BreakerEngineeringScreen(
     EngineeringPage(
         title = if (arabic) "اختيار القاطع" else "Breaker Selection",
         subtitle = if (arabic) {
-            "اختيار القاطع والتحقق من التنسيق وقدرة القطع"
+            "اختيار القاطع والتحقق من التنسيق"
         } else {
-            "Breaker rating and breaking-capacity verification"
+            "Breaker selection and coordination"
         },
         onBack = onBack
     ) {
@@ -703,10 +752,6 @@ private fun BreakerEngineeringScreen(
                     val ampacity = cableAmpacity.toDouble()
                     val fault = shortCircuit.toDouble()
 
-                    require(current > 0.0)
-                    require(ampacity > 0.0)
-                    require(fault >= 0.0)
-
                     val rating =
                         ElectricalCalculations.selectBreakerRating(
                             designCurrentA = current,
@@ -721,32 +766,29 @@ private fun BreakerEngineeringScreen(
                             cableAmpacityA = ampacity
                         )
 
-                    val catalog =
-                        ElectricalCalculations.selectBreakerFromCatalog(
-                            designCurrentA = current,
-                            shortCircuitKA = fault,
-                            standard = standard
+                    val breaking =
+                        ElectricalCalculations.checkBreakingCapacity(
+                            prospectiveFaultCurrentKA = fault,
+                            breakerBreakingCapacityKA = fault
                         )
 
                     result =
-                        "Engineering Breaker = %.0f A\n".format(rating) +
-                        "Coordination = %s\n".format(
-                            if (coordination) "PASS" else "CHECK"
-                        ) +
-                        "Catalog = ${
-                            catalog.selected?.model
-                                ?: "NOT VERIFIED"
-                        }"
+                        "Breaker = %.0f A\nCoordination = %s\nFault = %.2f kA\nBreaking Capacity Check = %s"
+                            .format(
+                                rating,
+                                if (coordination) "PASS" else "CHECK",
+                                fault,
+                                if (breaking) "PASS" else "CHECK"
+                            )
 
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "بيانات الإدخال غير صحيحة."
-                        } else {
-                            "Invalid input data."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر اختيار القاطع."
+                    } else {
+                        "Breaker selection failed."
+                    }
                 }
             }
         )
@@ -760,24 +802,18 @@ private fun BreakerEngineeringScreen(
 
         result?.let {
             EngineeringResult(
-                title = if (arabic) {
-                    "نتيجة اختيار القاطع"
-                } else {
-                    "Breaker Selection Result"
-                },
+                title = if (arabic) "نتيجة القاطع" else "Breaker Result",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل بيانات القاطع ثم نفذ الاختيار."
-                    } else {
-                        "Enter breaker data and run the selection."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل بيانات القاطع ثم نفذ الاختيار."
+                } else {
+                    "Enter breaker data and run the selection."
+                }
+            )
         }
     }
 }
@@ -802,11 +838,13 @@ private fun TransformerEngineeringScreen(
         subtitle = if (arabic) {
             "حساب القدرة المطلوبة واختيار المقاس القياسي"
         } else {
-            "Required transformer capacity and standard rating"
+            "Transformer sizing and standard selection"
         },
         onBack = onBack
     ) {
-        EngineeringCard {
+        EngineeringCard(
+            title = if (arabic) "بيانات المحول" else "Transformer Data"
+        ) {
             EngineeringInput(
                 label = "Load (kW)",
                 value = loadKw,
@@ -842,19 +880,11 @@ private fun TransformerEngineeringScreen(
             text = if (arabic) "احسب المحول" else "Calculate Transformer",
             onClick = {
                 try {
-                    val load = loadKw.toDouble()
-                    val factor = pf.toDouble()
-                    val growthFactor = growth.toDouble()
-
-                    require(load > 0.0)
-                    require(factor > 0.0 && factor <= 1.0)
-                    require(growthFactor > 0.0)
-
                     val required =
                         ElectricalCalculations.calculateRequiredTransformerKva(
-                            loadKw = load,
-                            powerFactor = factor,
-                            growthFactor = growthFactor
+                            loadKw = loadKw.toDouble(),
+                            powerFactor = pf.toDouble(),
+                            growthFactor = growth.toDouble()
                         )
 
                     val selected =
@@ -862,29 +892,18 @@ private fun TransformerEngineeringScreen(
                             requiredKva = required
                         )
 
-                    val catalog =
-                        ElectricalCalculations.selectTransformerFromCatalog(
-                            requiredKva = required,
-                            standard = standard
-                        )
-
                     result =
-                        "Required = %.1f kVA\n".format(required) +
-                        "Standard Selection = %.0f kVA\n".format(selected) +
-                        "Catalog = ${
-                            catalog.selected?.model
-                                ?: "NOT VERIFIED"
-                        }"
+                        "Required = %.1f kVA\nSelected = %.0f kVA"
+                            .format(required, selected)
 
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر حساب المحول."
-                        } else {
-                            "Transformer calculation failed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر حساب المحول."
+                    } else {
+                        "Transformer calculation failed."
+                    }
                 }
             }
         )
@@ -901,17 +920,15 @@ private fun TransformerEngineeringScreen(
                 title = if (arabic) "نتيجة المحول" else "Transformer Result",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل بيانات المحول ثم اضغط حساب."
-                    } else {
-                        "Enter transformer data and calculate."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل بيانات المحول ثم اضغط حساب."
+                } else {
+                    "Enter transformer data and calculate."
+                }
+            )
         }
     }
 }
@@ -924,48 +941,27 @@ private fun GeneratorEngineeringScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var loadKw by remember { mutableStateOf("300") }
-    var pf by remember { mutableStateOf("0.80") }
-    var startingFactor by remember { mutableStateOf("1.50") }
-
+    var requiredKva by remember { mutableStateOf("500") }
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
     EngineeringPage(
-        title = if (arabic) "اختيار المولد" else "Generator Sizing",
+        title = if (arabic) "اختيار المولد" else "Generator Selection",
         subtitle = if (arabic) {
-            "حساب قدرة المولد واختيار كتالوج"
+            "اختيار مولد من كتالوج المعدات"
         } else {
-            "Generator sizing and catalog selection"
+            "Generator selection from the equipment catalog"
         },
         onBack = onBack
     ) {
-        EngineeringCard {
+        EngineeringCard(
+            title = if (arabic) "بيانات المولد" else "Generator Data"
+        ) {
             EngineeringInput(
-                label = "Load (kW)",
-                value = loadKw,
+                label = "Required Generator (kVA)",
+                value = requiredKva,
                 onValueChange = {
-                    loadKw = it
-                    result = null
-                    error = null
-                }
-            )
-
-            EngineeringInput(
-                label = "Power Factor",
-                value = pf,
-                onValueChange = {
-                    pf = it
-                    result = null
-                    error = null
-                }
-            )
-
-            EngineeringInput(
-                label = "Starting Factor",
-                value = startingFactor,
-                onValueChange = {
-                    startingFactor = it
+                    requiredKva = it
                     result = null
                     error = null
                 }
@@ -973,52 +969,25 @@ private fun GeneratorEngineeringScreen(
         }
 
         EngineeringPrimaryButton(
-            text = if (arabic) "احسب المولد" else "Calculate Generator",
+            text = if (arabic) "اختيار المولد" else "Select Generator",
             onClick = {
                 try {
-                    val load = loadKw.toDouble()
-                    val factor = pf.toDouble()
-                    val starting = startingFactor.toDouble()
-
-                    require(load > 0.0)
-                    require(factor > 0.0 && factor <= 1.0)
-                    require(starting > 0.0)
-
-                    val required =
-                        ElectricalCalculations.calculateKvaFromKw(
-                            kw = load * starting,
-                            powerFactor = factor
-                        )
-
-                    val catalog =
-                        ElectricalCalculations.selectGeneratorFromCatalog(
-                            requiredKva = required,
-                            standard = standard
-                        )
-
-                    val selected =
-                        catalog.selected?.ratedPowerKva
-
                     result =
-                        if (selected != null) {
-                            "Required = %.1f kVA\n".format(required) +
-                            "Selected = %.1f kVA\n".format(selected) +
-                            "Catalog = ${catalog.selected.model}"
-                        } else {
-                            "Required = %.1f kVA\n".format(required) +
-                            "Selected = NOT VERIFIED\n" +
-                            "Catalog = NOT VERIFIED"
-                        }
+                        ElectricalCalculations
+                            .selectGeneratorFromCatalog(
+                                requiredKva = requiredKva.toDouble(),
+                                standard = standard
+                            )
+                            .toString()
 
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر حساب المولد."
-                        } else {
-                            "Generator calculation failed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر اختيار المولد."
+                    } else {
+                        "Generator selection failed."
+                    }
                 }
             }
         )
@@ -1035,17 +1004,15 @@ private fun GeneratorEngineeringScreen(
                 title = if (arabic) "نتيجة المولد" else "Generator Result",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل بيانات المولد ثم احسب القدرة المطلوبة."
-                    } else {
-                        "Enter generator data and calculate."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل القدرة المطلوبة ثم نفذ الاختيار."
+                } else {
+                    "Enter the required capacity and select."
+                }
+            )
         }
     }
 }
@@ -1064,15 +1031,17 @@ private fun PanelEngineeringScreen(
     var error by remember { mutableStateOf<String?>(null) }
 
     EngineeringPage(
-        title = if (arabic) "اختيار اللوحة" else "Panel Engineering",
+        title = if (arabic) "تصميم اللوحة" else "Panel Design",
         subtitle = if (arabic) {
-            "اختيار القاطع الرئيسي للوحة"
+            "اختيار اللوحة طبقًا للتيار التصميمي"
         } else {
-            "Panel main-breaker engineering"
+            "Panel selection based on design current"
         },
         onBack = onBack
     ) {
-        EngineeringCard {
+        EngineeringCard(
+            title = if (arabic) "بيانات اللوحة" else "Panel Data"
+        ) {
             EngineeringInput(
                 label = "Design Current (A)",
                 value = current,
@@ -1088,30 +1057,22 @@ private fun PanelEngineeringScreen(
             text = if (arabic) "اختيار اللوحة" else "Select Panel",
             onClick = {
                 try {
-                    val designCurrent = current.toDouble()
-
-                    require(designCurrent > 0.0)
-
-                    val breaker =
-                        ElectricalCalculations.selectBreakerRating(
-                            designCurrentA = designCurrent,
-                            cableAmpacityA = designCurrent * 1.25,
-                            standard = standard
-                        )
-
                     result =
-                        "Panel In = %.1f A\n".format(designCurrent) +
-                        "Main Breaker = %.0f A".format(breaker)
+                        ElectricalCalculations
+                            .selectPanelFromCatalog(
+                                currentA = current.toDouble(),
+                                standard = standard
+                            )
+                            .toString()
 
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر اختيار اللوحة."
-                        } else {
-                            "Panel selection failed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر اختيار اللوحة."
+                    } else {
+                        "Panel selection failed."
+                    }
                 }
             }
         )
@@ -1128,28 +1089,27 @@ private fun PanelEngineeringScreen(
                 title = if (arabic) "نتيجة اللوحة" else "Panel Result",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل تيار اللوحة ثم اضغط اختيار اللوحة."
-                    } else {
-                        "Enter the panel current and run the selection."
+        }
+
+        onOpenSld?.let {
+            EngineeringCard(
+                title = if (arabic) {
+                    "المخطط الأحادي"
+                } else {
+                    "Single Line Diagram"
+                }
+            ) {
+                EngineeringSecondaryButton(
+                    text = if (arabic) "فتح مصمم SLD" else "Open SLD Designer",
+                    onClick = it,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.AccountTree,
+                            contentDescription = null
+                        )
                     }
                 )
             }
-        }
-
-        if (onOpenSld != null) {
-            EngineeringSecondaryButton(
-                text = if (arabic) {
-                    "فتح مصمم SLD"
-                } else {
-                    "Open SLD Designer"
-                },
-                onClick = onOpenSld
-            )
         }
     }
 }
@@ -1178,11 +1138,13 @@ private fun ShortCircuitEngineeringScreen(
         subtitle = if (arabic) {
             "حساب تيار القصر عند نقطة الدائرة"
         } else {
-            "Prospective short-circuit current calculation"
+            "Prospective short-circuit calculation"
         },
         onBack = onBack
     ) {
-        EngineeringCard {
+        EngineeringCard(
+            title = if (arabic) "بيانات القصر" else "Short-Circuit Data"
+        ) {
             EngineeringInput(
                 label = "Voltage (V)",
                 value = voltage,
@@ -1238,37 +1200,25 @@ private fun ShortCircuitEngineeringScreen(
             text = if (arabic) "احسب تيار القصر" else "Calculate Short Circuit",
             onClick = {
                 try {
-                    val v = voltage.toDouble()
-                    val l = length.toDouble()
-                    val s = section.toDouble()
-                    val source = sourceIk.toDouble()
-
-                    require(v > 0.0)
-                    require(l >= 0.0)
-                    require(s > 0.0)
-                    require(source > 0.0)
-
                     val calculation =
                         ElectricalCalculations.calculateShortCircuitCurrent(
-                            voltage = v,
-                            length = l,
-                            sectionMm2 = s,
+                            voltage = voltage.toDouble(),
+                            length = length.toDouble(),
+                            sectionMm2 = section.toDouble(),
                             material = material,
-                            currentType =
-                                CurrentType.AlternatingThreePhase,
-                            sourceIkKA = source
+                            currentType = CurrentType.AlternatingThreePhase,
+                            sourceIkKA = sourceIk.toDouble()
                         )
 
                     result = calculation.toString()
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر تنفيذ الحساب."
-                        } else {
-                            "Calculation could not be completed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر تنفيذ حساب القصر."
+                    } else {
+                        "Short-circuit calculation failed."
+                    }
                 }
             }
         )
@@ -1282,24 +1232,18 @@ private fun ShortCircuitEngineeringScreen(
 
         result?.let {
             EngineeringResult(
-                title = if (arabic) {
-                    "نتيجة دراسة القصر"
-                } else {
-                    "Short-Circuit Study Result"
-                },
+                title = if (arabic) "نتيجة القصر" else "Short-Circuit Result",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل بيانات القصر ثم اضغط حساب."
-                    } else {
-                        "Enter the short-circuit data and calculate."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل بيانات القصر ثم اضغط حساب."
+                } else {
+                    "Enter short-circuit data and calculate."
+                }
+            )
         }
     }
 }
@@ -1325,11 +1269,13 @@ private fun ProtectionEngineeringScreen(
         subtitle = if (arabic) {
             "فحص تنسيق القاطع وقدرة القطع"
         } else {
-            "Breaker coordination and breaking-capacity checks"
+            "Breaker coordination and breaking capacity"
         },
         onBack = onBack
     ) {
-        EngineeringCard {
+        EngineeringCard(
+            title = if (arabic) "بيانات الحماية" else "Protection Data"
+        ) {
             EngineeringInput(
                 label = "Design Current (A)",
                 value = designCurrent,
@@ -1371,7 +1317,7 @@ private fun ProtectionEngineeringScreen(
             )
 
             EngineeringInput(
-                label = "Breaker Breaking Capacity (kA)",
+                label = "Breaking Capacity (kA)",
                 value = breakingCapacity,
                 onValueChange = {
                     breakingCapacity = it
@@ -1387,18 +1333,14 @@ private fun ProtectionEngineeringScreen(
                 try {
                     val coordination =
                         ElectricalCalculations.checkBreakerCoordination(
-                            designCurrentA =
-                                designCurrent.toDouble(),
-                            breakerRatingA =
-                                breaker.toDouble(),
-                            cableAmpacityA =
-                                cable.toDouble()
+                            designCurrentA = designCurrent.toDouble(),
+                            breakerRatingA = breaker.toDouble(),
+                            cableAmpacityA = cable.toDouble()
                         )
 
                     val breaking =
                         ElectricalCalculations.checkBreakingCapacity(
-                            prospectiveFaultCurrentKA =
-                                fault.toDouble(),
+                            prospectiveFaultCurrentKA = fault.toDouble(),
                             breakerBreakingCapacityKA =
                                 breakingCapacity.toDouble()
                         )
@@ -1413,12 +1355,11 @@ private fun ProtectionEngineeringScreen(
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر تنفيذ فحص الحماية."
-                        } else {
-                            "Protection validation failed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر تنفيذ فحص الحماية."
+                    } else {
+                        "Protection validation failed."
+                    }
                 }
             }
         )
@@ -1435,34 +1376,19 @@ private fun ProtectionEngineeringScreen(
                 title = if (arabic) "حالة الحماية" else "Protection Status",
                 value = it
             )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
-                    message = if (arabic) {
-                        "أدخل بيانات الحماية ثم نفذ الفحص."
-                    } else {
-                        "Enter protection data and validate."
-                    }
-                )
-            }
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل بيانات الحماية ثم نفذ الفحص."
+                } else {
+                    "Enter protection data and validate."
+                }
+            )
         }
     }
 }
 
-/*
- * WATER
- *
- * The screen uses the hydraulic calculation engine instead of treating
- * friction/head/flow as independent values.
- *
- * Q + D -> V
- * Q + V -> D
- * D + V -> Q
- *
- * Head loss is calculated from the selected hydraulic geometry and
- * pipe length/material.
- */
 @Composable
 private fun WaterEngineeringModuleScreen(
     language: AppLanguage,
@@ -1470,72 +1396,15 @@ private fun WaterEngineeringModuleScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var project by remember {
-        mutableStateOf(
-            DesignProjectCoreBridge.getActiveProject()
-        )
-    }
-
-    var flow by remember {
-        mutableStateOf(
-            project?.water?.requiredFlowM3PerHour
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: ""
-        )
-    }
-
-    var diameter by remember { mutableStateOf("") }
-
+    var flow by remember { mutableStateOf("100") }
+    var diameter by remember { mutableStateOf("150") }
     var velocity by remember { mutableStateOf("") }
-
-    var length by remember {
-        mutableStateOf(
-            project?.water?.pipes
-                ?.firstOrNull()
-                ?.lengthM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: "30"
-        )
-    }
-
-    var material by remember {
-        mutableStateOf(
-            project?.water?.pipes
-                ?.firstOrNull()
-                ?.material
-                ?.takeIf { it.isNotBlank() }
-                ?: "PVC"
-        )
-    }
-
-    var staticHead by remember {
-        mutableStateOf(
-            project?.water?.staticHeadM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: ""
-        )
-    }
-
-    var minorLoss by remember {
-        mutableStateOf(
-            project?.water?.minorLossHeadM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: "0"
-        )
-    }
-
-    var pressureHead by remember {
-        mutableStateOf(
-            project?.water?.requiredPressureHeadM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: "0"
-        )
-    }
+    var headLoss by remember { mutableStateOf("") }
+    var length by remember { mutableStateOf("100") }
+    var material by remember { mutableStateOf("Ductile Iron") }
+    var staticHead by remember { mutableStateOf("20") }
+    var minorLoss by remember { mutableStateOf("0") }
+    var pressureHead by remember { mutableStateOf("0") }
 
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1543,51 +1412,28 @@ private fun WaterEngineeringModuleScreen(
     EngineeringPage(
         title = if (arabic) "تصميم المياه" else "Water Design",
         subtitle = if (arabic) {
-            "حساب التصرف والسرعة والقطر والفواقد و TDH وربطها بالمشروع"
+            "حساب التدفق والقطر والسرعة والفواقد وTDH وربط النتائج بالمشروع"
         } else {
-            "Flow, velocity, diameter, losses, TDH and project integration"
+            "Flow, diameter, velocity, losses, TDH and project integration"
         },
         onBack = onBack
     ) {
-        EngineeringCard {
-            EngineeringSectionTitle(
-                text = if (arabic) "المدخلات الهيدروليكية" else "Hydraulic Inputs"
+        EngineeringCard(
+            title = if (arabic) "بيانات شبكة المياه" else "Water Design Data"
+        ) {
+            EngineeringInput(
+                label = "Flow (m³/h)",
+                value = flow,
+                onValueChange = {
+                    flow = it
+                    result = null
+                    error = null
+                }
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EngineeringInput(
-                    value = flow,
-                    label = if (arabic) "التصرف m³/h" else "Flow m³/h",
-                    onValueChange = {
-                        flow = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                EngineeringInput(
-                    value = velocity,
-                    label = if (arabic) "السرعة m/s" else "Velocity m/s",
-                    onValueChange = {
-                        velocity = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
             EngineeringInput(
+                label = "Diameter (mm)",
                 value = diameter,
-                label = if (arabic) {
-                    "القطر mm — اتركه فارغًا للحساب"
-                } else {
-                    "Diameter mm — leave blank to calculate"
-                },
                 onValueChange = {
                     diameter = it
                     result = null
@@ -1595,67 +1441,69 @@ private fun WaterEngineeringModuleScreen(
                 }
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EngineeringInput(
-                    value = length,
-                    label = if (arabic) "طول الخط m" else "Pipe Length m",
-                    onValueChange = {
-                        length = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                EngineeringInput(
-                    value = material,
-                    label = if (arabic) "الخامة" else "Material",
-                    onValueChange = {
-                        material = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EngineeringInput(
-                    value = staticHead,
-                    label = if (arabic) "الرأس الساكن m" else "Static Head m",
-                    onValueChange = {
-                        staticHead = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                EngineeringInput(
-                    value = minorLoss,
-                    label = if (arabic) "الفواقد الثانوية m" else "Minor Loss m",
-                    onValueChange = {
-                        minorLoss = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            EngineeringInput(
+                label = "Velocity (m/s) - optional",
+                value = velocity,
+                onValueChange = {
+                    velocity = it
+                    result = null
+                    error = null
+                }
+            )
 
             EngineeringInput(
+                label = "Head Loss (m) - optional",
+                value = headLoss,
+                onValueChange = {
+                    headLoss = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Pipe Length (m)",
+                value = length,
+                onValueChange = {
+                    length = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Pipe Material",
+                value = material,
+                onValueChange = {
+                    material = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Static Head (m)",
+                value = staticHead,
+                onValueChange = {
+                    staticHead = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Minor Loss (m)",
+                value = minorLoss,
+                onValueChange = {
+                    minorLoss = it
+                    result = null
+                    error = null
+                }
+            )
+
+            EngineeringInput(
+                label = "Required Pressure Head (m)",
                 value = pressureHead,
-                label = if (arabic) {
-                    "رأس الضغط المطلوب m"
-                } else {
-                    "Required Pressure Head m"
-                },
                 onValueChange = {
                     pressureHead = it
                     result = null
@@ -1666,15 +1514,52 @@ private fun WaterEngineeringModuleScreen(
 
         EngineeringPrimaryButton(
             text = if (arabic) {
-                "احسب واحفظ في المشروع"
+                "احسب واحفظ بالمشروع"
             } else {
                 "Calculate & Save to Project"
             },
             onClick = {
                 try {
-                    val current =
-                        project
-                            ?: DesignProjectCoreBridge.getActiveProject()
+                    val q = flow.toDoubleOrNull()
+                    val d = diameter.toDoubleOrNull()
+                    val v = velocity.toDoubleOrNull()
+                    val hf = headLoss.toDoubleOrNull()
+
+                    val l = length.toDouble()
+                    val static = staticHead.toDouble()
+                    val minor = minorLoss.toDouble()
+                    val pressure = pressureHead.toDouble()
+
+                    require(q == null || q > 0.0)
+                    require(d == null || d > 0.0)
+                    require(v == null || v > 0.0)
+                    require(hf == null || hf >= 0.0)
+                    require(l > 0.0)
+                    require(static >= 0.0)
+                    require(minor >= 0.0)
+                    require(pressure >= 0.0)
+
+                    val calculated =
+                        WaterDesignEngine.calculateAuto(
+                            flowM3PerHour = q,
+                            diameterMm = d,
+                            velocityMPerS = v,
+                            headLossM = hf,
+                            lengthM = l,
+                            material = material
+                        )
+
+                    require(calculated.valid) {
+                        calculated.message
+                    }
+
+                    flow = "%.3f".format(calculated.flowM3PerHour)
+                    diameter = "%.1f".format(calculated.diameterMm)
+                    velocity = "%.3f".format(calculated.velocityMPerS)
+                    headLoss = "%.3f".format(calculated.headLossM)
+
+                    var project =
+                        DesignProjectCoreBridge.getActiveProject()
                             ?: throw IllegalStateException(
                                 if (arabic) {
                                     "لا يوجد مشروع نشط."
@@ -1683,199 +1568,70 @@ private fun WaterEngineeringModuleScreen(
                                 }
                             )
 
-                    val q = flow.toDoubleOrNull()
-                    val d = diameter.toDoubleOrNull()
-                    val v = velocity.toDoubleOrNull()
-                    val l = length.toDoubleOrNull() ?: 0.0
-
-                    require(l > 0.0) {
-                        if (arabic) {
-                            "طول خط المياه يجب أن يكون أكبر من صفر."
-                        } else {
-                            "Pipe length must be greater than zero."
-                        }
-                    }
-
-                    require(q != null || d != null || v != null) {
-                        if (arabic) {
-                            "أدخل قيمًا هيدروليكية."
-                        } else {
-                            "Enter hydraulic values."
-                        }
-                    }
-
-                    val calculatedFlow: Double
-                    val calculatedDiameter: Double
-                    val calculatedVelocity: Double
-
-                    when {
-                        q != null && q > 0.0 &&
-                            d != null && d > 0.0 -> {
-
-                            calculatedFlow = q
-                            calculatedDiameter = d
-                            calculatedVelocity =
-                                WaterDesignEngine.calculateVelocity(
-                                    flowM3PerHour = q,
-                                    diameterMm = d
-                                )
-                        }
-
-                        q != null && q > 0.0 &&
-                            v != null && v > 0.0 -> {
-
-                            calculatedFlow = q
-                            calculatedVelocity = v
-
-                            calculatedDiameter =
-                                waterDiameterFromFlowAndVelocity(
-                                    flowM3PerHour = q,
-                                    velocityMPerS = v
-                                )
-                        }
-
-                        d != null && d > 0.0 &&
-                            v != null && v > 0.0 -> {
-
-                            calculatedDiameter = d
-                            calculatedVelocity = v
-
-                            calculatedFlow =
-                                waterFlowFromDiameterAndVelocity(
-                                    diameterMm = d,
-                                    velocityMPerS = v
-                                )
-                        }
-
-                        q != null && q > 0.0 -> {
-                            throw IllegalArgumentException(
-                                if (arabic) {
-                                    "أدخل القطر أو السرعة لحساب باقي البيانات."
-                                } else {
-                                    "Enter diameter or velocity to complete the hydraulic calculation."
-                                }
-                            )
-                        }
-
-                        else -> {
-                            throw IllegalArgumentException(
-                                if (arabic) {
-                                    "أدخل أي قيمتين من التصرف والقطر والسرعة."
-                                } else {
-                                    "Enter any two of flow, diameter and velocity."
-                                }
-                            )
-                        }
-                    }
-
-                    val calculatedFriction =
-                        WaterDesignEngine.calculateFrictionLoss(
-                            flowM3PerHour = calculatedFlow,
-                            diameterMm = calculatedDiameter,
+                    val pipe =
+                        WaterPipe(
+                            name = "Main Water Pipe",
+                            diameterMm = calculated.diameterMm,
                             lengthM = l,
-                            material = material
+                            material = material,
+                            flowM3PerHour =
+                                calculated.flowM3PerHour,
+                            velocityMPerS =
+                                calculated.velocityMPerS,
+                            frictionLossM =
+                                calculated.headLossM
                         )
 
-                    val calculatedTdh =
-                        WaterDesignEngine.calculateTdh(
-                            staticHeadM =
-                                staticHead.toDoubleOrNull()
-                                    ?: 0.0,
-                            frictionHeadM = calculatedFriction,
-                            minorLossHeadM =
-                                minorLoss.toDoubleOrNull()
-                                    ?: 0.0,
-                            requiredPressureHeadM =
-                                pressureHead.toDoubleOrNull()
-                                    ?: 0.0
-                        )
-
-                    val pipe = WaterPipe(
-                        name = "Main Water Line",
-                        diameterMm = calculatedDiameter,
-                        lengthM = l,
-                        material = material,
-                        flowM3PerHour = calculatedFlow,
-                        velocityMPerS = calculatedVelocity,
-                        frictionLossM = calculatedFriction
-                    )
-
-                    var updated =
-                        WaterDesignModule.updateHydraulicDesign(
-                            project = current,
-                            flowM3PerHour = calculatedFlow,
-                            staticHeadM =
-                                staticHead.toDoubleOrNull()
-                                    ?.coerceAtLeast(0.0)
-                                    ?: 0.0,
-                            frictionHeadM = calculatedFriction,
-                            minorLossHeadM =
-                                minorLoss.toDoubleOrNull()
-                                    ?.coerceAtLeast(0.0)
-                                    ?: 0.0,
-                            requiredPressureHeadM =
-                                pressureHead.toDoubleOrNull()
-                                    ?.coerceAtLeast(0.0)
-                                    ?: 0.0,
-                            tdhM = calculatedTdh
-                        )
-
-                    updated =
+                    project =
                         WaterDesignModule.addPipe(
-                            project = updated,
+                            project = project,
                             pipe = pipe
                         )
 
-                    project = updated
-
-                    flow = "%.3f".format(calculatedFlow)
-                    diameter = "%.1f".format(calculatedDiameter)
-                    velocity = "%.3f".format(calculatedVelocity)
+                    project =
+                        WaterDesignModule.updateHydraulicDesign(
+                            project = project,
+                            flowM3PerHour =
+                                calculated.flowM3PerHour,
+                            staticHeadM = static,
+                            frictionHeadM =
+                                calculated.headLossM,
+                            minorLossHeadM = minor,
+                            requiredPressureHeadM = pressure
+                        )
 
                     result =
-                        if (arabic) {
-                            "التصرف = %.2f m³/h\n".format(
-                                calculatedFlow
-                            ) +
-                            "القطر = %.1f mm\n".format(
-                                calculatedDiameter
-                            ) +
-                            "السرعة = %.3f m/s\n".format(
-                                calculatedVelocity
-                            ) +
-                            "فاقد الاحتكاك = %.2f m\n".format(
-                                calculatedFriction
-                            ) +
-                            "TDH = %.2f m".format(
-                                calculatedTdh
+                        buildString {
+                            appendLine(
+                                "Flow = %.3f m³/h"
+                                    .format(calculated.flowM3PerHour)
                             )
-                        } else {
-                            "Flow = %.2f m³/h\n".format(
-                                calculatedFlow
-                            ) +
-                            "Diameter = %.1f mm\n".format(
-                                calculatedDiameter
-                            ) +
-                            "Velocity = %.3f m/s\n".format(
-                                calculatedVelocity
-                            ) +
-                            "Friction Loss = %.2f m\n".format(
-                                calculatedFriction
-                            ) +
-                            "TDH = %.2f m".format(
-                                calculatedTdh
+                            appendLine(
+                                "Diameter = %.1f mm"
+                                    .format(calculated.diameterMm)
+                            )
+                            appendLine(
+                                "Velocity = %.3f m/s"
+                                    .format(calculated.velocityMPerS)
+                            )
+                            appendLine(
+                                "Friction Loss = %.3f m"
+                                    .format(calculated.headLossM)
+                            )
+                            appendLine(
+                                "TDH = %.3f m"
+                                    .format(project.water.tdhM)
                             )
                         }
 
                     error = null
                 } catch (e: Exception) {
                     result = null
-                    error = e.message
-                        ?: if (arabic) {
-                            "تعذر تنفيذ تصميم المياه."
-                        } else {
-                            "Water design calculation failed."
-                        }
+                    error = e.message ?: if (arabic) {
+                        "تعذر تنفيذ حساب المياه."
+                    } else {
+                        "Water calculation failed."
+                    }
                 }
             }
         )
@@ -1890,118 +1646,25 @@ private fun WaterEngineeringModuleScreen(
         result?.let {
             EngineeringResult(
                 title = if (arabic) {
-                    "نتيجة التصميم الهيدروليكي"
+                    "نتيجة تصميم المياه"
                 } else {
-                    "Hydraulic Design Result"
+                    "Water Design Result"
                 },
                 value = it
             )
-        }
-
-        project?.water?.let { water ->
-            EngineeringResult(
-                title = if (arabic) "حالة المشروع" else "Project Status",
-                value = water.status.name,
-                success = water.status.name != "INVALID"
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل البيانات ثم اضغط احسب واحفظ بالمشروع."
+                } else {
+                    "Enter the data and calculate."
+                }
             )
-
-            EngineeringCard {
-                EngineeringSectionTitle(
-                    text = if (arabic) "نتائج المشروع" else "Project Results"
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) "التصرف" else "Flow",
-                    value = "%.2f m³/h".format(
-                        water.requiredFlowM3PerHour
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) "الرأس الساكن" else "Static Head",
-                    value = "%.2f m".format(
-                        water.staticHeadM
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) "فاقد الاحتكاك" else "Friction Loss",
-                    value = "%.2f m".format(
-                        water.frictionHeadM
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) "الفواقد الثانوية" else "Minor Losses",
-                    value = "%.2f m".format(
-                        water.minorLossHeadM
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) "الرأس الكلي TDH" else "Total Dynamic Head",
-                    value = "%.2f m".format(
-                        water.tdhM
-                    )
-                )
-
-                water.pipes.forEach { pipe ->
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "خط ${pipe.name}"
-                        } else {
-                            "Pipe ${pipe.name}"
-                        },
-                        value =
-                            "%.1f mm | %.3f m/s | %.2f m".format(
-                                pipe.diameterMm,
-                                pipe.velocityMPerS,
-                                pipe.frictionLossM
-                            )
-                    )
-                }
-
-                water.pumps.forEach { pump ->
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "المضخة ${pump.name}"
-                        } else {
-                            "Pump ${pump.name}"
-                        },
-                        value = "%.2f kW".format(
-                            pump.motorPowerKw
-                        )
-                    )
-                }
-            }
-        } ?: EngineeringEmptyState(
-            title = if (arabic) "لا يوجد مشروع نشط" else "No Active Project",
-            message = if (arabic) {
-                "أنشئ أو اختر مشروعًا أولًا."
-            } else {
-                "Create or select a project first."
-            }
-        )
+        }
     }
 }
 
-/*
- * SEWAGE
- *
- * Sewage design is kept project-based:
- *
- * Average flow
- *      ↓
- * Peak flow
- *      ↓
- * Rising-main hydraulic calculation
- *      ↓
- * Velocity / Diameter / Friction
- *      ↓
- * TDH
- *      ↓
- * SewageDesignEngine / Pump calculation
- */
 @Composable
 private fun SewageEngineeringModuleScreen(
     language: AppLanguage,
@@ -2009,77 +1672,19 @@ private fun SewageEngineeringModuleScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var project by remember {
-        mutableStateOf(
-            DesignProjectCoreBridge.getActiveProject()
-        )
-    }
+    var averageFlow by remember { mutableStateOf("240") }
+    var peakFlow by remember { mutableStateOf("600") }
+    var minimumFlow by remember { mutableStateOf("120") }
 
-    var average by remember {
-        mutableStateOf(
-            project?.sewage?.averageFlowM3PerDay
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: ""
-        )
-    }
-
-    var peak by remember {
-        mutableStateOf(
-            project?.sewage?.peakFlowM3PerDay
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: ""
-        )
-    }
-
-    var minimum by remember {
-        mutableStateOf(
-            project?.sewage?.minimumFlowM3PerDay
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: ""
-        )
-    }
-
-    var diameter by remember { mutableStateOf("") }
-
+    var flow by remember { mutableStateOf("25") }
+    var diameter by remember { mutableStateOf("200") }
     var velocity by remember { mutableStateOf("") }
+    var headLoss by remember { mutableStateOf("") }
+    var length by remember { mutableStateOf("100") }
+    var material by remember { mutableStateOf("Ductile Iron") }
 
-    var length by remember {
-        mutableStateOf(
-            project?.sewage?.risingMain?.lengthM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: "30"
-        )
-    }
-
-    var material by remember {
-        mutableStateOf(
-            project?.sewage?.risingMain?.material
-                ?.takeIf { it.isNotBlank() }
-                ?: "PVC"
-        )
-    }
-
-    var staticHead by remember {
-        mutableStateOf(
-            project?.sewage?.staticHeadM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: ""
-        )
-    }
-
-    var minorLoss by remember {
-        mutableStateOf(
-            project?.sewage?.risingMain?.minorLossHeadM
-                ?.takeIf { it > 0.0 }
-                ?.toString()
-                ?: "0"
-        )
-    }
+    var staticHead by remember { mutableStateOf("20") }
+    var minorLoss by remember { mutableStateOf("0") }
 
     var result by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -2087,462 +1692,303 @@ private fun SewageEngineeringModuleScreen(
     EngineeringPage(
         title = if (arabic) "تصميم الصرف الصحي" else "Sewage Design",
         subtitle = if (arabic) {
-            "التصرف والقطر والسرعة والفواقد و TDH وربطها بالمشروع"
+            "التدفقات وخط الطرد والسرعة والفواقد وTDH وربطها بالمشروع"
         } else {
-            "Flow, diameter, velocity, losses, TDH and project integration"
+            "Flows, rising main, velocity, losses, TDH and project integration"
         },
         onBack = onBack
     ) {
-        EngineeringCard {
-            EngineeringSectionTitle(
-                text = if (arabic) "بيانات التصرف" else "Flow Data"
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EngineeringInput(
-                    value = average,
-                    label = if (arabic) {
-                        "المتوسط m³/day"
-                    } else {
-                        "Average m³/day"
-                    },
-                    onValueChange = {
-                        average = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-
-                EngineeringInput(
-                    value = peak,
-                    label = if (arabic) {
-                        "الأقصى m³/day"
-                    } else {
-                        "Peak m³/day"
-                    },
-                    onValueChange = {
-                        peak = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
+        EngineeringCard(
+            title = if (arabic) "بيانات الصرف" else "Sewage Design Data"
+        ) {
             EngineeringInput(
-                value = minimum,
-                label = if (arabic) {
-                    "الأدنى m³/day"
-                } else {
-                    "Minimum m³/day"
-                },
+                label = "Average Flow (m³/day)",
+                value = averageFlow,
                 onValueChange = {
-                    minimum = it
+                    averageFlow = it
                     result = null
                     error = null
                 }
             )
 
-            EngineeringSectionTitle(
-                text = if (arabic) {
-                    "تصميم خط الطرد"
-                } else {
-                    "Rising Main Design"
+            EngineeringInput(
+                label = "Peak Flow (m³/day)",
+                value = peakFlow,
+                onValueChange = {
+                    peakFlow = it
+                    result = null
+                    error = null
                 }
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EngineeringInput(
-                    value = diameter,
-                    label = if (arabic) {
-                        "القطر mm"
-                    } else {
-                        "Diameter mm"
-                    },
-                    onValueChange = {
-                        diameter = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+            EngineeringInput(
+                label = "Minimum Flow (m³/day)",
+                value = minimumFlow,
+                onValueChange = {
+                    minimumFlow = it
+                    result = null
+                    error = null
+                }
+            )
 
-                EngineeringInput(
-                    value = velocity,
-                    label = if (arabic) {
-                        "السرعة m/s"
-                    } else {
-                        "Velocity m/s"
-                    },
-                    onValueChange = {
-                        velocity = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            EngineeringInput(
+                label = "Rising Main Flow (m³/h)",
+                value = flow,
+                onValueChange = {
+                    flow = it
+                    result = null
+                    error = null
+                }
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EngineeringInput(
-                    value = length,
-                    label = if (arabic) {
-                        "طول الخط m"
-                    } else {
-                        "Main Length m"
-                    },
-                    onValueChange = {
-                        length = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+            EngineeringInput(
+                label = "Diameter (mm)",
+                value = diameter,
+                onValueChange = {
+                    diameter = it
+                    result = null
+                    error = null
+                }
+            )
 
-                EngineeringInput(
-                    value = material,
-                    label = if (arabic) {
-                        "الخامة"
-                    } else {
-                        "Material"
-                    },
-                    onValueChange = {
-                        material = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            EngineeringInput(
+                label = "Velocity (m/s) - optional",
+                value = velocity,
+                onValueChange = {
+                    velocity = it
+                    result = null
+                    error = null
+                }
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                EngineeringInput(
-                    value = staticHead,
-                    label = if (arabic) {
-                        "الرأس الساكن m"
-                    } else {
-                        "Static Head m"
-                    },
-                    onValueChange = {
-                        staticHead = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
+            EngineeringInput(
+                label = "Head Loss (m) - optional",
+                value = headLoss,
+                onValueChange = {
+                    headLoss = it
+                    result = null
+                    error = null
+                }
+            )
 
-                EngineeringInput(
-                    value = minorLoss,
-                    label = if (arabic) {
-                        "الفواقد الثانوية m"
-                    } else {
-                        "Minor Loss m"
-                    },
-                    onValueChange = {
-                        minorLoss = it
-                        result = null
-                        error = null
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            EngineeringInput(
+                label = "Rising Main Length (m)",
+                value = length,
+                onValueChange = {
+                    length = it
+                    result = null
+                    error = null
+                }
+            )
 
-            EngineeringPrimaryButton(
-                text = if (arabic) {
-                    "احسب واحفظ في المشروع"
-                } else {
-                    "Calculate & Save to Project"
-                },
-                onClick = {
-                    try {
-                        val current =
-                            project
-                                ?: DesignProjectCoreBridge
-                                    .getActiveProject()
-                                ?: throw IllegalStateException(
-                                    if (arabic) {
-                                        "لا يوجد مشروع نشط."
-                                    } else {
-                                        "No active project."
-                                    }
-                                )
+            EngineeringInput(
+                label = "Pipe Material",
+                value = material,
+                onValueChange = {
+                    material = it
+                    result = null
+                    error = null
+                }
+            )
 
-                        val averageFlow =
-                            average.toDoubleOrNull()
-                                ?: throw IllegalArgumentException(
-                                    if (arabic) {
-                                        "أدخل متوسط التصرف."
-                                    } else {
-                                        "Enter average flow."
-                                    }
-                                )
+            EngineeringInput(
+                label = "Static Head (m)",
+                value = staticHead,
+                onValueChange = {
+                    staticHead = it
+                    result = null
+                    error = null
+                }
+            )
 
-                        require(averageFlow > 0.0)
-
-                        val enteredPeak =
-                            peak.toDoubleOrNull()
-
-                        val calculatedPeak =
-                            if (enteredPeak != null &&
-                                enteredPeak > 0.0
-                            ) {
-                                enteredPeak
-                            } else {
-                                val factor =
-                                    SewageDesignEngine.calculatePeakFactor(
-                                        averageFlowM3PerDay =
-                                            averageFlow,
-                                        peakFlowM3PerDay =
-                                            null
-                                    )
-
-                                SewageDesignEngine.calculatePeakFlow(
-                                    averageFlowM3PerDay =
-                                        averageFlow,
-                                    peakFactor = factor
-                                )
-                            }
-
-                        require(calculatedPeak >= averageFlow) {
-                            if (arabic) {
-                                "التصرف الأقصى يجب ألا يقل عن المتوسط."
-                            } else {
-                                "Peak flow must not be lower than average flow."
-                            }
-                        }
-
-                        val peakHourly =
-                            calculatedPeak / 24.0
-
-                        val enteredVelocity =
-                            velocity.toDoubleOrNull()
-
-                        val enteredDiameter =
-                            diameter.toDoubleOrNull()
-
-                        val calculatedVelocity: Double
-                        val calculatedDiameter: Double
-
-                        when {
-                            enteredDiameter != null &&
-                                enteredDiameter > 0.0 -> {
-
-                                calculatedDiameter =
-                                    enteredDiameter
-
-                                calculatedVelocity =
-                                    SewageDesignEngine.calculateVelocity(
-                                        flowM3PerHour =
-                                            peakHourly,
-                                        diameterMm =
-                                            calculatedDiameter
-                                    )
-                            }
-
-                            enteredVelocity != null &&
-                                enteredVelocity > 0.0 -> {
-
-                                calculatedVelocity =
-                                    enteredVelocity
-
-                                calculatedDiameter =
-                                    sewageDiameterFromFlowAndVelocity(
-                                        flowM3PerHour =
-                                            peakHourly,
-                                        velocityMPerS =
-                                            calculatedVelocity
-                                    )
-                            }
-
-                            else -> {
-                                throw IllegalArgumentException(
-                                    if (arabic) {
-                                        "أدخل القطر أو السرعة لخط الطرد."
-                                    } else {
-                                        "Enter rising-main diameter or velocity."
-                                    }
-                                )
-                            }
-                        }
-
-                        val mainLength =
-                            length.toDoubleOrNull()
-                                ?: throw IllegalArgumentException(
-                                    if (arabic) {
-                                        "أدخل طول خط الطرد."
-                                    } else {
-                                        "Enter rising-main length."
-                                    }
-                                )
-
-                        require(mainLength > 0.0)
-
-                        val calculatedFriction =
-                            SewageDesignEngine.calculateFrictionLoss(
-                                flowM3PerHour =
-                                    peakHourly,
-                                diameterMm =
-                                    calculatedDiameter,
-                                lengthM =
-                                    mainLength,
-                                material =
-                                    material
-                            )
-
-                        val calculatedMinor =
-                            minorLoss.toDoubleOrNull()
-                                ?.coerceAtLeast(0.0)
-                                ?: 0.0
-
-                        val calculatedTdh =
-                            SewageDesignEngine.calculateTdh(
-                                staticHeadM =
-                                    staticHead.toDoubleOrNull()
-                                        ?.coerceAtLeast(0.0)
-                                        ?: 0.0,
-                                frictionLossM =
-                                    calculatedFriction,
-                                minorLossHeadM =
-                                    calculatedMinor
-                            )
-
-                        val risingMain =
-                            RisingMainDesign(
-                                name = "Main Rising Main",
-                                diameterMm =
-                                    calculatedDiameter,
-                                lengthM =
-                                    mainLength,
-                                material =
-                                    material,
-                                flowM3PerHour =
-                                    peakHourly,
-                                velocityMPerS =
-                                    calculatedVelocity,
-                                frictionLossM =
-                                    calculatedFriction,
-                                minorLossHeadM =
-                                    calculatedMinor
-                            )
-
-                        var updated =
-                            SewageDesignModule.updateFlows(
-                                project = current,
-                                averageFlowM3PerDay =
-                                    averageFlow,
-                                peakFlowM3PerDay =
-                                    calculatedPeak,
-                                minimumFlowM3PerDay =
-                                    minimum.toDoubleOrNull()
-                                        ?.coerceAtLeast(0.0)
-                                        ?: 0.0
-                            )
-
-                        updated =
-                            SewageDesignModule.setStaticHead(
-                                project = updated,
-                                staticHeadM =
-                                    staticHead.toDoubleOrNull()
-                                        ?.coerceAtLeast(0.0)
-                                        ?: 0.0
-                            )
-
-                        updated =
-                            SewageDesignModule.setRisingMain(
-                                project = updated,
-                                risingMain = risingMain
-                            )
-
-                        project = updated
-
-                        peak =
-                            "%.2f".format(
-                                calculatedPeak
-                            )
-
-                        diameter =
-                            "%.1f".format(
-                                calculatedDiameter
-                            )
-
-                        velocity =
-                            "%.3f".format(
-                                calculatedVelocity
-                            )
-
-                        result =
-                            if (arabic) {
-                                "المتوسط = %.2f m³/day\n".format(
-                                    averageFlow
-                                ) +
-                                "الأقصى = %.2f m³/day\n".format(
-                                    calculatedPeak
-                                ) +
-                                "تصرف خط الطرد = %.2f m³/h\n".format(
-                                    peakHourly
-                                ) +
-                                "القطر = %.1f mm\n".format(
-                                    calculatedDiameter
-                                ) +
-                                "السرعة = %.3f m/s\n".format(
-                                    calculatedVelocity
-                                ) +
-                                "فاقد الاحتكاك = %.2f m\n".format(
-                                    calculatedFriction
-                                ) +
-                                "TDH = %.2f m".format(
-                                    calculatedTdh
-                                )
-                            } else {
-                                "Average = %.2f m³/day\n".format(
-                                    averageFlow
-                                ) +
-                                "Peak = %.2f m³/day\n".format(
-                                    calculatedPeak
-                                ) +
-                                "Rising Main Flow = %.2f m³/h\n".format(
-                                    peakHourly
-                                ) +
-                                "Diameter = %.1f mm\n".format(
-                                    calculatedDiameter
-                                ) +
-                                "Velocity = %.3f m/s\n".format(
-                                    calculatedVelocity
-                                ) +
-                                "Friction Loss = %.2f m\n".format(
-                                    calculatedFriction
-                                ) +
-                                "TDH = %.2f m".format(
-                                    calculatedTdh
-                                )
-                            }
-
-                        error = null
-                    } catch (e: Exception) {
-                        result = null
-                        error = e.message
-                            ?: if (arabic) {
-                                "تعذر تنفيذ تصميم الصرف الصحي."
-                            } else {
-                                "Sewage design calculation failed."
-                            }
-                    }
+            EngineeringInput(
+                label = "Minor Loss (m)",
+                value = minorLoss,
+                onValueChange = {
+                    minorLoss = it
+                    result = null
+                    error = null
                 }
             )
         }
+
+        EngineeringPrimaryButton(
+            text = if (arabic) {
+                "احسب واحفظ بالمشروع"
+            } else {
+                "Calculate & Save to Project"
+            },
+            onClick = {
+                try {
+                    val avg = averageFlow.toDouble()
+                    val peak = peakFlow.toDouble()
+                    val minimum = minimumFlow.toDouble()
+
+                    require(avg > 0.0)
+                    require(peak >= avg)
+                    require(minimum >= 0.0)
+
+                    val qInput = flow.toDoubleOrNull()
+                    val dInput = diameter.toDoubleOrNull()
+                    val vInput = velocity.toDoubleOrNull()
+                    val hfInput = headLoss.toDoubleOrNull()
+
+                    val l = length.toDouble()
+                    val static = staticHead.toDouble()
+                    val minor = minorLoss.toDouble()
+
+                    require(qInput == null || qInput > 0.0)
+                    require(dInput == null || dInput > 0.0)
+                    require(vInput == null || vInput > 0.0)
+                    require(hfInput == null || hfInput >= 0.0)
+                    require(l > 0.0)
+                    require(static >= 0.0)
+                    require(minor >= 0.0)
+
+                    val q =
+                        qInput ?: peak / 24.0
+
+                    val calculated =
+                        SewageDesignEngine.calculateAuto(
+                            flowM3PerHour = q,
+                            diameterMm = dInput,
+                            velocityMPerS = vInput,
+                            headLossM = hfInput,
+                            lengthM = l,
+                            material = material
+                        )
+
+                    require(calculated.valid) {
+                        calculated.message
+                    }
+
+                    flow =
+                        "%.3f".format(
+                            calculated.flowM3PerHour
+                        )
+
+                    diameter =
+                        "%.1f".format(
+                            calculated.diameterMm
+                        )
+
+                    velocity =
+                        "%.3f".format(
+                            calculated.velocityMPerS
+                        )
+
+                    headLoss =
+                        "%.3f".format(
+                            calculated.headLossM
+                        )
+
+                    var project =
+                        DesignProjectCoreBridge.getActiveProject()
+                            ?: throw IllegalStateException(
+                                if (arabic) {
+                                    "لا يوجد مشروع نشط."
+                                } else {
+                                    "No active project."
+                                }
+                            )
+
+                    project =
+                        SewageDesignModule.updateFlows(
+                            project = project,
+                            averageFlowM3PerDay = avg,
+                            peakFlowM3PerDay = peak,
+                            minimumFlowM3PerDay = minimum
+                        )
+
+                    project =
+                        SewageDesignModule.setRisingMain(
+                            project = project,
+                            risingMain =
+                                RisingMainDesign(
+                                    name = "Main Rising Main",
+                                    diameterMm =
+                                        calculated.diameterMm,
+                                    lengthM = l,
+                                    material = material,
+                                    flowM3PerHour =
+                                        calculated.flowM3PerHour,
+                                    velocityMPerS =
+                                        calculated.velocityMPerS,
+                                    frictionLossM =
+                                        calculated.headLossM,
+                                    minorLossHeadM = minor
+                                )
+                        )
+
+                    project =
+                        SewageDesignModule.setStaticHead(
+                            project = project,
+                            staticHeadM = static
+                        )
+
+                    val tdh =
+                        SewageDesignEngine.calculateTdh(
+                            staticHeadM = static,
+                            frictionHeadM =
+                                calculated.headLossM,
+                            minorLossHeadM = minor
+                        )
+
+                    result =
+                        buildString {
+                            appendLine(
+                                "Average Flow = %.3f m³/day"
+                                    .format(avg)
+                            )
+                            appendLine(
+                                "Peak Flow = %.3f m³/day"
+                                    .format(peak)
+                            )
+                            appendLine(
+                                "Peak Factor = %.3f"
+                                    .format(peak / avg)
+                            )
+                            appendLine(
+                                "Rising Main Flow = %.3f m³/h"
+                                    .format(
+                                        calculated.flowM3PerHour
+                                    )
+                            )
+                            appendLine(
+                                "Diameter = %.1f mm"
+                                    .format(
+                                        calculated.diameterMm
+                                    )
+                            )
+                            appendLine(
+                                "Velocity = %.3f m/s"
+                                    .format(
+                                        calculated.velocityMPerS
+                                    )
+                            )
+                            appendLine(
+                                "Friction Loss = %.3f m"
+                                    .format(
+                                        calculated.headLossM
+                                    )
+                            )
+                            appendLine(
+                                "TDH = %.3f m"
+                                    .format(tdh)
+                            )
+                        }
+
+                    error = null
+                } catch (e: Exception) {
+                    result = null
+                    error = e.message ?: if (arabic) {
+                        "تعذر تنفيذ حساب الصرف."
+                    } else {
+                        "Sewage calculation failed."
+                    }
+                }
+            }
+        )
 
         error?.let {
             EngineeringStatus(
@@ -2554,176 +2000,22 @@ private fun SewageEngineeringModuleScreen(
         result?.let {
             EngineeringResult(
                 title = if (arabic) {
-                    "نتيجة التصميم الهيدروليكي"
+                    "نتيجة تصميم الصرف"
                 } else {
-                    "Hydraulic Design Result"
+                    "Sewage Design Result"
                 },
                 value = it
             )
-        }
-
-        project?.sewage?.let { sewage ->
-            EngineeringResult(
-                title = if (arabic) "حالة المشروع" else "Project Status",
-                value = sewage.status.name,
-                success = sewage.status.name != "INVALID"
+        } ?: if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                message = if (arabic) {
+                    "أدخل البيانات ثم اضغط احسب واحفظ بالمشروع."
+                } else {
+                    "Enter the data and calculate."
+                }
             )
-
-            EngineeringCard {
-                EngineeringSectionTitle(
-                    text = if (arabic) {
-                        "نتائج مشروع الصرف"
-                    } else {
-                        "Sewage Project Results"
-                    }
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) {
-                        "التصرف المتوسط"
-                    } else {
-                        "Average Flow"
-                    },
-                    value = "%.2f m³/day".format(
-                        sewage.averageFlowM3PerDay
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) {
-                        "التصرف الأقصى"
-                    } else {
-                        "Peak Flow"
-                    },
-                    value = "%.2f m³/day".format(
-                        sewage.peakFlowM3PerDay
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) {
-                        "التصرف الأقصى بالساعة"
-                    } else {
-                        "Peak Hourly Flow"
-                    },
-                    value = "%.2f m³/h".format(
-                        sewage.peakFlowM3PerDay / 24.0
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) {
-                        "الرأس الساكن"
-                    } else {
-                        "Static Head"
-                    },
-                    value = "%.2f m".format(
-                        sewage.staticHeadM
-                    )
-                )
-
-                EngineeringValueRow(
-                    label = if (arabic) {
-                        "الرأس الكلي TDH"
-                    } else {
-                        "Total Dynamic Head"
-                    },
-                    value = "%.2f m".format(
-                        sewage.tdhM
-                    )
-                )
-
-                sewage.wetWell?.let { wetWell ->
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "حجم الحوض الرطب"
-                        } else {
-                            "Wet Well Volume"
-                        },
-                        value = "%.2f m³".format(
-                            wetWell.operatingVolumeM3
-                        )
-                    )
-                }
-
-                sewage.risingMain?.let { risingMain ->
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "قطر خط الطرد"
-                        } else {
-                            "Rising Main Diameter"
-                        },
-                        value = "%.1f mm".format(
-                            risingMain.diameterMm
-                        )
-                    )
-
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "سرعة خط الطرد"
-                        } else {
-                            "Rising Main Velocity"
-                        },
-                        value = "%.3f m/s".format(
-                            risingMain.velocityMPerS
-                        )
-                    )
-
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "فاقد الاحتكاك"
-                        } else {
-                            "Friction Loss"
-                        },
-                        value = "%.2f m".format(
-                            risingMain.frictionLossM
-                        )
-                    )
-
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "الفواقد الثانوية"
-                        } else {
-                            "Minor Loss"
-                        },
-                        value = "%.2f m".format(
-                            risingMain.minorLossHeadM
-                        )
-                    )
-                }
-
-                sewage.pumps.forEach { pump ->
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "المضخة ${pump.name}"
-                        } else {
-                            "Pump ${pump.name}"
-                        },
-                        value = "%.2f kW".format(
-                            pump.motorPowerKw
-                        )
-                    )
-
-                    EngineeringValueRow(
-                        label = if (arabic) {
-                            "الطاقة السنوية ${pump.name}"
-                        } else {
-                            "Yearly Energy ${pump.name}"
-                        },
-                        value = "%.0f kWh".format(
-                            pump.yearlyEnergyKwh
-                        )
-                    )
-                }
-            }
-        } ?: EngineeringEmptyState(
-            title = if (arabic) "لا يوجد مشروع نشط" else "No Active Project",
-            message = if (arabic) {
-                "أنشئ أو اختر مشروعًا أولًا."
-            } else {
-                "Create or select a project first."
-            }
-        )
+        }
     }
 }
 
@@ -2735,11 +2027,7 @@ private fun EngineeringReportModuleScreen(
     val arabic = language == AppLanguage.ARABIC
 
     EngineeringPage(
-        title = if (arabic) {
-            "التقرير الهندسي"
-        } else {
-            "Engineering Report"
-        },
+        title = if (arabic) "التقرير الهندسي" else "Engineering Report",
         subtitle = if (arabic) {
             "مركز مخرجات التصميم والحسابات"
         } else {
@@ -2748,47 +2036,38 @@ private fun EngineeringReportModuleScreen(
         onBack = onBack
     ) {
         EngineeringCard(
-            title = if (arabic) {
-                "مخرجات المشروع"
-            } else {
-                "Project Deliverables"
-            }
+            title = if (arabic) "مخرجات المشروع" else "Project Deliverables"
         ) {
             EngineeringStatus(
                 text = if (arabic) {
-                    "الحسابات الأساسية مرتبطة بالـ Core.\n" +
-                        "مصمم SLD يعمل من مساره المستقل."
+                    "الحسابات الكهربائية والمياه والصرف مرتبطة بمحركات التصميم."
                 } else {
-                    "Core-connected engineering calculations.\n" +
-                        "SLD remains on its dedicated route."
+                    "Electrical, water and sewage calculations are connected to the design engines."
                 }
             )
 
             EngineeringSectionTitle(
-                text = if (arabic) {
-                    "المخرجات المستهدفة"
-                } else {
-                    "Target Deliverables"
-                }
+                text = if (arabic) "المخرجات" else "Deliverables"
             )
 
             EngineeringValueRow(
-                label = if (arabic) {
-                    "الحسابات"
-                } else {
-                    "Calculations"
-                },
-                value = "Electrical / Water / Sewage"
+                label = if (arabic) "الكهرباء" else "Electrical",
+                value = "Load / Cable / Breaker / Transformer / Generator"
+            )
+
+            EngineeringValueRow(
+                label = if (arabic) "المياه" else "Water",
+                value = "Flow / Pipe / Loss / TDH / Pump"
+            )
+
+            EngineeringValueRow(
+                label = if (arabic) "الصرف" else "Sewage",
+                value = "Flow / Rising Main / Loss / TDH / Pump"
             )
 
             EngineeringValueRow(
                 label = "SLD",
                 value = "Interactive Engineering Diagram"
-            )
-
-            EngineeringValueRow(
-                label = "PDF",
-                value = "Engineering Report"
             )
         }
 
@@ -2799,9 +2078,9 @@ private fun EngineeringReportModuleScreen(
                 "Full Report Is Project-Based"
             },
             message = if (arabic) {
-                "سيتم ربط التقرير النهائي بنتائج المشروع وSLD بعد تثبيت واجهة النظام الموحدة."
+                "نتائج التصميم تحفظ داخل المشروع وتستخدم في مخرجات التقرير."
             } else {
-                "The final report will consume project and SLD results after the unified interface is stabilized."
+                "Design results are stored in the project and consumed by the report."
             }
         )
     }
@@ -2815,39 +2094,21 @@ private fun CurrentTypeSelector(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var expanded by remember {
-        mutableStateOf(false)
-    }
+    var expanded by remember { mutableStateOf(false) }
 
     EngineeringSecondaryButton(
         text = when (value) {
             CurrentType.DirectCurrent ->
-                if (arabic) {
-                    "تيار مستمر — DC"
-                } else {
-                    "DC"
-                }
+                if (arabic) "تيار مستمر — DC" else "DC"
 
             CurrentType.AlternatingSinglePhase ->
-                if (arabic) {
-                    "أحادي الطور — 1 Phase"
-                } else {
-                    "1 Phase"
-                }
+                if (arabic) "أحادي الطور" else "1 Phase"
 
             CurrentType.AlternatingTwoPhase ->
-                if (arabic) {
-                    "ثنائي الطور — 2 Phase"
-                } else {
-                    "2 Phase"
-                }
+                if (arabic) "ثنائي الطور" else "2 Phase"
 
             CurrentType.AlternatingThreePhase ->
-                if (arabic) {
-                    "ثلاثي الطور — 3 Phase"
-                } else {
-                    "3 Phase"
-                }
+                if (arabic) "ثلاثي الطور" else "3 Phase"
         },
         onClick = {
             expanded = true
@@ -2868,35 +2129,19 @@ private fun CurrentTypeSelector(
         ).forEach { type ->
             DropdownMenuItem(
                 text = {
-                    Text(
+                    androidx.compose.material3.Text(
                         when (type) {
                             CurrentType.DirectCurrent ->
-                                if (arabic) {
-                                    "تيار مستمر — DC"
-                                } else {
-                                    "DC"
-                                }
+                                if (arabic) "تيار مستمر — DC" else "DC"
 
                             CurrentType.AlternatingSinglePhase ->
-                                if (arabic) {
-                                    "أحادي الطور — 1 Phase"
-                                } else {
-                                    "1 Phase"
-                                }
+                                if (arabic) "أحادي الطور" else "1 Phase"
 
                             CurrentType.AlternatingTwoPhase ->
-                                if (arabic) {
-                                    "ثنائي الطور — 2 Phase"
-                                } else {
-                                    "2 Phase"
-                                }
+                                if (arabic) "ثنائي الطور" else "2 Phase"
 
                             CurrentType.AlternatingThreePhase ->
-                                if (arabic) {
-                                    "ثلاثي الطور — 3 Phase"
-                                } else {
-                                    "3 Phase"
-                                }
+                                if (arabic) "ثلاثي الطور" else "3 Phase"
                         }
                     )
                 },
@@ -2917,25 +2162,13 @@ private fun MaterialSelector(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var expanded by remember {
-        mutableStateOf(false)
-    }
+    var expanded by remember { mutableStateOf(false) }
 
     EngineeringSecondaryButton(
-        text = when (value) {
-            ConductorMaterial.Copper ->
-                if (arabic) {
-                    "الموصل: نحاس"
-                } else {
-                    "Conductor: Copper"
-                }
-
-            ConductorMaterial.Aluminum ->
-                if (arabic) {
-                    "الموصل: ألومنيوم"
-                } else {
-                    "Conductor: Aluminum"
-                }
+        text = if (value == ConductorMaterial.Copper) {
+            if (arabic) "نحاس — Copper" else "Copper"
+        } else {
+            if (arabic) "ألومنيوم — Aluminum" else "Aluminum"
         },
         onClick = {
             expanded = true
@@ -2948,109 +2181,28 @@ private fun MaterialSelector(
             expanded = false
         }
     ) {
-        listOf(
-            ConductorMaterial.Copper,
-            ConductorMaterial.Aluminum
-        ).forEach { material ->
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        when (material) {
-                            ConductorMaterial.Copper ->
-                                if (arabic) {
-                                    "نحاس"
-                                } else {
-                                    "Copper"
-                                }
+        DropdownMenuItem(
+            text = {
+                androidx.compose.material3.Text(
+                    if (arabic) "نحاس — Copper" else "Copper"
+                )
+            },
+            onClick = {
+                onChange(ConductorMaterial.Copper)
+                expanded = false
+            }
+        )
 
-                            ConductorMaterial.Aluminum ->
-                                if (arabic) {
-                                    "ألومنيوم"
-                                } else {
-                                    "Aluminum"
-                                }
-                        }
-                    )
-                },
-                onClick = {
-                    onChange(material)
-                    expanded = false
-                }
-            )
-        }
+        DropdownMenuItem(
+            text = {
+                androidx.compose.material3.Text(
+                    if (arabic) "ألومنيوم — Aluminum" else "Aluminum"
+                )
+            },
+            onClick = {
+                onChange(ConductorMaterial.Aluminum)
+                expanded = false
+            }
+        )
     }
-}
-
-/*
- * Hydraulic helper calculations.
- *
- * These helpers are intentionally isolated from the composables so the
- * UI does not contain scattered hydraulic equations.
- *
- * Q is m³/h.
- * V is m/s.
- * D is mm.
- */
-private fun waterDiameterFromFlowAndVelocity(
-    flowM3PerHour: Double,
-    velocityMPerS: Double
-): Double {
-    require(flowM3PerHour > 0.0)
-    require(velocityMPerS > 0.0)
-
-    val flowM3PerSecond =
-        flowM3PerHour / 3600.0
-
-    val area =
-        flowM3PerSecond / velocityMPerS
-
-    val diameterM =
-        kotlin.math.sqrt(
-            4.0 * area / kotlin.math.PI
-        )
-
-    return diameterM * 1000.0
-}
-
-private fun waterFlowFromDiameterAndVelocity(
-    diameterMm: Double,
-    velocityMPerS: Double
-): Double {
-    require(diameterMm > 0.0)
-    require(velocityMPerS > 0.0)
-
-    val diameterM =
-        diameterMm / 1000.0
-
-    val area =
-        kotlin.math.PI *
-            diameterM *
-            diameterM /
-            4.0
-
-    val flowM3PerSecond =
-        area * velocityMPerS
-
-    return flowM3PerSecond * 3600.0
-}
-
-private fun sewageDiameterFromFlowAndVelocity(
-    flowM3PerHour: Double,
-    velocityMPerS: Double
-): Double {
-    require(flowM3PerHour > 0.0)
-    require(velocityMPerS > 0.0)
-
-    val flowM3PerSecond =
-        flowM3PerHour / 3600.0
-
-    val area =
-        flowM3PerSecond / velocityMPerS
-
-    val diameterM =
-        kotlin.math.sqrt(
-            4.0 * area / kotlin.math.PI
-        )
-
-    return diameterM * 1000.0
 }
