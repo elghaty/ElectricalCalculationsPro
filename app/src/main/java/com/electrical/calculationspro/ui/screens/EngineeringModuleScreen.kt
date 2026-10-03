@@ -3,7 +3,7 @@ package com.electrical.calculationspro.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.weight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material3.DropdownMenu
@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.ConductorSizingInput
@@ -66,7 +67,6 @@ fun EngineeringModuleScreen(
     onOpenSld: (() -> Unit)? = null
 ) {
     when (module) {
-
         EngineeringModule.LOAD ->
             LoadEngineeringScreen(
                 language = language,
@@ -1445,11 +1445,9 @@ private fun WaterEngineeringModuleScreen(
         EngineeringCard(
             title = if (arabic) "البيانات الهيدروليكية" else "Hydraulic Data"
         ) {
-
             Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.dp(8)
-                )
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringInput(
                     modifier = Modifier.weight(1f),
@@ -1486,9 +1484,8 @@ private fun WaterEngineeringModuleScreen(
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.dp(8)
-                )
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringInput(
                     modifier = Modifier.weight(1f),
@@ -1526,9 +1523,8 @@ private fun WaterEngineeringModuleScreen(
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.dp(8)
-                )
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringInput(
                     modifier = Modifier.weight(1f),
@@ -1661,7 +1657,7 @@ private fun WaterEngineeringModuleScreen(
                     )
 
                     val calculatedHeadLoss =
-                        hf ?: WaterDesignEngine.calculateFrictionLoss(
+                        WaterDesignEngine.calculateFrictionLoss(
                             flowM3PerHour = resolvedFlow,
                             diameterMm = resolvedDiameter,
                             lengthM = l,
@@ -1832,9 +1828,8 @@ private fun SewageEngineeringModuleScreen(
             title = if (arabic) "التدفقات" else "Flow Data"
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.dp(8)
-                )
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringInput(
                     modifier = Modifier.weight(1f),
@@ -1875,9 +1870,8 @@ private fun SewageEngineeringModuleScreen(
             title = if (arabic) "الخط الهيدروليكي" else "Rising Main Hydraulic Data"
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.dp(8)
-                )
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringInput(
                     modifier = Modifier.weight(1f),
@@ -1914,9 +1908,8 @@ private fun SewageEngineeringModuleScreen(
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.dp(8)
-                )
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringInput(
                     modifier = Modifier.weight(1f),
@@ -1954,9 +1947,8 @@ private fun SewageEngineeringModuleScreen(
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.dp(8)
-                )
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringInput(
                     modifier = Modifier.weight(1f),
@@ -2007,6 +1999,7 @@ private fun SewageEngineeringModuleScreen(
                     require(avg > 0.0)
                     require(peak >= avg)
                     require(minimum >= 0.0)
+                    require(minimum <= peak)
 
                     val qInput = flow.toDoubleOrNull()
                     val dInput = diameter.toDoubleOrNull()
@@ -2025,8 +2018,7 @@ private fun SewageEngineeringModuleScreen(
                     require(static >= 0.0)
                     require(minor >= 0.0)
 
-                    val q =
-                        qInput ?: peak / 24.0
+                    val q = qInput ?: peak / 24.0
 
                     val resolvedFlow: Double
                     val resolvedDiameter: Double
@@ -2071,7 +2063,7 @@ private fun SewageEngineeringModuleScreen(
                     )
 
                     val calculatedHeadLoss =
-                        hfInput ?: SewageDesignEngine.calculateFrictionLoss(
+                        SewageDesignEngine.calculateFrictionLoss(
                             flowM3PerHour = resolvedFlow,
                             diameterMm = resolvedDiameter,
                             lengthM = l,
@@ -2087,17 +2079,10 @@ private fun SewageEngineeringModuleScreen(
                             minorLossHeadM = minor
                         )
 
-                    flow =
-                        "%.3f".format(resolvedFlow)
-
-                    diameter =
-                        "%.1f".format(resolvedDiameter)
-
-                    velocity =
-                        "%.3f".format(resolvedVelocity)
-
-                    headLoss =
-                        "%.3f".format(calculatedHeadLoss)
+                    flow = "%.3f".format(resolvedFlow)
+                    diameter = "%.1f".format(resolvedDiameter)
+                    velocity = "%.3f".format(resolvedVelocity)
+                    headLoss = "%.3f".format(calculatedHeadLoss)
 
                     var project =
                         DesignProjectCoreBridge.getActiveProject()
@@ -2123,16 +2108,12 @@ private fun SewageEngineeringModuleScreen(
                             risingMain =
                                 RisingMainDesign(
                                     name = "Main Rising Main",
-                                    diameterMm =
-                                        resolvedDiameter,
+                                    diameterMm = resolvedDiameter,
                                     lengthM = l,
                                     material = material,
-                                    flowM3PerHour =
-                                        resolvedFlow,
-                                    velocityMPerS =
-                                        resolvedVelocity,
-                                    frictionLossM =
-                                        calculatedHeadLoss,
+                                    flowM3PerHour = resolvedFlow,
+                                    velocityMPerS = resolvedVelocity,
+                                    frictionLossM = calculatedHeadLoss,
                                     minorLossHeadM = minor
                                 )
                         )
@@ -2152,6 +2133,10 @@ private fun SewageEngineeringModuleScreen(
                             appendLine(
                                 "Peak Flow = %.3f m³/day"
                                     .format(peak)
+                            )
+                            appendLine(
+                                "Minimum Flow = %.3f m³/day"
+                                    .format(minimum)
                             )
                             appendLine(
                                 "Peak Factor = %.3f"
