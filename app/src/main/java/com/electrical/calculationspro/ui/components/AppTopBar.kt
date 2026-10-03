@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -18,14 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.electrical.calculationspro.data.AppLanguage
 
-/**
- * Unified application top bar.
- *
- * [onBack] is nullable intentionally:
- * - null  -> main/root screen, no back button
- * - value -> internal screen, back button is shown
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppTopBar(
@@ -33,6 +28,8 @@ fun AppTopBar(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     showBack: Boolean = onBack != null,
+    language: AppLanguage? = null,
+    onLanguageChange: ((AppLanguage) -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     CenterAlignedTopAppBar(
@@ -73,63 +70,94 @@ fun AppTopBar(
                     Icon(
                         imageVector =
                             Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back"
+                        contentDescription =
+                            if (language == AppLanguage.ARABIC) {
+                                "رجوع"
+                            } else {
+                                "Back"
+                            }
                     )
                 }
             }
         },
 
-        actions = actions,
+        actions = {
+            if (language != null && onLanguageChange != null) {
+                IconButton(
+                    onClick = {
+                        onLanguageChange(
+                            if (language == AppLanguage.ARABIC) {
+                                AppLanguage.ENGLISH
+                            } else {
+                                AppLanguage.ARABIC
+                            }
+                        )
+                    }
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Language,
+                        contentDescription =
+                            if (language == AppLanguage.ARABIC) {
+                                "English"
+                            } else {
+                                "العربية"
+                            }
+                    )
+                }
+            }
+
+            actions()
+        },
 
         colors =
             TopAppBarDefaults.centerAlignedTopAppBarColors(
                 containerColor =
                     MaterialTheme.colorScheme.surface,
+
                 titleContentColor =
                     MaterialTheme.colorScheme.onSurface,
+
                 navigationIconContentColor =
                     MaterialTheme.colorScheme.onSurface,
+
                 actionIconContentColor =
                     MaterialTheme.colorScheme.onSurface
             )
     )
 }
 
-
-/**
- * Simple screen top bar.
- */
 @Composable
 fun SimpleAppTopBar(
     title: String,
     onBack: (() -> Unit)? = null,
+    language: AppLanguage? = null,
+    onLanguageChange: ((AppLanguage) -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     AppTopBar(
         title = title,
         onBack = onBack,
+        language = language,
+        onLanguageChange = onLanguageChange,
         actions = actions
     )
 }
 
-
-/**
- * Engineering screen top bar.
- *
- * Back button is displayed automatically when [onBack]
- * is supplied.
- */
 @Composable
 fun EngineeringAppTopBar(
     title: String,
     projectName: String?,
     onBack: (() -> Unit)? = null,
+    language: AppLanguage? = null,
+    onLanguageChange: ((AppLanguage) -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     AppTopBar(
         title = title,
         subtitle = projectName?.takeIf { it.isNotBlank() },
         onBack = onBack,
+        language = language,
+        onLanguageChange = onLanguageChange,
         actions = actions
     )
 }
