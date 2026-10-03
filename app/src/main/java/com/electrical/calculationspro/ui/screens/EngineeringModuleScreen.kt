@@ -277,6 +277,8 @@ private fun LoadEngineeringScreen(
                     "Enter the data and calculate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -518,6 +520,8 @@ private fun ConductorSizingScreen(
                     "Enter cable data and calculate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -682,6 +686,8 @@ private fun ProfessionalVoltageDropScreen(
                     "Enter circuit data and calculate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -814,6 +820,8 @@ private fun BreakerEngineeringScreen(
                     "Enter breaker data and run the selection."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -929,6 +937,8 @@ private fun TransformerEngineeringScreen(
                     "Enter transformer data and calculate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -1013,6 +1023,8 @@ private fun GeneratorEngineeringScreen(
                     "Enter the required capacity and select."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -1244,6 +1256,8 @@ private fun ShortCircuitEngineeringScreen(
                     "Enter short-circuit data and calculate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -1385,6 +1399,8 @@ private fun ProtectionEngineeringScreen(
                     "Enter protection data and validate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -1661,6 +1677,8 @@ private fun WaterEngineeringModuleScreen(
                     "Enter the data and calculate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
@@ -2015,6 +2033,8 @@ private fun SewageEngineeringModuleScreen(
                     "Enter the data and calculate."
                 }
             )
+        } else {
+            Unit
         }
     }
 }
