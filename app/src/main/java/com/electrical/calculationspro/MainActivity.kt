@@ -64,7 +64,7 @@ import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
 import com.electrical.calculationspro.ui.components.EngineeringAppTopBar
 
 import com.electrical.calculationspro.ui.project.DesignGridItem
-import com.electrical.calculationspro.ui.project.FourColumnDesignGrid
+import com.electrical.calculationspro.ui.project.ThreeColumnDesignGrid
 import com.electrical.calculationspro.ui.project.ProjectDashboardScreen
 
 import com.electrical.calculationspro.ui.screens.EngineeringModule
@@ -420,7 +420,8 @@ private fun ElectricalCalculationsProApp() {
      * ========================================================
      */
 
-    val configuration = LocalConfiguration.current
+    val configuration =
+        LocalConfiguration.current
 
     val isTablet =
         configuration.screenWidthDp >= 600
@@ -1708,6 +1709,15 @@ private fun MainWorkspaceCard(
  * ============================================================
  * CALCULATOR GRID
  * ============================================================
+ *
+ * التصميم هنا 3 أعمدة ثابتة في كل صف.
+ *
+ * 1  2  3
+ * 4  5  6
+ * 7  8  9
+ * 10 11 12
+ *
+ * لا يوجد أي تغيير في SLD.
  */
 @Composable
 private fun CalculatorTab(
@@ -1753,6 +1763,12 @@ private fun CalculatorTab(
         )
 
 
+        Spacer(
+            modifier =
+                Modifier.height(4.dp)
+        )
+
+
         Text(
             text =
                 if (arabic) {
@@ -1767,303 +1783,353 @@ private fun CalculatorTab(
 
 
         Spacer(
-            modifier = Modifier.height(10.dp)
+            modifier =
+                Modifier.height(10.dp)
         )
 
 
-        FourColumnDesignGrid(
+        ThreeColumnDesignGrid(
             modifier =
                 Modifier.weight(1f),
 
-            items = listOf(
+            items =
+                listOf(
 
-                DesignGridItem(
-                    id = "load",
+                    DesignGridItem(
+                        id = "load",
 
-                    title =
-                        if (arabic) {
-                            "الأحمال"
-                        } else {
-                            "Loads"
+                        title =
+                            if (arabic) {
+                                "الأحمال"
+                            } else {
+                                "Loads"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "جدول الأحمال"
+                            } else {
+                                "Load Schedule"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Power
+                            )
                         },
 
-                    subtitle =
-                        "Load Schedule",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Power
-                        )
-                    },
-
-                    onClick =
-                        onLoad
-                ),
+                        onClick =
+                            onLoad
+                    ),
 
 
-                DesignGridItem(
-                    id = "current",
+                    DesignGridItem(
+                        id = "current",
 
-                    title =
-                        if (arabic) {
-                            "التيار"
-                        } else {
-                            "Current"
+                        title =
+                            if (arabic) {
+                                "التيار"
+                            } else {
+                                "Current"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "تيار التصميم"
+                            } else {
+                                "Design Current"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Calculate
+                            )
                         },
 
-                    subtitle =
-                        "Design Current",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Calculate
-                        )
-                    },
-
-                    onClick =
-                        onCurrent
-                ),
+                        onClick =
+                            onCurrent
+                    ),
 
 
-                DesignGridItem(
-                    id = "cable",
+                    DesignGridItem(
+                        id = "cable",
 
-                    title =
-                        if (arabic) {
-                            "الكابلات"
-                        } else {
-                            "Cables"
+                        title =
+                            if (arabic) {
+                                "الكابلات"
+                            } else {
+                                "Cables"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "اختيار مقطع الكابل"
+                            } else {
+                                "Conductor Sizing"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Bolt
+                            )
                         },
 
-                    subtitle =
-                        "Conductor Sizing",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Bolt
-                        )
-                    },
-
-                    onClick =
-                        onCable
-                ),
+                        onClick =
+                            onCable
+                    ),
 
 
-                DesignGridItem(
-                    id = "voltage_drop",
+                    DesignGridItem(
+                        id = "voltage_drop",
 
-                    title =
-                        if (arabic) {
-                            "هبوط الجهد"
-                        } else {
-                            "Voltage Drop"
+                        title =
+                            if (arabic) {
+                                "هبوط الجهد"
+                            } else {
+                                "Voltage Drop"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "التحقق من هبوط الجهد"
+                            } else {
+                                "Voltage Drop Study"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Bolt
+                            )
                         },
 
-                    subtitle =
-                        "Voltage Drop",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Bolt
-                        )
-                    },
-
-                    onClick =
-                        onVoltageDrop
-                ),
+                        onClick =
+                            onVoltageDrop
+                    ),
 
 
-                DesignGridItem(
-                    id = "breaker",
+                    DesignGridItem(
+                        id = "breaker",
 
-                    title =
-                        if (arabic) {
-                            "القواطع"
-                        } else {
-                            "Breakers"
+                        title =
+                            if (arabic) {
+                                "القواطع"
+                            } else {
+                                "Breakers"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "اختيار والتحقق"
+                            } else {
+                                "Selection & Verification"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Power
+                            )
                         },
 
-                    subtitle =
-                        "Breaker Selection",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Power
-                        )
-                    },
-
-                    onClick =
-                        onBreaker
-                ),
+                        onClick =
+                            onBreaker
+                    ),
 
 
-                DesignGridItem(
-                    id = "protection",
+                    DesignGridItem(
+                        id = "protection",
 
-                    title =
-                        if (arabic) {
-                            "الحماية"
-                        } else {
-                            "Protection"
+                        title =
+                            if (arabic) {
+                                "الحماية"
+                            } else {
+                                "Protection"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "دراسة الحماية"
+                            } else {
+                                "Protection Study"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Security
+                            )
                         },
 
-                    subtitle =
-                        "Protection Study",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Security
-                        )
-                    },
-
-                    onClick =
-                        onProtection
-                ),
+                        onClick =
+                            onProtection
+                    ),
 
 
-                DesignGridItem(
-                    id = "short_circuit",
+                    DesignGridItem(
+                        id = "short_circuit",
 
-                    title =
-                        if (arabic) {
-                            "القصر الكهربائي"
-                        } else {
-                            "Short Circuit"
+                        title =
+                            if (arabic) {
+                                "القصر الكهربائي"
+                            } else {
+                                "Short Circuit"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "تيار القصر"
+                            } else {
+                                "Fault Current"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Bolt
+                            )
                         },
 
-                    subtitle =
-                        "Fault Current",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Bolt
-                        )
-                    },
-
-                    onClick =
-                        onShortCircuit
-                ),
+                        onClick =
+                            onShortCircuit
+                    ),
 
 
-                DesignGridItem(
-                    id = "panel",
+                    DesignGridItem(
+                        id = "panel",
 
-                    title =
-                        if (arabic) {
-                            "اللوحات"
-                        } else {
-                            "Panels"
+                        title =
+                            if (arabic) {
+                                "اللوحات"
+                            } else {
+                                "Panels"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "تصميم اللوحات"
+                            } else {
+                                "Panel Design"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.ElectricalServices
+                            )
                         },
 
-                    subtitle =
-                        "Panel Design",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.ElectricalServices
-                        )
-                    },
-
-                    onClick =
-                        onPanel
-                ),
+                        onClick =
+                            onPanel
+                    ),
 
 
-                DesignGridItem(
-                    id = "transformer",
+                    DesignGridItem(
+                        id = "transformer",
 
-                    title =
-                        if (arabic) {
-                            "المحولات"
-                        } else {
-                            "Transformers"
+                        title =
+                            if (arabic) {
+                                "المحولات"
+                            } else {
+                                "Transformers"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "اختيار المحول"
+                            } else {
+                                "Transformer Design"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Memory
+                            )
                         },
 
-                    subtitle =
-                        "Transformer Design",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Memory
-                        )
-                    },
-
-                    onClick =
-                        onTransformer
-                ),
+                        onClick =
+                            onTransformer
+                    ),
 
 
-                DesignGridItem(
-                    id = "generator",
+                    DesignGridItem(
+                        id = "generator",
 
-                    title =
-                        if (arabic) {
-                            "المولدات"
-                        } else {
-                            "Generators"
+                        title =
+                            if (arabic) {
+                                "المولدات"
+                            } else {
+                                "Generators"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "تصميم المولد"
+                            } else {
+                                "Generator Design"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Factory
+                            )
                         },
 
-                    subtitle =
-                        "Generator Design",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Factory
-                        )
-                    },
-
-                    onClick =
-                        onGenerator
-                ),
+                        onClick =
+                            onGenerator
+                    ),
 
 
-                DesignGridItem(
-                    id = "pump",
+                    DesignGridItem(
+                        id = "pump",
 
-                    title =
-                        if (arabic) {
-                            "المضخات"
-                        } else {
-                            "Pumps"
+                        title =
+                            if (arabic) {
+                                "المضخات"
+                            } else {
+                                "Pumps"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "التصرف والرفع والقدرة"
+                            } else {
+                                "Flow / Head / Power"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.WaterDrop
+                            )
                         },
 
-                    subtitle =
-                        "Flow / Head / Power",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.WaterDrop
-                        )
-                    },
-
-                    onClick =
-                        onPump
-                ),
+                        onClick =
+                            onPump
+                    ),
 
 
-                DesignGridItem(
-                    id = "report",
+                    DesignGridItem(
+                        id = "report",
 
-                    title =
-                        if (arabic) {
-                            "التقرير"
-                        } else {
-                            "Engineering Report"
+                        title =
+                            if (arabic) {
+                                "التقرير"
+                            } else {
+                                "Engineering Report"
+                            },
+
+                        subtitle =
+                            if (arabic) {
+                                "تقرير الحسابات"
+                            } else {
+                                "Calculation Report"
+                            },
+
+                        icon = {
+                            AppIcon(
+                                Icons.Outlined.Description
+                            )
                         },
 
-                    subtitle =
-                        "Calculation Report",
-
-                    icon = {
-                        AppIcon(
-                            Icons.Outlined.Description
-                        )
-                    },
-
-                    onClick =
-                        onReport
+                        onClick =
+                            onReport
+                    )
                 )
-            )
         )
     }
 }
@@ -2094,7 +2160,8 @@ private fun ReportsHomeTab(
     ) {
 
         Spacer(
-            modifier = Modifier.height(20.dp)
+            modifier =
+                Modifier.height(20.dp)
         )
 
 
@@ -2110,7 +2177,8 @@ private fun ReportsHomeTab(
 
 
         Spacer(
-            modifier = Modifier.height(12.dp)
+            modifier =
+                Modifier.height(12.dp)
         )
 
 
@@ -2128,7 +2196,8 @@ private fun ReportsHomeTab(
 
 
         Spacer(
-            modifier = Modifier.height(8.dp)
+            modifier =
+                Modifier.height(8.dp)
         )
 
 
@@ -2146,7 +2215,8 @@ private fun ReportsHomeTab(
 
 
         Spacer(
-            modifier = Modifier.height(20.dp)
+            modifier =
+                Modifier.height(20.dp)
         )
 
 
@@ -2164,7 +2234,8 @@ private fun ReportsHomeTab(
 
 
             Spacer(
-                modifier = Modifier.width(8.dp)
+                modifier =
+                    Modifier.width(8.dp)
             )
 
 
