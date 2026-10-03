@@ -47,6 +47,9 @@ import com.electrical.calculationspro.ui.components.EngineeringValueRow
 
 enum class EngineeringModule {
     LOAD,
+    CURRENT,
+    CABLE,
+    VOLTAGE_DROP,
     BREAKER,
     TRANSFORMER,
     GENERATOR,
@@ -68,6 +71,26 @@ fun EngineeringModuleScreen(
         EngineeringModule.LOAD ->
             LoadEngineeringScreen(
                 language = language,
+                onBack = onBack
+            )
+
+        EngineeringModule.CURRENT ->
+            CurrentCalculationScreen(
+                language = language,
+                onBack = onBack
+            )
+
+        EngineeringModule.CABLE ->
+            ConductorSizingScreen(
+                language = language,
+                standard = standard,
+                onBack = onBack
+            )
+
+        EngineeringModule.VOLTAGE_DROP ->
+            ProfessionalVoltageDropScreen(
+                language = language,
+                standard = standard,
                 onBack = onBack
             )
 
