@@ -37,6 +37,7 @@ import kotlin.math.tan
  * 10. Breaker selection uses the selected standard dataset when
  *     available.
  * 11. Transformer recommendation is based on calculated demand.
+ * 12. SldTopologyEngine normalized connections are authoritative.
  *
  * ================================================================
  */
@@ -189,12 +190,18 @@ object SldUpstreamEngineering {
         validate(network)
 
         /*
-         * Topology validation is centralized in one engine.
+         * Topology validation and normalization are centralized.
          *
-         * No second topology implementation is created here.
+         * IMPORTANT:
+         * topology.connections is authoritative after normalization.
+         * This prevents legacy PANEL/BREAKER connections from being
+         * treated as CABLE by downstream engineering logic.
          */
         val topology =
             SldTopologyEngine.build(network)
+
+        val authoritativeConnections =
+            topology.connections
 
         val nodeMap =
             network.nodes.associateBy {
@@ -384,7 +391,7 @@ object SldUpstreamEngineering {
             children.forEach { child ->
 
                 val connection =
-                    topology.connections.firstOrNull {
+                    authoritativeConnections.firstOrNull {
                         it.fromNodeId == nodeId &&
                             it.toNodeId == child.id
                     }
@@ -663,10 +670,12 @@ object SldUpstreamEngineering {
          * ==========================================================
          * FEEDER RESULTS
          * ==========================================================
+         *
+         * IMPORTANT:
+         * Use authoritativeConnections, not network.connections.
          */
-
         val feederResults =
-            topology.connections.map { connection ->
+            authoritativeConnections.map { connection ->
 
                 val parent =
                     nodeMap[
@@ -1000,6 +1009,9 @@ object SldUpstreamEngineering {
          * ==========================================================
          * ENGINEERING WARNINGS
          * ==========================================================
+         *
+         * All connection lookups below use the same normalized
+         * connection collection used by the engineering engine.
          */
 
         val warnings =
@@ -1009,8 +1021,8 @@ object SldUpstreamEngineering {
                     .filter {
                         !it.cableAdequate &&
                             !isBusbarConnection(
-                                network =
-                                    network,
+                                connections =
+                                    authoritativeConnections,
                                 connectionId =
                                     it.connectionId
                             )
@@ -1026,8 +1038,8 @@ object SldUpstreamEngineering {
                 feederResults
                     .filter {
                         isBusbarConnection(
-                            network =
-                                network,
+                            connections =
+                                authoritativeConnections,
                             connectionId =
                                 it.connectionId
                         )
@@ -1035,7 +1047,7 @@ object SldUpstreamEngineering {
                     .forEach { feeder ->
 
                         val connection =
-                            network.connections
+                            authoritativeConnections
                                 .firstOrNull {
                                     it.id ==
                                         feeder.connectionId
@@ -1390,13 +1402,16 @@ object SldUpstreamEngineering {
 
     /**
      * BUSBAR helper.
+     *
+     * The caller must provide the normalized authoritative
+     * connection collection from SldTopologyEngine.
      */
     private fun isBusbarConnection(
-        network: SldNetwork,
+        connections: List<SldConnection>,
         connectionId: String
     ): Boolean {
 
-        return network.connections
+        return connections
             .firstOrNull {
                 it.id == connectionId
             }
