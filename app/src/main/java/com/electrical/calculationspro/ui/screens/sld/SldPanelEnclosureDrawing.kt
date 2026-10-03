@@ -1,13 +1,14 @@
 package com.electrical.calculationspro.ui.screens.sld
 
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.SldConnection
 import com.electrical.calculationspro.data.SldConnectionType
@@ -23,16 +24,16 @@ import kotlin.math.min
  *
  * Presentation-only layer.
  *
- * It does NOT modify the engineering model.
+ * This layer owns:
  *
- * It provides:
+ * 1. Panel enclosure border.
+ * 2. Internal real busbar.
+ * 3. Breaker busbar taps.
+ * 4. Panel-to-busbar connection.
  *
- * - real panel enclosure border
- * - internal busbar
- * - automatic busbar extension
- * - breaker taps
- * - panel/bus/breaker grouping
+ * BUSBAR connections are NEVER rendered as feeder cables.
  *
+ * Engineering calculations remain outside this file.
  * ================================================================
  */
 
@@ -41,14 +42,27 @@ private const val ENCLOSURE_TOP = 38f
 private const val ENCLOSURE_BOTTOM = 42f
 private const val ENCLOSURE_RADIUS = 8f
 
-private const val NODE_WIDTH_LOCAL = 180f
-private const val NODE_HEIGHT_LOCAL = 150f
-private const val SYMBOL_Y_LOCAL = 75f
+private const val NODE_WIDTH_LOCAL = NODE_WIDTH
+private const val NODE_HEIGHT_LOCAL = NODE_HEIGHT
 
-private const val BUSBAR_WIDTH_LOCAL = 7f
+/*
+ * Must stay synchronized with SldCanvasDrawing.kt.
+ */
+private const val SYMBOL_Y_LOCAL = 30f
+
+private const val BUSBAR_WIDTH_LOCAL = 8f
 private const val BUSBAR_MIN_WIDTH = 150f
 private const val BUSBAR_SIDE_MARGIN = 55f
 private const val BREAKER_TAP_WIDTH = 2.8f
+
+/*
+ * DOWN breaker terminal geometry from drawBreaker().
+ *
+ * The breaker body is centered at breaker.y + SYMBOL_Y,
+ * while the upper electrical terminal is 31 px above
+ * the breaker symbol center.
+ */
+private const val BREAKER_UPPER_TERMINAL_OFFSET = 31f
 
 private val ENCLOSURE_STROKE =
     Color(
@@ -57,7 +71,7 @@ private val ENCLOSURE_STROKE =
 
 private val BUSBAR_COLOR =
     Color(
-        0xFF263238
+        0xFF202B32
     )
 
 private val ENCLOSURE_FILL =
@@ -141,8 +155,20 @@ private fun isInternalBusbarConnection(
 
 /**
  * ================================================================
- * GET INTERNAL PANEL MEMBERS
+ * GET PANEL INTERNAL MEMBERS
  * ================================================================
+ *
+ * Starting from the panel, walk through all BUSBAR connections.
+ *
+ * This allows:
+ *
+ * PANEL -> BREAKER
+ *
+ * and:
+ *
+ * PANEL -> BUS -> BREAKER
+ *
+ * to belong to the same physical enclosure.
  */
 private fun panelMembers(
     panel: SldNode,
@@ -240,7 +266,7 @@ fun DrawScope.drawPanelEnclosures(
 
 /**
  * ================================================================
- * DRAW ONE ENCLOSURE
+ * DRAW ONE PANEL ENCLOSURE
  * ================================================================
  */
 private fun DrawScope.drawSinglePanelEnclosure(
@@ -269,9 +295,9 @@ private fun DrawScope.drawSinglePanelEnclosure(
     }
 
     /*
-     * ------------------------------------------------------------
+     * ============================================================
      * ENCLOSURE BOUNDS
-     * ------------------------------------------------------------
+     * ============================================================
      */
 
     val left =
@@ -300,6 +326,9 @@ private fun DrawScope.drawSinglePanelEnclosure(
         } +
             ENCLOSURE_BOTTOM
 
+    /*
+     * Light enclosure fill.
+     */
     drawRoundRect(
         color = ENCLOSURE_FILL,
         topLeft =
@@ -313,12 +342,15 @@ private fun DrawScope.drawSinglePanelEnclosure(
                 bottom - top
             ),
         cornerRadius =
-            androidx.compose.ui.geometry.CornerRadius(
+            CornerRadius(
                 ENCLOSURE_RADIUS,
                 ENCLOSURE_RADIUS
             )
     )
 
+    /*
+     * Real enclosure border.
+     */
     drawRoundRect(
         color = ENCLOSURE_STROKE,
         topLeft =
@@ -332,7 +364,7 @@ private fun DrawScope.drawSinglePanelEnclosure(
                 bottom - top
             ),
         cornerRadius =
-            androidx.compose.ui.geometry.CornerRadius(
+            CornerRadius(
                 ENCLOSURE_RADIUS,
                 ENCLOSURE_RADIUS
             ),
@@ -343,9 +375,9 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
     /*
-     * ------------------------------------------------------------
+     * ============================================================
      * ENCLOSURE TITLE
-     * ------------------------------------------------------------
+     * ============================================================
      */
 
     val title =
@@ -360,12 +392,6 @@ private fun DrawScope.drawSinglePanelEnclosure(
             fontSize = 9.sp
         )
 
-    val measured =
-        textMeasurer.measure(
-            text = title,
-            style = titleStyle
-        )
-
     drawText(
         textMeasurer = textMeasurer,
         text = title,
@@ -378,9 +404,9 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
     /*
-     * ------------------------------------------------------------
+     * ============================================================
      * INTERNAL BUS NODES
-     * ------------------------------------------------------------
+     * ============================================================
      */
 
     val busNodes =
@@ -390,9 +416,9 @@ private fun DrawScope.drawSinglePanelEnclosure(
         }
 
     /*
-     * ------------------------------------------------------------
-     * BREAKERS CONNECTED INTERNALLY
-     * ------------------------------------------------------------
+     * ============================================================
+     * INTERNAL BREAKERS
+     * ============================================================
      */
 
     val breakerNodes =
@@ -409,6 +435,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
                 }
             )
 
+    /*
+     * A panel with no internal breaker still receives
+     * the enclosure border. There is simply no busbar
+     * to draw yet.
+     */
     if (
         breakerNodes.isEmpty()
     ) {
@@ -416,11 +447,14 @@ private fun DrawScope.drawSinglePanelEnclosure(
     }
 
     /*
-     * ------------------------------------------------------------
-     * BUS Y
-     * ------------------------------------------------------------
+     * ============================================================
+     * BUSBAR Y POSITION
+     * ============================================================
+     *
+     * If an explicit BUS node exists, use its symbol center.
+     *
+     * Otherwise use the PANEL terminal elevation.
      */
-
     val busY =
         busNodes
             .firstOrNull()
@@ -428,13 +462,15 @@ private fun DrawScope.drawSinglePanelEnclosure(
                 it.y +
                     SYMBOL_Y_LOCAL
             }
-            ?: panel.y +
-                SYMBOL_Y_LOCAL
+            ?: (
+                panel.y +
+                    SYMBOL_Y_LOCAL
+                )
 
     /*
-     * ------------------------------------------------------------
-     * BUS X RANGE
-     * ------------------------------------------------------------
+     * ============================================================
+     * BREAKER CENTER POSITIONS
+     * ============================================================
      */
 
     val breakerCenters =
@@ -461,6 +497,13 @@ private fun DrawScope.drawSinglePanelEnclosure(
             NODE_WIDTH_LOCAL /
             2f
 
+    /*
+     * ============================================================
+     * DYNAMIC BUSBAR WIDTH
+     * ============================================================
+     *
+     * The busbar expands automatically as breakers are added.
+     */
     val halfWidth =
         max(
             BUSBAR_MIN_WIDTH /
@@ -493,11 +536,15 @@ private fun DrawScope.drawSinglePanelEnclosure(
         )
 
     /*
-     * ------------------------------------------------------------
-     * REAL BUSBAR
-     * ------------------------------------------------------------
+     * ============================================================
+     * REAL INTERNAL BUSBAR
+     * ============================================================
+     *
+     * This is NOT a SldConnection cable.
+     *
+     * It is a physical copper busbar presentation inside
+     * the panel enclosure.
      */
-
     drawLine(
         color = BUSBAR_COLOR,
         start =
@@ -515,55 +562,79 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
     /*
-     * ------------------------------------------------------------
-     * BREAKER TAPS
-     * ------------------------------------------------------------
+     * ============================================================
+     * BREAKER BUSBAR TAPS
+     * ============================================================
+     *
+     * Breakers connected internally are drawn DOWN by
+     * SldCanvasDrawing.kt.
+     *
+     * Therefore the upper breaker terminal is:
+     *
+     * breaker.y + SYMBOL_Y - 31
+     *
+     * which equals breaker.y - 1 with SYMBOL_Y=30.
+     *
+     * Using the explicit terminal offset keeps the geometry
+     * synchronized with drawBreaker().
      */
-
     breakerNodes.forEach { breaker ->
 
-        val x =
+        val breakerX =
             breaker.x +
                 NODE_WIDTH_LOCAL /
                 2f
 
-        val breakerCenter =
+        val breakerSymbolCenterY =
             breaker.y +
                 SYMBOL_Y_LOCAL
+
+        val breakerTerminalY =
+            breakerSymbolCenterY -
+                BREAKER_UPPER_TERMINAL_OFFSET
 
         drawLine(
             color = BUSBAR_COLOR,
             start =
                 Offset(
-                    x,
+                    breakerX,
                     busY
                 ),
             end =
                 Offset(
-                    x,
-                    breakerCenter
+                    breakerX,
+                    breakerTerminalY
                 ),
             strokeWidth =
                 BREAKER_TAP_WIDTH
         )
 
+        /*
+         * Busbar junction.
+         */
         drawCircle(
             color = BUSBAR_COLOR,
             radius = 3.2f,
             center =
                 Offset(
-                    x,
+                    breakerX,
                     busY
                 )
         )
     }
 
     /*
-     * ------------------------------------------------------------
-     * PANEL CONNECTION TO INTERNAL BUS
-     * ------------------------------------------------------------
+     * ============================================================
+     * PANEL -> BUSBAR
+     * ============================================================
+     *
+     * The panel terminal is at:
+     *
+     * panel.y + SYMBOL_Y_LOCAL
+     *
+     * If an explicit BUS node exists, connect the panel terminal
+     * vertically to the actual internal busbar.
      */
-
     if (
         busNodes.isNotEmpty()
     ) {
