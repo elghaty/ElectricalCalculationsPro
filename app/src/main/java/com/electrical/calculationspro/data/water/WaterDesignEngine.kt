@@ -14,33 +14,26 @@ import com.electrical.calculationspro.data.project.WaterPump
 import kotlin.math.PI
 import kotlin.math.pow
 
-/**
- * Central hydraulic calculation engine for water systems.
- *
- * Calculation chain:
- *
- * Flow
- * -> Pipe velocity
- * -> Pipe friction loss
- * -> Total friction loss
- * -> TDH
- * -> Pump duty
- * -> Hydraulic power
- * -> Shaft power
- * -> Motor input power
- * -> Energy
- *
- * Pipe friction uses Hazen-Williams SI formulation.
- *
- * hf = 10.67 L Q^1.852 / (C^1.852 d^4.87)
- */
+data class WaterHydraulicAutoResult(
+    val flowM3PerHour: Double,
+    val diameterMm: Double,
+    val velocityMPerS: Double,
+    val headLossM: Double,
+    val calculatedField: WaterHydraulicField?,
+    val valid: Boolean,
+    val message: String
+)
+
+enum class WaterHydraulicField {
+    FLOW,
+    DIAMETER,
+    VELOCITY,
+    HEAD_LOSS
+}
+
 object WaterDesignEngine {
 
-    private const val WATER_DENSITY_KG_M3 = 1000.0
-    private const val GRAVITY_M_S2 = 9.81
-
     private const val MIN_DIAMETER_M = 0.001
-    private const val MIN_EFFICIENCY = 0.01
     private const val MAX_EFFICIENCY = 1.0
 
     fun calculateVelocity(
@@ -77,6 +70,60 @@ object WaterDesignEngine {
         return flowM3PerSecond / area
     }
 
+    fun calculateFlow(
+        diameterMm: Double,
+        velocityMPerS: Double
+    ): Double {
+
+        if (
+            diameterMm <= 0.0 ||
+            velocityMPerS <= 0.0
+        ) {
+            return 0.0
+        }
+
+        val diameterM =
+            diameterMm / 1000.0
+
+        val area =
+            PI * diameterM.pow(2.0) / 4.0
+
+        return velocityMPerS *
+            area *
+            3600.0
+    }
+
+    fun calculateDiameter(
+        flowM3PerHour: Double,
+        velocityMPerS: Double
+    ): Double {
+
+        if (
+            flowM3PerHour <= 0.0 ||
+            velocityMPerS <= 0.0
+        ) {
+            return 0.0
+        }
+
+        val flowM3PerSecond =
+            flowM3PerHour / 3600.0
+
+        val area =
+            flowM3PerSecond /
+                velocityMPerS
+
+        if (area <= 0.0) {
+            return 0.0
+        }
+
+        val diameterM =
+            kotlin.math.sqrt(
+                4.0 * area / PI
+            )
+
+        return diameterM * 1000.0
+    }
+
     fun calculateFrictionLoss(
         flowM3PerHour: Double,
         diameterMm: Double,
@@ -101,7 +148,10 @@ object WaterDesignEngine {
         val diameterM =
             diameterMm / 1000.0
 
-        if (diameterM < MIN_DIAMETER_M || q <= 0.0) {
+        if (
+            diameterM < MIN_DIAMETER_M ||
+            q <= 0.0
+        ) {
             return 0.0
         }
 
@@ -116,8 +166,161 @@ object WaterDesignEngine {
                 (
                     c.pow(1.852) *
                         diameterM.pow(4.87)
-                    )
+                )
             ).coerceAtLeast(0.0)
+    }
+
+    fun calculateFlowFromDiameterAndVelocity(
+        diameterMm: Double,
+        velocityMPerS: Double
+    ): Double =
+        calculateFlow(
+            diameterMm,
+            velocityMPerS
+        )
+
+    fun calculateHeadLossFromFlowDiameter(
+        flowM3PerHour: Double,
+        diameterMm: Double,
+        lengthM: Double,
+        material: String
+    ): Double =
+        calculateFrictionLoss(
+            flowM3PerHour,
+            diameterMm,
+            lengthM,
+            material
+        )
+
+    fun calculateAuto(
+        flowM3PerHour: Double?,
+        diameterMm: Double?,
+        velocityMPerS: Double?,
+        headLossM: Double?,
+        lengthM: Double,
+        material: String
+    ): WaterHydraulicAutoResult {
+
+        val flow =
+            flowM3PerHour
+                ?.takeIf { it.isFinite() && it > 0.0 }
+
+        val diameter =
+            diameterMm
+                ?.takeIf { it.isFinite() && it > 0.0 }
+
+        val velocity =
+            velocityMPerS
+                ?.takeIf { it.isFinite() && it > 0.0 }
+
+        val head =
+            headLossM
+                ?.takeIf { it.isFinite() && it >= 0.0 }
+
+        val knownCount =
+            listOf(
+                flow != null,
+                diameter != null,
+                velocity != null,
+                head != null
+            ).count { it }
+
+        if (knownCount < 3) {
+            return WaterHydraulicAutoResult(
+                flowM3PerHour = flow ?: 0.0,
+                diameterMm = diameter ?: 0.0,
+                velocityMPerS = velocity ?: 0.0,
+                headLossM = head ?: 0.0,
+                calculatedField = null,
+                valid = false,
+                message = "Enter any three hydraulic values."
+            )
+        }
+
+        var q = flow ?: 0.0
+        var d = diameter ?: 0.0
+        var v = velocity ?: 0.0
+        var h = head ?: 0.0
+
+        val calculatedField =
+            when {
+                flow == null &&
+                    diameter != null &&
+                    velocity != null -> {
+
+                    q =
+                        calculateFlow(
+                            d,
+                            v
+                        )
+
+                    WaterHydraulicField.FLOW
+                }
+
+                diameter == null &&
+                    flow != null &&
+                    velocity != null -> {
+
+                    d =
+                        calculateDiameter(
+                            q,
+                            v
+                        )
+
+                    WaterHydraulicField.DIAMETER
+                }
+
+                velocity == null &&
+                    flow != null &&
+                    diameter != null -> {
+
+                    v =
+                        calculateVelocity(
+                            q,
+                            d
+                        )
+
+                    WaterHydraulicField.VELOCITY
+                }
+
+                head == null &&
+                    flow != null &&
+                    diameter != null -> {
+
+                    h =
+                        calculateFrictionLoss(
+                            q,
+                            d,
+                            lengthM,
+                            material
+                        )
+
+                    WaterHydraulicField.HEAD_LOSS
+                }
+
+                else -> null
+            }
+
+        val valid =
+            q > 0.0 &&
+                d > 0.0 &&
+                v > 0.0 &&
+                h >= 0.0
+
+        return WaterHydraulicAutoResult(
+            flowM3PerHour = q,
+            diameterMm = d,
+            velocityMPerS = v,
+            headLossM = h,
+            calculatedField = calculatedField,
+            valid = valid,
+            message =
+                if (valid) {
+                    "Hydraulic calculation completed."
+                } else {
+                    "Hydraulic input is incomplete."
+                }
+        )
     }
 
     fun calculateTdh(
@@ -127,19 +330,10 @@ object WaterDesignEngine {
         requiredPressureHeadM: Double
     ): Double {
 
-        val static =
-            safePositive(staticHeadM)
-
-        val friction =
-            safePositive(frictionHeadM)
-
-        val minor =
-            safePositive(minorLossHeadM)
-
-        val pressure =
-            safePositive(requiredPressureHeadM)
-
-        return static + friction + minor + pressure
+        return staticHeadM.coerceAtLeast(0.0) +
+            frictionHeadM.coerceAtLeast(0.0) +
+            minorLossHeadM.coerceAtLeast(0.0) +
+            requiredPressureHeadM.coerceAtLeast(0.0)
     }
 
     fun calculatePump(
@@ -153,32 +347,45 @@ object WaterDesignEngine {
 
         val flow =
             pump.flowM3PerHour
-                .takeIf { it.isFinite() && it > 0.0 }
+                .takeIf {
+                    it.isFinite() && it > 0.0
+                }
                 ?: defaultFlowM3PerHour
 
-        val input =
+        return PumpCalculator.calculate(
             PumpCalculationInput(
                 systemType = PumpSystemType.WATER,
                 flow = PumpFlow(
                     value = flow,
-                    unit = PumpFlowUnit.CUBIC_METERS_PER_HOUR
+                    unit =
+                        PumpFlowUnit
+                            .CUBIC_METERS_PER_HOUR
                 ),
                 head = PumpHead(
-                    staticHeadM = safePositive(staticHeadM),
-                    frictionHeadM = safePositive(frictionHeadM),
-                    minorLossHeadM = safePositive(minorLossHeadM),
+                    staticHeadM =
+                        staticHeadM.coerceAtLeast(0.0),
+                    frictionHeadM =
+                        frictionHeadM.coerceAtLeast(0.0),
+                    minorLossHeadM =
+                        minorLossHeadM.coerceAtLeast(0.0),
                     requiredPressureHeadM =
-                        safePositive(requiredPressureHeadM)
+                        requiredPressureHeadM
+                            .coerceAtLeast(0.0)
                 ),
                 pumpEfficiency =
                     pump.pumpEfficiency
-                        .coerceIn(0.0, MAX_EFFICIENCY),
+                        .coerceIn(
+                            0.0,
+                            MAX_EFFICIENCY
+                        ),
                 motorEfficiency =
                     pump.motorEfficiency
-                        .coerceIn(0.0, MAX_EFFICIENCY)
+                        .coerceIn(
+                            0.0,
+                            MAX_EFFICIENCY
+                        )
             )
-
-        return PumpCalculator.calculate(input)
+        )
     }
 
     fun calculatePipe(
@@ -187,24 +394,23 @@ object WaterDesignEngine {
 
         val velocity =
             calculateVelocity(
-                flowM3PerHour = pipe.flowM3PerHour,
-                diameterMm = pipe.diameterMm
+                pipe.flowM3PerHour,
+                pipe.diameterMm
             )
 
         val friction =
             calculateFrictionLoss(
-                flowM3PerHour = pipe.flowM3PerHour,
-                diameterMm = pipe.diameterMm,
-                lengthM = pipe.lengthM,
-                material = pipe.material
+                pipe.flowM3PerHour,
+                pipe.diameterMm,
+                pipe.lengthM,
+                pipe.material
             )
 
         val valid =
             pipe.flowM3PerHour > 0.0 &&
                 pipe.diameterMm > 0.0 &&
                 pipe.lengthM > 0.0 &&
-                velocity > 0.0 &&
-                friction >= 0.0
+                velocity > 0.0
 
         return pipe.copy(
             velocityMPerS = velocity,
@@ -239,16 +445,16 @@ object WaterDesignEngine {
             if (calculatedPipes.isNotEmpty()) {
                 pipeFriction
             } else {
-                safePositive(water.frictionHeadM)
+                water.frictionHeadM
+                    .coerceAtLeast(0.0)
             }
 
         val tdh =
             calculateTdh(
-                staticHeadM = water.staticHeadM,
-                frictionHeadM = frictionHead,
-                minorLossHeadM = water.minorLossHeadM,
-                requiredPressureHeadM =
-                    water.requiredPressureHeadM
+                water.staticHeadM,
+                frictionHead,
+                water.minorLossHeadM,
+                water.requiredPressureHeadM
             )
 
         val calculatedPumps =
@@ -269,17 +475,12 @@ object WaterDesignEngine {
 
                     val result =
                         calculatePump(
-                            pump = pump,
-                            defaultFlowM3PerHour =
-                                water.requiredFlowM3PerHour,
-                            staticHeadM =
-                                water.staticHeadM,
-                            frictionHeadM =
-                                frictionHead,
-                            minorLossHeadM =
-                                water.minorLossHeadM,
-                            requiredPressureHeadM =
-                                water.requiredPressureHeadM
+                            pump,
+                            water.requiredFlowM3PerHour,
+                            water.staticHeadM,
+                            frictionHead,
+                            water.minorLossHeadM,
+                            water.requiredPressureHeadM
                         )
 
                     pump.copy(
@@ -301,36 +502,27 @@ object WaterDesignEngine {
                 }
             }
 
-        val pipesIncomplete =
-            calculatedPipes.any {
-                it.status ==
-                    DesignCalculationStatus.DATA_INCOMPLETE
-            }
-
-        val pumpsInvalid =
-            calculatedPumps.any {
-                it.status ==
-                    DesignCalculationStatus.INVALID
-            }
-
-        val pumpsIncomplete =
-            calculatedPumps.any {
-                it.status ==
-                    DesignCalculationStatus.DATA_INCOMPLETE
-            }
-
         val status =
             when {
                 water.requiredFlowM3PerHour <= 0.0 ->
                     DesignCalculationStatus.DATA_INCOMPLETE
 
-                pipesIncomplete ->
+                calculatedPipes.any {
+                    it.status ==
+                        DesignCalculationStatus.DATA_INCOMPLETE
+                } ->
                     DesignCalculationStatus.DATA_INCOMPLETE
 
-                pumpsInvalid ->
+                calculatedPumps.any {
+                    it.status ==
+                        DesignCalculationStatus.INVALID
+                } ->
                     DesignCalculationStatus.INVALID
 
-                pumpsIncomplete ->
+                calculatedPumps.any {
+                    it.status ==
+                        DesignCalculationStatus.DATA_INCOMPLETE
+                } ->
                     DesignCalculationStatus.DATA_INCOMPLETE
 
                 tdh <= 0.0 ->
@@ -351,25 +543,14 @@ object WaterDesignEngine {
         )
     }
 
-    private fun safePositive(
-        value: Double
-    ): Double =
-        if (value.isFinite() && value > 0.0) {
-            value
-        } else {
-            0.0
-        }
-
     private fun hazenWilliamsCoefficient(
         material: String
-    ): Double {
-
-        return when (
+    ): Double =
+        when (
             material
                 .trim()
                 .lowercase()
         ) {
-
             "pvc",
             "u-pvc",
             "upvc",
@@ -378,34 +559,24 @@ object WaterDesignEngine {
             "pe",
             "polyethylene",
             "grp",
-            "frp" ->
-                150.0
+            "frp" -> 150.0
 
             "ductile iron",
             "ductile",
-            "di" ->
-                130.0
+            "di" -> 130.0
 
             "steel",
             "carbon steel",
-            "steel pipe" ->
-                120.0
-
+            "steel pipe",
             "galvanized steel",
-            "galvanized" ->
-                120.0
-
+            "galvanized",
             "concrete",
             "reinforced concrete",
-            "rc" ->
-                120.0
+            "rc" -> 120.0
 
             "cast iron",
-            "cast-iron" ->
-                100.0
+            "cast-iron" -> 100.0
 
-            else ->
-                120.0
+            else -> 120.0
         }
-    }
 }
