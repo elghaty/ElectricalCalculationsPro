@@ -33,7 +33,10 @@ import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.ElectricalCalculations
+import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.Standard
+import com.electrical.calculationspro.data.ConductorSizingInput
+import com.electrical.calculationspro.data.iecInstallationMethods
 import com.electrical.calculationspro.data.project.DesignProject
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
 import com.electrical.calculationspro.data.sewage.SewageDesignModule
@@ -466,6 +469,8 @@ private fun ConductorSizingScreen(
 
     var current by remember { mutableStateOf("100") }
     var length by remember { mutableStateOf("30") }
+    var voltage by remember { mutableStateOf("400") }
+
     var material by remember {
         mutableStateOf(ConductorMaterial.Copper)
     }
@@ -476,9 +481,9 @@ private fun ConductorSizingScreen(
     EngineeringPage(
         title = if (arabic) "اختيار الكابل" else "Cable Sizing",
         subtitle = if (arabic) {
-            "اختيار مقطع الموصل وفق تيار التصميم"
+            "اختيار مقطع الموصل والتحقق من السعة وهبوط الجهد"
         } else {
-            "Conductor sizing from design current"
+            "Conductor sizing with ampacity and voltage-drop verification"
         },
         onBack = onBack
     ) {
@@ -505,6 +510,16 @@ private fun ConductorSizingScreen(
                 }
             )
 
+            EngineeringInput(
+                label = "Voltage (V)",
+                value = voltage,
+                onValueChange = {
+                    voltage = it
+                    result = null
+                    error = null
+                }
+            )
+
             MaterialSelector(
                 language = language,
                 value = material,
@@ -522,29 +537,76 @@ private fun ConductorSizingScreen(
                 try {
                     val designCurrent = current.toDouble()
                     val cableLength = length.toDouble()
+                    val cableVoltage = voltage.toDouble()
 
                     if (
                         designCurrent <= 0.0 ||
-                        cableLength < 0.0
+                        cableLength < 0.0 ||
+                        cableVoltage <= 0.0
                     ) {
                         throw IllegalArgumentException(
                             if (arabic) {
-                                "راجع تيار التصميم وطول الكابل."
+                                "راجع تيار التصميم والطول والجهد."
                             } else {
-                                "Check design current and cable length."
+                                "Check design current, length and voltage."
                             }
                         )
                     }
 
-                    val selected =
-                        ElectricalCalculations.selectCableSize(
-                            designCurrentA = designCurrent,
-                            material = material,
+                    val input =
+                        ConductorSizingInput(
+                            currentType =
+                                CurrentType.AlternatingThreePhase,
+                            voltage =
+                                cableVoltage,
+                            load =
+                                designCurrent *
+                                    cableVoltage *
+                                    0.90,
+                            powerFactor = 0.90,
+                            lineLength =
+                                cableLength,
+                            installationMethod =
+                                iecInstallationMethods.first(),
+                            ambientTemp = 30.0,
+                            conductor = material,
+                            insulation = InsulationType.PVC,
+                            circuitsInConduit = 1,
+                            maxVoltageDrop = 4.0
+                        )
+
+                    val sizing =
+                        ElectricalCalculations.evaluateSelectedSection(
+                            input = input,
+                            selectedSection =
+                                ElectricalCalculations
+                                    .standardEngine(standard)
+                                    .standardConductorSections()
+                                    .firstOrNull()
+                                    ?: 1.5,
+                            standard = standard
+                        )
+
+                    val automatic =
+                        ElectricalCalculations.sizeConductor(
+                            input = input,
                             standard = standard
                         )
 
                     result =
-                        "Selected = ${selected} mm²\nLength = ${"%.1f".format(cableLength)} m"
+                        "Required / Recommended = %.1f mm²\n" +
+                            "Selected = %.1f mm²\n" +
+                            "Ampacity = %.1f A\n" +
+                            "Voltage Drop = %.2f %% (%.2f V)\n" +
+                            "Breaker = %.0f A"
+                            .format(
+                                automatic.recommendedSection,
+                                automatic.selectedSection,
+                                automatic.ampacity,
+                                automatic.voltageDropPercent,
+                                automatic.voltageDropVolts,
+                                automatic.protectiveDevice
+                            )
 
                     error = null
                 } catch (exception: Exception) {
@@ -569,7 +631,11 @@ private fun ConductorSizingScreen(
 
         result?.let {
             EngineeringResult(
-                title = if (arabic) "نتيجة اختيار الكابل" else "Cable Selection Result",
+                title = if (arabic) {
+                    "نتيجة اختيار الكابل"
+                } else {
+                    "Cable Selection Result"
+                },
                 value = it
             )
         } ?: run {
@@ -599,6 +665,8 @@ private fun ProfessionalVoltageDropScreen(
     var voltage by remember { mutableStateOf("400") }
     var length by remember { mutableStateOf("30") }
     var section by remember { mutableStateOf("70") }
+    var pf by remember { mutableStateOf("0.90") }
+
     var material by remember {
         mutableStateOf(ConductorMaterial.Copper)
     }
@@ -658,6 +726,16 @@ private fun ProfessionalVoltageDropScreen(
                 }
             )
 
+            EngineeringInput(
+                label = "Power Factor",
+                value = pf,
+                onValueChange = {
+                    pf = it
+                    result = null
+                    error = null
+                }
+            )
+
             MaterialSelector(
                 language = language,
                 value = material,
@@ -677,18 +755,21 @@ private fun ProfessionalVoltageDropScreen(
                     val v = voltage.toDouble()
                     val l = length.toDouble()
                     val s = section.toDouble()
+                    val powerFactor = pf.toDouble()
 
                     if (
                         i <= 0.0 ||
                         v <= 0.0 ||
                         l < 0.0 ||
-                        s <= 0.0
+                        s <= 0.0 ||
+                        powerFactor <= 0.0 ||
+                        powerFactor > 1.0
                     ) {
                         throw IllegalArgumentException(
                             if (arabic) {
-                                "راجع بيانات التيار والجهد والطول والمقطع."
+                                "راجع بيانات التيار والجهد والطول والمقطع ومعامل القدرة."
                             } else {
-                                "Check current, voltage, length and section."
+                                "Check current, voltage, length, section and power factor."
                             }
                         )
                     }
@@ -696,13 +777,22 @@ private fun ProfessionalVoltageDropScreen(
                     val calculation =
                         ElectricalCalculations.calculateVoltageDrop(
                             current = i,
-                            voltage = v,
                             length = l,
                             sectionMm2 = s,
-                            material = material
+                            powerFactor = powerFactor,
+                            currentType =
+                                CurrentType.AlternatingThreePhase,
+                            material = material,
+                            voltage = v
                         )
 
-                    result = calculation.toString()
+                    result =
+                        "Voltage Drop = %.3f V\nVoltage Drop = %.3f %%"
+                            .format(
+                                calculation.second,
+                                calculation.first
+                            )
+
                     error = null
                 } catch (exception: Exception) {
                     result = null
@@ -810,12 +900,12 @@ private fun BreakerEngineeringScreen(
                     val ampacity = cableAmpacity.toDouble()
                     val fault = shortCircuit.toDouble()
 
-                    if (current <= 0.0 || ampacity <= 0.0) {
+                    if (current <= 0.0 || ampacity <= 0.0 || fault < 0.0) {
                         throw IllegalArgumentException(
                             if (arabic) {
-                                "القيم يجب أن تكون أكبر من صفر."
+                                "راجع قيم التيار والسعة وتيار القصر."
                             } else {
-                                "Values must be greater than zero."
+                                "Check current, ampacity and fault current."
                             }
                         )
                     }
@@ -834,12 +924,22 @@ private fun BreakerEngineeringScreen(
                             cableAmpacityA = ampacity
                         )
 
+                    val catalog =
+                        ElectricalCalculations.selectBreakerFromCatalog(
+                            designCurrentA = current,
+                            shortCircuitKA = fault,
+                            standard = standard
+                        )
+
                     result =
-                        "Breaker = %.0f A\nCoordination = %s\nBreaking capacity input = %.2f kA"
+                        "Engineering Breaker = %.0f A\n" +
+                            "Coordination = %s\n" +
+                            "Catalog = %s"
                             .format(
                                 rating,
                                 if (coordination) "PASS" else "CHECK",
-                                fault
+                                catalog.selected?.model
+                                    ?: "NOT VERIFIED"
                             )
 
                     error = null
@@ -963,20 +1063,20 @@ private fun TransformerEngineeringScreen(
                     val load = loadKw.toDouble()
                     val factor = pf.toDouble()
                     val growthFactor = growth.toDouble()
-
-                    voltage.toDouble()
+                    val lvVoltage = voltage.toDouble()
 
                     if (
                         load <= 0.0 ||
                         factor <= 0.0 ||
                         factor > 1.0 ||
-                        growthFactor <= 0.0
+                        growthFactor <= 0.0 ||
+                        lvVoltage <= 0.0
                     ) {
                         throw IllegalArgumentException(
                             if (arabic) {
-                                "راجع قيم الحمل وPower Factor ومعامل النمو."
+                                "راجع قيم الحمل وPower Factor ومعامل النمو والجهد."
                             } else {
-                                "Check load, power factor and growth factor."
+                                "Check load, power factor, growth factor and voltage."
                             }
                         )
                     }
@@ -993,11 +1093,21 @@ private fun TransformerEngineeringScreen(
                             requiredKva = required
                         )
 
+                    val catalog =
+                        ElectricalCalculations.selectTransformerFromCatalog(
+                            requiredKva = required,
+                            standard = standard
+                        )
+
                     result =
-                        "Required = %.1f kVA\nStandard Selection = %.0f kVA"
+                        "Required = %.1f kVA\n" +
+                            "Standard Selection = %.0f kVA\n" +
+                            "Catalog = %s"
                             .format(
                                 required,
-                                selected
+                                selected,
+                                catalog.selected?.model
+                                    ?: "NOT VERIFIED"
                             )
 
                     error = null
@@ -1059,9 +1169,9 @@ private fun GeneratorEngineeringScreen(
     EngineeringPage(
         title = if (arabic) "اختيار المولد" else "Generator Sizing",
         subtitle = if (arabic) {
-            "تقدير قدرة المولد مع هامش بدء الأحمال"
+            "تقدير قدرة المولد مع هامش بدء الأحمال واختيار كتالوج"
         } else {
-            "Generator sizing with starting-load allowance"
+            "Generator sizing with starting-load allowance and catalog selection"
         },
         onBack = onBack
     ) {
@@ -1122,24 +1232,49 @@ private fun GeneratorEngineeringScreen(
                         )
                     }
 
+                    /*
+                     * GeneratorSizingCalculator is not exposed by the
+                     * current facade. The engineering requirement is:
+                     *
+                     * Required kVA =
+                     * Load kW / PF × Starting Factor
+                     *
+                     * Catalog selection is then delegated to the
+                     * professional generator catalog through the facade.
+                     */
                     val required =
-                        ElectricalCalculations.calculateRequiredGeneratorKva(
-                            loadKw = load,
-                            powerFactor = factor,
-                            motorStartingFactor = starting
+                        ElectricalCalculations.calculateKvaFromKw(
+                            kw =
+                                load * starting,
+                            powerFactor =
+                                factor
+                        )
+
+                    val catalog =
+                        ElectricalCalculations.selectGeneratorFromCatalog(
+                            requiredKva = required,
+                            standard = standard
                         )
 
                     val selected =
-                        ElectricalCalculations.selectGeneratorRating(
-                            requiredKva = required
-                        )
+                        catalog.selected?.ratedPowerKva
 
                     result =
-                        "Required = %.1f kVA\nStandard Selection = %.0f kVA"
-                            .format(
-                                required,
-                                selected
-                            )
+                        if (selected != null) {
+                            "Required = %.1f kVA\n" +
+                                "Standard Selection = %.1f kVA\n" +
+                                "Catalog = %s"
+                                .format(
+                                    required,
+                                    selected,
+                                    catalog.selected.model
+                                )
+                        } else {
+                            "Required = %.1f kVA\n" +
+                                "Standard Selection = NOT VERIFIED\n" +
+                                "Catalog = NOT VERIFIED"
+                                .format(required)
+                        }
 
                     error = null
                 } catch (exception: Exception) {
@@ -1172,9 +1307,9 @@ private fun GeneratorEngineeringScreen(
                 EngineeringEmptyState(
                     title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
                     message = if (arabic) {
-                        "أدخل بيانات المولد ثم اضغط حساب."
+                        "أدخل بيانات المولد ثم احسب القدرة المطلوبة."
                     } else {
-                        "Enter generator data and calculate."
+                        "Enter generator data and calculate the required capacity."
                     }
                 )
             }
@@ -1241,11 +1376,21 @@ private fun PanelEngineeringScreen(
                             standard = standard
                         )
 
+                    val catalog =
+                        ElectricalCalculations.selectPanelFromCatalog(
+                            currentA = designCurrent,
+                            standard = standard
+                        )
+
                     result =
-                        "Panel In = %.1f A\nMain Breaker = %.0f A"
+                        "Panel In = %.1f A\n" +
+                            "Main Breaker = %.0f A\n" +
+                            "Catalog = %s"
                             .format(
                                 designCurrent,
-                                breaker
+                                breaker,
+                                catalog.selected?.model
+                                    ?: "NOT VERIFIED"
                             )
 
                     error = null
@@ -1546,15 +1691,20 @@ private fun ProtectionEngineeringScreen(
                 try {
                     val coordination =
                         ElectricalCalculations.checkBreakerCoordination(
-                            designCurrentA = designCurrent.toDouble(),
-                            breakerRatingA = breaker.toDouble(),
-                            cableAmpacityA = cable.toDouble()
+                            designCurrentA =
+                                designCurrent.toDouble(),
+                            breakerRatingA =
+                                breaker.toDouble(),
+                            cableAmpacityA =
+                                cable.toDouble()
                         )
 
                     val breaking =
                         ElectricalCalculations.checkBreakingCapacity(
-                            prospectiveFaultCurrentKA = fault.toDouble(),
-                            breakerBreakingCapacityKA = breakingCapacity.toDouble()
+                            prospectiveFaultCurrentKA =
+                                fault.toDouble(),
+                            breakerBreakingCapacityKA =
+                                breakingCapacity.toDouble()
                         )
 
                     result =
