@@ -5,60 +5,28 @@ import com.electrical.calculationspro.data.sewage.SewageDesignEngine
 import com.electrical.calculationspro.data.water.WaterDesignEngine
 
 /**
- * ================================================================
- * PROFESSIONAL DESIGN PROJECT ENGINE
- * ================================================================
- *
  * Central orchestration layer for the complete engineering project.
  *
- * Engineering dependency order:
+ * Dependency order:
  *
  * WATER
- *   ↓
- * Pump Hydraulic Calculation
- *   ↓
- * Motor kW
- *   ↓
+ *   -> Pump hydraulic duty
+ *   -> Motor input power
+ *
  * SEWAGE
- *   ↓
- * Sewage Pump Motor kW
- *   ↓
- * ELECTRICAL LOAD INTEGRATION
- *   ↓
- * Load Current
- *   ↓
- * Panel Totals
- *   ↓
- * SLD / Protection / Reports
+ *   -> Sewage pump hydraulic duty
+ *   -> Motor input power
  *
- * UI must never orchestrate individual engineering calculations.
+ * ELECTRICAL
+ *   -> Loads
+ *   -> Currents
+ *   -> Panels
+ *   -> Protection
  *
- * UI
- *   ↓
- * DesignProjectCoreBridge
- *   ↓
- * DesignProjectEngine
- *   ↓
- * Discipline Engines
- *   ↓
- * Calculators / Standards / Catalogs
- *
- * IMPORTANT:
- *
- * Manual SLD data are not overwritten by normal project
- * recalculation. SLD rebuilding remains an explicit operation.
- *
- * ================================================================
+ * SLD is intentionally NOT rebuilt here.
  */
 object DesignProjectEngine {
 
-    /**
-     * Recalculate the complete electrical discipline only.
-     *
-     * This does not recalculate hydraulic disciplines.
-     *
-     * Use this when the user changes electrical data only.
-     */
     fun recalculateElectrical(
         project: DesignProject
     ): DesignProject {
@@ -71,11 +39,6 @@ object DesignProjectEngine {
         return DesignProjects.save(result)
     }
 
-    /**
-     * Recalculate the complete water discipline.
-     *
-     * Pump motor power is calculated here.
-     */
     fun recalculateWater(
         project: DesignProject
     ): DesignProject {
@@ -88,11 +51,6 @@ object DesignProjectEngine {
         return DesignProjects.save(result)
     }
 
-    /**
-     * Recalculate the complete sewage discipline.
-     *
-     * Sewage pump motor power is calculated here.
-     */
     fun recalculateSewage(
         project: DesignProject
     ): DesignProject {
@@ -106,23 +64,10 @@ object DesignProjectEngine {
     }
 
     /**
-     * ============================================================
-     * COMPLETE PROJECT CALCULATION
-     * ============================================================
+     * Complete engineering calculation.
      *
-     * Correct engineering dependency order:
-     *
-     * 1. Water
-     * 2. Sewage
-     * 3. Electrical
-     *
-     * Water/Sewage pumps produce motorPowerKw.
-     *
-     * ElectricalDesignEngine then converts those motor powers
-     * into electrical loads.
-     *
-     * Therefore electrical calculation MUST occur after
-     * hydraulic calculations.
+     * Hydraulic systems are always calculated first because
+     * their pump motor powers can become electrical loads.
      */
     fun recalculateAll(
         project: DesignProject
@@ -130,70 +75,26 @@ object DesignProjectEngine {
 
         var result = project
 
-        /**
-         * --------------------------------------------------------
-         * STEP 1
-         * WATER ENGINEERING
-         * --------------------------------------------------------
-         *
-         * Calculates:
-         * - Flow
-         * - TDH
-         * - Hydraulic power
-         * - Shaft power
-         * - Motor input power
-         * - Energy
-         */
         result =
             WaterDesignEngine.recalculate(
                 result
             )
 
-        /**
-         * --------------------------------------------------------
-         * STEP 2
-         * SEWAGE ENGINEERING
-         * --------------------------------------------------------
-         *
-         * Calculates:
-         * - Sewage TDH
-         * - Pump motor power
-         * - Energy
-         */
         result =
             SewageDesignEngine.recalculate(
                 result
             )
 
-        /**
-         * --------------------------------------------------------
-         * STEP 3
-         * ELECTRICAL ENGINEERING
-         * --------------------------------------------------------
-         *
-         * ElectricalDesignEngine now sees the calculated
-         * water/sewage pump motor powers.
-         *
-         * It creates synchronized electrical loads and then
-         * calculates their currents and panel totals.
-         */
         result =
             ElectricalDesignEngine.recalculate(
                 result
             )
 
-        /**
-         * Save only the final project state.
-         *
-         * This prevents unnecessary intermediate persistence
-         * during a complete calculation.
-         */
-        return DesignProjects.save(result)
+        return DesignProjects.save(
+            result.updateTimestamp()
+        )
     }
 
-    /**
-     * Recalculate only the requested discipline.
-     */
     fun recalculate(
         project: DesignProject,
         discipline: DesignDiscipline
@@ -212,9 +113,6 @@ object DesignProjectEngine {
         }
     }
 
-    /**
-     * Project-level update.
-     */
     fun updateProject(
         project: DesignProject,
         transform: (DesignProject) -> DesignProject
@@ -224,12 +122,11 @@ object DesignProjectEngine {
             transform(project)
                 .updateTimestamp()
 
-        return DesignProjects.save(updated)
+        return DesignProjects.save(
+            updated
+        )
     }
 
-    /**
-     * Update project and recalculate the selected discipline.
-     */
     fun updateAndRecalculate(
         project: DesignProject,
         discipline: DesignDiscipline,
@@ -246,33 +143,18 @@ object DesignProjectEngine {
         )
     }
 
-    /**
-     * ============================================================
-     * COMPLETE CALCULATION + VALIDATION
-     * ============================================================
-     */
     fun calculateAndValidate(
         project: DesignProject
     ): ProjectCalculationResult {
 
-        /**
-         * Full dependency-aware calculation.
-         */
         val calculated =
             recalculateAll(project)
 
-        /**
-         * Project validation is intentionally performed after
-         * all discipline calculations have completed.
-         */
         val validation =
             DesignProjectValidator.validate(
                 calculated
             )
 
-        /**
-         * Persist the complete calculated project.
-         */
         val finalProject =
             DesignProjects.save(
                 calculated
@@ -284,17 +166,13 @@ object DesignProjectEngine {
         )
     }
 
-    /**
-     * Validate without changing engineering results.
-     */
     fun validate(
         project: DesignProject
     ): DesignProjectValidationResult =
-        DesignProjectValidator.validate(project)
+        DesignProjectValidator.validate(
+            project
+        )
 
-    /**
-     * Validate and persist the project.
-     */
     fun validateAndSave(
         project: DesignProject
     ): Pair<
@@ -318,9 +196,6 @@ object DesignProjectEngine {
         return saved to validation
     }
 
-    /**
-     * Start a project.
-     */
     fun start(
         project: DesignProject
     ): DesignProject {
@@ -333,12 +208,6 @@ object DesignProjectEngine {
         )
     }
 
-    /**
-     * Complete only after project validation.
-     *
-     * A project containing validation errors remains
-     * IN_PROGRESS and is not marked COMPLETED.
-     */
     fun complete(
         project: DesignProject
     ): DesignProject {
@@ -352,7 +221,8 @@ object DesignProjectEngine {
 
             return DesignProjects.save(
                 project.copy(
-                    status = DesignStatus.IN_PROGRESS
+                    status =
+                        DesignStatus.IN_PROGRESS
                 )
             )
         }
@@ -362,9 +232,6 @@ object DesignProjectEngine {
         )
     }
 
-    /**
-     * Archive the project without modifying engineering data.
-     */
     fun archive(
         project: DesignProject
     ): DesignProject =
@@ -373,9 +240,6 @@ object DesignProjectEngine {
         )
 }
 
-/**
- * Result of a complete project calculation and validation.
- */
 data class ProjectCalculationResult(
     val project: DesignProject,
     val validation: DesignProjectValidationResult
