@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,10 +28,8 @@ import com.electrical.calculationspro.data.iecInstallationMethods
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
 import com.electrical.calculationspro.data.sewage.SewageDesignInput
 import com.electrical.calculationspro.data.sewage.SewageDesignModule
-import com.electrical.calculationspro.data.sewage.calculateAndSave as calculateSewageAndSave
 import com.electrical.calculationspro.data.water.WaterDesignInput
 import com.electrical.calculationspro.data.water.WaterDesignModule
-import com.electrical.calculationspro.data.water.calculateAndSave as calculateWaterAndSave
 import com.electrical.calculationspro.ui.components.EngineeringCard
 import com.electrical.calculationspro.ui.components.EngineeringEmptyState
 import com.electrical.calculationspro.ui.components.EngineeringInput
@@ -1577,29 +1576,27 @@ private fun WaterEngineeringModuleScreen(
                             )
 
                     val calculation =
-                        WaterDesignModule.run {
-                            calculateWaterAndSave(
-                                project = activeProject,
-                                input = WaterDesignInput(
-                                    flowM3PerHour =
-                                        flow.toDoubleOrNull(),
-                                    diameterMm =
-                                        diameter.toDoubleOrNull(),
-                                    velocityMPerS =
-                                        velocity.toDoubleOrNull(),
-                                    pipeLengthM =
-                                        length.toDouble(),
-                                    material =
-                                        material,
-                                    staticHeadM =
-                                        staticHead.toDouble(),
-                                    minorLossHeadM =
-                                        minorLoss.toDouble(),
-                                    requiredPressureHeadM =
-                                        pressureHead.toDouble()
-                                )
+                        WaterDesignModule.calculateAndSave(
+                            project = activeProject,
+                            input = WaterDesignInput(
+                                flowM3PerHour =
+                                    flow.toDoubleOrNull(),
+                                diameterMm =
+                                    diameter.toDoubleOrNull(),
+                                velocityMPerS =
+                                    velocity.toDoubleOrNull(),
+                                pipeLengthM =
+                                    length.toDouble(),
+                                material =
+                                    material,
+                                staticHeadM =
+                                    staticHead.toDouble(),
+                                minorLossHeadM =
+                                    minorLoss.toDouble(),
+                                requiredPressureHeadM =
+                                    pressureHead.toDouble()
                             )
-                        }
+                        )
 
                     flow =
                         "%.3f".format(
@@ -1922,43 +1919,33 @@ private fun SewageEngineeringModuleScreen(
                                 }
                             )
 
-                    val avg =
-                        averageFlow.toDouble()
-
-                    val peak =
-                        peakFlow.toDouble()
-
-                    val minimum =
-                        minimumFlow.toDouble()
+                    val avg = averageFlow.toDouble()
+                    val peak = peakFlow.toDouble()
+                    val minimum = minimumFlow.toDouble()
 
                     val calculation =
-                        SewageDesignModule.run {
-                            calculateSewageAndSave(
-                                project = activeProject,
-                                input = SewageDesignInput(
-                                    averageFlowM3PerDay =
-                                        avg,
-                                    peakFlowM3PerDay =
-                                        peak,
-                                    minimumFlowM3PerDay =
-                                        minimum,
-                                    flowM3PerHour =
-                                        flow.toDoubleOrNull(),
-                                    diameterMm =
-                                        diameter.toDoubleOrNull(),
-                                    velocityMPerS =
-                                        velocity.toDoubleOrNull(),
-                                    pipeLengthM =
-                                        length.toDouble(),
-                                    material =
-                                        material,
-                                    staticHeadM =
-                                        staticHead.toDouble(),
-                                    minorLossHeadM =
-                                        minorLoss.toDouble()
-                                )
+                        SewageDesignModule.calculateAndSave(
+                            project = activeProject,
+                            input = SewageDesignInput(
+                                averageFlowM3PerDay = avg,
+                                peakFlowM3PerDay = peak,
+                                minimumFlowM3PerDay = minimum,
+                                flowM3PerHour =
+                                    flow.toDoubleOrNull(),
+                                diameterMm =
+                                    diameter.toDoubleOrNull(),
+                                velocityMPerS =
+                                    velocity.toDoubleOrNull(),
+                                pipeLengthM =
+                                    length.toDouble(),
+                                material =
+                                    material,
+                                staticHeadM =
+                                    staticHead.toDouble(),
+                                minorLossHeadM =
+                                    minorLoss.toDouble()
                             )
-                        }
+                        )
 
                     flow =
                         "%.3f".format(
@@ -2207,7 +2194,7 @@ private fun CurrentTypeSelector(
         ).forEach { type ->
             DropdownMenuItem(
                 text = {
-                    androidx.compose.material3.Text(
+                    Text(
                         when (type) {
                             CurrentType.DirectCurrent ->
                                 if (arabic) "تيار مستمر — DC" else "DC"
@@ -2261,7 +2248,7 @@ private fun MaterialSelector(
     ) {
         DropdownMenuItem(
             text = {
-                androidx.compose.material3.Text(
+                Text(
                     if (arabic) "نحاس — Copper" else "Copper"
                 )
             },
@@ -2273,7 +2260,7 @@ private fun MaterialSelector(
 
         DropdownMenuItem(
             text = {
-                androidx.compose.material3.Text(
+                Text(
                     if (arabic) "ألومنيوم — Aluminum" else "Aluminum"
                 )
             },
