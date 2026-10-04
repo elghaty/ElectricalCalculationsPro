@@ -27,8 +27,10 @@ import com.electrical.calculationspro.data.iecInstallationMethods
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
 import com.electrical.calculationspro.data.sewage.SewageDesignInput
 import com.electrical.calculationspro.data.sewage.SewageDesignModule
+import com.electrical.calculationspro.data.sewage.calculateAndSave as calculateSewageAndSave
 import com.electrical.calculationspro.data.water.WaterDesignInput
 import com.electrical.calculationspro.data.water.WaterDesignModule
+import com.electrical.calculationspro.data.water.calculateAndSave as calculateWaterAndSave
 import com.electrical.calculationspro.ui.components.EngineeringCard
 import com.electrical.calculationspro.ui.components.EngineeringEmptyState
 import com.electrical.calculationspro.ui.components.EngineeringInput
@@ -1576,7 +1578,7 @@ private fun WaterEngineeringModuleScreen(
 
                     val calculation =
                         WaterDesignModule.run {
-                            calculateAndSave(
+                            calculateWaterAndSave(
                                 project = activeProject,
                                 input = WaterDesignInput(
                                     flowM3PerHour =
@@ -1931,7 +1933,7 @@ private fun SewageEngineeringModuleScreen(
 
                     val calculation =
                         SewageDesignModule.run {
-                            calculateAndSave(
+                            calculateSewageAndSave(
                                 project = activeProject,
                                 input = SewageDesignInput(
                                     averageFlowM3PerDay =
