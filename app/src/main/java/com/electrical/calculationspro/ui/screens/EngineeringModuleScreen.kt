@@ -25,11 +25,9 @@ import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.iecInstallationMethods
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
-import com.electrical.calculationspro.data.project.RisingMainDesign
-import com.electrical.calculationspro.data.project.WaterPipe
-import com.electrical.calculationspro.data.sewage.SewageDesignEngine
+import com.electrical.calculationspro.data.sewage.SewageDesignInput
 import com.electrical.calculationspro.data.sewage.SewageDesignModule
-import com.electrical.calculationspro.data.water.WaterDesignEngine
+import com.electrical.calculationspro.data.water.WaterDesignInput
 import com.electrical.calculationspro.data.water.WaterDesignModule
 import com.electrical.calculationspro.ui.components.EngineeringCard
 import com.electrical.calculationspro.ui.components.EngineeringEmptyState
@@ -1491,11 +1489,8 @@ private fun WaterEngineeringModuleScreen(
                     modifier = Modifier.weight(1f),
                     label = "Head Loss (m)",
                     value = headLoss,
-                    onValueChange = {
-                        headLoss = it
-                        result = null
-                        error = null
-                    }
+                    enabled = false,
+                    onValueChange = {}
                 )
 
                 EngineeringInput(
@@ -1569,117 +1564,7 @@ private fun WaterEngineeringModuleScreen(
             },
             onClick = {
                 try {
-                    val q = flow.toDoubleOrNull()
-                    val d = diameter.toDoubleOrNull()
-                    val v = velocity.toDoubleOrNull()
-                    val hf = headLoss.toDoubleOrNull()
-
-                    val l = length.toDouble()
-                    val static = staticHead.toDouble()
-                    val minor = minorLoss.toDouble()
-                    val pressure = pressureHead.toDouble()
-
-                    require(q == null || q > 0.0)
-                    require(d == null || d > 0.0)
-                    require(v == null || v > 0.0)
-                    require(hf == null || hf >= 0.0)
-                    require(l > 0.0)
-                    require(static >= 0.0)
-                    require(minor >= 0.0)
-                    require(pressure >= 0.0)
-
-                    require(q != null || v != null) {
-                        if (arabic) {
-                            "أدخل التدفق أو السرعة."
-                        } else {
-                            "Enter flow or velocity."
-                        }
-                    }
-
-                    require(d != null || v != null) {
-                        if (arabic) {
-                            "أدخل القطر أو السرعة."
-                        } else {
-                            "Enter diameter or velocity."
-                        }
-                    }
-
-                    val resolvedFlow: Double
-                    val resolvedDiameter: Double
-                    val resolvedVelocity: Double
-
-                    when {
-                        q != null && d != null -> {
-                            resolvedFlow = q
-                            resolvedDiameter = d
-                            resolvedVelocity =
-                                WaterDesignEngine.calculateVelocity(
-                                    flowM3PerHour = q,
-                                    diameterMm = d
-                                )
-                        }
-
-                        d != null && v != null -> {
-                            resolvedDiameter = d
-                            resolvedVelocity = v
-                            resolvedFlow =
-                                WaterDesignEngine.calculateFlow(
-                                    diameterMm = d,
-                                    velocityMPerS = v
-                                )
-                        }
-
-                        q != null && v != null -> {
-                            resolvedFlow = q
-                            resolvedVelocity = v
-                            resolvedDiameter =
-                                WaterDesignEngine.calculateDiameter(
-                                    flowM3PerHour = q,
-                                    velocityMPerS = v
-                                )
-                        }
-
-                        else -> {
-                            throw IllegalArgumentException(
-                                if (arabic) {
-                                    "أدخل أي قيمتين من التدفق والقطر والسرعة."
-                                } else {
-                                    "Enter any two of flow, diameter and velocity."
-                                }
-                            )
-                        }
-                    }
-
-                    require(
-                        resolvedFlow > 0.0 &&
-                            resolvedDiameter > 0.0 &&
-                            resolvedVelocity > 0.0
-                    )
-
-                    val calculatedHeadLoss =
-                        WaterDesignEngine.calculateFrictionLoss(
-                            flowM3PerHour = resolvedFlow,
-                            diameterMm = resolvedDiameter,
-                            lengthM = l,
-                            material = material
-                        )
-
-                    require(calculatedHeadLoss >= 0.0)
-
-                    val calculatedTdh =
-                        WaterDesignEngine.calculateTdh(
-                            staticHeadM = static,
-                            frictionHeadM = calculatedHeadLoss,
-                            minorLossHeadM = minor,
-                            requiredPressureHeadM = pressure
-                        )
-
-                    flow = "%.3f".format(resolvedFlow)
-                    diameter = "%.1f".format(resolvedDiameter)
-                    velocity = "%.3f".format(resolvedVelocity)
-                    headLoss = "%.3f".format(calculatedHeadLoss)
-
-                    var project =
+                    val activeProject =
                         DesignProjectCoreBridge.getActiveProject()
                             ?: throw IllegalStateException(
                                 if (arabic) {
@@ -1689,62 +1574,92 @@ private fun WaterEngineeringModuleScreen(
                                 }
                             )
 
-                    val pipe =
-                        WaterPipe(
-                            name = "Main Water Pipe",
-                            diameterMm = resolvedDiameter,
-                            lengthM = l,
-                            material = material,
-                            flowM3PerHour = resolvedFlow,
-                            velocityMPerS = resolvedVelocity,
-                            frictionLossM = calculatedHeadLoss
+                    val calculation =
+                        WaterDesignModule.calculateAndSave(
+                            project = activeProject,
+                            input = WaterDesignInput(
+                                flowM3PerHour =
+                                    flow.toDoubleOrNull(),
+                                diameterMm =
+                                    diameter.toDoubleOrNull(),
+                                velocityMPerS =
+                                    velocity.toDoubleOrNull(),
+                                pipeLengthM =
+                                    length.toDouble(),
+                                material =
+                                    material,
+                                staticHeadM =
+                                    staticHead.toDouble(),
+                                minorLossHeadM =
+                                    minorLoss.toDouble(),
+                                requiredPressureHeadM =
+                                    pressureHead.toDouble()
+                            )
                         )
 
-                    project =
-                        WaterDesignModule.addPipe(
-                            project = project,
-                            pipe = pipe
+                    flow =
+                        "%.3f".format(
+                            calculation.flowM3PerHour
                         )
 
-                    project =
-                        WaterDesignModule.updateHydraulicDesign(
-                            project = project,
-                            flowM3PerHour = resolvedFlow,
-                            staticHeadM = static,
-                            frictionHeadM = calculatedHeadLoss,
-                            minorLossHeadM = minor,
-                            requiredPressureHeadM = pressure
+                    diameter =
+                        "%.1f".format(
+                            calculation.diameterMm
+                        )
+
+                    velocity =
+                        "%.3f".format(
+                            calculation.velocityMPerS
+                        )
+
+                    headLoss =
+                        "%.3f".format(
+                            calculation.frictionLossM
                         )
 
                     result =
                         buildString {
                             appendLine(
                                 "Flow = %.3f m³/h"
-                                    .format(resolvedFlow)
+                                    .format(
+                                        calculation.flowM3PerHour
+                                    )
                             )
                             appendLine(
                                 "Diameter = %.1f mm"
-                                    .format(resolvedDiameter)
+                                    .format(
+                                        calculation.diameterMm
+                                    )
                             )
                             appendLine(
                                 "Velocity = %.3f m/s"
-                                    .format(resolvedVelocity)
+                                    .format(
+                                        calculation.velocityMPerS
+                                    )
                             )
                             appendLine(
                                 "Friction Loss = %.3f m"
-                                    .format(calculatedHeadLoss)
+                                    .format(
+                                        calculation.frictionLossM
+                                    )
                             )
                             appendLine(
                                 "Minor Loss = %.3f m"
-                                    .format(minor)
+                                    .format(
+                                        minorLoss.toDouble()
+                                    )
                             )
                             appendLine(
                                 "Pressure Head = %.3f m"
-                                    .format(pressure)
+                                    .format(
+                                        pressureHead.toDouble()
+                                    )
                             )
                             appendLine(
                                 "TDH = %.3f m"
-                                    .format(calculatedTdh)
+                                    .format(
+                                        calculation.tdhM
+                                    )
                             )
                         }
 
@@ -1867,7 +1782,11 @@ private fun SewageEngineeringModuleScreen(
         }
 
         EngineeringCard(
-            title = if (arabic) "الخط الهيدروليكي" else "Rising Main Hydraulic Data"
+            title = if (arabic) {
+                "الخط الهيدروليكي"
+            } else {
+                "Rising Main Hydraulic Data"
+            }
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1915,11 +1834,8 @@ private fun SewageEngineeringModuleScreen(
                     modifier = Modifier.weight(1f),
                     label = "Head Loss (m)",
                     value = headLoss,
-                    onValueChange = {
-                        headLoss = it
-                        result = null
-                        error = null
-                    }
+                    enabled = false,
+                    onValueChange = {}
                 )
 
                 EngineeringInput(
@@ -1992,99 +1908,7 @@ private fun SewageEngineeringModuleScreen(
             },
             onClick = {
                 try {
-                    val avg = averageFlow.toDouble()
-                    val peak = peakFlow.toDouble()
-                    val minimum = minimumFlow.toDouble()
-
-                    require(avg > 0.0)
-                    require(peak >= avg)
-                    require(minimum >= 0.0)
-                    require(minimum <= peak)
-
-                    val qInput = flow.toDoubleOrNull()
-                    val dInput = diameter.toDoubleOrNull()
-                    val vInput = velocity.toDoubleOrNull()
-                    val hfInput = headLoss.toDoubleOrNull()
-
-                    val l = length.toDouble()
-                    val static = staticHead.toDouble()
-                    val minor = minorLoss.toDouble()
-
-                    require(qInput == null || qInput > 0.0)
-                    require(dInput == null || dInput > 0.0)
-                    require(vInput == null || vInput > 0.0)
-                    require(hfInput == null || hfInput >= 0.0)
-                    require(l > 0.0)
-                    require(static >= 0.0)
-                    require(minor >= 0.0)
-
-                    val q = qInput ?: peak / 24.0
-
-                    val resolvedFlow: Double
-                    val resolvedDiameter: Double
-                    val resolvedVelocity: Double
-
-                    when {
-                        dInput != null -> {
-                            resolvedFlow = q
-                            resolvedDiameter = dInput
-                            resolvedVelocity =
-                                SewageDesignEngine.calculateVelocity(
-                                    flowM3PerHour = q,
-                                    diameterMm = dInput
-                                )
-                        }
-
-                        vInput != null -> {
-                            resolvedFlow = q
-                            resolvedVelocity = vInput
-                            resolvedDiameter =
-                                SewageDesignEngine.calculateDiameter(
-                                    flowM3PerHour = q,
-                                    velocityMPerS = vInput
-                                )
-                        }
-
-                        else -> {
-                            throw IllegalArgumentException(
-                                if (arabic) {
-                                    "أدخل القطر أو السرعة لخط الطرد."
-                                } else {
-                                    "Enter diameter or velocity for the rising main."
-                                }
-                            )
-                        }
-                    }
-
-                    require(
-                        resolvedFlow > 0.0 &&
-                            resolvedDiameter > 0.0 &&
-                            resolvedVelocity > 0.0
-                    )
-
-                    val calculatedHeadLoss =
-                        SewageDesignEngine.calculateFrictionLoss(
-                            flowM3PerHour = resolvedFlow,
-                            diameterMm = resolvedDiameter,
-                            lengthM = l,
-                            material = material
-                        )
-
-                    require(calculatedHeadLoss >= 0.0)
-
-                    val tdh =
-                        SewageDesignEngine.calculateTdh(
-                            staticHeadM = static,
-                            frictionHeadM = calculatedHeadLoss,
-                            minorLossHeadM = minor
-                        )
-
-                    flow = "%.3f".format(resolvedFlow)
-                    diameter = "%.1f".format(resolvedDiameter)
-                    velocity = "%.3f".format(resolvedVelocity)
-                    headLoss = "%.3f".format(calculatedHeadLoss)
-
-                    var project =
+                    val activeProject =
                         DesignProjectCoreBridge.getActiveProject()
                             ?: throw IllegalStateException(
                                 if (arabic) {
@@ -2094,77 +1918,133 @@ private fun SewageEngineeringModuleScreen(
                                 }
                             )
 
-                    project =
-                        SewageDesignModule.updateFlows(
-                            project = project,
-                            averageFlowM3PerDay = avg,
-                            peakFlowM3PerDay = peak,
-                            minimumFlowM3PerDay = minimum
+                    val avg =
+                        averageFlow.toDouble()
+
+                    val peak =
+                        peakFlow.toDouble()
+
+                    val minimum =
+                        minimumFlow.toDouble()
+
+                    val calculation =
+                        SewageDesignModule.calculateAndSave(
+                            project = activeProject,
+                            input = SewageDesignInput(
+                                averageFlowM3PerDay =
+                                    avg,
+                                peakFlowM3PerDay =
+                                    peak,
+                                minimumFlowM3PerDay =
+                                    minimum,
+                                flowM3PerHour =
+                                    flow.toDoubleOrNull(),
+                                diameterMm =
+                                    diameter.toDoubleOrNull(),
+                                velocityMPerS =
+                                    velocity.toDoubleOrNull(),
+                                pipeLengthM =
+                                    length.toDouble(),
+                                material =
+                                    material,
+                                staticHeadM =
+                                    staticHead.toDouble(),
+                                minorLossHeadM =
+                                    minorLoss.toDouble()
+                            )
                         )
 
-                    project =
-                        SewageDesignModule.setRisingMain(
-                            project = project,
-                            risingMain =
-                                RisingMainDesign(
-                                    name = "Main Rising Main",
-                                    diameterMm = resolvedDiameter,
-                                    lengthM = l,
-                                    material = material,
-                                    flowM3PerHour = resolvedFlow,
-                                    velocityMPerS = resolvedVelocity,
-                                    frictionLossM = calculatedHeadLoss,
-                                    minorLossHeadM = minor
-                                )
+                    flow =
+                        "%.3f".format(
+                            calculation.risingMainFlowM3PerHour
                         )
 
-                    project =
-                        SewageDesignModule.setStaticHead(
-                            project = project,
-                            staticHeadM = static
+                    diameter =
+                        "%.1f".format(
+                            calculation.diameterMm
+                        )
+
+                    velocity =
+                        "%.3f".format(
+                            calculation.velocityMPerS
+                        )
+
+                    headLoss =
+                        "%.3f".format(
+                            calculation.frictionLossM
                         )
 
                     result =
                         buildString {
                             appendLine(
                                 "Average Flow = %.3f m³/day"
-                                    .format(avg)
+                                    .format(
+                                        calculation.averageFlowM3PerDay
+                                    )
                             )
+
                             appendLine(
                                 "Peak Flow = %.3f m³/day"
-                                    .format(peak)
+                                    .format(
+                                        calculation.peakFlowM3PerDay
+                                    )
                             )
+
                             appendLine(
                                 "Minimum Flow = %.3f m³/day"
-                                    .format(minimum)
+                                    .format(
+                                        calculation.minimumFlowM3PerDay
+                                    )
                             )
+
                             appendLine(
                                 "Peak Factor = %.3f"
-                                    .format(peak / avg)
+                                    .format(
+                                        calculation.peakFlowM3PerDay /
+                                            calculation.averageFlowM3PerDay
+                                    )
                             )
+
                             appendLine(
                                 "Rising Main Flow = %.3f m³/h"
-                                    .format(resolvedFlow)
+                                    .format(
+                                        calculation.risingMainFlowM3PerHour
+                                    )
                             )
+
                             appendLine(
                                 "Diameter = %.1f mm"
-                                    .format(resolvedDiameter)
+                                    .format(
+                                        calculation.diameterMm
+                                    )
                             )
+
                             appendLine(
                                 "Velocity = %.3f m/s"
-                                    .format(resolvedVelocity)
+                                    .format(
+                                        calculation.velocityMPerS
+                                    )
                             )
+
                             appendLine(
                                 "Friction Loss = %.3f m"
-                                    .format(calculatedHeadLoss)
+                                    .format(
+                                        calculation.frictionLossM
+                                    )
                             )
+
                             appendLine(
                                 "Minor Loss = %.3f m"
-                                    .format(minor)
+                                    .format(
+                                        minorLoss.toDouble()
+                                    )
                             )
+
                             appendLine(
                                 "TDH = %.3f m"
-                                    .format(tdh)
+                                    .format(
+                                        calculation.tdhM
+                                    )
                             )
                         }
 
