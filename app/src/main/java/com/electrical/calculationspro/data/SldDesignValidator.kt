@@ -19,8 +19,12 @@ package com.electrical.calculationspro.data
  *
  * Important engineering rules:
  *
- * 1. BUSBAR is an internal panel connection.
- * 2. BUSBAR is currently valid only for PANEL -> BREAKER.
+ * 1. BUSBAR is an internal panel switchgear connection.
+ * 2. BUSBAR is valid for:
+ *      PANEL -> BUS
+ *      BUS -> BREAKER
+ *      PANEL -> BREAKER
+ *    including reverse stored direction which is canonicalized.
  * 3. BUSBAR does not use cable length, cable size, cable capacity
  *    or cable parallel-run data.
  * 4. CABLE is used for external feeders.
@@ -54,6 +58,42 @@ object SldDesignValidator {
                 errors +
                     warnings +
                     information
+    }
+
+    /**
+     * Internal BUSBAR topology.
+     *
+     * These relationships represent physical switchgear/busbar
+     * relationships inside a panel enclosure.
+     *
+     * The function accepts both directions because the editor may
+     * temporarily store either direction. Canonical direction is
+     * handled by the SLD topology/editor layer.
+     */
+    private fun isInternalBusbarPair(
+        first: SldNodeType,
+        second: SldNodeType
+    ): Boolean {
+        return (
+            first == SldNodeType.PANEL &&
+                second == SldNodeType.BUS
+            ) || (
+            first == SldNodeType.BUS &&
+                second == SldNodeType.PANEL
+            ) || (
+            first == SldNodeType.BUS &&
+                second == SldNodeType.BREAKER
+            ) || (
+            first == SldNodeType.BREAKER &&
+                second == SldNodeType.BUS
+            ) || (
+            first == SldNodeType.PANEL &&
+                second == SldNodeType.BREAKER
+            ) || (
+            first == SldNodeType.BREAKER &&
+                second == SldNodeType.PANEL
+            )
+        )
     }
 
     /**
@@ -284,8 +324,8 @@ object SldDesignValidator {
              * BUSBAR SEMANTICS
              * --------------------------------------------------------
              *
-             * BUSBAR represents the internal bus connection inside
-             * a panel. It must not silently become a cable.
+             * BUSBAR is a physical internal switchgear relationship.
+             * It is NOT a cable and must never be treated as one.
              */
             if (
                 connection.connectionType ==
@@ -293,24 +333,21 @@ object SldDesignValidator {
             ) {
 
                 /*
-                 * Current supported topology:
+                 * Valid internal relationships:
                  *
+                 * PANEL -> BUS
+                 * BUS -> BREAKER
                  * PANEL -> BREAKER
                  *
-                 * This prevents accidental use of BUSBAR for:
-                 * SOURCE -> PANEL
-                 * PANEL -> PANEL
-                 * BREAKER -> LOAD
-                 * TRANSFORMER -> PANEL
-                 * etc.
+                 * Reverse storage is also accepted.
                  */
                 if (
                     fromNode != null &&
                     toNode != null &&
-                    (
-                        fromNode.type != SldNodeType.PANEL ||
-                            toNode.type != SldNodeType.BREAKER
-                        )
+                    !isInternalBusbarPair(
+                        fromNode.type,
+                        toNode.type
+                    )
                 ) {
 
                     errors +=
@@ -319,15 +356,12 @@ object SldDesignValidator {
                             code = "INVALID_BUSBAR_TOPOLOGY",
                             elementId = connection.id,
                             message =
-                                "BUSBAR connection is only valid for an internal PANEL -> BREAKER connection."
+                                "BUSBAR connection is only valid inside panel switchgear: PANEL-BUS, BUS-BREAKER, or PANEL-BREAKER."
                         )
                 }
 
                 /*
                  * BUSBAR must not contain cable engineering data.
-                 *
-                 * These values are deliberately ignored by the
-                 * engineering calculation for BUSBAR connections.
                  */
                 if (
                     connection.lengthMeters != 0.0
@@ -427,9 +461,6 @@ object SldDesignValidator {
                     SldConnectionType.CABLE
             ) {
 
-                /*
-                 * External feeder cable requires a valid run count.
-                 */
                 if (
                     connection.parallelRuns < 1
                 ) {
@@ -444,9 +475,6 @@ object SldDesignValidator {
                         )
                 }
 
-                /*
-                 * Cable length must be non-negative.
-                 */
                 if (
                     connection.lengthMeters < 0.0
                 ) {
@@ -461,9 +489,6 @@ object SldDesignValidator {
                         )
                 }
 
-                /*
-                 * Cable size must be non-negative.
-                 */
                 if (
                     connection.cableSizeMm2 < 0.0
                 ) {
@@ -478,9 +503,6 @@ object SldDesignValidator {
                         )
                 }
 
-                /*
-                 * Cable capacity must be non-negative.
-                 */
                 if (
                     connection.currentCapacityA < 0.0
                 ) {
@@ -495,12 +517,6 @@ object SldDesignValidator {
                         )
                 }
 
-                /*
-                 * Zero capacity is NOT an adequate cable.
-                 *
-                 * It means that the cable has not yet been verified
-                 * or sized.
-                 */
                 if (
                     connection.currentCapacityA <= 0.0
                 ) {
@@ -515,9 +531,6 @@ object SldDesignValidator {
                         )
                 }
 
-                /*
-                 * Zero cable size is not an engineering verification.
-                 */
                 if (
                     connection.cableSizeMm2 <= 0.0
                 ) {
@@ -532,10 +545,6 @@ object SldDesignValidator {
                         )
                 }
 
-                /*
-                 * Zero length may be valid for a temporary/modeling
-                 * condition, so it is not an error.
-                 */
                 if (
                     connection.lengthMeters == 0.0
                 ) {
@@ -555,9 +564,6 @@ object SldDesignValidator {
              * --------------------------------------------------------
              * TOPOLOGY COUNTERS
              * --------------------------------------------------------
-             *
-             * Only count existing nodes. Invalid references must not
-             * corrupt the graph counters.
              */
             if (
                 fromNode != null &&
@@ -593,9 +599,6 @@ object SldDesignValidator {
          */
         network.nodes.forEach { node ->
 
-            /*
-             * Voltage.
-             */
             if (
                 node.voltage <= 0.0
             ) {
@@ -610,12 +613,6 @@ object SldDesignValidator {
                     )
             }
 
-            /*
-             * Power factor.
-             *
-             * Non-load equipment may still carry the default PF,
-             * therefore this remains a general input validation.
-             */
             if (
                 node.powerFactor <= 0.0 ||
                 node.powerFactor > 1.0
@@ -631,9 +628,6 @@ object SldDesignValidator {
                     )
             }
 
-            /*
-             * Demand factor.
-             */
             if (
                 node.demandFactor < 0.0 ||
                 node.demandFactor > 1.0
@@ -649,9 +643,6 @@ object SldDesignValidator {
                     )
             }
 
-            /*
-             * Load.
-             */
             if (
                 node.loadKw < 0.0
             ) {
@@ -666,9 +657,6 @@ object SldDesignValidator {
                     )
             }
 
-            /*
-             * Rated kVA.
-             */
             if (
                 node.ratedKva < 0.0
             ) {
@@ -703,11 +691,6 @@ object SldDesignValidator {
                     )
             }
 
-            /*
-             * Loads are terminal elements.
-             *
-             * SOURCE is excluded because it is an upstream source.
-             */
             if (
                 node.type != SldNodeType.LOAD &&
                 node.type != SldNodeType.SOURCE &&
@@ -731,11 +714,6 @@ object SldDesignValidator {
              */
             when (node.type) {
 
-                /*
-                 * ----------------------------------------------------
-                 * SOURCE
-                 * ----------------------------------------------------
-                 */
                 SldNodeType.SOURCE -> {
 
                     if (
@@ -753,11 +731,6 @@ object SldDesignValidator {
                     }
                 }
 
-                /*
-                 * ----------------------------------------------------
-                 * TRANSFORMER
-                 * ----------------------------------------------------
-                 */
                 SldNodeType.TRANSFORMER -> {
 
                     if (
@@ -789,11 +762,6 @@ object SldDesignValidator {
                     }
                 }
 
-                /*
-                 * ----------------------------------------------------
-                 * GENERATOR
-                 * ----------------------------------------------------
-                 */
                 SldNodeType.GENERATOR -> {
 
                     if (
@@ -825,11 +793,6 @@ object SldDesignValidator {
                     }
                 }
 
-                /*
-                 * ----------------------------------------------------
-                 * BREAKER
-                 * ----------------------------------------------------
-                 */
                 SldNodeType.BREAKER -> {
 
                     if (
@@ -847,11 +810,6 @@ object SldDesignValidator {
                     }
                 }
 
-                /*
-                 * ----------------------------------------------------
-                 * PANEL
-                 * ----------------------------------------------------
-                 */
                 SldNodeType.PANEL -> {
 
                     if (
@@ -869,11 +827,6 @@ object SldDesignValidator {
                     }
                 }
 
-                /*
-                 * ----------------------------------------------------
-                 * LOAD
-                 * ----------------------------------------------------
-                 */
                 SldNodeType.LOAD -> {
 
                     if (
@@ -891,11 +844,6 @@ object SldDesignValidator {
                     }
                 }
 
-                /*
-                 * ----------------------------------------------------
-                 * BUS
-                 * ----------------------------------------------------
-                 */
                 SldNodeType.BUS -> Unit
             }
         }
@@ -904,10 +852,6 @@ object SldDesignValidator {
          * ------------------------------------------------------------
          * DUPLICATE DIRECTED FEEDERS
          * ------------------------------------------------------------
-         *
-         * Multiple feeders between the same two elements are
-         * reported as information because parallel feeder modeling
-         * can be intentional.
          */
         network.connections
             .groupBy {
@@ -932,10 +876,6 @@ object SldDesignValidator {
          * ------------------------------------------------------------
          * REVERSE-DIRECTION DUPLICATE
          * ------------------------------------------------------------
-         *
-         * A radial SLD should normally have one directed feeder
-         * between two nodes. A reverse pair is suspicious and can
-         * also indicate an unintended loop.
          */
         network.connections
             .forEach { connection ->
@@ -979,9 +919,6 @@ object SldDesignValidator {
                 mutableListOf()
         }
 
-        /*
-         * Only valid node references are inserted into the graph.
-         */
         network.connections.forEach { connection ->
 
             if (
