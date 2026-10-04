@@ -95,7 +95,6 @@ fun calculate(
 ): SldPanelSchedule {
 
     engineeringContext
-        .copy(requireImplementedStandard = false)
         .validate()
 
     return calculateInternal(
