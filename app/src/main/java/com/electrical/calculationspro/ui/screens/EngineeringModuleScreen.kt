@@ -1575,27 +1575,29 @@ private fun WaterEngineeringModuleScreen(
                             )
 
                     val calculation =
-                        WaterDesignModule.calculateAndSave(
-                            project = activeProject,
-                            input = WaterDesignInput(
-                                flowM3PerHour =
-                                    flow.toDoubleOrNull(),
-                                diameterMm =
-                                    diameter.toDoubleOrNull(),
-                                velocityMPerS =
-                                    velocity.toDoubleOrNull(),
-                                pipeLengthM =
-                                    length.toDouble(),
-                                material =
-                                    material,
-                                staticHeadM =
-                                    staticHead.toDouble(),
-                                minorLossHeadM =
-                                    minorLoss.toDouble(),
-                                requiredPressureHeadM =
-                                    pressureHead.toDouble()
+                        with(WaterDesignModule) {
+                            calculateAndSave(
+                                project = activeProject,
+                                input = WaterDesignInput(
+                                    flowM3PerHour =
+                                        flow.toDoubleOrNull(),
+                                    diameterMm =
+                                        diameter.toDoubleOrNull(),
+                                    velocityMPerS =
+                                        velocity.toDoubleOrNull(),
+                                    pipeLengthM =
+                                        length.toDouble(),
+                                    material =
+                                        material,
+                                    staticHeadM =
+                                        staticHead.toDouble(),
+                                    minorLossHeadM =
+                                        minorLoss.toDouble(),
+                                    requiredPressureHeadM =
+                                        pressureHead.toDouble()
+                                )
                             )
-                        )
+                        }
 
                     flow =
                         "%.3f".format(
@@ -1928,31 +1930,33 @@ private fun SewageEngineeringModuleScreen(
                         minimumFlow.toDouble()
 
                     val calculation =
-                        SewageDesignModule.calculateAndSave(
-                            project = activeProject,
-                            input = SewageDesignInput(
-                                averageFlowM3PerDay =
-                                    avg,
-                                peakFlowM3PerDay =
-                                    peak,
-                                minimumFlowM3PerDay =
-                                    minimum,
-                                flowM3PerHour =
-                                    flow.toDoubleOrNull(),
-                                diameterMm =
-                                    diameter.toDoubleOrNull(),
-                                velocityMPerS =
-                                    velocity.toDoubleOrNull(),
-                                pipeLengthM =
-                                    length.toDouble(),
-                                material =
-                                    material,
-                                staticHeadM =
-                                    staticHead.toDouble(),
-                                minorLossHeadM =
-                                    minorLoss.toDouble()
+                        with(SewageDesignModule) {
+                            calculateAndSave(
+                                project = activeProject,
+                                input = SewageDesignInput(
+                                    averageFlowM3PerDay =
+                                        avg,
+                                    peakFlowM3PerDay =
+                                        peak,
+                                    minimumFlowM3PerDay =
+                                        minimum,
+                                    flowM3PerHour =
+                                        flow.toDoubleOrNull(),
+                                    diameterMm =
+                                        diameter.toDoubleOrNull(),
+                                    velocityMPerS =
+                                        velocity.toDoubleOrNull(),
+                                    pipeLengthM =
+                                        length.toDouble(),
+                                    material =
+                                        material,
+                                    staticHeadM =
+                                        staticHead.toDouble(),
+                                    minorLossHeadM =
+                                        minorLoss.toDouble()
+                                )
                             )
-                        )
+                        }
 
                     flow =
                         "%.3f".format(
