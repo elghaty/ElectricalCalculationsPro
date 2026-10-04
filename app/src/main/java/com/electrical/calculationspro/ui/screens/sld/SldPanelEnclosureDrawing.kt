@@ -23,40 +23,39 @@ import kotlin.math.min
  * PROFESSIONAL SLD PANEL ENCLOSURE + REAL BUSBAR
  * =====================================================================
  *
- * Drawing responsibility only.
+ * DRAWING RESPONSIBILITY ONLY.
  *
- * PANEL:
- *     Physical enclosure.
+ * PANEL
+ *   -> physical enclosure
  *
- * BUS:
- *     Logical bus node.
+ * BUS
+ *   -> logical bus node
  *
- * BREAKER:
- *     Physical breaker installed inside the panel enclosure when it has
- *     a real BUSBAR connection to the panel.
+ * BREAKER
+ *   -> physical breaker installed inside the panel enclosure when
+ *      connected through an internal BUSBAR relationship
  *
- * BUSBAR:
- *     Physical horizontal busbar drawn inside the enclosure.
+ * BUSBAR
+ *   -> physical horizontal busbar inside the enclosure
  *
- * CABLE:
- *     Never drawn by this file.
+ * CABLE
+ *   -> external feeder only
  *
- * Engineering calculations:
- *     Never performed here.
+ * IMPORTANT:
  *
- * Important:
- *     BUSBAR connections are intentionally NOT rendered by
- *     drawConnection().
+ * Legacy projects may contain PANEL <-> BREAKER connections that were
+ * previously stored as CABLE.
  *
- * This file is therefore the single visual owner of:
+ * Such connections are recognized here as INTERNAL connections when the
+ * endpoint pair is:
  *
- *     PANEL enclosure
- *     INTERNAL BUSBAR
- *     PANEL feed to BUSBAR
- *     BREAKER busbar taps
- *     breaker feeder identifiers
+ *   PANEL <-> BREAKER
+ *   PANEL <-> BUS
+ *   BUS   <-> BREAKER
  *
- * No electrical calculation is performed here.
+ * This prevents an old record from disappearing visually.
+ *
+ * No electrical calculations are performed here.
  * =====================================================================
  */
 
@@ -75,9 +74,9 @@ private const val ENCLOSURE_BOTTOM = 65f
 private const val PANEL_HEADER_HEIGHT = 38f
 
 /*
- * The physical busbar is positioned relative to the panel.
+ * Physical busbar position relative to the panel.
  *
- * This is intentionally independent of BUS node coordinates.
+ * The panel remains the visual reference point.
  */
 private const val BUSBAR_OFFSET_Y = 150f
 
@@ -202,7 +201,7 @@ private fun isInternalConnection(
 ): Boolean {
 
     /*
-     * Explicit BUSBAR always wins.
+     * Explicit BUSBAR is always internal.
      */
     if (
         connection.connectionType ==
@@ -213,16 +212,24 @@ private fun isInternalConnection(
 
     val from =
         nodes.firstOrNull {
-            it.id == connection.fromNodeId
-        }
-            ?: return false
+            it.id ==
+                connection.fromNodeId
+        } ?: return false
 
     val to =
         nodes.firstOrNull {
-            it.id == connection.toNodeId
-        }
-            ?: return false
+            it.id ==
+                connection.toNodeId
+        } ?: return false
 
+    /*
+     * Legacy / repaired records:
+     *
+     * These endpoint combinations represent internal panel equipment.
+     *
+     * This is intentionally restricted to the three recognized pairs.
+     * We do NOT classify arbitrary CABLE connections as BUSBAR.
+     */
     return isPanelBreakerPair(
         first = from,
         second = to
@@ -239,7 +246,7 @@ private fun isInternalConnection(
 
 
 /* =====================================================================
- * FIND PANEL-BUSBAR MEMBERS
+ * FIND PANEL MEMBERS
  * ===================================================================== */
 
 private fun panelMembers(
@@ -254,22 +261,21 @@ private fun panelMembers(
     /*
      * The panel itself is always a member.
      */
-    members += panel.id
+    members +=
+        panel.id
 
     /*
-     * ---------------------------------------------------------------
-     * REAL TOPOLOGY ONLY
-     * ---------------------------------------------------------------
+     * Walk only recognized internal topology.
      *
-     * Walk only real internal connections.
-     *
-     * No geometric guessing.
+     * No geometric proximity is used.
      */
-    var changed = true
+    var changed =
+        true
 
     while (changed) {
 
-        changed = false
+        changed =
+            false
 
         connections.forEach { connection ->
 
@@ -283,10 +289,12 @@ private fun panelMembers(
             }
 
             val fromInside =
-                connection.fromNodeId in members
+                connection.fromNodeId in
+                    members
 
             val toInside =
-                connection.toNodeId in members
+                connection.toNodeId in
+                    members
 
             if (
                 fromInside &&
@@ -311,7 +319,8 @@ private fun panelMembers(
                             candidate.id
                         )
                     ) {
-                        changed = true
+                        changed =
+                            true
                     }
                 }
             }
@@ -339,7 +348,8 @@ private fun panelMembers(
                             candidate.id
                         )
                     ) {
-                        changed = true
+                        changed =
+                            true
                     }
                 }
             }
@@ -351,8 +361,36 @@ private fun panelMembers(
 
 
 /* =====================================================================
- * GET BREAKERS CONNECTED DIRECTLY TO PANEL BUSBAR
+ * GET BREAKERS INSTALLED IN PANEL
  * ===================================================================== */
+
+/*
+ * IMPORTANT FIX
+ * ---------------------------------------------------------------------
+ *
+ * The previous implementation accepted only:
+ *
+ *     connectionType == BUSBAR
+ *
+ * This caused legacy PANEL <-> BREAKER records stored as CABLE to be
+ * hidden by SldCanvasDrawing but NOT represented inside the enclosure.
+ *
+ * Result:
+ *
+ *     cable disappeared
+ *     breaker was not grouped
+ *     busbar was not drawn
+ *
+ * The correct visual interpretation is:
+ *
+ *     explicit BUSBAR
+ *          OR
+ *     recognized PANEL/BUS/BREAKER internal pair
+ *
+ * Therefore legacy records are visually repaired without changing the
+ * persisted model in this drawing layer.
+ * =====================================================================
+ */
 
 private fun panelBreakers(
     panel: SldNode,
@@ -365,9 +403,19 @@ private fun panelBreakers(
 
     connections.forEach { connection ->
 
+        /*
+         * FIX:
+         *
+         * Do NOT require explicit BUSBAR here.
+         *
+         * isInternalConnection() also recognizes legacy
+         * PANEL <-> BREAKER records.
+         */
         if (
-            connection.connectionType !=
-                SldConnectionType.BUSBAR
+            !isInternalConnection(
+                connection = connection,
+                nodes = nodes
+            )
         ) {
             return@forEach
         }
@@ -376,25 +424,25 @@ private fun panelBreakers(
             nodes.firstOrNull {
                 it.id ==
                     connection.fromNodeId
-            }
-                ?: return@forEach
+            } ?: return@forEach
 
         val to =
             nodes.firstOrNull {
                 it.id ==
                     connection.toNodeId
-            }
-                ?: return@forEach
+            } ?: return@forEach
 
         val breaker =
             when {
 
-                from.id == panel.id &&
+                from.id ==
+                    panel.id &&
                     to.type ==
                         SldNodeType.BREAKER ->
                     to
 
-                to.id == panel.id &&
+                to.id ==
+                    panel.id &&
                     from.type ==
                         SldNodeType.BREAKER ->
                     from
@@ -411,10 +459,17 @@ private fun panelBreakers(
             }
         ) {
 
-            result += breaker
+            result +=
+                breaker
         }
     }
 
+    /*
+     * Stable deterministic order.
+     *
+     * The physical busbar taps therefore remain visually stable after
+     * recalculation or redraw.
+     */
     return result
         .sortedWith(
             compareBy<SldNode> {
@@ -448,10 +503,17 @@ fun DrawScope.drawPanelEnclosures(
         .forEach { panel ->
 
             drawSinglePanelEnclosure(
-                panel = panel,
-                nodes = nodes,
-                connections = connections,
-                textMeasurer = textMeasurer
+                panel =
+                    panel,
+
+                nodes =
+                    nodes,
+
+                connections =
+                    connections,
+
+                textMeasurer =
+                    textMeasurer
             )
         }
 }
@@ -470,38 +532,47 @@ private fun DrawScope.drawSinglePanelEnclosure(
 
     /*
      * ---------------------------------------------------------------
-     * REAL TOPOLOGY
+     * REAL PANEL TOPOLOGY
      * ---------------------------------------------------------------
      */
 
     val memberIds =
         panelMembers(
-            panel = panel,
-            nodes = nodes,
-            connections = connections
+            panel =
+                panel,
+
+            nodes =
+                nodes,
+
+            connections =
+                connections
         )
 
-    /*
-     * Keep the member calculation available for future BUS grouping.
-     */
     val members =
         nodes.filter {
-            it.id in memberIds
+            it.id in
+                memberIds
         }
+
 
     /*
      * ---------------------------------------------------------------
-     * REAL PANEL BREAKERS
+     * REAL BREAKERS
      * ---------------------------------------------------------------
      *
-     * Only breakers connected through BUSBAR are considered installed
-     * in this enclosure.
+     * Explicit BUSBAR and legacy internal PANEL/BREAKER records are
+     * both recognized.
      */
     val breakers =
         panelBreakers(
-            panel = panel,
-            nodes = nodes,
-            connections = connections
+            panel =
+                panel,
+
+            nodes =
+                nodes,
+
+            connections =
+                connections
         )
 
 
@@ -510,6 +581,7 @@ private fun DrawScope.drawSinglePanelEnclosure(
      * LOGICAL BUS MEMBERS
      * ---------------------------------------------------------------
      */
+
     val buses =
         members.filter {
             it.type ==
@@ -517,25 +589,28 @@ private fun DrawScope.drawSinglePanelEnclosure(
         }
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * PANEL CENTER
-     * ================================================================= */
+     * =================================================================
+     */
 
     val panelCenterX =
         panel.x +
             NODE_WIDTH / 2f
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * BREAKER CENTERS
-     * ================================================================= */
+     * =================================================================
+     */
 
     val breakerCenters =
         breakers.map {
             it.x +
                 NODE_WIDTH / 2f
         }
-
 
     val minBreakerX =
         breakerCenters.minOrNull()
@@ -550,10 +625,13 @@ private fun DrawScope.drawSinglePanelEnclosure(
             minBreakerX
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * DYNAMIC BUSBAR WIDTH
-     * ================================================================= */
-
+     * =================================================================
+     *
+     * Every breaker gets its own physical tap.
+     */
     val requiredBusWidth =
         max(
             MIN_BUSBAR_WIDTH,
@@ -562,27 +640,32 @@ private fun DrawScope.drawSinglePanelEnclosure(
         )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * ENCLOSURE WIDTH
-     * ================================================================= */
+     * =================================================================
+     */
 
     val calculatedWidth =
         max(
             MIN_ENCLOSURE_WIDTH,
-            requiredBusWidth + 70f
+            requiredBusWidth +
+                70f
         )
 
     val panelLeft =
         panelCenterX -
-            calculatedWidth / 2f
+            calculatedWidth /
+            2f
 
     val panelRight =
         panelCenterX +
-            calculatedWidth / 2f
+            calculatedWidth /
+            2f
+
 
     /*
-     * If breakers exist, make sure their complete symbols remain
-     * inside the physical enclosure.
+     * Keep the complete breaker symbols inside the enclosure.
      */
     val breakerLeft =
         minBreakerX -
@@ -605,9 +688,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
         )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * ENCLOSURE HEIGHT
-     * ================================================================= */
+     * =================================================================
+     */
 
     val top =
         panel.y -
@@ -622,8 +707,7 @@ private fun DrawScope.drawSinglePanelEnclosure(
         breakers.maxOfOrNull {
             it.y +
                 NODE_HEIGHT
-        }
-            ?: defaultBottom
+        } ?: defaultBottom
 
     val bottom =
         max(
@@ -633,9 +717,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
         )
 
 
-    /* =================================================================
-     * ENCLOSURE BODY
-     * ================================================================= */
+    /*
+     * =================================================================
+     * PHYSICAL ENCLOSURE FILL
+     * =================================================================
+     */
 
     drawRoundRect(
         color =
@@ -661,6 +747,12 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
 
+    /*
+     * =================================================================
+     * PHYSICAL ENCLOSURE BORDER
+     * =================================================================
+     */
+
     drawRoundRect(
         color =
             ENCLOSURE_BORDER,
@@ -685,14 +777,17 @@ private fun DrawScope.drawSinglePanelEnclosure(
 
         style =
             Stroke(
-                width = 2.5f
+                width =
+                    2.5f
             )
     )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * HEADER SEPARATOR
-     * ================================================================= */
+     * =================================================================
+     */
 
     drawLine(
         color =
@@ -712,13 +807,16 @@ private fun DrawScope.drawSinglePanelEnclosure(
                     PANEL_HEADER_HEIGHT
             ),
 
-        strokeWidth = 1.5f
+        strokeWidth =
+            1.5f
     )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * PANEL HEADER
-     * ================================================================= */
+     * =================================================================
+     */
 
     val panelTitle =
         panel.name
@@ -750,7 +848,6 @@ private fun DrawScope.drawSinglePanelEnclosure(
             )
     )
 
-
     drawText(
         textMeasurer =
             textMeasurer,
@@ -775,26 +872,32 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * PHYSICAL BUSBAR POSITION
-     * ================================================================= */
+     * =================================================================
+     */
 
     val busY =
         panel.y +
             BUSBAR_OFFSET_Y
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * BUSBAR X RANGE
-     * ================================================================= */
+     * =================================================================
+     */
 
     val rawBusLeft =
         panelCenterX -
-            requiredBusWidth / 2f
+            requiredBusWidth /
+            2f
 
     val rawBusRight =
         panelCenterX +
-            requiredBusWidth / 2f
+            requiredBusWidth /
+            2f
 
     val busLeft =
         max(
@@ -821,10 +924,15 @@ private fun DrawScope.drawSinglePanelEnclosure(
         )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * REAL HORIZONTAL BUSBAR
-     * ================================================================= */
-
+     * =================================================================
+     *
+     * This is a real busbar graphic.
+     *
+     * It is NOT a cable.
+     */
     drawLine(
         color =
             BUSBAR_COLOR,
@@ -846,9 +954,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * BUSBAR END TERMINALS
-     * ================================================================= */
+     * =================================================================
+     */
 
     drawCircle(
         color =
@@ -879,9 +989,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * BUSBAR LABEL
-     * ================================================================= */
+     * =================================================================
+     */
 
     drawText(
         textMeasurer =
@@ -907,9 +1019,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * LOGICAL BUS LABEL
-     * ================================================================= */
+     * =================================================================
+     */
 
     val primaryBus =
         buses.minByOrNull {
@@ -917,7 +1031,8 @@ private fun DrawScope.drawSinglePanelEnclosure(
             abs(
                 (
                     it.x +
-                        NODE_WIDTH / 2f
+                        NODE_WIDTH /
+                        2f
                     ) -
                     panelCenterX
             )
@@ -944,8 +1059,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
 
                 topLeft =
                     Offset(
-                        safeBusRight - 90f,
-                        busY + 20f
+                        safeBusRight -
+                            90f,
+
+                        busY +
+                            20f
                     ),
 
                 style =
@@ -961,10 +1079,14 @@ private fun DrawScope.drawSinglePanelEnclosure(
     }
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * PANEL FEED TO PHYSICAL BUSBAR
-     * ================================================================= */
-
+     * =================================================================
+     *
+     * This is the internal vertical connection from the panel enclosure
+     * header area to the actual busbar.
+     */
     val panelTerminalX =
         panelCenterX
 
@@ -988,7 +1110,8 @@ private fun DrawScope.drawSinglePanelEnclosure(
                 busY
             ),
 
-        strokeWidth = 3f
+        strokeWidth =
+            3f
     )
 
     drawCircle(
@@ -1006,15 +1129,18 @@ private fun DrawScope.drawSinglePanelEnclosure(
     )
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * REAL BREAKER BUSBAR TAPS
-     * ================================================================= */
+     * =================================================================
+     */
 
     breakers.forEachIndexed { index, breaker ->
 
         val breakerX =
             breaker.x +
-                NODE_WIDTH / 2f
+                NODE_WIDTH /
+                2f
 
         /*
          * Existing breaker symbol coordinate system.
@@ -1024,16 +1150,18 @@ private fun DrawScope.drawSinglePanelEnclosure(
                 LOCAL_SYMBOL_Y
 
         /*
-         * Upper electrical terminal of breaker.
+         * Electrical upper terminal of the breaker.
          */
         val upperTerminalY =
             breakerCenterY -
                 BREAKER_TERMINAL_OFFSET
 
 
-        /* -------------------------------------------------------------
-         * BUSBAR TAP
-         * ------------------------------------------------------------- */
+        /*
+         * -------------------------------------------------------------
+         * BUSBAR TAKE-OFF TAP
+         * -------------------------------------------------------------
+         */
 
         drawLine(
             color =
@@ -1056,9 +1184,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
         )
 
 
-        /* -------------------------------------------------------------
-         * BUSBAR TAKE-OFF TERMINAL
-         * ------------------------------------------------------------- */
+        /*
+         * -------------------------------------------------------------
+         * BUSBAR TERMINAL
+         * -------------------------------------------------------------
+         */
 
         drawCircle(
             color =
@@ -1075,9 +1205,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
         )
 
 
-        /* -------------------------------------------------------------
+        /*
+         * -------------------------------------------------------------
          * BREAKER TERMINAL
-         * ------------------------------------------------------------- */
+         * -------------------------------------------------------------
+         */
 
         drawLine(
             color =
@@ -1092,16 +1224,20 @@ private fun DrawScope.drawSinglePanelEnclosure(
             end =
                 Offset(
                     breakerX,
-                    upperTerminalY + 8f
+                    upperTerminalY +
+                        8f
                 ),
 
-            strokeWidth = 2.2f
+            strokeWidth =
+                2.2f
         )
 
 
-        /* -------------------------------------------------------------
+        /*
+         * -------------------------------------------------------------
          * FEEDER IDENTIFIER
-         * ------------------------------------------------------------- */
+         * -------------------------------------------------------------
+         */
 
         drawText(
             textMeasurer =
@@ -1128,9 +1264,11 @@ private fun DrawScope.drawSinglePanelEnclosure(
     }
 
 
-    /* =================================================================
+    /*
+     * =================================================================
      * EMPTY PANEL
-     * ================================================================= */
+     * =================================================================
+     */
 
     if (
         breakers.isEmpty()
