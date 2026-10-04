@@ -64,91 +64,40 @@ fun SldCanvas(
     onEditNode: (SldNode) -> Unit,
     onEditConnection: (SldConnection) -> Unit
 ) {
+    val textMeasurer = rememberTextMeasurer()
 
-    val textMeasurer =
-        rememberTextMeasurer()
+    val currentNodes by rememberUpdatedState(nodes)
+    val currentConnections by rememberUpdatedState(connections)
+    val currentSelectedNodeId by rememberUpdatedState(selectedNodeId)
+    val currentSelectedConnectionId by rememberUpdatedState(selectedConnectionId)
+    val currentConnectionStartId by rememberUpdatedState(connectionStartId)
+    val currentEngineering by rememberUpdatedState(engineering)
 
-    val currentNodes by
-        rememberUpdatedState(nodes)
+    val currentOnSelectNode by rememberUpdatedState(onSelectNode)
+    val currentOnMoveNode by rememberUpdatedState(onMoveNode)
+    val currentOnMoveNodeEnd by rememberUpdatedState(onMoveNodeEnd)
+    val currentOnSelectConnection by rememberUpdatedState(onSelectConnection)
+    val currentOnEditNode by rememberUpdatedState(onEditNode)
+    val currentOnEditConnection by rememberUpdatedState(onEditConnection)
 
-    val currentConnections by
-        rememberUpdatedState(connections)
-
-    val currentSelectedNodeId by
-        rememberUpdatedState(selectedNodeId)
-
-    val currentSelectedConnectionId by
-        rememberUpdatedState(selectedConnectionId)
-
-    val currentConnectionStartId by
-        rememberUpdatedState(connectionStartId)
-
-    val currentEngineering by
-        rememberUpdatedState(engineering)
-
-    val currentOnSelectNode by
-        rememberUpdatedState(onSelectNode)
-
-    val currentOnMoveNode by
-        rememberUpdatedState(onMoveNode)
-
-    val currentOnMoveNodeEnd by
-        rememberUpdatedState(onMoveNodeEnd)
-
-    val currentOnSelectConnection by
-        rememberUpdatedState(onSelectConnection)
-
-    val currentOnEditNode by
-        rememberUpdatedState(onEditNode)
-
-    val currentOnEditConnection by
-        rememberUpdatedState(onEditConnection)
-
-    var panX by
-        remember {
-            mutableFloatStateOf(0f)
-        }
-
-    var panY by
-        remember {
-            mutableFloatStateOf(0f)
-        }
-
-    var zoom by
-        remember {
-            mutableFloatStateOf(1f)
-        }
+    var panX by remember { mutableFloatStateOf(0f) }
+    var panY by remember { mutableFloatStateOf(0f) }
+    var zoom by remember { mutableFloatStateOf(1f) }
 
     fun safeZoom(): Float {
         return zoom
             .takeIf {
-                it.isFinite() &&
-                    it > 0f
+                it.isFinite() && it > 0f
             }
             ?: 1f
     }
 
-    fun screenToLogical(
-        point: Offset
-    ): Offset {
-
-        val currentZoom =
-            safeZoom()
+    fun screenToLogical(point: Offset): Offset {
+        val currentZoom = safeZoom()
 
         return Offset(
-            x =
-                (
-                    point.x -
-                        panX
-                    ) /
-                    currentZoom,
-
-            y =
-                (
-                    point.y -
-                        panY
-                    ) /
-                    currentZoom
+            x = (point.x - panX) / currentZoom,
+            y = (point.y - panY) / currentZoom
         )
     }
 
@@ -156,68 +105,41 @@ fun SldCanvas(
         factor: Float,
         center: Offset
     ) {
-
-        if (
-            !factor.isFinite() ||
-            factor <= 0f
-        ) {
+        if (!factor.isFinite() || factor <= 0f) {
             return
         }
 
         val oldZoom =
-            safeZoom()
-                .coerceIn(
-                    MIN_ZOOM,
-                    MAX_ZOOM
-                )
+            safeZoom().coerceIn(
+                MIN_ZOOM,
+                MAX_ZOOM
+            )
 
         val newZoom =
-            (
-                oldZoom *
-                    factor
-                ).coerceIn(
-                    MIN_ZOOM,
-                    MAX_ZOOM
-                )
+            (oldZoom * factor).coerceIn(
+                MIN_ZOOM,
+                MAX_ZOOM
+            )
 
-        if (
-            abs(
-                newZoom -
-                    oldZoom
-            ) < 0.0001f
-        ) {
+        if (abs(newZoom - oldZoom) < 0.0001f) {
             return
         }
 
         val logicalPoint =
             Offset(
-                x =
-                    (
-                        center.x -
-                            panX
-                        ) /
-                        oldZoom,
-
-                y =
-                    (
-                        center.y -
-                            panY
-                        ) /
-                        oldZoom
+                x = (center.x - panX) / oldZoom,
+                y = (center.y - panY) / oldZoom
             )
 
-        zoom =
-            newZoom
+        zoom = newZoom
 
         panX =
             center.x -
-                logicalPoint.x *
-                newZoom
+                logicalPoint.x * newZoom
 
         panY =
             center.y -
-                logicalPoint.y *
-                newZoom
+                logicalPoint.y * newZoom
     }
 
     fun resetView() {
@@ -231,31 +153,22 @@ fun SldCanvas(
             modifier
                 .fillMaxSize()
                 .background(
-                    Color(
-                        0xFFF7F9FA
-                    )
+                    Color(0xFFF7F9FA)
                 )
     ) {
-
         Canvas(
             modifier =
                 Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
-
                         var lastTapTime = 0L
-
-                        var lastTapPosition =
-                            Offset.Unspecified
+                        var lastTapPosition = Offset.Unspecified
 
                         awaitEachGesture {
-
                             val firstDown =
                                 awaitFirstDown(
-                                    pass =
-                                        PointerEventPass.Main,
-                                    requireUnconsumed =
-                                        false
+                                    pass = PointerEventPass.Main,
+                                    requireUnconsumed = false
                                 )
 
                             val firstPosition =
@@ -266,28 +179,18 @@ fun SldCanvas(
                                     firstPosition
                                 )
 
-                            /*
-                             * Connection hit testing has priority.
-                             */
                             val firstConnection =
                                 findConnection(
-                                    point =
-                                        firstLogicalPosition,
-                                    nodes =
-                                        currentNodes,
-                                    connections =
-                                        currentConnections
+                                    point = firstLogicalPosition,
+                                    nodes = currentNodes,
+                                    connections = currentConnections
                                 )
 
                             val firstNode =
-                                if (
-                                    firstConnection == null
-                                ) {
+                                if (firstConnection == null) {
                                     findNode(
-                                        point =
-                                            firstLogicalPosition,
-                                        nodes =
-                                            currentNodes
+                                        point = firstLogicalPosition,
+                                        nodes = currentNodes
                                     )
                                 } else {
                                     null
@@ -308,55 +211,34 @@ fun SldCanvas(
                             var accumulatedDrag =
                                 Offset.Zero
 
-                            if (
-                                firstNode != null
-                            ) {
-
+                            if (firstNode != null) {
                                 currentOnSelectNode(
                                     firstNode.id
                                 )
-
-                            } else if (
-                                firstConnection != null
-                            ) {
-
+                            } else if (firstConnection != null) {
                                 currentOnSelectConnection(
                                     firstConnection.id
                                 )
                             }
 
                             while (true) {
-
                                 val event =
                                     awaitPointerEvent(
-                                        pass =
-                                            PointerEventPass.Main
+                                        pass = PointerEventPass.Main
                                     )
 
                                 val pressed =
-                                    event.changes
-                                        .filter {
-                                            it.pressed
-                                        }
+                                    event.changes.filter {
+                                        it.pressed
+                                    }
 
-                                pointerCount =
-                                    pressed.size
+                                pointerCount = pressed.size
 
-                                if (
-                                    pressed.isEmpty()
-                                ) {
+                                if (pressed.isEmpty()) {
                                     break
                                 }
 
-                                /*
-                                 * ==================================================
-                                 * MULTI TOUCH
-                                 * ==================================================
-                                 */
-                                if (
-                                    pressed.size >= 2
-                                ) {
-
+                                if (pressed.size >= 2) {
                                     multiTouch = true
                                     draggingNode = false
                                     dragStarted = false
@@ -401,30 +283,22 @@ fun SldCanvas(
 
                                     if (
                                         abs(
-                                            newZoom -
-                                                oldZoom
+                                            newZoom - oldZoom
                                         ) > 0.0001f
                                     ) {
-
                                         val logicalCentroid =
                                             Offset(
                                                 x =
                                                     (
-                                                        centroid.x -
-                                                            panX
-                                                        ) /
-                                                        oldZoom,
-
+                                                        centroid.x - panX
+                                                        ) / oldZoom,
                                                 y =
                                                     (
-                                                        centroid.y -
-                                                            panY
-                                                        ) /
-                                                        oldZoom
+                                                        centroid.y - panY
+                                                        ) / oldZoom
                                             )
 
-                                        zoom =
-                                            newZoom
+                                        zoom = newZoom
 
                                         panX =
                                             centroid.x -
@@ -437,9 +311,7 @@ fun SldCanvas(
                                                 newZoom
                                     }
 
-                                    if (
-                                        pan != Offset.Zero
-                                    ) {
+                                    if (pan != Offset.Zero) {
                                         panX += pan.x
                                         panY += pan.y
                                     }
@@ -451,16 +323,10 @@ fun SldCanvas(
                                     continue
                                 }
 
-                                /*
-                                 * ==================================================
-                                 * ONE FINGER
-                                 * ==================================================
-                                 */
                                 if (
                                     pressed.size == 1 &&
                                     !multiTouch
                                 ) {
-
                                     val change =
                                         pressed.first()
 
@@ -468,29 +334,19 @@ fun SldCanvas(
                                         change.position -
                                             change.previousPosition
 
-                                    if (
-                                        delta != Offset.Zero
-                                    ) {
-
-                                        accumulatedDrag +=
-                                            delta
+                                    if (delta != Offset.Zero) {
+                                        accumulatedDrag += delta
 
                                         val distance =
-                                            accumulatedDrag
-                                                .getDistance()
+                                            accumulatedDrag.getDistance()
 
-                                        if (
-                                            distance >
-                                            TAP_SLOP
-                                        ) {
-
+                                        if (distance > TAP_SLOP) {
                                             moved = true
 
                                             if (
                                                 draggingNode &&
                                                 activeNodeId != null
                                             ) {
-
                                                 dragStarted = true
 
                                                 val currentZoom =
@@ -509,9 +365,7 @@ fun SldCanvas(
                                                     logicalDx,
                                                     logicalDy
                                                 )
-
                                             } else {
-
                                                 panX += delta.x
                                                 panY += delta.y
                                             }
@@ -527,21 +381,14 @@ fun SldCanvas(
                                 !multiTouch &&
                                 activeNodeId != null
                             ) {
-
                                 currentOnMoveNodeEnd()
                             }
 
-                            /*
-                             * ==================================================
-                             * TAP / DOUBLE TAP
-                             * ==================================================
-                             */
                             if (
                                 !moved &&
                                 !multiTouch &&
                                 pointerCount <= 1
                             ) {
-
                                 val now =
                                     firstDown.uptimeMillis
 
@@ -558,27 +405,18 @@ fun SldCanvas(
                                             ).getDistance() <=
                                             DOUBLE_TAP_DISTANCE
 
-                                if (
-                                    isDoubleTap
-                                ) {
-
+                                if (isDoubleTap) {
                                     if (
                                         currentConnectionStartId ==
                                         null
                                     ) {
-
-                                        if (
-                                            firstNode != null
-                                        ) {
-
+                                        if (firstNode != null) {
                                             currentOnEditNode(
                                                 firstNode
                                             )
-
                                         } else if (
                                             firstConnection != null
                                         ) {
-
                                             currentOnEditConnection(
                                                 firstConnection
                                             )
@@ -588,9 +426,7 @@ fun SldCanvas(
                                     lastTapTime = 0L
                                     lastTapPosition =
                                         Offset.Unspecified
-
                                 } else {
-
                                     lastTapTime = now
                                     lastTapPosition =
                                         firstPosition
@@ -601,11 +437,9 @@ fun SldCanvas(
                         }
                     }
         ) {
-
             drawSldEngineeringBackground()
 
             withTransform({
-
                 translate(
                     left = panX,
                     top = panY
@@ -616,20 +450,9 @@ fun SldCanvas(
                     scaleY = zoom,
                     pivot = Offset.Zero
                 )
-
             }) {
 
-                /*
-                 * ==========================================================
-                 * EXTERNAL FEEDERS
-                 * ==========================================================
-                 *
-                 * drawConnection() intentionally ignores BUSBAR
-                 * connections. Only real external feeders are drawn here.
-                 */
-                currentConnections.forEach {
-                    connection ->
-
+                currentConnections.forEach { connection ->
                     val feederResult =
                         currentEngineering
                             ?.upstream
@@ -640,60 +463,18 @@ fun SldCanvas(
                             }
 
                     drawConnection(
-                        connection =
-                            connection,
-
-                        nodes =
-                            currentNodes,
-
-                        connections =
-                            currentConnections,
-
+                        connection = connection,
+                        nodes = currentNodes,
+                        connections = currentConnections,
                         selected =
                             connection.id ==
                                 currentSelectedConnectionId,
-
-                        textMeasurer =
-                            textMeasurer,
-
-                        feederResult =
-                            feederResult
+                        textMeasurer = textMeasurer,
+                        feederResult = feederResult
                     )
                 }
 
-                /*
-                 * ==========================================================
-                 * REAL PANEL ENCLOSURES + REAL INTERNAL BUSBARS
-                 * ==========================================================
-                 *
-                 * This layer is deliberately between feeders and
-                 * equipment symbols.
-                 *
-                 * It owns:
-                 * - panel border
-                 * - internal busbar
-                 * - breaker taps
-                 * - panel/bus/breaker enclosure grouping
-                 */
-                drawPanelEnclosures(
-                    nodes =
-                        currentNodes,
-
-                    connections =
-                        currentConnections,
-
-                    textMeasurer =
-                        textMeasurer
-                )
-
-                /*
-                 * ==========================================================
-                 * EQUIPMENT SYMBOLS
-                 * ==========================================================
-                 */
-                currentNodes.forEach {
-                    node ->
-
+                currentNodes.forEach { node ->
                     val engineeringResult =
                         currentEngineering
                             ?.upstream
@@ -704,52 +485,34 @@ fun SldCanvas(
                             }
 
                     drawNode(
-                        node =
-                            node,
-
+                        node = node,
                         selected =
                             node.id ==
                                 currentSelectedNodeId,
-
                         connectionStart =
                             node.id ==
                                 currentConnectionStartId,
-
-                        textMeasurer =
-                            textMeasurer,
-
+                        textMeasurer = textMeasurer,
                         engineeringResult =
                             engineeringResult,
-
-                        nodes =
-                            currentNodes,
-
-                        connections =
-                            currentConnections
+                        nodes = currentNodes,
+                        connections = currentConnections
                     )
                 }
 
-                /*
-                 * ==========================================================
-                 * CONNECTION START INDICATOR
-                 * ==========================================================
-                 */
                 currentConnectionStartId
                     ?.let { startId ->
-
                         currentNodes
                             .firstOrNull {
                                 it.id == startId
                             }
                             ?.let { node ->
-
                                 val center =
                                     Offset(
                                         x =
                                             node.x +
                                                 NODE_WIDTH /
                                                 2f,
-
                                         y =
                                             node.y +
                                                 NODE_CENTER_Y
@@ -760,13 +523,8 @@ fun SldCanvas(
                                         Color(
                                             0xFFFF9800
                                         ),
-
-                                    radius =
-                                        92f,
-
-                                    center =
-                                        center,
-
+                                    radius = 92f,
+                                    center = center,
                                     style =
                                         androidx.compose.ui.graphics
                                             .drawscope.Stroke(
@@ -778,34 +536,20 @@ fun SldCanvas(
             }
         }
 
-        /*
-         * ================================================================
-         * VIEW CONTROLS
-         * ================================================================
-         */
         Column(
             modifier =
                 Modifier
                     .align(
                         Alignment.TopEnd
                     )
-                    .padding(
-                        12.dp
-                    ),
-
+                    .padding(12.dp),
             verticalArrangement =
-                Arrangement.spacedBy(
-                    8.dp
-                )
+                Arrangement.spacedBy(8.dp)
         ) {
-
             FloatingActionButton(
                 onClick = {
-
                     zoomAt(
-                        factor =
-                            BUTTON_ZOOM_FACTOR,
-
+                        factor = BUTTON_ZOOM_FACTOR,
                         center =
                             Offset(
                                 x = 500f,
@@ -814,11 +558,9 @@ fun SldCanvas(
                     )
                 }
             ) {
-
                 Icon(
                     imageVector =
                         Icons.Outlined.Add,
-
                     contentDescription =
                         "Zoom In"
                 )
@@ -826,12 +568,10 @@ fun SldCanvas(
 
             FloatingActionButton(
                 onClick = {
-
                     zoomAt(
                         factor =
                             1f /
                                 BUTTON_ZOOM_FACTOR,
-
                         center =
                             Offset(
                                 x = 500f,
@@ -840,11 +580,9 @@ fun SldCanvas(
                     )
                 }
             ) {
-
                 Icon(
                     imageVector =
                         Icons.Outlined.Remove,
-
                     contentDescription =
                         "Zoom Out"
                 )
@@ -855,11 +593,9 @@ fun SldCanvas(
                     resetView()
                 }
             ) {
-
                 Icon(
                     imageVector =
                         Icons.Outlined.CenterFocusStrong,
-
                     contentDescription =
                         "Reset View"
                 )
