@@ -223,3 +223,233 @@ object SewageDesignModule {
             )
         )
 }
+
+/**
+ * Complete sewage hydraulic input.
+ */
+data class SewageDesignInput(
+    val averageFlowM3PerDay: Double,
+    val peakFlowM3PerDay: Double,
+    val minimumFlowM3PerDay: Double,
+    val flowM3PerHour: Double?,
+    val diameterMm: Double?,
+    val velocityMPerS: Double?,
+    val pipeLengthM: Double,
+    val material: String,
+    val staticHeadM: Double,
+    val minorLossHeadM: Double
+)
+
+/**
+ * Structured sewage design result.
+ */
+data class SewageDesignCalculationResult(
+    val project: DesignProject,
+    val averageFlowM3PerDay: Double,
+    val peakFlowM3PerDay: Double,
+    val minimumFlowM3PerDay: Double,
+    val risingMainFlowM3PerHour: Double,
+    val diameterMm: Double,
+    val velocityMPerS: Double,
+    val frictionLossM: Double,
+    val tdhM: Double
+)
+
+/**
+ * Performs the sewage hydraulic workflow in the domain layer.
+ *
+ * The UI supplies inputs only. All hydraulic calculations and
+ * project persistence are handled here.
+ */
+fun SewageDesignModule.calculateAndSave(
+    project: DesignProject,
+    input: SewageDesignInput
+): SewageDesignCalculationResult {
+
+    require(input.averageFlowM3PerDay > 0.0) {
+        "Average flow must be greater than zero."
+    }
+
+    require(
+        input.peakFlowM3PerDay >=
+            input.averageFlowM3PerDay
+    ) {
+        "Peak flow must be greater than or equal to average flow."
+    }
+
+    require(input.minimumFlowM3PerDay >= 0.0) {
+        "Minimum flow cannot be negative."
+    }
+
+    require(
+        input.minimumFlowM3PerDay <=
+            input.peakFlowM3PerDay
+    ) {
+        "Minimum flow cannot exceed peak flow."
+    }
+
+    require(input.pipeLengthM > 0.0) {
+        "Rising main length must be greater than zero."
+    }
+
+    require(input.staticHeadM >= 0.0) {
+        "Static head cannot be negative."
+    }
+
+    require(input.minorLossHeadM >= 0.0) {
+        "Minor loss cannot be negative."
+    }
+
+    val inputFlow =
+        input.flowM3PerHour?.takeIf {
+            it > 0.0
+        }
+
+    val inputDiameter =
+        input.diameterMm?.takeIf {
+            it > 0.0
+        }
+
+    val inputVelocity =
+        input.velocityMPerS?.takeIf {
+            it > 0.0
+        }
+
+    val peakFlowM3PerHour =
+        input.peakFlowM3PerDay / 24.0
+
+    val resolvedFlow =
+        inputFlow ?: peakFlowM3PerHour
+
+    require(resolvedFlow > 0.0) {
+        "Rising main flow must be greater than zero."
+    }
+
+    val finalFlow: Double
+    val finalDiameter: Double
+    val finalVelocity: Double
+
+    when {
+
+        inputDiameter != null -> {
+
+            finalFlow =
+                resolvedFlow
+
+            finalDiameter =
+                inputDiameter
+
+            finalVelocity =
+                SewageDesignEngine.calculateVelocity(
+                    flowM3PerHour = finalFlow,
+                    diameterMm = finalDiameter
+                )
+        }
+
+        inputVelocity != null -> {
+
+            finalFlow =
+                resolvedFlow
+
+            finalVelocity =
+                inputVelocity
+
+            finalDiameter =
+                SewageDesignEngine.calculateDiameter(
+                    flowM3PerHour = finalFlow,
+                    velocityMPerS = finalVelocity
+                )
+        }
+
+        else -> {
+            throw IllegalArgumentException(
+                "Enter diameter or velocity for the rising main."
+            )
+        }
+    }
+
+    require(
+        finalFlow > 0.0 &&
+            finalDiameter > 0.0 &&
+            finalVelocity > 0.0
+    ) {
+        "Calculated rising-main values are invalid."
+    }
+
+    val frictionLoss =
+        SewageDesignEngine.calculateFrictionLoss(
+            flowM3PerHour = finalFlow,
+            diameterMm = finalDiameter,
+            lengthM = input.pipeLengthM,
+            material = input.material
+        )
+
+    require(frictionLoss >= 0.0) {
+        "Calculated friction loss is invalid."
+    }
+
+    val tdh =
+        SewageDesignEngine.calculateTdh(
+            staticHeadM = input.staticHeadM,
+            frictionHeadM = frictionLoss,
+            minorLossHeadM = input.minorLossHeadM
+        )
+
+    require(tdh >= 0.0) {
+        "Calculated TDH is invalid."
+    }
+
+    var updatedProject =
+        SewageDesignModule.updateFlows(
+            project = project,
+            averageFlowM3PerDay =
+                input.averageFlowM3PerDay,
+            peakFlowM3PerDay =
+                input.peakFlowM3PerDay,
+            minimumFlowM3PerDay =
+                input.minimumFlowM3PerDay
+        )
+
+    updatedProject =
+        SewageDesignModule.setRisingMain(
+            project = updatedProject,
+            risingMain =
+                RisingMainDesign(
+                    name = "Main Rising Main",
+                    diameterMm = finalDiameter,
+                    lengthM = input.pipeLengthM,
+                    material = input.material,
+                    flowM3PerHour = finalFlow,
+                    velocityMPerS = finalVelocity,
+                    frictionLossM = frictionLoss,
+                    minorLossHeadM =
+                        input.minorLossHeadM
+                )
+        )
+
+    updatedProject =
+        SewageDesignModule.setStaticHead(
+            project = updatedProject,
+            staticHeadM = input.staticHeadM
+        )
+
+    return SewageDesignCalculationResult(
+        project = updatedProject,
+        averageFlowM3PerDay =
+            input.averageFlowM3PerDay,
+        peakFlowM3PerDay =
+            input.peakFlowM3PerDay,
+        minimumFlowM3PerDay =
+            input.minimumFlowM3PerDay,
+        risingMainFlowM3PerHour =
+            finalFlow,
+        diameterMm =
+            finalDiameter,
+        velocityMPerS =
+            finalVelocity,
+        frictionLossM =
+            frictionLoss,
+        tdhM =
+            tdh
+    )
+}
