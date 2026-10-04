@@ -13,23 +13,12 @@ package com.electrical.calculationspro.data
  *   ↓
  * Engineering Calculation
  *
- * This validator does not calculate equipment ratings.
- * It verifies that the network is logically valid and ready
- * for engineering calculations.
+ * BUSBAR is an internal switchgear relationship:
+ *   PANEL ↔ BUS
+ *   BUS ↔ BREAKER
+ *   PANEL ↔ BREAKER
  *
- * Important engineering rules:
- *
- * 1. BUSBAR is an internal panel switchgear connection.
- * 2. BUSBAR is valid for:
- *      PANEL -> BUS
- *      BUS -> BREAKER
- *      PANEL -> BREAKER
- *    including reverse stored direction which is canonicalized.
- * 3. BUSBAR does not use cable length, cable size, cable capacity
- *    or cable parallel-run data.
- * 4. CABLE is used for external feeders.
- * 5. Missing cable ampacity is NOT treated as adequate.
- * 6. BUS and BREAKER do not carry duplicated downstream load.
+ * BUSBAR never carries cable engineering data.
  * ================================================================
  */
 object SldDesignValidator {
@@ -54,22 +43,9 @@ object SldDesignValidator {
         val information: List<Issue>
     ) {
         val allIssues: List<Issue>
-            get() =
-                errors +
-                    warnings +
-                    information
+            get() = errors + warnings + information
     }
 
-    /**
-     * Internal BUSBAR topology.
-     *
-     * These relationships represent physical switchgear/busbar
-     * relationships inside a panel enclosure.
-     *
-     * The function accepts both directions because the editor may
-     * temporarily store either direction. Canonical direction is
-     * handled by the SLD topology/editor layer.
-     */
     private fun isInternalBusbarPair(
         first: SldNodeType,
         second: SldNodeType
@@ -93,40 +69,23 @@ object SldDesignValidator {
             first == SldNodeType.BREAKER &&
                 second == SldNodeType.PANEL
             )
-        )
     }
 
-    /**
-     * Main validation entry point.
-     */
     fun validate(
         network: SldNetwork
     ): Result {
 
-        val errors =
-            mutableListOf<Issue>()
+        val errors = mutableListOf<Issue>()
+        val warnings = mutableListOf<Issue>()
+        val information = mutableListOf<Issue>()
 
-        val warnings =
-            mutableListOf<Issue>()
-
-        val information =
-            mutableListOf<Issue>()
-
-        /*
-         * ------------------------------------------------------------
-         * EMPTY NETWORK
-         * ------------------------------------------------------------
-         */
         if (network.nodes.isEmpty()) {
-
-            errors +=
-                Issue(
-                    severity = Severity.ERROR,
-                    code = "SLD_EMPTY",
-                    elementId = null,
-                    message =
-                        "SLD network contains no equipment."
-                )
+            errors += Issue(
+                severity = Severity.ERROR,
+                code = "SLD_EMPTY",
+                elementId = null,
+                message = "SLD network contains no equipment."
+            )
 
             return Result(
                 valid = false,
@@ -136,133 +95,72 @@ object SldDesignValidator {
             )
         }
 
-        /*
-         * ------------------------------------------------------------
-         * NODE IDS
-         * ------------------------------------------------------------
-         */
-        val nodeIds =
-            network.nodes.map {
-                it.id
-            }
+        val nodeIds = network.nodes.map { it.id }
 
-        val duplicateNodeIds =
-            nodeIds
-                .groupingBy {
-                    it
-                }
-                .eachCount()
-                .filterValues {
-                    it > 1
-                }
-                .keys
-
-        duplicateNodeIds.forEach { id ->
-
-            errors +=
-                Issue(
+        nodeIds
+            .groupingBy { it }
+            .eachCount()
+            .filterValues { it > 1 }
+            .keys
+            .forEach { id ->
+                errors += Issue(
                     severity = Severity.ERROR,
                     code = "DUPLICATE_NODE_ID",
                     elementId = id,
-                    message =
-                        "Duplicate SLD node ID: $id"
+                    message = "Duplicate SLD node ID: $id"
                 )
-        }
+            }
 
         val nodeMap =
-            network.nodes.associateBy {
-                it.id
-            }
+            network.nodes.associateBy { it.id }
 
-        /*
-         * ------------------------------------------------------------
-         * CONNECTION IDS
-         * ------------------------------------------------------------
-         */
-        val connectionIds =
-            network.connections.map {
-                it.id
-            }
-
-        val duplicateConnectionIds =
-            connectionIds
-                .groupingBy {
-                    it
-                }
-                .eachCount()
-                .filterValues {
-                    it > 1
-                }
-                .keys
-
-        duplicateConnectionIds.forEach { id ->
-
-            errors +=
-                Issue(
+        network.connections
+            .map { it.id }
+            .groupingBy { it }
+            .eachCount()
+            .filterValues { it > 1 }
+            .keys
+            .forEach { id ->
+                errors += Issue(
                     severity = Severity.ERROR,
                     code = "DUPLICATE_CONNECTION_ID",
                     elementId = id,
-                    message =
-                        "Duplicate SLD connection ID: $id"
+                    message = "Duplicate SLD connection ID: $id"
                 )
-        }
+            }
 
-        /*
-         * ------------------------------------------------------------
-         * SOURCES
-         * ------------------------------------------------------------
-         */
         val sources =
             network.nodes.filter {
                 it.type == SldNodeType.SOURCE
             }
 
         if (sources.isEmpty()) {
-
-            errors +=
-                Issue(
-                    severity = Severity.ERROR,
-                    code = "NO_SOURCE",
-                    elementId = null,
-                    message =
-                        "The electrical network has no source."
-                )
+            errors += Issue(
+                severity = Severity.ERROR,
+                code = "NO_SOURCE",
+                elementId = null,
+                message = "The electrical network has no source."
+            )
         }
 
         if (sources.size > 1) {
-
-            warnings +=
-                Issue(
-                    severity = Severity.WARNING,
-                    code = "MULTIPLE_SOURCES",
-                    elementId = null,
-                    message =
-                        "Multiple electrical sources detected. Operating mode and source interlocking must be defined."
-                )
+            warnings += Issue(
+                severity = Severity.WARNING,
+                code = "MULTIPLE_SOURCES",
+                elementId = null,
+                message =
+                    "Multiple electrical sources detected. Operating mode and source interlocking must be defined."
+            )
         }
 
-        /*
-         * ------------------------------------------------------------
-         * TOPOLOGY COUNTERS
-         * ------------------------------------------------------------
-         */
-        val incoming =
-            mutableMapOf<String, Int>()
-
-        val outgoing =
-            mutableMapOf<String, Int>()
+        val incoming = mutableMapOf<String, Int>()
+        val outgoing = mutableMapOf<String, Int>()
 
         network.nodes.forEach { node ->
-
             incoming[node.id] = 0
             outgoing[node.id] = 0
         }
 
-        /*
-         * ------------------------------------------------------------
-         * CONNECTION VALIDATION
-         * ------------------------------------------------------------
-         */
         network.connections.forEach { connection ->
 
             val fromNode =
@@ -271,76 +169,42 @@ object SldDesignValidator {
             val toNode =
                 nodeMap[connection.toNodeId]
 
-            /*
-             * Invalid source node.
-             */
             if (fromNode == null) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "INVALID_FROM_NODE",
-                        elementId = connection.id,
-                        message =
-                            "Connection source node does not exist."
-                    )
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "INVALID_FROM_NODE",
+                    elementId = connection.id,
+                    message = "Connection source node does not exist."
+                )
             }
 
-            /*
-             * Invalid destination node.
-             */
             if (toNode == null) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "INVALID_TO_NODE",
-                        elementId = connection.id,
-                        message =
-                            "Connection destination node does not exist."
-                    )
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "INVALID_TO_NODE",
+                    elementId = connection.id,
+                    message = "Connection destination node does not exist."
+                )
             }
 
-            /*
-             * Self connection.
-             */
             if (
                 connection.fromNodeId ==
                     connection.toNodeId
             ) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "SELF_CONNECTION",
-                        elementId = connection.id,
-                        message =
-                            "An SLD element cannot be connected to itself."
-                    )
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "SELF_CONNECTION",
+                    elementId = connection.id,
+                    message =
+                        "An SLD element cannot be connected to itself."
+                )
             }
 
-            /*
-             * --------------------------------------------------------
-             * BUSBAR SEMANTICS
-             * --------------------------------------------------------
-             *
-             * BUSBAR is a physical internal switchgear relationship.
-             * It is NOT a cable and must never be treated as one.
-             */
             if (
                 connection.connectionType ==
                     SldConnectionType.BUSBAR
             ) {
 
-                /*
-                 * Valid internal relationships:
-                 *
-                 * PANEL -> BUS
-                 * BUS -> BREAKER
-                 * PANEL -> BREAKER
-                 *
-                 * Reverse storage is also accepted.
-                 */
                 if (
                     fromNode != null &&
                     toNode != null &&
@@ -349,764 +213,373 @@ object SldDesignValidator {
                         toNode.type
                     )
                 ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "INVALID_BUSBAR_TOPOLOGY",
-                            elementId = connection.id,
-                            message =
-                                "BUSBAR connection is only valid inside panel switchgear: PANEL-BUS, BUS-BREAKER, or PANEL-BREAKER."
-                        )
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "INVALID_BUSBAR_TOPOLOGY",
+                        elementId = connection.id,
+                        message =
+                            "BUSBAR connection is only valid inside panel switchgear: PANEL-BUS, BUS-BREAKER, or PANEL-BREAKER."
+                    )
                 }
 
-                /*
-                 * BUSBAR must not contain cable engineering data.
-                 */
-                if (
-                    connection.lengthMeters != 0.0
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "BUSBAR_HAS_CABLE_LENGTH",
-                            elementId = connection.id,
-                            message =
-                                "BUSBAR connection must not contain cable length."
-                        )
+                if (connection.lengthMeters != 0.0) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "BUSBAR_HAS_CABLE_LENGTH",
+                        elementId = connection.id,
+                        message =
+                            "BUSBAR connection must not contain cable length."
+                    )
                 }
 
-                if (
-                    connection.cableSizeMm2 != 0.0
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "BUSBAR_HAS_CABLE_SIZE",
-                            elementId = connection.id,
-                            message =
-                                "BUSBAR connection must not contain cable cross-sectional area."
-                        )
+                if (connection.cableSizeMm2 != 0.0) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "BUSBAR_HAS_CABLE_SIZE",
+                        elementId = connection.id,
+                        message =
+                            "BUSBAR connection must not contain cable cross-sectional area."
+                    )
                 }
 
-                if (
-                    connection.currentCapacityA != 0.0
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "BUSBAR_HAS_CABLE_CAPACITY",
-                            elementId = connection.id,
-                            message =
-                                "BUSBAR connection must not contain cable current capacity."
-                        )
+                if (connection.currentCapacityA != 0.0) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "BUSBAR_HAS_CABLE_CAPACITY",
+                        elementId = connection.id,
+                        message =
+                            "BUSBAR connection must not contain cable current capacity."
+                    )
                 }
 
-                if (
-                    connection.parallelRuns != 1
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "BUSBAR_HAS_PARALLEL_RUNS",
-                            elementId = connection.id,
-                            message =
-                                "BUSBAR connection must not contain cable parallel-run data."
-                        )
+                if (connection.parallelRuns != 1) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "BUSBAR_HAS_PARALLEL_RUNS",
+                        elementId = connection.id,
+                        message =
+                            "BUSBAR connection must not contain cable parallel-run data."
+                    )
                 }
 
-                /*
-                 * BUSBAR electrical rating.
-                 */
-                if (
-                    connection.busbarRatedCurrentA <= 0.0
-                ) {
-
-                    warnings +=
-                        Issue(
-                            severity = Severity.WARNING,
-                            code = "BUSBAR_RATING_NOT_VERIFIED",
-                            elementId = connection.id,
-                            message =
-                                "BUSBAR rated current is not defined; busbar adequacy cannot be verified."
-                        )
+                if (connection.busbarRatedCurrentA <= 0.0) {
+                    warnings += Issue(
+                        severity = Severity.WARNING,
+                        code = "BUSBAR_RATING_NOT_VERIFIED",
+                        elementId = connection.id,
+                        message =
+                            "BUSBAR rated current is not defined; busbar adequacy cannot be verified."
+                    )
                 }
 
-                if (
-                    connection.busbarShortCircuitKA <= 0.0
-                ) {
-
-                    warnings +=
-                        Issue(
-                            severity = Severity.WARNING,
-                            code = "BUSBAR_SHORT_CIRCUIT_NOT_VERIFIED",
-                            elementId = connection.id,
-                            message =
-                                "BUSBAR short-circuit withstand rating is not defined; busbar fault-duty adequacy cannot be verified."
-                        )
+                if (connection.busbarShortCircuitKA <= 0.0) {
+                    warnings += Issue(
+                        severity = Severity.WARNING,
+                        code = "BUSBAR_SHORT_CIRCUIT_NOT_VERIFIED",
+                        elementId = connection.id,
+                        message =
+                            "BUSBAR short-circuit withstand rating is not defined; busbar fault-duty adequacy cannot be verified."
+                    )
                 }
             }
 
-            /*
-             * --------------------------------------------------------
-             * CABLE SEMANTICS
-             * --------------------------------------------------------
-             */
             if (
                 connection.connectionType ==
                     SldConnectionType.CABLE
             ) {
 
-                if (
-                    connection.parallelRuns < 1
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "INVALID_PARALLEL_RUNS",
-                            elementId = connection.id,
-                            message =
-                                "Parallel cable runs must be at least 1."
-                        )
+                if (connection.parallelRuns < 1) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "INVALID_PARALLEL_RUNS",
+                        elementId = connection.id,
+                        message =
+                            "Parallel cable runs must be at least 1."
+                    )
                 }
 
-                if (
-                    connection.lengthMeters < 0.0
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "INVALID_LENGTH",
-                            elementId = connection.id,
-                            message =
-                                "Feeder cable length cannot be negative."
-                        )
+                if (connection.lengthMeters < 0.0) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "INVALID_LENGTH",
+                        elementId = connection.id,
+                        message =
+                            "Feeder cable length cannot be negative."
+                    )
                 }
 
-                if (
-                    connection.cableSizeMm2 < 0.0
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "INVALID_CABLE_SIZE",
-                            elementId = connection.id,
-                            message =
-                                "Cable cross-sectional area cannot be negative."
-                        )
+                if (connection.cableSizeMm2 < 0.0) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "INVALID_CABLE_SIZE",
+                        elementId = connection.id,
+                        message =
+                            "Cable cross-sectional area cannot be negative."
+                    )
                 }
 
-                if (
-                    connection.currentCapacityA < 0.0
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "INVALID_CABLE_CAPACITY",
-                            elementId = connection.id,
-                            message =
-                                "Cable current capacity cannot be negative."
-                        )
+                if (connection.currentCapacityA < 0.0) {
+                    errors += Issue(
+                        severity = Severity.ERROR,
+                        code = "INVALID_CABLE_CAPACITY",
+                        elementId = connection.id,
+                        message =
+                            "Cable current capacity cannot be negative."
+                    )
                 }
 
-                if (
-                    connection.currentCapacityA <= 0.0
-                ) {
-
-                    warnings +=
-                        Issue(
-                            severity = Severity.WARNING,
-                            code = "CABLE_CAPACITY_NOT_VERIFIED",
-                            elementId = connection.id,
-                            message =
-                                "Cable current capacity is not verified. Cable adequacy cannot be confirmed."
-                        )
+                if (connection.currentCapacityA <= 0.0) {
+                    warnings += Issue(
+                        severity = Severity.WARNING,
+                        code = "CABLE_CAPACITY_NOT_VERIFIED",
+                        elementId = connection.id,
+                        message =
+                            "Cable current capacity is not verified. Cable adequacy cannot be confirmed."
+                    )
                 }
 
-                if (
-                    connection.cableSizeMm2 <= 0.0
-                ) {
-
-                    warnings +=
-                        Issue(
-                            severity = Severity.WARNING,
-                            code = "CABLE_SIZE_NOT_VERIFIED",
-                            elementId = connection.id,
-                            message =
-                                "Cable cross-sectional area is not verified."
-                        )
+                if (connection.cableSizeMm2 <= 0.0) {
+                    warnings += Issue(
+                        severity = Severity.WARNING,
+                        code = "CABLE_SIZE_NOT_VERIFIED",
+                        elementId = connection.id,
+                        message =
+                            "Cable cross-sectional area is not verified."
+                    )
                 }
 
-                if (
-                    connection.lengthMeters == 0.0
-                ) {
-
-                    warnings +=
-                        Issue(
-                            severity = Severity.WARNING,
-                            code = "CABLE_LENGTH_NOT_VERIFIED",
-                            elementId = connection.id,
-                            message =
-                                "Cable feeder length is zero; voltage-drop and impedance verification may be incomplete."
-                        )
+                if (connection.lengthMeters == 0.0) {
+                    warnings += Issue(
+                        severity = Severity.WARNING,
+                        code = "CABLE_LENGTH_NOT_VERIFIED",
+                        elementId = connection.id,
+                        message =
+                            "Cable feeder length is zero; voltage-drop and impedance verification may be incomplete."
+                    )
                 }
             }
 
-            /*
-             * --------------------------------------------------------
-             * TOPOLOGY COUNTERS
-             * --------------------------------------------------------
-             */
-            if (
-                fromNode != null &&
-                fromNode.id in outgoing
-            ) {
-
-                outgoing[
-                    fromNode.id
-                ] =
-                    outgoing[
-                        fromNode.id
-                    ]!! + 1
+            if (fromNode != null) {
+                outgoing[fromNode.id] =
+                    (outgoing[fromNode.id] ?: 0) + 1
             }
 
-            if (
-                toNode != null &&
-                toNode.id in incoming
-            ) {
-
-                incoming[
-                    toNode.id
-                ] =
-                    incoming[
-                        toNode.id
-                    ]!! + 1
+            if (toNode != null) {
+                incoming[toNode.id] =
+                    (incoming[toNode.id] ?: 0) + 1
             }
         }
 
-        /*
-         * ------------------------------------------------------------
-         * NODE ENGINEERING INPUT VALIDATION
-         * ------------------------------------------------------------
-         */
         network.nodes.forEach { node ->
 
-            if (
-                node.voltage <= 0.0
-            ) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "INVALID_VOLTAGE",
-                        elementId = node.id,
-                        message =
-                            "${node.name}: invalid voltage."
-                    )
+            if (node.voltage <= 0.0) {
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "INVALID_VOLTAGE",
+                    elementId = node.id,
+                    message = "${node.name}: invalid voltage."
+                )
             }
 
             if (
                 node.powerFactor <= 0.0 ||
                 node.powerFactor > 1.0
             ) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "INVALID_POWER_FACTOR",
-                        elementId = node.id,
-                        message =
-                            "${node.name}: power factor must be between 0 and 1."
-                    )
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "INVALID_POWER_FACTOR",
+                    elementId = node.id,
+                    message =
+                        "${node.name}: power factor must be between 0 and 1."
+                )
             }
 
             if (
                 node.demandFactor < 0.0 ||
                 node.demandFactor > 1.0
             ) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "INVALID_DEMAND_FACTOR",
-                        elementId = node.id,
-                        message =
-                            "${node.name}: demand factor must be between 0 and 1."
-                    )
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "INVALID_DEMAND_FACTOR",
+                    elementId = node.id,
+                    message =
+                        "${node.name}: demand factor must be between 0 and 1."
+                )
             }
 
-            if (
-                node.loadKw < 0.0
-            ) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "INVALID_LOAD",
-                        elementId = node.id,
-                        message =
-                            "${node.name}: load cannot be negative."
-                    )
+            if (node.loadKw < 0.0) {
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "INVALID_LOAD",
+                    elementId = node.id,
+                    message =
+                        "${node.name}: load cannot be negative."
+                )
             }
 
-            if (
-                node.ratedKva < 0.0
-            ) {
-
-                errors +=
-                    Issue(
-                        severity = Severity.ERROR,
-                        code = "INVALID_RATED_KVA",
-                        elementId = node.id,
-                        message =
-                            "${node.name}: rated kVA cannot be negative."
-                    )
+            if (node.ratedKva < 0.0) {
+                errors += Issue(
+                    severity = Severity.ERROR,
+                    code = "INVALID_RATED_KVA",
+                    elementId = node.id,
+                    message =
+                        "${node.name}: rated kVA cannot be negative."
+                )
             }
 
-            /*
-             * --------------------------------------------------------
-             * FEEDING TOPOLOGY
-             * --------------------------------------------------------
-             */
-            if (
-                node.type != SldNodeType.SOURCE &&
-                incoming[node.id] == 0
-            ) {
-
-                warnings +=
-                    Issue(
-                        severity = Severity.WARNING,
-                        code = "UNFED_EQUIPMENT",
-                        elementId = node.id,
-                        message =
-                            "${node.name}: no upstream connection."
-                    )
-            }
-
-            if (
-                node.type != SldNodeType.LOAD &&
-                node.type != SldNodeType.SOURCE &&
-                outgoing[node.id] == 0
-            ) {
-
-                warnings +=
-                    Issue(
-                        severity = Severity.WARNING,
-                        code = "DOWNSTREAM_OPEN",
-                        elementId = node.id,
-                        message =
-                            "${node.name}: no downstream connection."
-                    )
-            }
-
-            /*
-             * --------------------------------------------------------
-             * TYPE-SPECIFIC VALIDATION
-             * --------------------------------------------------------
-             */
             when (node.type) {
 
-                SldNodeType.SOURCE -> {
-
-                    if (
-                        node.sourceShortCircuitMva <= 0.0
-                    ) {
-
-                        warnings +=
-                            Issue(
-                                severity = Severity.WARNING,
-                                code = "SOURCE_FAULT_LEVEL_MISSING",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: source short-circuit level is not defined."
-                            )
-                    }
-                }
-
                 SldNodeType.TRANSFORMER -> {
-
                     if (
                         node.ratedKva <= 0.0
                     ) {
-
-                        errors +=
-                            Issue(
-                                severity = Severity.ERROR,
-                                code = "TRANSFORMER_RATING_MISSING",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: transformer rating is missing."
-                            )
+                        warnings += Issue(
+                            severity = Severity.WARNING,
+                            code = "TRANSFORMER_RATING_NOT_DEFINED",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: transformer rating is not defined."
+                        )
                     }
 
                     if (
                         node.transformerPercentZ <= 0.0
                     ) {
-
-                        warnings +=
-                            Issue(
-                                severity = Severity.WARNING,
-                                code = "TRANSFORMER_Z_MISSING",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: transformer impedance (%Z) is missing."
-                            )
+                        warnings += Issue(
+                            severity = Severity.WARNING,
+                            code = "TRANSFORMER_IMPEDANCE_NOT_DEFINED",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: transformer impedance is not defined."
+                        )
                     }
                 }
 
                 SldNodeType.GENERATOR -> {
-
                     if (
                         node.ratedKva <= 0.0
                     ) {
-
-                        errors +=
-                            Issue(
-                                severity = Severity.ERROR,
-                                code = "GENERATOR_RATING_MISSING",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: generator rating is missing."
-                            )
+                        warnings += Issue(
+                            severity = Severity.WARNING,
+                            code = "GENERATOR_RATING_NOT_DEFINED",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: generator rating is not defined."
+                        )
                     }
 
                     if (
                         node.generatorXdSubtransient <= 0.0
                     ) {
-
-                        warnings +=
-                            Issue(
-                                severity = Severity.WARNING,
-                                code = "GENERATOR_XD_MISSING",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: generator Xd'' is missing."
-                            )
+                        warnings += Issue(
+                            severity = Severity.WARNING,
+                            code = "GENERATOR_XD_NOT_DEFINED",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: generator sub-transient reactance is not defined."
+                        )
                     }
                 }
 
-                SldNodeType.BREAKER -> {
-
+                SldNodeType.SOURCE -> {
                     if (
-                        node.ratedKva <= 0.0
+                        node.sourceShortCircuitMva < 0.0
                     ) {
-
-                        warnings +=
-                            Issue(
-                                severity = Severity.WARNING,
-                                code = "BREAKER_RATING_MISSING",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: breaker rating has not been defined."
-                            )
+                        errors += Issue(
+                            severity = Severity.ERROR,
+                            code = "INVALID_SOURCE_SHORT_CIRCUIT",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: source short-circuit MVA cannot be negative."
+                        )
                     }
                 }
 
-                SldNodeType.PANEL -> {
+                else -> Unit
+            }
+        }
 
-                    if (
-                        node.ratedKva <= 0.0
-                    ) {
+        network.nodes.forEach { node ->
 
-                        warnings +=
-                            Issue(
-                                severity = Severity.WARNING,
-                                code = "PANEL_RATING_MISSING",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: panel rating has not been defined."
-                            )
+            val inCount =
+                incoming[node.id] ?: 0
+
+            val outCount =
+                outgoing[node.id] ?: 0
+
+            when (node.type) {
+
+                SldNodeType.SOURCE -> {
+                    if (inCount > 0) {
+                        warnings += Issue(
+                            severity = Severity.WARNING,
+                            code = "SOURCE_HAS_INCOMING",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: source has an incoming connection."
+                        )
                     }
                 }
 
                 SldNodeType.LOAD -> {
-
-                    if (
-                        node.loadKw <= 0.0
-                    ) {
-
-                        warnings +=
-                            Issue(
-                                severity = Severity.WARNING,
-                                code = "ZERO_LOAD",
-                                elementId = node.id,
-                                message =
-                                    "${node.name}: load is zero."
-                            )
-                    }
-                }
-
-                SldNodeType.BUS -> Unit
-            }
-        }
-
-        /*
-         * ------------------------------------------------------------
-         * DUPLICATE DIRECTED FEEDERS
-         * ------------------------------------------------------------
-         */
-        network.connections
-            .groupBy {
-                "${it.fromNodeId}->${it.toNodeId}"
-            }
-            .filterValues {
-                it.size > 1
-            }
-            .forEach { (_, connections) ->
-
-                information +=
-                    Issue(
-                        severity = Severity.INFORMATION,
-                        code = "PARALLEL_FEEDERS",
-                        elementId = connections.first().id,
-                        message =
-                            "Multiple feeders exist between the same two SLD elements."
-                    )
-            }
-
-        /*
-         * ------------------------------------------------------------
-         * REVERSE-DIRECTION DUPLICATE
-         * ------------------------------------------------------------
-         */
-        network.connections
-            .forEach { connection ->
-
-                val reverseExists =
-                    network.connections.any {
-                        it.id != connection.id &&
-                            it.fromNodeId ==
-                                connection.toNodeId &&
-                            it.toNodeId ==
-                                connection.fromNodeId
-                    }
-
-                if (reverseExists) {
-
-                    warnings +=
-                        Issue(
+                    if (inCount == 0) {
+                        warnings += Issue(
                             severity = Severity.WARNING,
-                            code = "REVERSE_FEEDER_PAIR",
-                            elementId = connection.id,
-                            message =
-                                "A reverse-direction feeder exists between the same two SLD elements. Verify the intended electrical direction."
-                        )
-                }
-            }
-
-        /*
-         * ------------------------------------------------------------
-         * GRAPH
-         * ------------------------------------------------------------
-         */
-        val children =
-            mutableMapOf<
-                String,
-                MutableList<String>
-            >()
-
-        network.nodes.forEach { node ->
-
-            children[node.id] =
-                mutableListOf()
-        }
-
-        network.connections.forEach { connection ->
-
-            if (
-                connection.fromNodeId in nodeMap &&
-                connection.toNodeId in nodeMap &&
-                connection.fromNodeId !=
-                    connection.toNodeId
-            ) {
-
-                children[
-                    connection.fromNodeId
-                ]?.add(
-                    connection.toNodeId
-                )
-            }
-        }
-
-        /*
-         * ------------------------------------------------------------
-         * CYCLE DETECTION
-         * ------------------------------------------------------------
-         */
-        val visiting =
-            mutableSetOf<String>()
-
-        val visited =
-            mutableSetOf<String>()
-
-        val reportedCycles =
-            mutableSetOf<String>()
-
-        fun visit(
-            id: String
-        ) {
-
-            if (
-                id in visiting
-            ) {
-
-                if (
-                    reportedCycles.add(id)
-                ) {
-
-                    errors +=
-                        Issue(
-                            severity = Severity.ERROR,
-                            code = "NETWORK_CYCLE",
-                            elementId = id,
-                            message =
-                                "Circular electrical topology detected."
-                        )
-                }
-
-                return
-            }
-
-            if (
-                id in visited
-            ) {
-                return
-            }
-
-            visiting += id
-
-            children[id]
-                .orEmpty()
-                .forEach(
-                    ::visit
-                )
-
-            visiting -= id
-            visited += id
-        }
-
-        network.nodes.forEach { node ->
-
-            visit(node.id)
-        }
-
-        /*
-         * ------------------------------------------------------------
-         * SOURCE REACHABILITY
-         * ------------------------------------------------------------
-         */
-        if (
-            sources.isNotEmpty()
-        ) {
-
-            val reachable =
-                mutableSetOf<String>()
-
-            fun walk(
-                id: String
-            ) {
-
-                if (
-                    !reachable.add(id)
-                ) {
-                    return
-                }
-
-                children[id]
-                    .orEmpty()
-                    .forEach(
-                        ::walk
-                    )
-            }
-
-            sources.forEach { source ->
-
-                walk(source.id)
-            }
-
-            network.nodes
-                .filter {
-                    it.id !in reachable
-                }
-                .forEach { node ->
-
-                    warnings +=
-                        Issue(
-                            severity = Severity.WARNING,
-                            code = "UNREACHABLE_ELEMENT",
+                            code = "LOAD_NOT_CONNECTED",
                             elementId = node.id,
                             message =
-                                "${node.name}: element is not connected to an electrical source."
+                                "${node.name}: load is not connected to an upstream element."
                         )
+                    }
                 }
+
+                SldNodeType.BREAKER -> {
+                    if (inCount == 0 && outCount == 0) {
+                        information += Issue(
+                            severity = Severity.INFORMATION,
+                            code = "BREAKER_ORPHAN",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: breaker is currently unconnected."
+                        )
+                    }
+                }
+
+                SldNodeType.PANEL -> {
+                    if (inCount == 0 && outCount == 0) {
+                        information += Issue(
+                            severity = Severity.INFORMATION,
+                            code = "PANEL_ORPHAN",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: panel is currently unconnected."
+                        )
+                    }
+                }
+
+                SldNodeType.BUS -> {
+                    if (inCount == 0 && outCount == 0) {
+                        information += Issue(
+                            severity = Severity.INFORMATION,
+                            code = "BUS_ORPHAN",
+                            elementId = node.id,
+                            message =
+                                "${node.name}: busbar is currently unconnected."
+                        )
+                    }
+                }
+
+                else -> Unit
+            }
         }
 
-        /*
-         * ------------------------------------------------------------
-         * TOPOLOGY QUALITY INFORMATION
-         * ------------------------------------------------------------
-         */
-        val loadCount =
-            network.nodes.count {
-                it.type == SldNodeType.LOAD
+        val fatalErrors =
+            errors.filter {
+                it.code != "BREAKER_ORPHAN"
             }
 
-        val panelCount =
-            network.nodes.count {
-                it.type == SldNodeType.PANEL
-            }
-
-        val breakerCount =
-            network.nodes.count {
-                it.type == SldNodeType.BREAKER
-            }
-
-        val busbarCount =
-            network.connections.count {
-                it.connectionType ==
-                    SldConnectionType.BUSBAR
-            }
-
-        val cableCount =
-            network.connections.count {
-                it.connectionType ==
-                    SldConnectionType.CABLE
-            }
-
-        information +=
-            Issue(
-                severity = Severity.INFORMATION,
-                code = "NETWORK_SUMMARY",
-                elementId = null,
-                message =
-                    "SLD contains ${network.nodes.size} equipment elements, " +
-                        "$loadCount loads, " +
-                        "$panelCount panels, " +
-                        "$breakerCount breakers, " +
-                        "$cableCount cable feeders and " +
-                        "$busbarCount busbar connections."
-            )
-
-        /*
-         * ------------------------------------------------------------
-         * FINAL RESULT
-         * ------------------------------------------------------------
-         *
-         * Warnings do not make the topology invalid.
-         *
-         * Errors prevent the engineering calculation pipeline from
-         * treating the SLD as structurally valid.
-         */
         return Result(
-            valid = errors.isEmpty(),
+            valid = fatalErrors.isEmpty(),
             errors = errors,
             warnings = warnings,
             information = information
