@@ -1575,7 +1575,7 @@ private fun WaterEngineeringModuleScreen(
                             )
 
                     val calculation =
-                        with(WaterDesignModule) {
+                        WaterDesignModule.run {
                             calculateAndSave(
                                 project = activeProject,
                                 input = WaterDesignInput(
@@ -1930,7 +1930,7 @@ private fun SewageEngineeringModuleScreen(
                         minimumFlow.toDouble()
 
                     val calculation =
-                        with(SewageDesignModule) {
+                        SewageDesignModule.run {
                             calculateAndSave(
                                 project = activeProject,
                                 input = SewageDesignInput(
