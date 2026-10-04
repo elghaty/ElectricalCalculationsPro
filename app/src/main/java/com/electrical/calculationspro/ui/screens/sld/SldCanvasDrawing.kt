@@ -34,29 +34,26 @@ import kotlin.math.sqrt
  *     SldUpstreamEngineering
  *     SldEngineeringFacade
  *
- * Panel enclosure / physical busbar remains in:
- *
- *     SldPanelEnclosureDrawing.kt
- *
  * IMPORTANT:
  *
- * PANEL and BUS are NOT drawn here.
+ * There is NO separate panel-enclosure drawing layer.
  *
  * PANEL:
- *     physical enclosure -> SldPanelEnclosureDrawing
+ *     drawn here as the physical panel outline.
  *
  * BUS:
- *     physical busbar -> SldPanelEnclosureDrawing
+ *     drawn here as a real electrical busbar symbol.
  *
  * BREAKER:
- *     equipment symbol is drawn here.
+ *     drawn here as the IEC-style switching symbol.
  *
- * BUSBAR connections:
- *     never drawn as cables.
+ * BUSBAR connection:
+ *     drawn here as a thick electrical conductor.
  *
- * CABLE connections:
- *     drawn as external feeders.
+ * CABLE connection:
+ *     drawn here as an external feeder.
  *
+ * No enclosure abstraction is used.
  * ================================================================
  */
 
@@ -67,6 +64,12 @@ private const val SYMBOL_Y = 30f
 
 private const val CABLE_WIDTH = 3f
 private const val SELECTED_CABLE_WIDTH = 5.5f
+
+private const val BUSBAR_WIDTH = 8f
+private const val SELECTED_BUSBAR_WIDTH = 11f
+
+private const val PANEL_BORDER_WIDTH = 2.8f
+private const val PANEL_SELECTED_BORDER_WIDTH = 4.5f
 
 private val BACKGROUND =
     Color(0xFFF7F9FB)
@@ -82,6 +85,9 @@ private val BLACK =
 
 private val CABLE =
     Color(0xFF37474F)
+
+private val BUSBAR =
+    Color(0xFF263238)
 
 private val TEXT =
     Color(0xFF172027)
@@ -109,6 +115,11 @@ private val LABEL_BG =
         alpha = 0.97f
     )
 
+private val PANEL_FILL =
+    Color.White.copy(
+        alpha = 0.92f
+    )
+
 private enum class Direction {
     LEFT,
     RIGHT,
@@ -118,35 +129,9 @@ private enum class Direction {
 
 /*
  * ================================================================
- * INTERNAL / BUSBAR CLASSIFICATION
- * ================================================================
- *
- * DO NOT classify every PANEL/BUS/BREAKER connection as BUSBAR.
- *
- * Only:
- *
- *   explicit BUSBAR
- *
- * OR:
- *
- *   PANEL <-> BREAKER
- *   PANEL <-> BUS
- *   BUS   <-> BREAKER
- *
- * is considered internal.
- *
- * This prevents an accidental internal-looking CABLE from
- * disappearing from the drawing.
+ * BUSBAR CLASSIFICATION
  * ================================================================
  */
-
-private fun isInternalPanelType(
-    type: SldNodeType
-): Boolean {
-    return type == SldNodeType.PANEL ||
-        type == SldNodeType.BUS ||
-        type == SldNodeType.BREAKER
-}
 
 private fun isPanelBreakerPair(
     first: SldNode,
@@ -192,9 +177,6 @@ private fun isBusbarConnection(
     nodes: List<SldNode>
 ): Boolean {
 
-    /*
-     * Explicit engineering classification is authoritative.
-     */
     if (
         connection.connectionType ==
             SldConnectionType.BUSBAR
@@ -213,9 +195,10 @@ private fun isBusbarConnection(
         } ?: return false
 
     /*
-     * Legacy / repaired records.
+     * Compatibility with legacy records.
      *
-     * Only recognized internal equipment pairs are BUSBAR.
+     * Only recognized panel/bus/breaker internal pairs are
+     * treated as busbar.
      */
     return isPanelBreakerPair(
         from,
@@ -561,10 +544,10 @@ private fun professionalRoute(
 
 /*
  * ================================================================
- * EXTERNAL FEEDER
+ * CONNECTION DRAWING
  * ================================================================
  *
- * BUSBAR is NEVER drawn as a cable here.
+ * BUSBAR and CABLE are deliberately separated.
  * ================================================================
  */
 
@@ -588,18 +571,178 @@ fun DrawScope.drawConnection(
             it.id == connection.toNodeId
         } ?: return
 
-    /*
-     * Real internal busbar is drawn by
-     * SldPanelEnclosureDrawing.
-     */
     if (
         isBusbarConnection(
             connection,
             nodes
         )
     ) {
+
+        drawBusbarConnection(
+            connection = connection,
+            from = from,
+            to = to,
+            nodes = nodes,
+            selected = selected
+        )
+
         return
     }
+
+    drawCableConnection(
+        connection = connection,
+        from = from,
+        to = to,
+        nodes = nodes,
+        selected = selected,
+        textMeasurer = textMeasurer,
+        feederResult = feederResult
+    )
+}
+
+/*
+ * ================================================================
+ * REAL BUSBAR CONNECTION
+ * ================================================================
+ */
+
+private fun DrawScope.drawBusbarConnection(
+    connection: SldConnection,
+    from: SldNode,
+    to: SldNode,
+    nodes: List<SldNode>,
+    selected: Boolean
+) {
+
+    val start =
+        startPort(
+            node = from,
+            connection = connection,
+            nodes = nodes
+        )
+
+    val end =
+        endPort(
+            node = to,
+            connection = connection,
+            nodes = nodes
+        )
+
+    val points =
+        if (
+            connection.routePoints.isNotEmpty()
+        ) {
+
+            buildList {
+
+                add(start)
+
+                addAll(
+                    connection.routePoints.map {
+                        Offset(
+                            it.x,
+                            it.y
+                        )
+                    }
+                )
+
+                add(end)
+            }
+
+        } else {
+
+            professionalRoute(
+                start,
+                end
+            )
+        }
+
+    if (
+        points.size < 2
+    ) {
+        return
+    }
+
+    val path =
+        Path().apply {
+
+            moveTo(
+                points.first().x,
+                points.first().y
+            )
+
+            points
+                .drop(1)
+                .forEach {
+                    lineTo(
+                        it.x,
+                        it.y
+                    )
+                }
+        }
+
+    drawPath(
+        path = path,
+        color =
+            if (selected) {
+                SELECTED
+            } else {
+                BUSBAR
+            },
+        style = Stroke(
+            width =
+                if (selected) {
+                    SELECTED_BUSBAR_WIDTH
+                } else {
+                    BUSBAR_WIDTH
+                },
+            cap = StrokeCap.Square,
+            join = StrokeJoin.Miter
+        )
+    )
+
+    /*
+     * Electrical connection points.
+     */
+    drawCircle(
+        color =
+            if (selected) {
+                SELECTED
+            } else {
+                BUSBAR
+            },
+        radius = 5f,
+        center = points.first()
+    )
+
+    drawCircle(
+        color =
+            if (selected) {
+                SELECTED
+            } else {
+                BUSBAR
+            },
+        radius = 5f,
+        center = points.last()
+    )
+}
+
+/*
+ * ================================================================
+ * EXTERNAL CABLE CONNECTION
+ * ================================================================
+ */
+
+private fun DrawScope.drawCableConnection(
+    connection: SldConnection,
+    from: SldNode,
+    to: SldNode,
+    nodes: List<SldNode>,
+    selected: Boolean,
+    textMeasurer: TextMeasurer,
+    feederResult:
+        SldUpstreamEngineering.FeederResult?
+) {
 
     val start =
         startPort(
@@ -798,9 +941,6 @@ fun DrawScope.drawConnection(
         fontSize = 7.5f
     )
 
-    /*
-     * Engineering information.
-     */
     if (
         feederResult != null
     ) {
@@ -811,14 +951,17 @@ fun DrawScope.drawConnection(
                 if (
                     feederResult.currentA > 0.0
                 ) {
+
                     append(
                         "Ib "
                     )
+
                     append(
                         fmt(
                             feederResult.currentA
                         )
                     )
+
                     append(
                         " A"
                     )
@@ -828,8 +971,12 @@ fun DrawScope.drawConnection(
                     feederResult.kva > 0.0
                 ) {
 
-                    if (isNotEmpty()) {
-                        append("  ")
+                    if (
+                        isNotEmpty()
+                    ) {
+                        append(
+                            "  "
+                        )
                     }
 
                     append(
@@ -847,8 +994,12 @@ fun DrawScope.drawConnection(
                     feederResult.voltageDropPercent > 0.0
                 ) {
 
-                    if (isNotEmpty()) {
-                        append("  ")
+                    if (
+                        isNotEmpty()
+                    ) {
+                        append(
+                            "  "
+                        )
                     }
 
                     append(
@@ -861,7 +1012,9 @@ fun DrawScope.drawConnection(
                         )
                     )
 
-                    append("%")
+                    append(
+                        "%"
+                    )
                 }
             }
 
@@ -905,19 +1058,6 @@ fun DrawScope.drawNode(
     connections: List<SldConnection> = emptyList()
 ) {
 
-    /*
-     * PANEL and BUS are physical structures handled by
-     * SldPanelEnclosureDrawing.
-     *
-     * Never draw a second rectangle/circle here.
-     */
-    if (
-        node.type == SldNodeType.PANEL ||
-        node.type == SldNodeType.BUS
-    ) {
-        return
-    }
-
     val centerX =
         node.x + NODE_WIDTH / 2f
 
@@ -936,7 +1076,17 @@ fun DrawScope.drawNode(
                 } else {
                     SELECTED
                 },
-            radius = 39f,
+            radius =
+                when (node.type) {
+                    SldNodeType.PANEL ->
+                        91f
+
+                    SldNodeType.BUS ->
+                        48f
+
+                    else ->
+                        39f
+                },
             center = Offset(
                 centerX,
                 symbolY
@@ -951,23 +1101,47 @@ fun DrawScope.drawNode(
         node.type
     ) {
 
-        SldNodeType.SOURCE ->
+        SldNodeType.SOURCE -> {
+
             drawSource(
                 centerX,
                 symbolY
             )
+        }
 
-        SldNodeType.TRANSFORMER ->
+        SldNodeType.TRANSFORMER -> {
+
             drawTransformer(
                 centerX,
                 symbolY
             )
+        }
 
-        SldNodeType.GENERATOR ->
+        SldNodeType.GENERATOR -> {
+
             drawGenerator(
                 centerX,
                 symbolY
             )
+        }
+
+        SldNodeType.PANEL -> {
+
+            drawPanel(
+                node = node,
+                selected = selected,
+                connectionStart = connectionStart
+            )
+        }
+
+        SldNodeType.BUS -> {
+
+            drawBus(
+                node = node,
+                selected = selected,
+                connectionStart = connectionStart
+            )
+        }
 
         SldNodeType.BREAKER -> {
 
@@ -1009,14 +1183,13 @@ fun DrawScope.drawNode(
             )
         }
 
-        SldNodeType.LOAD ->
+        SldNodeType.LOAD -> {
+
             drawLoad(
                 centerX,
                 symbolY
             )
-
-        SldNodeType.PANEL,
-        SldNodeType.BUS -> Unit
+        }
     }
 
     /*
@@ -1033,7 +1206,17 @@ fun DrawScope.drawNode(
                     )
                 },
         centerX = centerX,
-        y = node.y + 65f,
+        y =
+            when (node.type) {
+                SldNodeType.PANEL ->
+                    node.y + 112f
+
+                SldNodeType.BUS ->
+                    node.y + 62f
+
+                else ->
+                    node.y + 65f
+            },
         style = TextStyle(
             color = TEXT,
             fontSize = 10.sp,
@@ -1051,7 +1234,17 @@ fun DrawScope.drawNode(
                 node.type
             ),
         centerX = centerX,
-        y = node.y + 83f,
+        y =
+            when (node.type) {
+                SldNodeType.PANEL ->
+                    node.y + 126f
+
+                SldNodeType.BUS ->
+                    node.y + 76f
+
+                else ->
+                    node.y + 83f
+            },
         style = TextStyle(
             color = TEXT_SECONDARY,
             fontSize = 7.sp
@@ -1086,8 +1279,12 @@ fun DrawScope.drawNode(
                     result.kva > 0.0
                 ) {
 
-                    if (isNotEmpty()) {
-                        append("  ")
+                    if (
+                        isNotEmpty()
+                    ) {
+                        append(
+                            "  "
+                        )
                     }
 
                     append(
@@ -1105,8 +1302,12 @@ fun DrawScope.drawNode(
                     result.currentA > 0.0
                 ) {
 
-                    if (isNotEmpty()) {
-                        append("  ")
+                    if (
+                        isNotEmpty()
+                    ) {
+                        append(
+                            "  "
+                        )
                     }
 
                     append(
@@ -1133,7 +1334,17 @@ fun DrawScope.drawNode(
                 textMeasurer = textMeasurer,
                 text = engineeringLine,
                 centerX = centerX,
-                y = node.y + 99f,
+                y =
+                    when (node.type) {
+                        SldNodeType.PANEL ->
+                            node.y + 140f
+
+                        SldNodeType.BUS ->
+                            node.y + 91f
+
+                        else ->
+                            node.y + 99f
+                    },
                 style = TextStyle(
                     color =
                         if (
@@ -1163,7 +1374,17 @@ fun DrawScope.drawNode(
                         ) +
                         " A",
                 centerX = centerX,
-                y = node.y + 113f,
+                y =
+                    when (node.type) {
+                        SldNodeType.PANEL ->
+                            node.y + 154f
+
+                        SldNodeType.BUS ->
+                            node.y + 105f
+
+                        else ->
+                            node.y + 113f
+                    },
                 style = TextStyle(
                     color = TEXT_SECONDARY,
                     fontSize = 7.sp
@@ -1184,7 +1405,17 @@ fun DrawScope.drawNode(
                         ) +
                         "%",
                 centerX = centerX,
-                y = node.y + 127f,
+                y =
+                    when (node.type) {
+                        SldNodeType.PANEL ->
+                            node.y + 168f
+
+                        SldNodeType.BUS ->
+                            node.y + 119f
+
+                        else ->
+                            node.y + 127f
+                    },
                 style = TextStyle(
                     color =
                         if (
@@ -1200,6 +1431,228 @@ fun DrawScope.drawNode(
             )
         }
     }
+}
+
+/*
+ * ================================================================
+ * PANEL
+ * ================================================================
+ *
+ * A PANEL is represented as an actual panel outline.
+ *
+ * It is NOT an abstract enclosure layer.
+ * ================================================================
+ */
+
+private fun DrawScope.drawPanel(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+
+    val left =
+        node.x + 8f
+
+    val top =
+        node.y + 8f
+
+    val width =
+        NODE_WIDTH - 16f
+
+    val height =
+        NODE_HEIGHT - 16f
+
+    val borderColor =
+        when {
+            connectionStart ->
+                START
+
+            selected ->
+                SELECTED
+
+            else ->
+                BLACK
+        }
+
+    drawRoundRect(
+        color = PANEL_FILL,
+        topLeft = Offset(
+            left,
+            top
+        ),
+        size = Size(
+            width,
+            height
+        ),
+        cornerRadius = CornerRadius(
+            8f,
+            8f
+        )
+    )
+
+    drawRoundRect(
+        color = borderColor,
+        topLeft = Offset(
+            left,
+            top
+        ),
+        size = Size(
+            width,
+            height
+        ),
+        cornerRadius = CornerRadius(
+            8f,
+            8f
+        ),
+        style = Stroke(
+            width =
+                if (
+                    selected ||
+                    connectionStart
+                ) {
+                    PANEL_SELECTED_BORDER_WIDTH
+                } else {
+                    PANEL_BORDER_WIDTH
+                }
+        )
+    )
+
+    /*
+     * Panel internal busbar.
+     *
+     * This is a visual representation of the panel's
+     * internal bus, independent of external BUSBAR connections.
+     */
+    val busY =
+        node.y + 30f
+
+    drawLine(
+        color =
+            if (selected) {
+                SELECTED
+            } else {
+                BUSBAR
+            },
+        start = Offset(
+            node.x + 28f,
+            busY
+        ),
+        end = Offset(
+            node.x + NODE_WIDTH - 28f,
+            busY
+        ),
+        strokeWidth = 7f,
+        cap = StrokeCap.Square
+    )
+
+    /*
+     * Small bus connection points.
+     */
+    drawCircle(
+        color =
+            if (selected) {
+                SELECTED
+            } else {
+                BUSBAR
+            },
+        radius = 4f,
+        center = Offset(
+            node.x + 28f,
+            busY
+        )
+    )
+
+    drawCircle(
+        color =
+            if (selected) {
+                SELECTED
+            } else {
+                BUSBAR
+            },
+        radius = 4f,
+        center = Offset(
+            node.x + NODE_WIDTH - 28f,
+            busY
+        )
+    )
+}
+
+/*
+ * ================================================================
+ * BUS
+ * ================================================================
+ *
+ * BUS is a real busbar symbol, not a cable and not a rectangle
+ * pretending to be a bus.
+ * ================================================================
+ */
+
+private fun DrawScope.drawBus(
+    node: SldNode,
+    selected: Boolean,
+    connectionStart: Boolean
+) {
+
+    val x1 =
+        node.x + 20f
+
+    val x2 =
+        node.x + NODE_WIDTH - 20f
+
+    val y =
+        node.y + SYMBOL_Y
+
+    val busColor =
+        when {
+            connectionStart ->
+                START
+
+            selected ->
+                SELECTED
+
+            else ->
+                BUSBAR
+        }
+
+    drawLine(
+        color = busColor,
+        start = Offset(
+            x1,
+            y
+        ),
+        end = Offset(
+            x2,
+            y
+        ),
+        strokeWidth =
+            if (
+                selected ||
+                connectionStart
+            ) {
+                SELECTED_BUSBAR_WIDTH
+            } else {
+                BUSBAR_WIDTH
+            },
+        cap = StrokeCap.Square
+    )
+
+    drawCircle(
+        color = busColor,
+        radius = 5f,
+        center = Offset(
+            x1,
+            y
+        )
+    )
+
+    drawCircle(
+        color = busColor,
+        radius = 5f,
+        center = Offset(
+            x2,
+            y
+        )
+    )
 }
 
 /*
@@ -1393,12 +1846,6 @@ private fun DrawScope.drawGenerator(
 /*
  * ================================================================
  * BREAKER
- * ================================================================
- *
- * Direction is determined from the actual connected equipment.
- *
- * This keeps the breaker symbol aligned with the feeder instead
- * of always drawing vertically.
  * ================================================================
  */
 
@@ -1986,8 +2433,8 @@ fun findNode(
  * CONNECTION HIT TEST
  * ================================================================
  *
- * BUSBAR is not selectable as a cable.
- * External CABLE feeders remain selectable.
+ * BUSBAR is selectable as an electrical connection.
+ * It is NOT treated as a cable.
  * ================================================================
  */
 
@@ -2006,19 +2453,6 @@ fun findConnection(
 
     connections.forEach {
         connection ->
-
-        /*
-         * Internal physical busbar is handled by the panel
-         * enclosure and is not a cable connection.
-         */
-        if (
-            isBusbarConnection(
-                connection,
-                nodes
-            )
-        ) {
-            return@forEach
-        }
 
         val from =
             nodes.firstOrNull {
@@ -2075,6 +2509,18 @@ fun findConnection(
                 )
             }
 
+        val hitTolerance =
+            if (
+                isBusbarConnection(
+                    connection,
+                    nodes
+                )
+            ) {
+                22f
+            } else {
+                18f
+            }
+
         for (
             index in 0 until points.lastIndex
         ) {
@@ -2087,7 +2533,7 @@ fun findConnection(
                 )
 
             if (
-                distance < 18f &&
+                distance < hitTolerance &&
                 distance < bestDistance
             ) {
 
