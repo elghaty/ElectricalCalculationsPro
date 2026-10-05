@@ -1,5 +1,7 @@
 package com.electrical.calculationspro.ui.screens
 
+import com.electrical.calculationspro.data.sewage.calculateAndSave
+import com.electrical.calculationspro.data.water.calculateAndSave
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
