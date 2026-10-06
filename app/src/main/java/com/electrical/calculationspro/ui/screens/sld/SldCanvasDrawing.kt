@@ -138,8 +138,8 @@ private fun standardPort(
 }
 
 /*
- * The breaker graphic has an offset terminal.
- * This helper is deliberately aligned with drawBreaker().
+ * Breaker graphic has an offset terminal.
+ * Keep this synchronized with drawBreaker().
  */
 private fun breakerPort(
     node: SldNode,
@@ -190,6 +190,7 @@ private fun isPanelBreaker(
     a: SldNode,
     b: SldNode
 ): Boolean {
+
     return (
         a.type == SldNodeType.PANEL &&
             b.type == SldNodeType.BREAKER
@@ -203,6 +204,7 @@ private fun isPanelBus(
     a: SldNode,
     b: SldNode
 ): Boolean {
+
     return (
         a.type == SldNodeType.PANEL &&
             b.type == SldNodeType.BUS
@@ -216,6 +218,7 @@ private fun isBusBreaker(
     a: SldNode,
     b: SldNode
 ): Boolean {
+
     return (
         a.type == SldNodeType.BUS &&
             b.type == SldNodeType.BREAKER
@@ -275,11 +278,6 @@ private fun connectionPorts(
         from.type == SldNodeType.BUS &&
         to.type == SldNodeType.BREAKER
     ) {
-        val direction =
-            directionBetween(
-                to,
-                from
-            )
 
         return (
             Offset(
@@ -302,11 +300,6 @@ private fun connectionPorts(
         from.type == SldNodeType.BREAKER &&
         to.type == SldNodeType.BUS
     ) {
-        val direction =
-            directionBetween(
-                from,
-                to
-            )
 
         return Offset(
             from.x +
@@ -456,7 +449,10 @@ fun DrawScope.drawSldEngineeringBackground() {
                     GRID
                 },
             start =
-                Offset(x, 0f),
+                Offset(
+                    x,
+                    0f
+                ),
             end =
                 Offset(
                     x,
@@ -490,7 +486,10 @@ fun DrawScope.drawSldEngineeringBackground() {
                     GRID
                 },
             start =
-                Offset(0f, y),
+                Offset(
+                    0f,
+                    y
+                ),
             end =
                 Offset(
                     size.width,
@@ -552,8 +551,14 @@ private fun orthogonal(
 
         listOf(
             start,
-            Offset(x, start.y),
-            Offset(x, end.y),
+            Offset(
+                x,
+                start.y
+            ),
+            Offset(
+                x,
+                end.y
+            ),
             end
         )
 
@@ -564,8 +569,14 @@ private fun orthogonal(
 
         listOf(
             start,
-            Offset(start.x, y),
-            Offset(end.x, y),
+            Offset(
+                start.x,
+                y
+            ),
+            Offset(
+                end.x,
+                y
+            ),
             end
         )
     }
@@ -596,11 +607,8 @@ fun DrawScope.drawConnection(
         } ?: return
 
     /*
-     * PANEL/BREAKER and BUS/BREAKER are not drawn as
-     * ordinary routed connections.
-     *
-     * Their electrical connection is represented by the
-     * panel/busbar and the breaker tap.
+     * PANEL/BREAKER and BUS/BREAKER are drawn by the
+     * panel/busbar assembly and breaker taps.
      */
     if (
         isPanelBreaker(
@@ -626,11 +634,13 @@ fun DrawScope.drawConnection(
             to
         )
     ) {
+
         drawPanelBusLink(
             from,
             to,
             selected
         )
+
         return
     }
 
@@ -647,7 +657,9 @@ fun DrawScope.drawConnection(
 
             buildList {
 
-                add(ports.first)
+                add(
+                    ports.first
+                )
 
                 addAll(
                     connection.routePoints.map {
@@ -658,15 +670,22 @@ fun DrawScope.drawConnection(
                     }
                 )
 
-                add(ports.second)
+                add(
+                    ports.second
+                )
             }
 
         } else {
+
             orthogonal(
                 ports.first,
                 ports.second
             )
         }
+
+    if (points.isEmpty()) {
+        return
+    }
 
     val path =
         Path().apply {
@@ -692,10 +711,15 @@ fun DrawScope.drawConnection(
 
     val color =
         if (selected) {
+
             SELECTED
+
         } else if (busbar) {
+
             BUSBAR
+
         } else {
+
             if (
                 feederResult != null &&
                 !feederResult.cableAdequate
@@ -709,18 +733,19 @@ fun DrawScope.drawConnection(
     drawPath(
         path = path,
         color = color,
-        style = Stroke(
-            width =
-                if (selected) {
-                    SELECTED_WIDTH
-                } else if (busbar) {
-                    BUSBAR_WIDTH
-                } else {
-                    CABLE_WIDTH
-                },
-            cap = StrokeCap.Square,
-            join = StrokeJoin.Miter
-        )
+        style =
+            Stroke(
+                width =
+                    if (selected) {
+                        SELECTED_WIDTH
+                    } else if (busbar) {
+                        BUSBAR_WIDTH
+                    } else {
+                        CABLE_WIDTH
+                    },
+                cap = StrokeCap.Square,
+                join = StrokeJoin.Miter
+            )
     )
 
     if (!busbar) {
@@ -742,18 +767,23 @@ fun DrawScope.drawConnection(
                     connection.cableSizeMm2 >
                     0.0
                 ) {
+
                     append(
                         fmt(
                             connection.cableSizeMm2
                         )
                     )
-                    append(" mm²")
+
+                    append(
+                        " mm²"
+                    )
                 }
 
                 if (
                     connection.lengthMeters >
                     0.0
                 ) {
+
                     if (isNotEmpty()) {
                         append("  ")
                     }
@@ -764,11 +794,15 @@ fun DrawScope.drawConnection(
                         )
                     )
 
-                    append(" m")
+                    append(
+                        " m"
+                    )
                 }
 
                 if (isEmpty()) {
-                    append("FEEDER")
+                    append(
+                        "FEEDER"
+                    )
                 }
             }
 
@@ -794,19 +828,27 @@ fun DrawScope.drawConnection(
                         feederResult.currentA >
                         0.0
                     ) {
-                        append("Ib ")
+
+                        append(
+                            "Ib "
+                        )
+
                         append(
                             fmt(
                                 feederResult.currentA
                             )
                         )
-                        append(" A")
+
+                        append(
+                            " A"
+                        )
                     }
 
                     if (
                         feederResult.kva >
                         0.0
                     ) {
+
                         if (isNotEmpty()) {
                             append("  ")
                         }
@@ -817,30 +859,40 @@ fun DrawScope.drawConnection(
                             )
                         )
 
-                        append(" kVA")
+                        append(
+                            " kVA"
+                        )
                     }
 
                     if (
                         feederResult.voltageDropPercent >
                         0.0
                     ) {
+
                         if (isNotEmpty()) {
                             append("  ")
                         }
 
-                        append("ΔV ")
+                        append(
+                            "ΔV "
+                        )
+
                         append(
                             fmt(
                                 feederResult.voltageDropPercent
                             )
                         )
-                        append("%")
+
+                        append(
+                            "%"
+                        )
                     }
                 }
 
             if (
                 engineering.isNotBlank()
             ) {
+
                 drawEngineeringLabel(
                     textMeasurer,
                     engineering,
@@ -899,7 +951,8 @@ private fun DrawScope.drawPanelBusLink(
         Offset(
             bus.x +
                 NODE_WIDTH / 2f,
-            bus.y + SYMBOL_Y
+            bus.y +
+                SYMBOL_Y
         )
 
     val points =
@@ -932,16 +985,17 @@ private fun DrawScope.drawPanelBusLink(
             } else {
                 BUSBAR
             },
-        style = Stroke(
-            width =
-                if (selected) {
-                    SELECTED_WIDTH
-                } else {
-                    BUSBAR_WIDTH
-                },
-            cap = StrokeCap.Square,
-            join = StrokeJoin.Miter
-        )
+        style =
+            Stroke(
+                width =
+                    if (selected) {
+                        SELECTED_WIDTH
+                    } else {
+                        BUSBAR_WIDTH
+                    },
+                cap = StrokeCap.Square,
+                join = StrokeJoin.Miter
+            )
     )
 }
 
@@ -969,6 +1023,7 @@ private fun DrawScope.drawPanel(
 
     val border =
         when {
+
             connectionStart ->
                 START
 
@@ -1031,7 +1086,7 @@ private fun DrawScope.drawPanel(
 
     /*
      * Internal panel busbar.
-     * PANEL/BREAKER connections terminate on this bar.
+     * PANEL/BREAKER connections terminate on this busbar.
      */
     drawLine(
         color =
@@ -1066,6 +1121,7 @@ private fun DrawScope.drawStandaloneBus(
 
     val color =
         when {
+
             connectionStart ->
                 START
 
@@ -1077,7 +1133,8 @@ private fun DrawScope.drawStandaloneBus(
         }
 
     val y =
-        node.y + SYMBOL_Y
+        node.y +
+            SYMBOL_Y
 
     val connectedX =
         breakers.map {
@@ -1090,8 +1147,11 @@ private fun DrawScope.drawStandaloneBus(
         if (
             connectedX.isEmpty()
         ) {
+
             node.x + 25f
+
         } else {
+
             minOf(
                 node.x + 20f,
                 connectedX.minOrNull()!! - 45f
@@ -1102,10 +1162,13 @@ private fun DrawScope.drawStandaloneBus(
         if (
             connectedX.isEmpty()
         ) {
+
             node.x +
                 NODE_WIDTH -
                 25f
+
         } else {
+
             maxOf(
                 node.x +
                     NODE_WIDTH -
@@ -1159,7 +1222,7 @@ private fun DrawScope.drawStandaloneBus(
     )
 
     /*
-     * Real breaker taps.
+     * Breaker taps.
      */
     breakers.forEach { breaker ->
 
@@ -1220,7 +1283,8 @@ private fun DrawScope.drawBreakerTapForPanel(
             17f
 
     val busY =
-        panel.y + 30f
+        panel.y +
+            30f
 
     val terminalY =
         breaker.y +
@@ -1291,9 +1355,15 @@ fun DrawScope.drawNode(
                 },
             radius =
                 when (node.type) {
-                    SldNodeType.PANEL -> 91f
-                    SldNodeType.BUS -> 60f
-                    else -> 40f
+
+                    SldNodeType.PANEL ->
+                        91f
+
+                    SldNodeType.BUS ->
+                        60f
+
+                    else ->
+                        40f
                 },
             center =
                 Offset(
@@ -1378,22 +1448,27 @@ fun DrawScope.drawNode(
                     .asSequence()
                     .mapNotNull {
                         connection ->
+
                         if (
                             connection.fromNodeId ==
                             node.id
                         ) {
+
                             nodes.firstOrNull {
                                 it.id ==
                                     connection.toNodeId
                             }
+
                         } else if (
                             connection.toNodeId ==
                             node.id
                         ) {
+
                             nodes.firstOrNull {
                                 it.id ==
                                     connection.fromNodeId
                             }
+
                         } else {
                             null
                         }
@@ -1435,6 +1510,7 @@ fun DrawScope.drawNode(
         centerX = cx,
         y =
             when (node.type) {
+
                 SldNodeType.PANEL ->
                     node.y + 112f
 
@@ -1462,6 +1538,7 @@ fun DrawScope.drawNode(
         centerX = cx,
         y =
             when (node.type) {
+
                 SldNodeType.PANEL ->
                     node.y + 126f
 
@@ -1488,18 +1565,23 @@ fun DrawScope.drawNode(
                     result.demandKw >
                     0.0
                 ) {
+
                     append(
                         fmt(
                             result.demandKw
                         )
                     )
-                    append(" kW")
+
+                    append(
+                        " kW"
+                    )
                 }
 
                 if (
                     result.kva >
                     0.0
                 ) {
+
                     if (isNotEmpty()) {
                         append("  ")
                     }
@@ -1510,28 +1592,39 @@ fun DrawScope.drawNode(
                         )
                     )
 
-                    append(" kVA")
+                    append(
+                        " kVA"
+                    )
                 }
 
                 if (
                     result.currentA >
                     0.0
                 ) {
+
                     if (isNotEmpty()) {
                         append("  ")
                     }
 
-                    append("Ib ")
+                    append(
+                        "Ib "
+                    )
+
                     append(
                         fmt(
                             result.currentA
                         )
                     )
-                    append(" A")
+
+                    append(
+                        " A"
+                    )
                 }
             }
 
-        if (line.isNotBlank()) {
+        if (
+            line.isNotBlank()
+        ) {
 
             drawCenteredText(
                 textMeasurer,
@@ -1539,9 +1632,15 @@ fun DrawScope.drawNode(
                 cx,
                 node.y +
                     when (node.type) {
-                        SldNodeType.PANEL -> 140f
-                        SldNodeType.BUS -> 91f
-                        else -> 99f
+
+                        SldNodeType.PANEL ->
+                            140f
+
+                        SldNodeType.BUS ->
+                            91f
+
+                        else ->
+                            99f
                     },
                 TextStyle(
                     color =
@@ -1575,9 +1674,15 @@ fun DrawScope.drawNode(
                 cx,
                 node.y +
                     when (node.type) {
-                        SldNodeType.PANEL -> 154f
-                        SldNodeType.BUS -> 105f
-                        else -> 113f
+
+                        SldNodeType.PANEL ->
+                            154f
+
+                        SldNodeType.BUS ->
+                            105f
+
+                        else ->
+                            113f
                     },
                 TextStyle(
                     color = SECONDARY,
@@ -1601,9 +1706,15 @@ fun DrawScope.drawNode(
                 cx,
                 node.y +
                     when (node.type) {
-                        SldNodeType.PANEL -> 168f
-                        SldNodeType.BUS -> 119f
-                        else -> 127f
+
+                        SldNodeType.PANEL ->
+                            168f
+
+                        SldNodeType.BUS ->
+                            119f
+
+                        else ->
+                            127f
                     },
                 TextStyle(
                     color =
@@ -1637,6 +1748,7 @@ private fun isBusbarConnectionForNode(
 
     val otherId =
         when (nodeId) {
+
             connection.fromNodeId ->
                 connection.toNodeId
 
@@ -1666,7 +1778,10 @@ private fun DrawScope.drawSource(
         color = BLACK,
         radius = 25f,
         center =
-            Offset(x, y),
+            Offset(
+                x,
+                y
+            ),
         style =
             Stroke(
                 width = 2.8f
@@ -1777,7 +1892,10 @@ private fun DrawScope.drawGenerator(
         color = BLACK,
         radius = 27f,
         center =
-            Offset(x, y),
+            Offset(
+                x,
+                y
+            ),
         style =
             Stroke(
                 width = 2.5f
@@ -2106,7 +2224,10 @@ private fun DrawScope.drawLoad(
         color = BLACK,
         radius = 22f,
         center =
-            Offset(x, y),
+            Offset(
+                x,
+                y
+            ),
         style =
             Stroke(
                 width = 2.8f
@@ -2185,7 +2306,9 @@ private fun DrawScope.drawCenteredText(
     style: TextStyle
 ) {
 
-    if (text.isBlank()) {
+    if (
+        text.isBlank()
+    ) {
         return
     }
 
@@ -2217,7 +2340,9 @@ private fun DrawScope.drawEngineeringLabel(
     fontSize: Float
 ) {
 
-    if (text.isBlank()) {
+    if (
+        text.isBlank()
+    ) {
         return
     }
 
@@ -2277,7 +2402,9 @@ private fun DrawScope.drawFlowArrow(
     color: Color
 ) {
 
-    if (points.size < 2) {
+    if (
+        points.size < 2
+    ) {
         return
     }
 
@@ -2301,7 +2428,9 @@ private fun DrawScope.drawFlowArrow(
                 dy * dy
         )
 
-    if (length < 14f) {
+    if (
+        length < 14f
+    ) {
         return
     }
 
@@ -2420,8 +2549,8 @@ fun findConnection(
             } ?: return@forEach
 
         /*
-         * Panel-breaker and bus-breaker connections are represented
-         * by their physical taps.
+         * Panel-breaker and bus-breaker connections are
+         * represented by their physical taps.
          */
         if (
             isPanelBreaker(
@@ -2536,8 +2665,10 @@ fun findConnection(
                 distance < 24f &&
                 distance < bestDistance
             ) {
+
                 bestDistance =
                     distance
+
                 best =
                     connection
             }
@@ -2555,8 +2686,13 @@ fun findConnection(
             if (
                 connection.routePoints.isNotEmpty()
             ) {
+
                 buildList {
-                    add(ports.first)
+
+                    add(
+                        ports.first
+                    )
+
                     addAll(
                         connection.routePoints.map {
                             Offset(
@@ -2565,9 +2701,14 @@ fun findConnection(
                             )
                         }
                     )
-                    add(ports.second)
+
+                    add(
+                        ports.second
+                    )
                 }
+
             } else {
+
                 orthogonal(
                     ports.first,
                     ports.second
@@ -2604,6 +2745,7 @@ fun findConnection(
                 distance <
                 bestDistance
             ) {
+
                 bestDistance =
                     distance
 
@@ -2672,21 +2814,4 @@ private fun distanceToSegment(
             (point.y - py) *
             (point.y - py)
     )
-}
-
-private fun fmt(
-    value: Double
-): String {
-
-    return if (
-        value.isFinite()
-    ) {
-        String.format(
-            java.util.Locale.US,
-            "%.2f",
-            value
-        )
-    } else {
-        "0.00"
-    }
 }
