@@ -59,7 +59,8 @@ object SldAutoLayoutEngine {
             )
         }
 
-        val nodesById = network.nodes.associateBy { it.id }
+        val nodesById =
+            network.nodes.associateBy { it.id }
 
         /*
          * ------------------------------------------------------------
@@ -77,12 +78,14 @@ object SldAutoLayoutEngine {
                     )
                 }
 
-        val memberToPanel = mutableMapOf<String, String>()
+        val memberToPanel =
+            mutableMapOf<String, String>()
 
         panelAssemblies.forEach { assembly ->
             assembly.memberIds.forEach { memberId ->
                 if (memberId !in memberToPanel) {
-                    memberToPanel[memberId] = assembly.panelId
+                    memberToPanel[memberId] =
+                        assembly.panelId
                 }
             }
         }
@@ -94,20 +97,30 @@ object SldAutoLayoutEngine {
          */
         val children =
             network.nodes
-                .associate { it.id to mutableListOf<String>() }
+                .associate {
+                    it.id to mutableListOf<String>()
+                }
                 .toMutableMap()
 
         val parents =
             network.nodes
-                .associate { it.id to mutableListOf<String>() }
+                .associate {
+                    it.id to mutableListOf<String>()
+                }
                 .toMutableMap()
 
         network.connections.forEach { connection ->
-            val fromId = connection.fromNodeId
-            val toId = connection.toNodeId
+            val fromId =
+                connection.fromNodeId
 
-            val from = nodesById[fromId]
-            val to = nodesById[toId]
+            val toId =
+                connection.toNodeId
+
+            val from =
+                nodesById[fromId]
+
+            val to =
+                nodesById[toId]
 
             if (
                 from == null ||
@@ -127,12 +140,22 @@ object SldAutoLayoutEngine {
                 return@forEach
             }
 
-            if (toId !in children.getValue(fromId)) {
-                children.getValue(fromId).add(toId)
+            if (
+                toId !in
+                children.getValue(fromId)
+            ) {
+                children
+                    .getValue(fromId)
+                    .add(toId)
             }
 
-            if (fromId !in parents.getValue(toId)) {
-                parents.getValue(toId).add(fromId)
+            if (
+                fromId !in
+                parents.getValue(toId)
+            ) {
+                parents
+                    .getValue(toId)
+                    .add(fromId)
             }
         }
 
@@ -143,12 +166,20 @@ object SldAutoLayoutEngine {
          */
         val sourceRoots =
             network.nodes
-                .filter { it.type == SldNodeType.SOURCE }
-                .sortedBy { it.name.uppercase() }
+                .filter {
+                    it.type == SldNodeType.SOURCE
+                }
+                .sortedBy {
+                    it.name.uppercase()
+                }
 
         val naturalRoots =
             network.nodes
-                .filter { parents[it.id].orEmpty().isEmpty() }
+                .filter {
+                    parents[it.id]
+                        .orEmpty()
+                        .isEmpty()
+                }
                 .sortedWith(
                     compareBy<SldNode> {
                         typeOrder(it.type)
@@ -166,7 +197,8 @@ object SldAutoLayoutEngine {
          * LEVELS
          * ------------------------------------------------------------
          */
-        val levels = mutableMapOf<String, Int>()
+        val levels =
+            mutableMapOf<String, Int>()
 
         fun assignLevels(
             nodeId: String,
@@ -177,7 +209,8 @@ object SldAutoLayoutEngine {
                 return
             }
 
-            val oldLevel = levels[nodeId]
+            val oldLevel =
+                levels[nodeId]
 
             if (
                 oldLevel == null ||
@@ -224,7 +257,9 @@ object SldAutoLayoutEngine {
             (levels.values.maxOrNull() ?: 0) + 2
 
         network.nodes
-            .filter { it.id !in levels }
+            .filter {
+                it.id !in levels
+            }
             .sortedWith(
                 compareBy<SldNode> {
                     typeOrder(it.type)
@@ -233,7 +268,9 @@ object SldAutoLayoutEngine {
                 }
             )
             .forEach { node ->
-                levels[node.id] = extraLevel
+                levels[node.id] =
+                    extraLevel
+
                 extraLevel++
             }
 
@@ -249,14 +286,16 @@ object SldAutoLayoutEngine {
             .map { it.id }
             .filter { it in levels }
             .forEachIndexed { index, rootId ->
+                val rootX =
+                    if (index == 0) {
+                        ROOT_X
+                    } else {
+                        ROOT_X +
+                            index * BRANCH_GAP
+                    }
+
                 positions[rootId] =
-                    (
-                        if (index == 0) {
-                            ROOT_X
-                        } else {
-                            ROOT_X + index * BRANCH_GAP
-                        }
-                        ) to ROOT_Y
+                    rootX to ROOT_Y
             }
 
         /*
@@ -272,19 +311,25 @@ object SldAutoLayoutEngine {
             visiting: MutableSet<String>
         ): Float {
             if (!visiting.add(nodeId)) {
-                return NODE_WIDTH + CLEARANCE_X
+                return NODE_WIDTH +
+                    CLEARANCE_X
             }
 
             val childIds =
                 children[nodeId]
                     .orEmpty()
-                    .filter { it in levels }
+                    .filter {
+                        it in levels
+                    }
 
             if (childIds.isEmpty()) {
                 val width =
-                    NODE_WIDTH + CLEARANCE_X
+                    NODE_WIDTH +
+                        CLEARANCE_X
 
-                subtreeWidth[nodeId] = width
+                subtreeWidth[nodeId] =
+                    width
+
                 return width
             }
 
@@ -298,11 +343,14 @@ object SldAutoLayoutEngine {
 
             val width =
                 maxOf(
-                    NODE_WIDTH + CLEARANCE_X,
+                    NODE_WIDTH +
+                        CLEARANCE_X,
                     childWidth
                 )
 
-            subtreeWidth[nodeId] = width
+            subtreeWidth[nodeId] =
+                width
+
             return width
         }
 
@@ -318,7 +366,9 @@ object SldAutoLayoutEngine {
          * PLACE CHILDREN
          * ------------------------------------------------------------
          */
-        fun placeChildren(parentId: String) {
+        fun placeChildren(
+            parentId: String
+        ) {
             val parent =
                 positions[parentId]
                     ?: return
@@ -326,7 +376,9 @@ object SldAutoLayoutEngine {
             val childIds =
                 children[parentId]
                     .orEmpty()
-                    .filter { it in levels }
+                    .filter {
+                        it in levels
+                    }
 
             if (childIds.isEmpty()) {
                 return
@@ -336,8 +388,12 @@ object SldAutoLayoutEngine {
                 childIds.map { childId ->
                     maxOf(
                         subtreeWidth[childId]
-                            ?: (NODE_WIDTH + CLEARANCE_X),
-                        NODE_WIDTH + CLEARANCE_X
+                            ?: (
+                                NODE_WIDTH +
+                                    CLEARANCE_X
+                                ),
+                        NODE_WIDTH +
+                            CLEARANCE_X
                     )
                 }
 
@@ -348,8 +404,12 @@ object SldAutoLayoutEngine {
                 parent.first -
                     totalWidth / 2f
 
-            childIds.forEachIndexed { index, childId ->
-                val width = widths[index]
+            childIds.forEachIndexed {
+                    index,
+                    childId
+                ->
+                val width =
+                    widths[index]
 
                 val childX =
                     cursorX +
@@ -358,11 +418,15 @@ object SldAutoLayoutEngine {
 
                 val childLevel =
                     levels[childId]
-                        ?: ((levels[parentId] ?: 0) + 1)
+                        ?: (
+                            (levels[parentId] ?: 0) +
+                                1
+                            )
 
                 val childY =
                     ROOT_Y +
-                        childLevel * LEVEL_GAP
+                        childLevel *
+                        LEVEL_GAP
 
                 if (childId !in positions) {
                     positions[childId] =
@@ -389,10 +453,13 @@ object SldAutoLayoutEngine {
          * ------------------------------------------------------------
          */
         network.nodes
-            .filter { it.id !in positions }
+            .filter {
+                it.id !in positions
+            }
             .sortedWith(
                 compareBy<SldNode> {
-                    levels[it.id] ?: Int.MAX_VALUE
+                    levels[it.id]
+                        ?: Int.MAX_VALUE
                 }.thenBy {
                     typeOrder(it.type)
                 }.thenBy {
@@ -400,20 +467,26 @@ object SldAutoLayoutEngine {
                 }
             )
             .forEachIndexed { index, node ->
-                val row = index / 4
-                val column = index % 4
+                val row =
+                    index / 4
+
+                val column =
+                    index % 4
+
+                val x =
+                    MIN_X +
+                        column *
+                        DISCONNECTED_GAP
+
+                val y =
+                    ROOT_Y +
+                        (levels[node.id] ?: 0) *
+                        LEVEL_GAP +
+                        row *
+                        DISCONNECTED_GAP
 
                 positions[node.id] =
-                    (
-                        MIN_X +
-                            column * DISCONNECTED_GAP
-                        ) to
-                        (
-                            ROOT_Y +
-                                (levels[node.id] ?: 0) *
-                                LEVEL_GAP +
-                                row * DISCONNECTED_GAP
-                            )
+                    x to y
             }
 
         /*
@@ -423,9 +496,9 @@ object SldAutoLayoutEngine {
          *
          * PANEL, BUS and BREAKERS occupy one physical assembly.
          *
-         * The PANEL itself is the enclosure anchor.
-         * BUS is placed inside the enclosure.
-         * BREAKERS are placed horizontally inside the enclosure.
+         * PANEL = enclosure anchor.
+         * BUS   = internal busbar anchor.
+         * BREAKERS = internal breaker positions.
          */
         panelAssemblies.forEach { assembly ->
             val panel =
@@ -434,32 +507,43 @@ object SldAutoLayoutEngine {
 
             val original =
                 positions[panel.id]
-                    ?: (ROOT_X to ROOT_Y)
+                    ?: (
+                        ROOT_X to
+                            ROOT_Y
+                        )
+
+            val panelPosition =
+                snap(
+                    original.first,
+                    original.second
+                )
 
             val panelX =
-                snap(original.first)
+                panelPosition.first
 
             val panelY =
-                snap(original.second)
+                panelPosition.second
 
             positions[panel.id] =
                 panelX to panelY
 
             /*
              * BUS = internal busbar anchor.
+             *
+             * IMPORTANT:
+             * Use one snap(x, y) call only.
+             * Do not construct Pair<Pair<Float, Float>, ...>.
              */
             assembly.busIds.forEach { busId ->
                 positions[busId] =
-                    snap(panelX) to
-                        snap(panelY + BUS_Y)
+                    snap(
+                        panelX,
+                        panelY + BUS_Y
+                    )
             }
 
             /*
              * BREAKERS = internal breaker positions.
-             *
-             * Breaker nodes use the same 180 px logical node width
-             * as the drawing layer. Their symbol is centered inside
-             * that logical node.
              */
             val breakerIds =
                 assembly.breakerIds
@@ -475,16 +559,24 @@ object SldAutoLayoutEngine {
                         totalSpan / 2f -
                         NODE_WIDTH / 2f
 
-                breakerIds.forEachIndexed { index, breakerId ->
+                breakerIds.forEachIndexed {
+                        index,
+                        breakerId
+                    ->
                     val breakerX =
                         firstBreakerX +
-                            index * BREAKER_SLOT
+                            index *
+                            BREAKER_SLOT
 
                     val breakerY =
-                        panelY + BREAKER_Y
+                        panelY +
+                            BREAKER_Y
 
                     positions[breakerId] =
-                        snap(breakerX, breakerY)
+                        snap(
+                            breakerX,
+                            breakerY
+                        )
                 }
             }
         }
@@ -499,22 +591,32 @@ object SldAutoLayoutEngine {
         network.connections
             .filter { connection ->
                 val from =
-                    nodesById[connection.fromNodeId]
+                    nodesById[
+                        connection.fromNodeId
+                    ]
 
                 val to =
-                    nodesById[connection.toNodeId]
+                    nodesById[
+                        connection.toNodeId
+                    ]
 
-                from?.type == SldNodeType.BREAKER &&
-                    to?.type == SldNodeType.LOAD
+                from?.type ==
+                    SldNodeType.BREAKER &&
+                    to?.type ==
+                    SldNodeType.LOAD
             }
             .forEach { connection ->
                 val breakerPosition =
-                    positions[connection.fromNodeId]
-                        ?: return@forEach
+                    positions[
+                        connection.fromNodeId
+                    ] ?: return@forEach
 
-                positions[connection.toNodeId] =
+                positions[
+                    connection.toNodeId
+                ] =
                     snap(
-                        breakerPosition.first + BRANCH_GAP,
+                        breakerPosition.first +
+                            BRANCH_GAP,
                         breakerPosition.second
                     )
             }
@@ -523,11 +625,6 @@ object SldAutoLayoutEngine {
          * ------------------------------------------------------------
          * FINAL COLLISION RESOLUTION
          * ------------------------------------------------------------
-         *
-         * Members of the same physical panel assembly are allowed
-         * to overlap logically because they occupy the same enclosure.
-         *
-         * External nodes are still collision-checked.
          */
         val groupedIds =
             memberToPanel.keys
@@ -538,9 +635,11 @@ object SldAutoLayoutEngine {
         val orderedIds =
             levels.keys.sortedWith(
                 compareBy<String> {
-                    levels[it] ?: Int.MAX_VALUE
+                    levels[it]
+                        ?: Int.MAX_VALUE
                 }.thenBy {
-                    positions[it]?.first ?: ROOT_X
+                    positions[it]?.first
+                        ?: ROOT_X
                 }.thenBy {
                     nodesById[it]
                         ?.name
@@ -552,7 +651,10 @@ object SldAutoLayoutEngine {
         orderedIds.forEach { nodeId ->
             val preferred =
                 positions[nodeId]
-                    ?: (ROOT_X to ROOT_Y)
+                    ?: (
+                        ROOT_X to
+                            ROOT_Y
+                        )
 
             if (nodeId in groupedIds) {
                 finalPositions[nodeId] =
@@ -578,12 +680,16 @@ object SldAutoLayoutEngine {
          */
         val minX =
             finalPositions.values
-                .minOfOrNull { it.first }
+                .minOfOrNull {
+                    it.first
+                }
                 ?: ROOT_X
 
         val minY =
             finalPositions.values
-                .minOfOrNull { it.second }
+                .minOfOrNull {
+                    it.second
+                }
                 ?: ROOT_Y
 
         val shiftX =
@@ -602,14 +708,17 @@ object SldAutoLayoutEngine {
 
         val normalized =
             finalPositions.mapValues { entry ->
-                val position = entry.value
+                val position =
+                    entry.value
 
                 (
-                    position.first + shiftX
+                    position.first +
+                        shiftX
                     ) to
                     (
-                        position.second + shiftY
-                    )
+                        position.second +
+                            shiftY
+                        )
             }
 
         /*
@@ -652,7 +761,9 @@ object SldAutoLayoutEngine {
         connections: List<SldConnection>
     ): PanelAssembly {
         val nodesById =
-            nodes.associateBy { it.id }
+            nodes.associateBy {
+                it.id
+            }
 
         val members =
             mutableSetOf<String>()
@@ -680,12 +791,14 @@ object SldAutoLayoutEngine {
                 }
 
                 val from =
-                    nodesById[connection.fromNodeId]
-                        ?: return@forEach
+                    nodesById[
+                        connection.fromNodeId
+                    ] ?: return@forEach
 
                 val to =
-                    nodesById[connection.toNodeId]
-                        ?: return@forEach
+                    nodesById[
+                        connection.toNodeId
+                    ] ?: return@forEach
 
                 val fromInside =
                     from.id in members
@@ -696,12 +809,17 @@ object SldAutoLayoutEngine {
                 if (
                     fromInside &&
                     !toInside &&
-                    isPhysicalPanelMember(to.type)
+                    isPhysicalPanelMember(
+                        to.type
+                    )
                 ) {
                     /*
-                     * Never absorb another PANEL into this assembly.
+                     * Never absorb another PANEL.
                      */
-                    if (to.type != SldNodeType.PANEL) {
+                    if (
+                        to.type !=
+                        SldNodeType.PANEL
+                    ) {
                         members += to.id
                         changed = true
                     }
@@ -710,12 +828,17 @@ object SldAutoLayoutEngine {
                 if (
                     toInside &&
                     !fromInside &&
-                    isPhysicalPanelMember(from.type)
+                    isPhysicalPanelMember(
+                        from.type
+                    )
                 ) {
                     /*
-                     * Never absorb another PANEL into this assembly.
+                     * Never absorb another PANEL.
                      */
-                    if (from.type != SldNodeType.PANEL) {
+                    if (
+                        from.type !=
+                        SldNodeType.PANEL
+                    ) {
                         members += from.id
                         changed = true
                     }
@@ -725,15 +848,27 @@ object SldAutoLayoutEngine {
 
         val buses =
             members
-                .mapNotNull { nodesById[it] }
-                .filter { it.type == SldNodeType.BUS }
-                .map { it.id }
+                .mapNotNull {
+                    nodesById[it]
+                }
+                .filter {
+                    it.type ==
+                        SldNodeType.BUS
+                }
+                .map {
+                    it.id
+                }
                 .toSet()
 
         val breakers =
             members
-                .mapNotNull { nodesById[it] }
-                .filter { it.type == SldNodeType.BREAKER }
+                .mapNotNull {
+                    nodesById[it]
+                }
+                .filter {
+                    it.type ==
+                        SldNodeType.BREAKER
+                }
                 .sortedWith(
                     compareBy<SldNode> {
                         it.x
@@ -743,7 +878,9 @@ object SldAutoLayoutEngine {
                         it.name.uppercase()
                     }
                 )
-                .map { it.id }
+                .map {
+                    it.id
+                }
 
         return PanelAssembly(
             panelId = panel.id,
@@ -756,9 +893,12 @@ object SldAutoLayoutEngine {
     private fun isPhysicalPanelMember(
         type: SldNodeType
     ): Boolean {
-        return type == SldNodeType.PANEL ||
-            type == SldNodeType.BUS ||
-            type == SldNodeType.BREAKER
+        return type ==
+            SldNodeType.PANEL ||
+            type ==
+            SldNodeType.BUS ||
+            type ==
+            SldNodeType.BREAKER
     }
 
     /*
@@ -780,12 +920,14 @@ object SldAutoLayoutEngine {
         }
 
         val from =
-            nodesById[connection.fromNodeId]
-                ?: return false
+            nodesById[
+                connection.fromNodeId
+            ] ?: return false
 
         val to =
-            nodesById[connection.toNodeId]
-                ?: return false
+            nodesById[
+                connection.toNodeId
+            ] ?: return false
 
         val fromPanel =
             memberToPanel[from.id]
@@ -817,7 +959,10 @@ object SldAutoLayoutEngine {
             return preferred
         }
 
-        for (step in 1..MAX_COLLISION_SEARCH) {
+        for (
+            step in
+            1..MAX_COLLISION_SEARCH
+        ) {
             val down =
                 snap(
                     preferred.first,
@@ -921,10 +1066,7 @@ object SldAutoLayoutEngine {
     /*
      * Single canonical coordinate snap.
      *
-     * IMPORTANT:
-     * There is intentionally no snap(value) overload.
-     * All coordinates must be supplied as x/y so Kotlin cannot
-     * accidentally construct Pair<Pair<Float, Float>, ...>.
+     * Every call supplies both x and y.
      */
     private fun snap(
         x: Float,
@@ -944,16 +1086,17 @@ object SldAutoLayoutEngine {
                 MIN_Y
             }
 
-        return (
+        val snappedX =
             kotlin.math.round(
                 safeX / 20f
             ) * 20f
-            ) to
-            (
-                kotlin.math.round(
-                    safeY / 20f
-                ) * 20f
-            )
+
+        val snappedY =
+            kotlin.math.round(
+                safeY / 20f
+            ) * 20f
+
+        return snappedX to snappedY
     }
 
     private fun typeOrder(
