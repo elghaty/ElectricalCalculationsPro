@@ -38,12 +38,6 @@ class SldEditorActions(
         const val POSITION_STEP_X = 220f
         const val POSITION_STEP_Y = 180f
 
-        /*
-         * Physical panel assembly geometry.
-         *
-         * The PANEL node is the enclosure anchor.
-         * BUS and BREAKER nodes are positioned inside it.
-         */
         const val ENCLOSURE_PADDING_X = 28f
         const val ENCLOSURE_TOP = 20f
         const val BREAKER_SLOT = 100f
@@ -521,10 +515,6 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * BUS is an internal physical busbar.
-     * It must occupy the same physical assembly as the panel.
-     */
     private fun findBusPosition(panel: SldNode): Pair<Float, Float> {
         return snap(
             panel.x,
@@ -547,11 +537,6 @@ class SldEditorActions(
         }
     }
 
-    /*
-     * Breakers are placed INSIDE the physical panel assembly.
-     * Generic collision testing is deliberately NOT used here,
-     * because PANEL/BREAKER overlap is intentional.
-     */
     private fun findBreakerPosition(
         support: SldNode
     ): Pair<Float, Float> {
@@ -747,20 +732,210 @@ class SldEditorActions(
         val dx = deltaX.takeIf { it.isFinite() } ?: 0f
         val dy = deltaY.takeIf { it.isFinite() } ?: 0f
 
+        if (dx == 0f && dy == 0f) return
+
+        val selected =
+            state.nodes.firstOrNull {
+                it.id == nodeId
+            } ?: return
+
+        /*
+         * PANEL is the physical enclosure anchor.
+         * Moving it must move its complete internal assembly:
+         * PANEL + BUS + all BREAKERS connected through BUSBAR.
+         *
+         * External cables/connections are intentionally untouched;
+         * their endpoints follow the moved nodes through the model.
+         */
+        val assemblyIds =
+            when (selected.type) {
+                SldNodeType.PANEL -> {
+                    collectPanelAssemblyIds(selected.id)
+                }
+
+                SldNodeType.BUS -> {
+                    findPanelForInternalNode(selected.id)
+                        ?.let(::collectPanelAssemblyIds)
+                        ?: setOf(selected.id)
+                }
+
+                else -> {
+                    setOf(selected.id)
+                }
+            }
+
+        val movedIds =
+            if (selected.type == SldNodeType.PANEL ||
+                selected.type == SldNodeType.BUS
+            ) {
+                assemblyIds
+            } else {
+                setOf(nodeId)
+            }
+
         state.nodes =
-            state.nodes.map {
-                if (it.id == nodeId) {
-                    it.copy(
-                        x = max(MIN_X, it.x + dx),
-                        y = max(MIN_Y, it.y + dy)
-                    )
+            state.nodes.map { node ->
+                if (node.id !in movedIds) {
+                    node
                 } else {
-                    it
+                    node.copy(
+                        x = max(
+                            MIN_X,
+                            node.x + dx
+                        ),
+                        y = max(
+                            MIN_Y,
+                            node.y + dy
+                        )
+                    )
                 }
             }
     }
 
+    private fun collectPanelAssemblyIds(
+        panelId: String
+    ): Set<String> {
+        val ids = mutableSetOf<String>()
+        ids += panelId
+
+        var changed = true
+
+        while (changed) {
+            changed = false
+
+            state.connections
+                .map {
+                    normalizeConnection(
+                        it,
+                        state.nodes
+                    )
+                }
+                .filter {
+                    it.connectionType ==
+                        SldConnectionType.BUSBAR
+                }
+                .forEach { connection ->
+                    val from = connection.fromNodeId
+                    val to = connection.toNodeId
+
+                    if (from in ids && to !in ids) {
+                        val target =
+                            state.nodes.firstOrNull {
+                                it.id == to
+                            }
+
+                        if (
+                            target?.type == SldNodeType.BUS ||
+                            target?.type == SldNodeType.BREAKER
+                        ) {
+                            ids += to
+                            changed = true
+                        }
+                    }
+
+                    if (to in ids && from !in ids) {
+                        val target =
+                            state.nodes.firstOrNull {
+                                it.id == from
+                            }
+
+                        if (
+                            target?.type == SldNodeType.BUS ||
+                            target?.type == SldNodeType.BREAKER
+                        ) {
+                            ids += from
+                            changed = true
+                        }
+                    }
+                }
+        }
+
+        return ids
+    }
+
+    private fun findPanelForInternalNode(
+        nodeId: String
+    ): SldNode? {
+        val assemblyIds =
+            collectConnectedInternalIds(nodeId)
+
+        return state.nodes.firstOrNull {
+            it.id in assemblyIds &&
+                it.type == SldNodeType.PANEL
+        }
+    }
+
+    private fun collectConnectedInternalIds(
+        nodeId: String
+    ): Set<String> {
+        val ids = mutableSetOf(nodeId)
+
+        var changed = true
+
+        while (changed) {
+            changed = false
+
+            state.connections
+                .map {
+                    normalizeConnection(
+                        it,
+                        state.nodes
+                    )
+                }
+                .filter {
+                    it.connectionType ==
+                        SldConnectionType.BUSBAR
+                }
+                .forEach { connection ->
+                    val from = connection.fromNodeId
+                    val to = connection.toNodeId
+
+                    if (from in ids && to !in ids) {
+                        val node =
+                            state.nodes.firstOrNull {
+                                it.id == to
+                            }
+
+                        if (
+                            node?.type == SldNodeType.PANEL ||
+                            node?.type == SldNodeType.BUS ||
+                            node?.type == SldNodeType.BREAKER
+                        ) {
+                            ids += to
+                            changed = true
+                        }
+                    }
+
+                    if (to in ids && from !in ids) {
+                        val node =
+                            state.nodes.firstOrNull {
+                                it.id == from
+                            }
+
+                        if (
+                            node?.type == SldNodeType.PANEL ||
+                            node?.type == SldNodeType.BUS ||
+                            node?.type == SldNodeType.BREAKER
+                        ) {
+                            ids += from
+                            changed = true
+                        }
+                    }
+                }
+        }
+
+        return ids
+    }
+
     fun moveNodeEnd() {
+        state.nodes =
+            state.nodes.map {
+                it.copy(
+                    x = max(MIN_X, it.x),
+                    y = max(MIN_Y, it.y)
+                )
+            }
+
         safePersist()
         recalculateEngineering()
     }
