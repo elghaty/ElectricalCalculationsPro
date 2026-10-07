@@ -8,6 +8,9 @@ object EquipmentCatalog {
     fun breakers(): List<BreakerCatalogItem> =
         BreakerCatalog.all()
 
+    fun verifiedBreakers(): List<BreakerCatalogItem> =
+        BreakerCatalog.verified()
+
     fun transformers(): List<TransformerCatalogItem> =
         TransformerCatalog.egyptianTypical11kV400V()
 
@@ -31,6 +34,30 @@ object EquipmentCatalog {
             requiredCurrentA = currentA,
             requiredBreakingCapacityKA = shortCircuitKA
         )
+
+    fun selectVerifiedBreaker(
+        currentA: Double,
+        shortCircuitKA: Double
+    ): List<BreakerCatalogItem> =
+        BreakerCatalog.verified()
+            .filter {
+                it.ratedCurrentA >= currentA
+            }
+            .filter {
+                val icu = it.breakingCapacityKA
+                icu != null &&
+                    icu >= shortCircuitKA
+            }
+            .sortedWith(
+                compareBy<BreakerCatalogItem> {
+                    it.ratedCurrentA
+                }.thenBy {
+                    it.breakingCapacityKA
+                        ?: Double.MAX_VALUE
+                }.thenBy {
+                    it.manufacturer.name
+                }
+            )
 
     fun selectCable(
         currentA: Double,
