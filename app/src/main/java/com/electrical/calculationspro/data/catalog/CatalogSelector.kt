@@ -1,5 +1,9 @@
 package com.electrical.calculationspro.data.catalog
 
+import com.electrical.calculationspro.data.ConductorMaterial
+import com.electrical.calculationspro.data.InsulationType
+import com.electrical.calculationspro.data.Standard
+
 object CatalogSelector {
 
     fun selectBreaker(
@@ -256,6 +260,251 @@ object CatalogSelector {
             valid = true,
             message =
                 "Panel rating found. Final enclosure, IP, short-circuit withstand and assembly verification are required."
+        )
+    }
+
+    /**
+     * Code-compliant cable selection.
+     *
+     * The calculation engine supplies the requirement.
+     * The catalog supplies candidate products.
+     * CodeCompliance performs the compatibility check.
+     */
+    fun selectCompliantCable(
+        requirement: TechnicalRequirement.Cable,
+        manufacturer: Manufacturer? = null
+    ): EquipmentSelectionResult<CableCatalogItem> {
+
+        val candidates =
+            EquipmentCatalog
+                .cables()
+                .asSequence()
+                .filter {
+                    manufacturer == null ||
+                        it.manufacturer == manufacturer
+                }
+                .filter {
+                    CodeCompliance
+                        .evaluate(requirement, it)
+                        .compliant
+                }
+                .sortedWith(
+                    compareBy<CableCatalogItem> {
+                        it.sectionMm2
+                    }.thenBy {
+                        it.manufacturer.name
+                    }.thenBy {
+                        it.model
+                    }
+                )
+                .toList()
+
+        return selectionResult(
+            candidates = candidates,
+            successMessage =
+                "Catalog cable satisfies the complete technical requirement and selected standard.",
+            failureMessage =
+                "No catalog cable satisfies the complete technical requirement and selected standard."
+        )
+    }
+
+    /**
+     * Code-compliant breaker selection.
+     */
+    fun selectCompliantBreaker(
+        requirement: TechnicalRequirement.Breaker,
+        manufacturer: Manufacturer? = null
+    ): EquipmentSelectionResult<BreakerCatalogItem> {
+
+        val candidates =
+            EquipmentCatalog
+                .breakers()
+                .asSequence()
+                .filter {
+                    manufacturer == null ||
+                        it.manufacturer == manufacturer
+                }
+                .filter {
+                    CodeCompliance
+                        .evaluate(requirement, it)
+                        .compliant
+                }
+                .sortedWith(
+                    compareBy<BreakerCatalogItem> {
+                        it.ratedCurrentA
+                    }.thenBy {
+                        it.breakingCapacityKA
+                            ?: Double.MAX_VALUE
+                    }.thenBy {
+                        it.manufacturer.name
+                    }
+                )
+                .toList()
+
+        return selectionResult(
+            candidates = candidates,
+            successMessage =
+                "Catalog breaker satisfies the complete technical requirement and selected standard.",
+            failureMessage =
+                "No catalog breaker satisfies the complete technical requirement and selected standard."
+        )
+    }
+
+    /**
+     * Code-compliant transformer selection.
+     */
+    fun selectCompliantTransformer(
+        requirement: TechnicalRequirement.Transformer
+    ): EquipmentSelectionResult<TransformerCatalogItem> {
+
+        val candidates =
+            EquipmentCatalog
+                .transformers()
+                .filter {
+                    CodeCompliance
+                        .evaluate(requirement, it)
+                        .compliant
+                }
+                .sortedBy {
+                    it.ratedPowerKva
+                }
+
+        return selectionResult(
+            candidates = candidates,
+            successMessage =
+                "Transformer rating satisfies the technical requirement.",
+            failureMessage =
+                "No transformer catalog record satisfies the complete technical requirement."
+        )
+    }
+
+    /**
+     * Code-compliant generator selection.
+     */
+    fun selectCompliantGenerator(
+        requirement: TechnicalRequirement.Generator
+    ): EquipmentSelectionResult<GeneratorCatalogItem> {
+
+        val candidates =
+            EquipmentCatalog
+                .generators()
+                .filter {
+                    CodeCompliance
+                        .evaluate(requirement, it)
+                        .compliant
+                }
+                .sortedBy {
+                    it.ratedPowerKva
+                }
+
+        return selectionResult(
+            candidates = candidates,
+            successMessage =
+                "Generator rating satisfies the technical requirement.",
+            failureMessage =
+                "No generator catalog record satisfies the complete technical requirement."
+        )
+    }
+
+    /**
+     * Code-compliant busbar selection.
+     */
+    fun selectCompliantBusbar(
+        requirement: TechnicalRequirement.Busbar
+    ): EquipmentSelectionResult<BusbarCatalogItem> {
+
+        val candidates =
+            EquipmentCatalog
+                .busbars()
+                .filter {
+                    CodeCompliance
+                        .evaluate(requirement, it)
+                        .compliant
+                }
+                .sortedBy {
+                    it.ratedCurrentA
+                }
+
+        return selectionResult(
+            candidates = candidates,
+            successMessage =
+                "Busbar catalog record satisfies the technical requirement.",
+            failureMessage =
+                "No busbar catalog record satisfies the complete technical requirement."
+        )
+    }
+
+    /**
+     * Code-compliant contactor selection.
+     */
+    fun selectCompliantContactor(
+        requirement: TechnicalRequirement.Contactor
+    ): EquipmentSelectionResult<ContactorCatalogItem> {
+
+        val candidates =
+            EquipmentCatalog
+                .contactors()
+                .filter {
+                    CodeCompliance
+                        .evaluate(requirement, it)
+                        .compliant
+                }
+                .sortedBy {
+                    it.ratedCurrentA
+                }
+
+        return selectionResult(
+            candidates = candidates,
+            successMessage =
+                "Contactor catalog record satisfies the technical requirement.",
+            failureMessage =
+                "No contactor catalog record satisfies the complete technical requirement."
+        )
+    }
+
+    /**
+     * Code-compliant panel selection.
+     */
+    fun selectCompliantPanel(
+        requirement: TechnicalRequirement.Panel
+    ): EquipmentSelectionResult<PanelCatalogItem> {
+
+        val candidates =
+            EquipmentCatalog
+                .panels()
+                .filter {
+                    CodeCompliance
+                        .evaluate(requirement, it)
+                        .compliant
+                }
+                .sortedBy {
+                    it.ratedCurrentA
+                }
+
+        return selectionResult(
+            candidates = candidates,
+            successMessage =
+                "Panel catalog record satisfies the technical requirement.",
+            failureMessage =
+                "No panel catalog record satisfies the complete technical requirement."
+        )
+    }
+
+    private fun <T> selectionResult(
+        candidates: List<T>,
+        successMessage: String,
+        failureMessage: String
+    ): EquipmentSelectionResult<T> {
+
+        if (candidates.isEmpty()) {
+            return invalid(failureMessage)
+        }
+
+        return EquipmentSelectionResult(
+            selected = candidates.first(),
+            alternatives = candidates.drop(1),
+            valid = true,
+            message = successMessage
         )
     }
 
