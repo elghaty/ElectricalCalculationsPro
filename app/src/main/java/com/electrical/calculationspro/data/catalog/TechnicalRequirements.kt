@@ -21,7 +21,7 @@ sealed interface TechnicalRequirement {
         val cores: Int,
         val material: ConductorMaterial,
         val insulation: InsulationType,
-        val standard: Standard = Standard.IEC
+        override val standard: Standard = Standard.IEC
     ) : TechnicalRequirement
 
     data class Breaker(
@@ -29,7 +29,7 @@ sealed interface TechnicalRequirement {
         val requiredVoltageV: Double,
         val requiredBreakingCapacityKA: Double = 0.0,
         val poles: Int = 3,
-        val standard: Standard = Standard.IEC
+        override val standard: Standard = Standard.IEC
     ) : TechnicalRequirement
 
     data class Transformer(
@@ -37,7 +37,7 @@ sealed interface TechnicalRequirement {
         val primaryVoltageV: Double,
         val secondaryVoltageV: Double,
         val frequencyHz: Double = 50.0,
-        val standard: Standard = Standard.IEC
+        override val standard: Standard = Standard.IEC
     ) : TechnicalRequirement
 
     data class Generator(
@@ -45,7 +45,7 @@ sealed interface TechnicalRequirement {
         val requiredVoltageV: Double = 400.0,
         val frequencyHz: Double = 50.0,
         val powerFactor: Double = 0.8,
-        val standard: Standard = Standard.IEC
+        override val standard: Standard = Standard.IEC
     ) : TechnicalRequirement
 
     data class Busbar(
@@ -53,20 +53,20 @@ sealed interface TechnicalRequirement {
         val requiredVoltageV: Double = 415.0,
         val requiredShortCircuitKA: Double = 0.0,
         val poles: Int = 4,
-        val standard: Standard = Standard.IEC
+        override val standard: Standard = Standard.IEC
     ) : TechnicalRequirement
 
     data class Contactor(
         val requiredCurrentA: Double,
         val requiredVoltageV: Double = 400.0,
         val utilizationCategory: String = "AC-3",
-        val standard: Standard = Standard.IEC
+        override val standard: Standard = Standard.IEC
     ) : TechnicalRequirement
 
     data class Panel(
         val requiredCurrentA: Double,
         val requiredVoltageV: Double = 415.0,
         val poles: Int = 4,
-        val standard: Standard = Standard.IEC
+        override val standard: Standard = Standard.IEC
     ) : TechnicalRequirement
 }
