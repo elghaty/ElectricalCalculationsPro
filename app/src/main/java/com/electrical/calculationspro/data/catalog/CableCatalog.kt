@@ -4,10 +4,25 @@ object CableCatalog {
 
     private val standardSections =
         listOf(
-            1.5, 2.5, 4.0, 6.0, 10.0, 16.0,
-            25.0, 35.0, 50.0, 70.0, 95.0,
-            120.0, 150.0, 185.0, 240.0,
-            300.0, 400.0, 500.0, 630.0
+            1.5,
+            2.5,
+            4.0,
+            6.0,
+            10.0,
+            16.0,
+            25.0,
+            35.0,
+            50.0,
+            70.0,
+            95.0,
+            120.0,
+            150.0,
+            185.0,
+            240.0,
+            300.0,
+            400.0,
+            500.0,
+            630.0
         )
 
     private fun sourceFor(
@@ -53,44 +68,44 @@ object CableCatalog {
     fun elsewedyCopperPvc(): List<CableCatalogItem> =
         standardSections.map {
             create(
-                Manufacturer.ELSEWEDY_ELECTRIC,
-                "Elsewedy LV Cable",
-                it,
-                "PVC",
-                600
+                manufacturer = Manufacturer.ELSEWEDY_ELECTRIC,
+                family = "Elsewedy LV Cable",
+                section = it,
+                insulation = "PVC",
+                voltageClassV = 600
             )
         }
 
     fun elsewedyCopperXlpe(): List<CableCatalogItem> =
         standardSections.map {
             create(
-                Manufacturer.ELSEWEDY_ELECTRIC,
-                "Elsewedy LV Cable",
-                it,
-                "XLPE",
-                1000
+                manufacturer = Manufacturer.ELSEWEDY_ELECTRIC,
+                family = "Elsewedy LV Cable",
+                section = it,
+                insulation = "XLPE",
+                voltageClassV = 1000
             )
         }
 
     fun nexansCopperPvc(): List<CableCatalogItem> =
         standardSections.map {
             create(
-                Manufacturer.NEXANS,
-                "Nexans LV Cable",
-                it,
-                "PVC",
-                600
+                manufacturer = Manufacturer.NEXANS,
+                family = "Nexans LV Cable",
+                section = it,
+                insulation = "PVC",
+                voltageClassV = 600
             )
         }
 
     fun gizaCopperPvc(): List<CableCatalogItem> =
         standardSections.map {
             create(
-                Manufacturer.GIZA_CABLES,
-                "Giza Cables LV",
-                it,
-                "PVC",
-                600
+                manufacturer = Manufacturer.GIZA_CABLES,
+                family = "Giza Cables LV",
+                section = it,
+                insulation = "PVC",
+                voltageClassV = 600
             )
         }
 
@@ -103,19 +118,39 @@ object CableCatalog {
     fun byManufacturer(
         manufacturer: Manufacturer
     ): List<CableCatalogItem> =
-        all().filter { it.manufacturer == manufacturer }
+        all().filter {
+            it.manufacturer == manufacturer
+        }
 
     fun bySection(
         sectionMm2: Double
     ): List<CableCatalogItem> =
-        all().filter { it.sectionMm2 == sectionMm2 }
+        all().filter {
+            it.sectionMm2 == sectionMm2
+        }
 
     fun byMaterialAndInsulation(
         material: String,
         insulation: String
     ): List<CableCatalogItem> =
         all().filter {
-            it.conductorMaterial.equals(material, true) &&
-                it.insulation.equals(insulation, true)
+            it.conductorMaterial.equals(
+                material,
+                ignoreCase = true
+            ) &&
+                it.insulation.equals(
+                    insulation,
+                    ignoreCase = true
+                )
+        }
+
+    fun sections(): List<Double> =
+        standardSections
+
+    fun nextStandardSection(
+        requiredSectionMm2: Double
+    ): Double? =
+        standardSections.firstOrNull {
+            it >= requiredSectionMm2
         }
 }
