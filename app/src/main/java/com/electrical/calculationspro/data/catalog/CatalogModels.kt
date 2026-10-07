@@ -26,6 +26,7 @@ enum class EquipmentType {
 }
 
 enum class ProductFamilyStatus {
+    VERIFIED_PRODUCT,
     VERIFIED_FAMILY,
     ENGINEERING_DATA_REQUIRED,
     LEGACY_OR_REGIONAL,
