@@ -26,30 +26,32 @@ object CatalogSelector {
                     currentA = designCurrentA,
                     shortCircuitKA = shortCircuitKA
                 )
-                .filter { item ->
+                .filter {
                     manufacturer == null ||
-                        item.manufacturer == manufacturer
+                        it.manufacturer == manufacturer
                 }
 
         if (candidates.isEmpty()) {
             return invalid(
                 if (shortCircuitKA > 0.0) {
-                    "No catalog breaker has sufficient rated current and verified breaking capacity for the required fault current."
+                    "No catalog breaker has verified breaking capacity sufficient for the required fault current."
                 } else {
                     "No catalog breaker satisfies the required rated current."
                 }
             )
         }
 
+        val selected = candidates.first()
+
         return EquipmentSelectionResult(
-            selected = candidates.first(),
+            selected = selected,
             alternatives = candidates.drop(1),
             valid = true,
             message =
-                if (shortCircuitKA > 0.0) {
-                    "Catalog breaker satisfies the requested current and available breaking-capacity data."
+                if (selected.breakingCapacityKA != null) {
+                    "Catalog breaker selected with available voltage-specific breaking-capacity data."
                 } else {
-                    "Catalog breaker rating found. Breaking capacity still requires verification against the prospective fault current."
+                    "Catalog breaker rating found. Breaking capacity requires verification before final design."
                 }
         )
     }
@@ -72,8 +74,8 @@ object CatalogSelector {
                     sectionMm2 = requiredSectionMm2,
                     manufacturer = manufacturer
                 )
-                .sortedBy { item ->
-                    item.sectionMm2
+                .sortedBy {
+                    it.sectionMm2
                 }
 
         if (candidates.isEmpty()) {
@@ -87,7 +89,7 @@ object CatalogSelector {
             alternatives = candidates.drop(1),
             valid = true,
             message =
-                "Catalog cable family found. Electrical ampacity and manufacturer R/X data must be verified for the final design."
+                "Catalog cable reference found. Final ampacity, installation correction factors and manufacturer electrical data require verification."
         )
     }
 
@@ -104,23 +106,23 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectTransformer(requiredKva)
-                .sortedBy { item ->
-                    item.ratedPowerKva
+                .sortedBy {
+                    it.ratedPowerKva
                 }
 
-        return if (candidates.isEmpty()) {
-            invalid(
+        if (candidates.isEmpty()) {
+            return invalid(
                 "No catalog transformer satisfies the required rating."
             )
-        } else {
-            EquipmentSelectionResult(
-                selected = candidates.first(),
-                alternatives = candidates.drop(1),
-                valid = true,
-                message =
-                    "Catalog transformer rating found. Final impedance, voltage, vector group and manufacturer data require verification."
-            )
         }
+
+        return EquipmentSelectionResult(
+            selected = candidates.first(),
+            alternatives = candidates.drop(1),
+            valid = true,
+            message =
+                "Transformer rating found. Manufacturer impedance, vector group and complete technical data require verification."
+        )
     }
 
     fun selectGenerator(
@@ -136,23 +138,23 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectGenerator(requiredKva)
-                .sortedBy { item ->
-                    item.ratedPowerKva
+                .sortedBy {
+                    it.ratedPowerKva
                 }
 
-        return if (candidates.isEmpty()) {
-            invalid(
+        if (candidates.isEmpty()) {
+            return invalid(
                 "No catalog generator satisfies the required rating."
             )
-        } else {
-            EquipmentSelectionResult(
-                selected = candidates.first(),
-                alternatives = candidates.drop(1),
-                valid = true,
-                message =
-                    "Catalog generator rating found. Final alternator short-circuit and transient data require manufacturer verification."
-            )
         }
+
+        return EquipmentSelectionResult(
+            selected = candidates.first(),
+            alternatives = candidates.drop(1),
+            valid = true,
+            message =
+                "Generator rating found. Manufacturer alternator, transient and short-circuit data require verification."
+        )
     }
 
     fun selectBusbar(
@@ -168,27 +170,29 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectBusbar(currentA)
-                .sortedBy { item ->
-                    item.ratedCurrentA
+                .sortedBy {
+                    it.ratedCurrentA
                 }
 
-        return if (candidates.isEmpty()) {
-            invalid(
+        if (candidates.isEmpty()) {
+            return invalid(
                 "No catalog busbar satisfies the required current."
             )
-        } else {
-            EquipmentSelectionResult(
-                selected = candidates.first(),
-                alternatives = candidates.drop(1),
-                valid = true,
-                message =
-                    if (candidates.first().shortCircuitKA != null) {
-                        "Catalog busbar found with available short-circuit data."
-                    } else {
-                        "Catalog busbar rating found. Short-circuit withstand requires manufacturer verification."
-                    }
-            )
         }
+
+        val selected = candidates.first()
+
+        return EquipmentSelectionResult(
+            selected = selected,
+            alternatives = candidates.drop(1),
+            valid = true,
+            message =
+                if (selected.shortCircuitKA != null) {
+                    "Busbar rating found with available short-circuit withstand data."
+                } else {
+                    "Busbar rating found. Short-circuit withstand requires manufacturer verification."
+                }
+        )
     }
 
     fun selectContactor(
@@ -204,23 +208,23 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectContactor(motorCurrentA)
-                .sortedBy { item ->
-                    item.ratedCurrentA
+                .sortedBy {
+                    it.ratedCurrentA
                 }
 
-        return if (candidates.isEmpty()) {
-            invalid(
+        if (candidates.isEmpty()) {
+            return invalid(
                 "No catalog contactor satisfies the required motor current."
             )
-        } else {
-            EquipmentSelectionResult(
-                selected = candidates.first(),
-                alternatives = candidates.drop(1),
-                valid = true,
-                message =
-                    "Catalog contactor found. Final utilization category and motor-duty coordination require verification."
-            )
         }
+
+        return EquipmentSelectionResult(
+            selected = candidates.first(),
+            alternatives = candidates.drop(1),
+            valid = true,
+            message =
+                "Contactor rating found. Final AC-3 coordination and manufacturer data require verification."
+        )
     }
 
     fun selectPanel(
@@ -236,23 +240,23 @@ object CatalogSelector {
         val candidates =
             EquipmentCatalog
                 .selectPanel(currentA)
-                .sortedBy { item ->
-                    item.ratedCurrentA
+                .sortedBy {
+                    it.ratedCurrentA
                 }
 
-        return if (candidates.isEmpty()) {
-            invalid(
+        if (candidates.isEmpty()) {
+            return invalid(
                 "No catalog panel satisfies the required current."
             )
-        } else {
-            EquipmentSelectionResult(
-                selected = candidates.first(),
-                alternatives = candidates.drop(1),
-                valid = true,
-                message =
-                    "Catalog panel rating found. Final enclosure, IP, short-circuit withstand and assembly verification are required."
-            )
         }
+
+        return EquipmentSelectionResult(
+            selected = candidates.first(),
+            alternatives = candidates.drop(1),
+            valid = true,
+            message =
+                "Panel rating found. Final enclosure, IP, short-circuit withstand and assembly verification are required."
+        )
     }
 
     private fun <T> invalid(
