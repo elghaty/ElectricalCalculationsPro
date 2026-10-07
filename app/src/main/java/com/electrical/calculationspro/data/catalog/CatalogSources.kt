@@ -9,8 +9,8 @@ object CatalogSources {
         status = ProductFamilyStatus.VERIFIED_PRODUCT,
         officialUrl = "https://www.se.com/eg/en/product/C25B32D250/",
         verificationNote =
-            "Exact commercial reference. ComPacT NSX250B, 3P, 250 A, 415 V AC, " +
-                "25 kA class at 415 V AC. Final selection remains voltage and configuration dependent."
+            "Exact commercial reference. ComPacT NSX250B, 3P, 250 A, " +
+                "415 V AC, 25 kA class at 415 V AC."
     )
 
     val schneiderCompactNsxC25N32D250 = CatalogSource(
@@ -20,8 +20,8 @@ object CatalogSources {
         status = ProductFamilyStatus.VERIFIED_PRODUCT,
         officialUrl = "https://www.se.com/eg/ar/product/C25N32D250/",
         verificationNote =
-            "Exact commercial reference. ComPacT NSX250N, 3P, 250 A, 415 V AC, " +
-                "50 kA class at 415 V AC."
+            "Exact commercial reference. ComPacT NSX250N, 3P, 250 A, " +
+                "415 V AC, 50 kA class at 415 V AC."
     )
 
     val schneiderCompactNsxC25H32D250 = CatalogSource(
@@ -31,8 +31,8 @@ object CatalogSources {
         status = ProductFamilyStatus.VERIFIED_PRODUCT,
         officialUrl = "https://www.se.com/eg/en/product/C25H32D250/",
         verificationNote =
-            "Exact commercial reference. ComPacT NSX250H, 3P, 250 A, 415 V AC, " +
-                "70 kA class at 415 V AC."
+            "Exact commercial reference. ComPacT NSX250H, 3P, 250 A, " +
+                "415 V AC, 70 kA class at 415 V AC."
     )
 
     val siemens3vm11103ed220aa0 = CatalogSource(
@@ -40,11 +40,10 @@ object CatalogSources {
         sourceName = "Siemens",
         sourceReference = "3VM11103ED220AA0",
         status = ProductFamilyStatus.VERIFIED_PRODUCT,
-        officialUrl =
-            "https://sieportal.siemens.com/en-ww/products-services/detail/3VA5195-6EF31-0AA0",
+        officialUrl = "",
         verificationNote =
-            "Exact Siemens SENTRON commercial reference already controlled in the project. " +
-                "Electrical breaking-capacity data must remain voltage-specific."
+            "Exact Siemens reference retained as a controlled catalogue record. " +
+                "Voltage-specific breaking-capacity data must be verified from the current manufacturer documentation before selection."
     )
 
     val schneiderLc1d25d7 = CatalogSource(
@@ -66,8 +65,7 @@ object CatalogSources {
         officialUrl =
             "https://mall.industry.siemens.com/mall/en/WW/Catalog/Product/3RT2026-1AP00",
         verificationNote =
-            "Exact SIRIUS 3RT commercial reference. AC-3e/AC-3, 25 A, 11 kW at 400 V, " +
-                "3-pole, 230 V AC coil, 50 Hz."
+            "Exact SIRIUS commercial reference. Current manufacturer documentation must be used for final application verification."
     )
 
     val elsewedyN2xhJ3x15 = CatalogSource(
@@ -100,8 +98,7 @@ object CatalogSources {
         officialUrl =
             "https://www.se.com/uk/en/download/document/04696112/",
         verificationNote =
-            "Official Linergy BW insulated busbar documentation identifies the 630 A range. " +
-                "Exact commercial assembly/reference and short-circuit withstand data must be verified."
+            "Official Linergy BW documentation. Exact commercial assembly and short-circuit withstand remain configuration-dependent."
     )
 
     val schneiderPrismaSetG630 = CatalogSource(
@@ -112,7 +109,7 @@ object CatalogSources {
         officialUrl =
             "https://www.se.com/eg/en/product-subcategory/23877549-panel-building-systems/",
         verificationNote =
-            "PrismaSeT G panel-building system up to 630 A, designed around IEC 61439-1/-2."
+            "Panel-building system associated with IEC 61439-1/-2. Exact assembly configuration must be engineered."
     )
 
     val schneiderPrismaSetP4000 = CatalogSource(
@@ -123,8 +120,7 @@ object CatalogSources {
         officialUrl =
             "https://www.se.com/ar/es/product-subcategory/23877549-panel-building-systems/",
         verificationNote =
-            "PrismaSeT P panel-building system up to 4000 A under IEC 61439-1/-2. " +
-                "Exact assembly configuration must be engineered and verified."
+            "Panel-building system associated with IEC 61439-1/-2. Exact assembly configuration must be engineered."
     )
 
     val schneiderCompactNsxFamily = CatalogSource(
@@ -135,7 +131,18 @@ object CatalogSources {
         officialUrl =
             "https://www.se.com/eg/en/download/document/LVPED221001EN/",
         verificationNote =
-            "Official 2026 ComPacT NSX/NSXm catalog. Exact commercial reference required."
+            "Official ComPacT NSX documentation. Exact commercial reference is required for final selection."
+    )
+
+    val abbTmaxXt = CatalogSource(
+        manufacturer = Manufacturer.ABB,
+        sourceName = "ABB",
+        sourceReference = "SACE Tmax XT",
+        status = ProductFamilyStatus.VERIFIED_FAMILY,
+        officialUrl =
+            "https://new.abb.com/low-voltage/products/circuit-breakers/tmax-xt",
+        verificationNote =
+            "Manufacturer family reference. Exact order code and electrical configuration are required."
     )
 
     val siemensSentronFamily = CatalogSource(
@@ -144,20 +151,64 @@ object CatalogSources {
         sourceReference = "SENTRON 3VA",
         status = ProductFamilyStatus.VERIFIED_FAMILY,
         officialUrl =
-            "https://sieportal.siemens.com/en-ww/products-services/detail/3VA5195-6EF31-0AA0",
+            "https://www.siemens.com/global/en/products/energy/low-voltage/components/sentron-protection-switching-measuring/3va-molded-case-circuit-breakers.html",
         verificationNote =
-            "Official Siemens SENTRON documentation. Exact order number required."
+            "Manufacturer family reference. Exact order number and voltage-specific ratings are required."
     )
 
-    val nexansLvCatalog = CatalogSource(
-        manufacturer = Manufacturer.NEXANS,
-        sourceName = "Nexans",
-        sourceReference = "Nexans LV Product Catalogue",
+    val legrandDpx = CatalogSource(
+        manufacturer = Manufacturer.LEGRAND,
+        sourceName = "Legrand",
+        sourceReference = "DPX",
         status = ProductFamilyStatus.VERIFIED_FAMILY,
         officialUrl =
-            "https://www.nexans.com/activities/nexans-catalog/",
+            "https://www.legrand.com/",
         verificationNote =
-            "Official Nexans catalogue. Exact regional product reference and datasheet required."
+            "Manufacturer family reference. Exact commercial reference is required."
+    )
+
+    val lsSusol = CatalogSource(
+        manufacturer = Manufacturer.LS_ELECTRIC,
+        sourceName = "LS ELECTRIC",
+        sourceReference = "Susol",
+        status = ProductFamilyStatus.VERIFIED_FAMILY,
+        officialUrl =
+            "https://www.ls-electric.com/",
+        verificationNote =
+            "Manufacturer family reference. Exact commercial reference is required."
+    )
+
+    val elsewedyCable = CatalogSource(
+        manufacturer = Manufacturer.ELSEWEDY_ELECTRIC,
+        sourceName = "Elsewedy Electric",
+        sourceReference = "LV Cable Catalogue",
+        status = ProductFamilyStatus.VERIFIED_FAMILY,
+        officialUrl =
+            "https://elsewedyelectric.com/",
+        verificationNote =
+            "Manufacturer catalogue family. Exact product reference and datasheet are required for final cable selection."
+    )
+
+    val nexansCable = CatalogSource(
+        manufacturer = Manufacturer.NEXANS,
+        sourceName = "Nexans",
+        sourceReference = "LV Cable Catalogue",
+        status = ProductFamilyStatus.VERIFIED_FAMILY,
+        officialUrl =
+            "https://www.nexans.com/",
+        verificationNote =
+            "Manufacturer catalogue family. Exact regional product reference and datasheet are required."
+    )
+
+    val gizaCable = CatalogSource(
+        manufacturer = Manufacturer.GIZA_CABLES,
+        sourceName = "Giza Cables",
+        sourceReference = "LV Cable Catalogue",
+        status = ProductFamilyStatus.VERIFIED_FAMILY,
+        officialUrl =
+            "https://gizacables.com/",
+        verificationNote =
+            "Manufacturer catalogue family. Exact product reference and datasheet are required."
     )
 
     val generic = CatalogSource(
@@ -167,6 +218,6 @@ object CatalogSources {
         status = ProductFamilyStatus.GENERIC,
         officialUrl = "",
         verificationNote =
-            "Engineering placeholder only. Must not be selected as a manufacturer product."
+            "Engineering placeholder only. It must not be represented as a manufacturer product."
     )
 }
