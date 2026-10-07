@@ -3,26 +3,33 @@ package com.electrical.calculationspro.data.calculators
 import com.electrical.calculationspro.data.BreakerSelectionResult
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
+import com.electrical.calculationspro.data.standards.CodeRuleRegistry
+import com.electrical.calculationspro.data.standards.EngineeringRuleBook
 
 /**
- * Protective-device engineering selection.
+ * PROFESSIONAL BREAKER SELECTION ENGINE
  *
- * Basic coordination rule:
+ * Engineering chain:
  *
- *      Ib <= In <= Iz
+ *     Ib
+ *      ↓
+ * Standard breaker ratings
+ *      ↓
+ * Ib <= In <= Iz
+ *      ↓
+ * Prospective Ik
+ *      ↓
+ * Icu/Ics >= Ik
+ *      ↓
+ * Manufacturer catalogue verification
  *
- * Final verification also requires adequate breaking capacity
- * against the prospective short-circuit current.
+ * This calculator determines engineering requirements.
+ * Manufacturer catalogue selection remains in EquipmentSelectionCalculator.
  */
 object BreakerSelectionCalculator {
 
     private const val EPSILON = 1.0e-9
 
-    /**
-     * Select the smallest standard breaker rating satisfying:
-     *
-     *      Ib <= In <= Iz
-     */
     fun selectRating(
         designCurrentA: Double,
         cableAmpacityA: Double,
@@ -37,28 +44,28 @@ object BreakerSelectionCalculator {
             "Cable ampacity cannot be negative."
         }
 
-        val ratings =
-            CodeEngineFactory
-                .get(standard)
-                .standardBreakerRatings()
-                .sorted()
+        EngineeringRuleBook.requireReference(
+            standard = standard,
+            domain = CodeRuleRegistry.RuleDomain.OVERCURRENT_PROTECTION
+        )
 
-        return ratings.firstOrNull { rating ->
+        EngineeringRuleBook.requireReference(
+            standard = standard,
+            domain = CodeRuleRegistry.RuleDomain.BREAKER
+        )
 
-            rating + EPSILON >=
-                designCurrentA &&
-
-                rating <=
-                cableAmpacityA + EPSILON
-
-        } ?: 0.0
+        return CodeEngineFactory
+            .get(standard)
+            .standardBreakerRatings()
+            .filter { it > EPSILON }
+            .sorted()
+            .firstOrNull { rating ->
+                rating + EPSILON >= designCurrentA &&
+                    rating <= cableAmpacityA + EPSILON
+            }
+            ?: 0.0
     }
 
-    /**
-     * Verify:
-     *
-     *      Ib <= In <= Iz
-     */
     fun satisfiesCoordination(
         designCurrentA: Double,
         breakerRatingA: Double,
@@ -79,15 +86,10 @@ object BreakerSelectionCalculator {
 
         return designCurrentA <=
             breakerRatingA &&
-
             breakerRatingA <=
             cableAmpacityA
     }
 
-    /**
-     * Verify breaker breaking capacity against
-     * prospective short-circuit current.
-     */
     fun isBreakingCapacityAdequate(
         prospectiveFaultCurrentKA: Double,
         breakerBreakingCapacityKA: Double
@@ -106,33 +108,22 @@ object BreakerSelectionCalculator {
             prospectiveFaultCurrentKA
     }
 
-    /**
-     * Available standard nominal breaker ratings.
-     */
     fun availableRatings(
         standard: Standard = Standard.IEC
     ): List<Double> {
 
+        EngineeringRuleBook.requireReference(
+            standard = standard,
+            domain = CodeRuleRegistry.RuleDomain.BREAKER
+        )
+
         return CodeEngineFactory
             .get(standard)
             .standardBreakerRatings()
+            .filter { it > EPSILON }
             .sorted()
     }
 
-    /**
-     * Complete preliminary breaker verification.
-     *
-     * A result is considered final-valid only when:
-     *
-     * 1. A standard breaker rating exists.
-     * 2. Ib <= In <= Iz.
-     * 3. Prospective fault current is supplied.
-     * 4. Breaker breaking capacity is supplied.
-     * 5. Breaking capacity >= prospective fault current.
-     *
-     * This prevents an incomplete breaker check from being
-     * presented as a fully verified engineering result.
-     */
     fun calculate(
         designCurrentA: Double,
         cableAmpacityA: Double,
@@ -157,37 +148,41 @@ object BreakerSelectionCalculator {
             "Breaker breaking capacity cannot be negative."
         }
 
+        val protectionRule =
+            EngineeringRuleBook.requireReference(
+                standard = standard,
+                domain =
+                    CodeRuleRegistry.RuleDomain.OVERCURRENT_PROTECTION
+            )
+
+        val breakerRule =
+            EngineeringRuleBook.requireReference(
+                standard = standard,
+                domain =
+                    CodeRuleRegistry.RuleDomain.BREAKER
+            )
+
+        val engine =
+            CodeEngineFactory.get(standard)
+
         val selected =
             selectRating(
-                designCurrentA =
-                    designCurrentA,
-                cableAmpacityA =
-                    cableAmpacityA,
-                standard =
-                    standard
+                designCurrentA = designCurrentA,
+                cableAmpacityA = cableAmpacityA,
+                standard = standard
             )
 
         val coordination =
             selected > EPSILON &&
                 satisfiesCoordination(
-                    designCurrentA =
-                        designCurrentA,
-                    breakerRatingA =
-                        selected,
-                    cableAmpacityA =
-                        cableAmpacityA
+                    designCurrentA = designCurrentA,
+                    breakerRatingA = selected,
+                    cableAmpacityA = cableAmpacityA
                 )
 
-        /*
-         * Zero is treated as "not supplied", not as
-         * a valid short-circuit value.
-         */
         val faultDataProvided =
-            prospectiveFaultCurrentKA >
-                EPSILON &&
-
-                breakerBreakingCapacityKA >
-                EPSILON
+            prospectiveFaultCurrentKA > EPSILON &&
+                breakerBreakingCapacityKA > EPSILON
 
         val breakingCapacityValid =
             faultDataProvided &&
@@ -198,41 +193,57 @@ object BreakerSelectionCalculator {
                         breakerBreakingCapacityKA
                 )
 
-        val engine =
-            CodeEngineFactory.get(standard)
+        /*
+         * A calculation can only be called professionally verified
+         * when the applicable rule references are verified AND
+         * all required numerical inputs exist.
+         */
+        val codeRulesVerified =
+            protectionRule.verified &&
+                breakerRule.verified
+
+        val valid =
+            selected > EPSILON &&
+                coordination &&
+                faultDataProvided &&
+                breakingCapacityValid &&
+                codeRulesVerified
+
+        val references =
+            (
+                EngineeringRuleBook.referenceIds(
+                    standard,
+                    CodeRuleRegistry.RuleDomain.OVERCURRENT_PROTECTION
+                ) +
+                    EngineeringRuleBook.referenceIds(
+                        standard,
+                        CodeRuleRegistry.RuleDomain.BREAKER
+                    )
+                ).distinct()
 
         val notes =
             buildList {
 
+                add("Standard: ${engine.codeName}")
+                add("Code revision: ${engine.codeRevision}")
+                add("Rule domains: OVERCURRENT_PROTECTION, BREAKER")
+
                 add(
-                    "Standard: ${engine.codeName}"
+                    "Design current Ib = %.2f A"
+                        .format(designCurrentA)
                 )
 
                 add(
-                    "Design current = %.2f A"
-                        .format(
-                            designCurrentA
-                        )
-                )
-
-                add(
-                    "Cable ampacity = %.2f A"
-                        .format(
-                            cableAmpacityA
-                        )
+                    "Cable ampacity Iz = %.2f A"
+                        .format(cableAmpacityA)
                 )
 
                 if (selected > EPSILON) {
-
                     add(
-                        "Selected nominal rating = %.0f A"
-                            .format(
-                                selected
-                            )
+                        "Selected nominal breaker current In = %.0f A"
+                            .format(selected)
                     )
-
                 } else {
-
                     add(
                         "No standard breaker rating satisfies Ib <= In <= Iz."
                     )
@@ -240,85 +251,82 @@ object BreakerSelectionCalculator {
 
                 add(
                     if (coordination) {
-
                         "Coordination Ib <= In <= Iz: PASS"
-
                     } else {
-
                         "Coordination Ib <= In <= Iz: FAIL"
                     }
                 )
 
                 if (faultDataProvided) {
-
                     add(
-                        "Breaking capacity = %.1f kA; prospective fault current = %.1f kA"
+                        "Prospective fault current Ik = %.3f kA"
                             .format(
-                                breakerBreakingCapacityKA,
                                 prospectiveFaultCurrentKA
                             )
                     )
 
                     add(
+                        "Breaker breaking capacity = %.3f kA"
+                            .format(
+                                breakerBreakingCapacityKA
+                            )
+                    )
+
+                    add(
                         if (breakingCapacityValid) {
-
-                            "Breaking capacity check: PASS"
-
+                            "Breaking-capacity verification: PASS"
                         } else {
-
-                            "Breaking capacity check: FAIL"
+                            "Breaking-capacity verification: FAIL"
                         }
                     )
-
                 } else {
-
                     add(
-                        "Breaking capacity verification INCOMPLETE: prospective fault current and selected device breaking capacity are required."
+                        "Breaking-capacity verification INCOMPLETE: verified prospective fault current and breaker breaking capacity are required."
                     )
                 }
 
-                if (!engine.isFullyImplemented()) {
-
+                if (!protectionRule.verified) {
                     add(
-                        engine.implementationStatus()
+                        "Overcurrent protection numerical/design dataset is not fully verified."
                     )
                 }
+
+                if (!breakerRule.verified) {
+                    add(
+                        "Breaker rule numerical/design dataset is not fully verified."
+                    )
+                }
+
+                add(
+                    "Final manufacturer selection must be verified against the equipment catalogue."
+                )
+
+                addAll(
+                    EngineeringRuleBook.auditTrail(
+                        standard,
+                        CodeRuleRegistry.RuleDomain.OVERCURRENT_PROTECTION
+                    )
+                )
+
+                addAll(
+                    EngineeringRuleBook.auditTrail(
+                        standard,
+                        CodeRuleRegistry.RuleDomain.BREAKER
+                    )
+                )
             }
 
-        /*
-         * Final validity deliberately requires the complete
-         * electrical verification chain.
-         */
-        val valid =
-            selected > EPSILON &&
-                coordination &&
-                faultDataProvided &&
-                breakingCapacityValid
-
         return BreakerSelectionResult(
-            designCurrentA =
-                designCurrentA,
-
-            cableAmpacityA =
-                cableAmpacityA,
-
-            selectedRatingA =
-                selected,
-
+            designCurrentA = designCurrentA,
+            cableAmpacityA = cableAmpacityA,
+            selectedRatingA = selected,
             breakingCapacityKA =
                 breakerBreakingCapacityKA,
-
-            coordinationValid =
-                coordination,
-
+            coordinationValid = coordination,
             breakingCapacityValid =
                 breakingCapacityValid,
-
-            valid =
-                valid,
-
-            notes =
-                notes
+            valid = valid,
+            notes = notes
         )
     }
 }
