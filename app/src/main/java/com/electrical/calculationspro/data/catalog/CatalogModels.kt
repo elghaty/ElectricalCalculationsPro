@@ -36,7 +36,9 @@ data class CatalogSource(
     val manufacturer: Manufacturer,
     val sourceName: String,
     val sourceReference: String,
-    val status: ProductFamilyStatus
+    val status: ProductFamilyStatus,
+    val officialUrl: String = "",
+    val verificationNote: String = ""
 )
 
 data class EquipmentSelectionResult<T>(
