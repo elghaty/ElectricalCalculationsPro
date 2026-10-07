@@ -3,33 +3,39 @@ package com.electrical.calculationspro.data.calculators
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.ShortCircuitResult
+import com.electrical.calculationspro.data.Standard
+import com.electrical.calculationspro.data.standards.CodeEngineFactory
+import com.electrical.calculationspro.data.standards.CodeRuleRegistry
+import com.electrical.calculationspro.data.standards.EngineeringRuleBook
 import kotlin.math.sqrt
 
 /**
- * Short-circuit calculation engine.
+ * PROFESSIONAL SHORT-CIRCUIT ENGINE
  *
- * The legacy API is preserved for application compatibility.
+ * Current legacy model represents a preliminary network model.
  *
- * Important:
- * The legacy input model does not contain sufficient information
- * for a fully verified IEC 60909 study. Therefore results produced
- * through this API are explicitly marked preliminary.
+ * The application therefore distinguishes:
  *
- * A verified study requires:
- * - source short-circuit level
- * - source X/R or source sequence impedance
- * - transformer Uk% and X/R where applicable
- * - generator contribution where applicable
- * - motor contribution where applicable
- * - positive/negative/zero sequence data
- * - manufacturer cable R/X data
- * - maximum and minimum fault cases
- * - applicable IEC 60909 correction factors
+ *     Mathematical result
+ *          from
+ *     Code-verified fault study
+ *
+ * The legacy API remains compatible.
+ *
+ * The code-driven API records IEC 60909 / applicable-code traceability
+ * and never claims a complete fault study when required network data
+ * are missing.
  */
 object ShortCircuitCalculator {
 
     private const val EPSILON = 1.0e-9
 
+    /**
+     * Legacy API.
+     *
+     * Default source Ik is intentionally zero.
+     * Therefore the caller must explicitly provide source fault level.
+     */
     fun calculate(
         voltage: Double,
         length: Double,
@@ -37,6 +43,183 @@ object ShortCircuitCalculator {
         material: ConductorMaterial,
         currentType: CurrentType,
         sourceIkKA: Double = 0.0
+    ): ShortCircuitResult =
+        calculateInternal(
+            voltage = voltage,
+            length = length,
+            sectionMm2 = sectionMm2,
+            material = material,
+            currentType = currentType,
+            sourceIkKA = sourceIkKA,
+            standard = null
+        )
+
+    /**
+     * CODE-DRIVEN SHORT-CIRCUIT API.
+     *
+     * Standard is an engineering input, not just metadata.
+     */
+    fun calculate(
+        voltage: Double,
+        length: Double,
+        sectionMm2: Double,
+        material: ConductorMaterial,
+        currentType: CurrentType,
+        sourceIkKA: Double,
+        standard: Standard
+    ): ShortCircuitResult {
+
+        val rule =
+            EngineeringRuleBook.requireReference(
+                standard = standard,
+                domain =
+                    CodeRuleRegistry.RuleDomain.SHORT_CIRCUIT
+            )
+
+        val result =
+            calculateInternal(
+                voltage = voltage,
+                length = length,
+                sectionMm2 = sectionMm2,
+                material = material,
+                currentType = currentType,
+                sourceIkKA = sourceIkKA,
+                standard = standard
+            )
+
+        val engine =
+            CodeEngineFactory.get(standard)
+
+        return result.copy(
+            valid =
+                false,
+            notes =
+                result.notes +
+                    listOf(
+                        "Code: ${engine.codeName}",
+                        "Code revision: ${engine.codeRevision}",
+                        "Rule domain: SHORT_CIRCUIT",
+                        "Code reference verification = ${rule.verified}",
+                        "This legacy network model is not sufficient for a complete IEC 60909 final fault study.",
+                        "Final design requires complete source/network impedance, transformer/generator/motor contribution and applicable maximum/minimum fault cases."
+                    ) +
+                    EngineeringRuleBook.auditTrail(
+                        standard = standard,
+                        domain =
+                            CodeRuleRegistry.RuleDomain.SHORT_CIRCUIT
+                    )
+        )
+    }
+
+    /**
+     * Professional result carrying explicit code state.
+     */
+    data class CodeDrivenResult(
+        val result: ShortCircuitResult,
+        val standard: Standard,
+        val codeName: String,
+        val codeRevision: String,
+        val codeVerified: Boolean,
+        val ruleReferences: List<String>,
+        val notes: List<String>
+    )
+
+    fun calculateCodeDriven(
+        voltage: Double,
+        length: Double,
+        sectionMm2: Double,
+        material: ConductorMaterial,
+        currentType: CurrentType,
+        sourceIkKA: Double,
+        standard: Standard = Standard.IEC
+    ): CodeDrivenResult {
+
+        val rule =
+            EngineeringRuleBook.requireReference(
+                standard = standard,
+                domain =
+                    CodeRuleRegistry.RuleDomain.SHORT_CIRCUIT
+            )
+
+        val engine =
+            CodeEngineFactory.get(standard)
+
+        val result =
+            calculate(
+                voltage = voltage,
+                length = length,
+                sectionMm2 = sectionMm2,
+                material = material,
+                currentType = currentType,
+                sourceIkKA = sourceIkKA,
+                standard = standard
+            )
+
+        val references =
+            EngineeringRuleBook.referenceIds(
+                standard = standard,
+                domain =
+                    CodeRuleRegistry.RuleDomain.SHORT_CIRCUIT
+            )
+
+        val notes =
+            buildList {
+                add("Standard: ${engine.codeName}")
+                add("Code revision: ${engine.codeRevision}")
+                add("Rule domain: SHORT_CIRCUIT")
+
+                addAll(result.notes)
+
+                if (rule.verified) {
+                    add(
+                        "Controlled short-circuit reference is registered."
+                    )
+                } else {
+                    add(
+                        "Short-circuit numerical/design dataset is incomplete; result remains preliminary."
+                    )
+                }
+
+                add(
+                    "Final cable impedance should come from the selected manufacturer catalogue."
+                )
+
+                add(
+                    "Final professional study must distinguish maximum and minimum fault cases."
+                )
+
+                addAll(
+                    EngineeringRuleBook.auditTrail(
+                        standard = standard,
+                        domain =
+                            CodeRuleRegistry.RuleDomain.SHORT_CIRCUIT
+                    )
+                )
+            }
+
+        return CodeDrivenResult(
+            result =
+                result.copy(
+                    valid = false,
+                    notes = notes
+                ),
+            standard = standard,
+            codeName = engine.codeName,
+            codeRevision = engine.codeRevision,
+            codeVerified = false,
+            ruleReferences = references,
+            notes = notes
+        )
+    }
+
+    private fun calculateInternal(
+        voltage: Double,
+        length: Double,
+        sectionMm2: Double,
+        material: ConductorMaterial,
+        currentType: CurrentType,
+        sourceIkKA: Double,
+        standard: Standard?
     ): ShortCircuitResult {
 
         if (voltage <= EPSILON) {
@@ -63,9 +246,8 @@ object ShortCircuitCalculator {
             )
         }
 
-        val resistivityOhmMm2PerM =
+        val resistivity =
             when (material) {
-
                 ConductorMaterial.Copper ->
                     0.018
 
@@ -74,12 +256,10 @@ object ShortCircuitCalculator {
             }
 
         val resistancePerMeter =
-            resistivityOhmMm2PerM /
-                sectionMm2
+            resistivity / sectionMm2
 
         val reactancePerMeter =
             when (currentType) {
-
                 CurrentType.DirectCurrent ->
                     0.0
 
@@ -89,7 +269,6 @@ object ShortCircuitCalculator {
 
         val loopFactor =
             when (currentType) {
-
                 CurrentType.DirectCurrent ->
                     2.0
 
@@ -115,7 +294,6 @@ object ShortCircuitCalculator {
 
         val faultVoltage =
             when (currentType) {
-
                 CurrentType.AlternatingThreePhase ->
                     voltage / sqrt(3.0)
 
@@ -124,11 +302,10 @@ object ShortCircuitCalculator {
             }
 
         /*
-         * Source impedance derived from the supplied source
-         * short-circuit current.
+         * Simplified source impedance representation.
          *
-         * This is a simplified source representation because
-         * the legacy API does not provide source X/R.
+         * This is intentionally NOT presented as a complete
+         * IEC 60909 network model.
          */
         val sourceImpedance =
             faultVoltage /
@@ -143,8 +320,10 @@ object ShortCircuitCalculator {
 
         val totalImpedance =
             sqrt(
-                totalResistance * totalResistance +
-                    totalReactance * totalReactance
+                totalResistance *
+                    totalResistance +
+                    totalReactance *
+                    totalReactance
             )
 
         if (totalImpedance <= EPSILON) {
@@ -163,7 +342,6 @@ object ShortCircuitCalculator {
 
         val shortCircuitMva =
             when (currentType) {
-
                 CurrentType.AlternatingThreePhase ->
                     sqrt(3.0) *
                         voltage *
@@ -213,34 +391,62 @@ object ShortCircuitCalculator {
                 xrRatio,
 
             /*
-             * The mathematical calculation exists, but the
-             * legacy input set is insufficient for a verified
-             * IEC 60909 result.
+             * Mathematical result only.
+             *
+             * The current legacy input model cannot establish
+             * complete code compliance.
              */
-            valid =
-                false,
+            valid = false,
 
             notes =
-                listOf(
-                    "PRELIMINARY RESULT - NOT VERIFIED FOR FINAL DESIGN.",
-                    "Source short-circuit current was supplied as %.3f kA."
-                        .format(sourceIkKA),
-                    "Cable resistance = %.6f Ω."
-                        .format(cableResistance),
-                    "Cable reactance = %.6f Ω."
-                        .format(cableReactance),
-                    "Total impedance = %.6f Ω."
-                        .format(totalImpedance),
-                    "Calculated preliminary fault current = %.3f kA."
-                        .format(faultCurrentKA),
-                    "Short-circuit level = %.3f MVA."
-                        .format(shortCircuitMva),
-                    "X/R = %.3f."
-                        .format(xrRatio),
-                    "Final IEC 60909 verification requires complete source, transformer, generator, motor and sequence-network data.",
-                    "Final cable impedance must be taken from the selected manufacturer catalogue.",
-                    "Maximum and minimum fault cases are not represented by this legacy API."
-                )
+                buildList {
+                    add(
+                        "PRELIMINARY SHORT-CIRCUIT RESULT - NOT VERIFIED FOR FINAL DESIGN."
+                    )
+
+                    add(
+                        "Source short-circuit current = %.3f kA."
+                            .format(sourceIkKA)
+                    )
+
+                    add(
+                        "Cable resistance = %.6f Ω."
+                            .format(cableResistance)
+                    )
+
+                    add(
+                        "Cable reactance = %.6f Ω."
+                            .format(cableReactance)
+                    )
+
+                    add(
+                        "Total impedance = %.6f Ω."
+                            .format(totalImpedance)
+                    )
+
+                    add(
+                        "Calculated preliminary fault current = %.3f kA."
+                            .format(faultCurrentKA)
+                    )
+
+                    add(
+                        "Short-circuit level = %.3f MVA."
+                            .format(shortCircuitMva)
+                    )
+
+                    add(
+                        "X/R = %.3f."
+                            .format(xrRatio)
+                    )
+
+                    add(
+                        "Final cable impedance should preferably be taken from the selected manufacturer catalogue."
+                    )
+
+                    add(
+                        "The current API does not contain complete source X/R, transformer, generator, motor and sequence-network data."
+                    )
+                }
         )
     }
 
@@ -249,11 +455,12 @@ object ShortCircuitCalculator {
     ): ShortCircuitResult =
         ShortCircuitResult(
             valid = false,
-            notes = listOf(
-                "DATA INCOMPLETE.",
-                message,
-                "No verified short-circuit result is available."
-            )
+            notes =
+                listOf(
+                    "DATA INCOMPLETE.",
+                    message,
+                    "No verified short-circuit result is available."
+                )
         )
 
     private fun invalid(
@@ -261,9 +468,10 @@ object ShortCircuitCalculator {
     ): ShortCircuitResult =
         ShortCircuitResult(
             valid = false,
-            notes = listOf(
-                "INVALID INPUT.",
-                message
-            )
+            notes =
+                listOf(
+                    "INVALID INPUT.",
+                    message
+                )
         )
 }
