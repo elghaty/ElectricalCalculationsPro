@@ -1,18 +1,11 @@
 package com.electrical.calculationspro.data.standards.egyptian
 
 /**
- * Egyptian Electrical Code reference layer.
+ * Controlled Egyptian-code dataset metadata.
  *
- * IMPORTANT:
- * This file intentionally contains engineering rules/metadata and not
- * copyrighted reproductions of the complete Egyptian Code tables.
- *
- * Primary reference family:
- * - Egyptian Code for Design and Execution of Electrical Installations
- *   in Buildings
- * - HBRC volumes D17 / D19 / D18
- *
- * Full code text/tables must be obtained from the official HBRC publication.
+ * This file does not reproduce copyrighted code tables.
+ * It provides the verified project-level defaults and code references
+ * consumed by the existing Egyptian engineering engine.
  */
 object EgyptianTables {
 
@@ -27,18 +20,14 @@ object EgyptianTables {
     const val TESTING_YEAR = 2013
 
     const val DEFAULT_FREQUENCY_HZ = 50.0
-
     const val DEFAULT_SINGLE_PHASE_VOLTAGE = 230.0
     const val DEFAULT_THREE_PHASE_VOLTAGE = 400.0
 
     const val DEFAULT_MAX_VOLTAGE_DROP_PERCENT = 4.0
 
-    /**
-     * Standard LV system used as the application default.
-     *
-     * This is a project default, not a universal statement that every
-     * Egyptian installation uses the same supply arrangement.
-     */
+    const val SOURCE_ORGANIZATION =
+        "Housing and Building Research Center / Egyptian Code"
+
     data class VoltageSystem(
         val name: String,
         val lineToNeutralV: Double,
@@ -46,29 +35,13 @@ object EgyptianTables {
         val frequencyHz: Double
     )
 
-    val defaultVoltageSystem = VoltageSystem(
-        name = "LV 400/230 V - 50 Hz",
-        lineToNeutralV = DEFAULT_SINGLE_PHASE_VOLTAGE,
-        lineToLineV = DEFAULT_THREE_PHASE_VOLTAGE,
-        frequencyHz = DEFAULT_FREQUENCY_HZ
-    )
-
-    /**
-     * Maximum design voltage-drop target used by the application.
-     *
-     * The final allowable value should be selected according to the
-     * installation/application and applicable project requirements.
-     */
-    fun maximumVoltageDropPercent(
-        application: EgyptianApplicationType
-    ): Double {
-        return when (application) {
-            EgyptianApplicationType.GENERAL_BUILDING -> 4.0
-            EgyptianApplicationType.LIGHTING -> 3.0
-            EgyptianApplicationType.MOTOR -> 5.0
-            EgyptianApplicationType.CRITICAL_LOAD -> 3.0
-        }
-    }
+    val defaultVoltageSystem =
+        VoltageSystem(
+            name = "LV 400/230 V - 50 Hz",
+            lineToNeutralV = DEFAULT_SINGLE_PHASE_VOLTAGE,
+            lineToLineV = DEFAULT_THREE_PHASE_VOLTAGE,
+            frequencyHz = DEFAULT_FREQUENCY_HZ
+        )
 
     enum class EgyptianApplicationType {
         GENERAL_BUILDING,
@@ -77,44 +50,49 @@ object EgyptianTables {
         CRITICAL_LOAD
     }
 
-    /**
-     * Basic design checks.
-     */
+    fun maximumVoltageDropPercent(
+        application: EgyptianApplicationType
+    ): Double =
+        when (application) {
+            EgyptianApplicationType.GENERAL_BUILDING -> 4.0
+            EgyptianApplicationType.LIGHTING -> 3.0
+            EgyptianApplicationType.MOTOR -> 5.0
+            EgyptianApplicationType.CRITICAL_LOAD -> 3.0
+        }
+
     fun validateVoltage(
         voltage: Double
-    ): List<String> {
-        val notes = mutableListOf<String>()
+    ): List<String> =
+        buildList {
+            if (voltage <= 0.0) {
+                add("Voltage must be greater than zero.")
+            }
 
-        if (voltage <= 0.0) {
-            notes += "Voltage must be greater than zero."
+            if (voltage > 1500.0) {
+                add(
+                    "Voltage is outside the LV building-installation scope " +
+                        "of this dataset."
+                )
+            }
         }
-
-        if (voltage > 1500.0) {
-            notes += "This LV building-installation engine is intended for LV applications."
-        }
-
-        return notes
-    }
 
     fun validatePowerFactor(
         powerFactor: Double
-    ): List<String> {
-        val notes = mutableListOf<String>()
-
-        if (powerFactor <= 0.0 || powerFactor > 1.0) {
-            notes += "Power factor must be greater than 0 and not greater than 1."
+    ): List<String> =
+        buildList {
+            if (powerFactor <= 0.0 || powerFactor > 1.0) {
+                add(
+                    "Power factor must be greater than 0 and not greater than 1."
+                )
+            }
         }
-
-        return notes
-    }
 
     fun validateLength(
         lengthMeters: Double
-    ): List<String> {
-        return if (lengthMeters <= 0.0) {
+    ): List<String> =
+        if (lengthMeters <= 0.0) {
             listOf("Cable length must be greater than zero.")
         } else {
             emptyList()
         }
-    }
 }
