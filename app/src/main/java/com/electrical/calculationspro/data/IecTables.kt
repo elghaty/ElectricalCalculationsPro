@@ -1,15 +1,75 @@
 package com.electrical.calculationspro.data
 
 /**
- * IEC engineering datasets used by the application.
+ * Controlled IEC 60364-5-52 engineering datasets.
  *
- * IMPORTANT:
- * A missing table entry must never be replaced by an invented
- * ampacity approximation. Returning null is intentional and allows
- * the caller to report that verified data is unavailable.
+ * Sources used for the populated numerical datasets:
+ * - IEC 60364-5-52 Table B.52.3
+ * - IEC 60364-5-52 Table B.52.4
+ * - IEC 60364-5-52 Table B.52.5
+ * - Schneider Electric Electrical Installation Guide
+ * - TiSoft IEC 60364-5-52 engineering tables
+ *
+ * No unsupported combination is replaced by a guessed value.
+ * A missing value returns null.
  */
 object IecTables {
 
+    const val SOURCE_STANDARD = "IEC 60364-5-52"
+    const val SOURCE_EDITION = "Project controlled IEC dataset"
+    const val SOURCE_PRIMARY_URL =
+        "https://www.electrical-installation.org/enwiki/General_method_for_cable_sizing"
+    const val SOURCE_XLPE_URL =
+        "https://www.ti-soft.com/en/support/help/electricaldesign/standards/iec-60364-5-52/current-carrying-capacity/table_b_52_5"
+
+    private val installationMethods =
+        setOf("A1", "A2", "B1", "B2", "C", "D1", "D2")
+
+    /*
+     * IEC 60364-5-52 Table B.52.3
+     * XLPE/EPR, two loaded conductors.
+     */
+    val xlpeCopper2Loaded = mapOf(
+        1.5 to mapOf("A1" to 19.0, "A2" to 18.5, "B1" to 23.0, "B2" to 22.0, "C" to 24.0, "D1" to 25.0, "D2" to 27.0),
+        2.5 to mapOf("A1" to 26.0, "A2" to 25.0, "B1" to 31.0, "B2" to 30.0, "C" to 33.0, "D1" to 33.0, "D2" to 35.0),
+        4.0 to mapOf("A1" to 35.0, "A2" to 33.0, "B1" to 42.0, "B2" to 40.0, "C" to 45.0, "D1" to 43.0, "D2" to 46.0),
+        6.0 to mapOf("A1" to 45.0, "A2" to 42.0, "B1" to 54.0, "B2" to 51.0, "C" to 58.0, "D1" to 53.0, "D2" to 58.0),
+        10.0 to mapOf("A1" to 61.0, "A2" to 57.0, "B1" to 75.0, "B2" to 69.0, "C" to 80.0, "D1" to 71.0, "D2" to 77.0),
+        16.0 to mapOf("A1" to 81.0, "A2" to 76.0, "B1" to 100.0, "B2" to 91.0, "C" to 107.0, "D1" to 91.0, "D2" to 100.0),
+        25.0 to mapOf("A1" to 106.0, "A2" to 99.0, "B1" to 133.0, "B2" to 119.0, "C" to 138.0, "D1" to 116.0, "D2" to 129.0),
+        35.0 to mapOf("A1" to 131.0, "A2" to 121.0, "B1" to 164.0, "B2" to 146.0, "C" to 171.0, "D1" to 139.0, "D2" to 155.0),
+        50.0 to mapOf("A1" to 158.0, "A2" to 145.0, "B1" to 198.0, "B2" to 175.0, "C" to 209.0, "D1" to 164.0, "D2" to 183.0),
+        70.0 to mapOf("A1" to 200.0, "A2" to 183.0, "B1" to 253.0, "B2" to 221.0, "C" to 269.0, "D1" to 203.0, "D2" to 225.0),
+        95.0 to mapOf("A1" to 241.0, "A2" to 220.0, "B1" to 306.0, "B2" to 265.0, "C" to 328.0, "D1" to 239.0, "D2" to 270.0),
+        120.0 to mapOf("A1" to 278.0, "A2" to 253.0, "B1" to 354.0, "B2" to 305.0, "C" to 382.0, "D1" to 271.0, "D2" to 306.0),
+        150.0 to mapOf("A1" to 318.0, "A2" to 290.0, "B1" to 393.0, "B2" to 334.0, "C" to 441.0, "D1" to 306.0, "D2" to 343.0),
+        185.0 to mapOf("A1" to 362.0, "A2" to 329.0, "B1" to 449.0, "B2" to 384.0, "C" to 506.0, "D1" to 343.0, "D2" to 387.0),
+        240.0 to mapOf("A1" to 424.0, "A2" to 386.0, "B1" to 528.0, "B2" to 459.0, "C" to 599.0, "D1" to 395.0, "D2" to 448.0),
+        300.0 to mapOf("A1" to 486.0, "A2" to 442.0, "B1" to 603.0, "B2" to 532.0, "C" to 693.0, "D1" to 446.0, "D2" to 502.0)
+    )
+
+    val xlpeAluminium2Loaded = mapOf(
+        2.5 to mapOf("A1" to 20.0, "A2" to 19.5, "B1" to 25.0, "B2" to 23.0, "C" to 26.0, "D1" to 26.0),
+        4.0 to mapOf("A1" to 27.0, "A2" to 26.0, "B1" to 33.0, "B2" to 31.0, "C" to 35.0, "D1" to 33.0),
+        6.0 to mapOf("A1" to 35.0, "A2" to 33.0, "B1" to 43.0, "B2" to 40.0, "C" to 45.0, "D1" to 42.0),
+        10.0 to mapOf("A1" to 48.0, "A2" to 45.0, "B1" to 59.0, "B2" to 54.0, "C" to 62.0, "D1" to 55.0, "D2" to 62.0),
+        16.0 to mapOf("A1" to 64.0, "A2" to 60.0, "B1" to 79.0, "B2" to 72.0, "C" to 84.0, "D1" to 71.0, "D2" to 76.0),
+        25.0 to mapOf("A1" to 84.0, "A2" to 78.0, "B1" to 105.0, "B2" to 94.0, "C" to 101.0, "D1" to 90.0, "D2" to 98.0),
+        35.0 to mapOf("A1" to 103.0, "A2" to 96.0, "B1" to 130.0, "B2" to 115.0, "C" to 126.0, "D1" to 108.0, "D2" to 117.0),
+        50.0 to mapOf("A1" to 125.0, "A2" to 115.0, "B1" to 157.0, "B2" to 138.0, "C" to 154.0, "D1" to 128.0, "D2" to 139.0),
+        70.0 to mapOf("A1" to 158.0, "A2" to 145.0, "B1" to 200.0, "B2" to 175.0, "C" to 198.0, "D1" to 158.0, "D2" to 170.0),
+        95.0 to mapOf("A1" to 191.0, "A2" to 175.0, "B1" to 242.0, "B2" to 210.0, "C" to 241.0, "D1" to 186.0, "D2" to 204.0),
+        120.0 to mapOf("A1" to 220.0, "A2" to 201.0, "B1" to 281.0, "B2" to 242.0, "C" to 280.0, "D1" to 211.0, "D2" to 233.0),
+        150.0 to mapOf("A1" to 253.0, "A2" to 230.0, "B1" to 307.0, "B2" to 261.0, "C" to 324.0, "D1" to 238.0, "D2" to 261.0),
+        185.0 to mapOf("A1" to 288.0, "A2" to 262.0, "B1" to 351.0, "B2" to 300.0, "C" to 371.0, "D1" to 267.0, "D2" to 296.0),
+        240.0 to mapOf("A1" to 338.0, "A2" to 307.0, "B1" to 412.0, "B2" to 358.0, "C" to 439.0, "D1" to 307.0, "D2" to 343.0),
+        300.0 to mapOf("A1" to 387.0, "A2" to 352.0, "B1" to 471.0, "B2" to 415.0, "C" to 508.0, "D1" to 346.0, "D2" to 386.0)
+    )
+
+    /*
+     * IEC 60364-5-52 Table B.52.4
+     * PVC, two loaded conductors.
+     */
     val pvcCopper2Loaded = mapOf(
         1.5 to mapOf("A1" to 14.5, "A2" to 14.0, "B1" to 17.5, "B2" to 16.5, "C" to 19.5, "D1" to 22.0, "D2" to 22.0),
         2.5 to mapOf("A1" to 19.5, "A2" to 18.5, "B1" to 24.0, "B2" to 23.0, "C" to 27.0, "D1" to 29.0, "D2" to 28.0),
@@ -29,6 +89,10 @@ object IecTables {
         300.0 to mapOf("A1" to 367.0, "A2" to 334.0, "B1" to 458.0, "B2" to 394.0, "C" to 530.0, "D1" to 379.0, "D2" to 427.0)
     )
 
+    /*
+     * IEC 60364-5-52 Table B.52.4
+     * PVC, three loaded conductors.
+     */
     val pvcCopper3Loaded = mapOf(
         1.5 to mapOf("A1" to 13.5, "A2" to 13.0, "B1" to 15.5, "B2" to 15.0, "C" to 17.5, "D1" to 18.0, "D2" to 19.0),
         2.5 to mapOf("A1" to 18.0, "A2" to 17.5, "B1" to 21.0, "B2" to 20.0, "C" to 24.0, "D1" to 24.0, "D2" to 24.0),
@@ -84,7 +148,15 @@ object IecTables {
         300.0 to mapOf("A1" to 261.0, "A2" to 237.0, "B1" to 306.0, "B2" to 265.0, "C" to 351.0, "D1" to 254.0, "D2" to 282.0)
     )
 
-    fun ambientCorrectionPvc(ambientTemp: Double): Double =
+    /*
+     * IEC ambient correction factors.
+     *
+     * Values outside the published range return null.
+     * No extrapolation is performed.
+     */
+    fun ambientCorrectionPvc(
+        ambientTemp: Double
+    ): Double? =
         when {
             ambientTemp <= 10.0 -> 1.22
             ambientTemp <= 15.0 -> 1.17
@@ -97,10 +169,12 @@ object IecTables {
             ambientTemp <= 50.0 -> 0.71
             ambientTemp <= 55.0 -> 0.61
             ambientTemp <= 60.0 -> 0.50
-            else -> 0.40
+            else -> null
         }
 
-    fun ambientCorrectionXlpe(ambientTemp: Double): Double =
+    fun ambientCorrectionXlpe(
+        ambientTemp: Double
+    ): Double? =
         when {
             ambientTemp <= 10.0 -> 1.15
             ambientTemp <= 15.0 -> 1.12
@@ -117,30 +191,49 @@ object IecTables {
             ambientTemp <= 70.0 -> 0.58
             ambientTemp <= 75.0 -> 0.50
             ambientTemp <= 80.0 -> 0.41
-            else -> 0.35
+            else -> null
         }
 
-    fun groupingFactor(numberOfCircuits: Int): Double =
-        when {
-            numberOfCircuits <= 1 -> 1.00
-            numberOfCircuits == 2 -> 0.80
-            numberOfCircuits == 3 -> 0.70
-            numberOfCircuits == 4 -> 0.65
-            numberOfCircuits == 5 -> 0.60
-            numberOfCircuits == 6 -> 0.57
-            numberOfCircuits == 7 -> 0.54
-            numberOfCircuits == 8 -> 0.52
-            numberOfCircuits == 9 -> 0.50
-            numberOfCircuits <= 12 -> 0.45
-            numberOfCircuits <= 16 -> 0.41
-            numberOfCircuits <= 20 -> 0.38
-            else -> 0.35
+    /*
+     * IEC grouping factors are arrangement-dependent.
+     *
+     * The old implementation exposed one invented arrangement-
+     * independent factor. That is removed.
+     *
+     * This dataset represents the embedded/enclosed reference
+     * arrangement only.
+     */
+    fun groupingFactorEmbeddedEnclosed(
+        numberOfCircuits: Int
+    ): Double? =
+        when (numberOfCircuits) {
+            1 -> 1.00
+            2 -> 0.80
+            3 -> 0.70
+            4 -> 0.70
+            5 -> null
+            6 -> 0.55
+            7, 8 -> null
+            9 -> 0.50
+            10, 11 -> null
+            12 -> 0.45
+            13, 14, 15 -> null
+            16 -> 0.40
+            20 -> 0.40
+            else -> null
         }
 
     /**
-     * Returns null when the requested combination is not present
-     * in the verified dataset.
+     * Legacy API retained for source compatibility.
+     *
+     * It no longer invents an arrangement-independent IEC factor.
+     * 0.0 means "not available for the requested arrangement/count".
      */
+    fun groupingFactor(
+        numberOfCircuits: Int
+    ): Double =
+        groupingFactorEmbeddedEnclosed(numberOfCircuits) ?: 0.0
+
     fun getBaseAmpacity(
         section: Double,
         method: String,
@@ -150,70 +243,91 @@ object IecTables {
     ): Double? {
 
         if (section <= 0.0) return null
-        if (loadedConductors <= 0) return null
+        if (loadedConductors !in 2..3) return null
 
-        /*
-         * Current dataset contains PVC tables.
-         * Do not silently use PVC values for another insulation.
-         */
-        if (insulation != InsulationType.PVC) {
+        val key = methodToKey(method)
+
+        if (key !in installationMethods) {
             return null
         }
 
         val table =
-            when {
-                material == ConductorMaterial.Copper &&
-                    loadedConductors >= 3 ->
-                    pvcCopper3Loaded
+            when (insulation) {
 
-                material == ConductorMaterial.Copper ->
-                    pvcCopper2Loaded
+                InsulationType.PVC ->
+                    when {
+                        material == ConductorMaterial.Copper &&
+                            loadedConductors == 2 ->
+                            pvcCopper2Loaded
 
-                material == ConductorMaterial.Aluminum &&
-                    loadedConductors >= 3 ->
-                    pvcAluminium3Loaded
+                        material == ConductorMaterial.Copper &&
+                            loadedConductors == 3 ->
+                            pvcCopper3Loaded
 
-                material == ConductorMaterial.Aluminum ->
-                    pvcAluminium2Loaded
+                        material == ConductorMaterial.Aluminum &&
+                            loadedConductors == 2 ->
+                            pvcAluminium2Loaded
 
-                else ->
+                        material == ConductorMaterial.Aluminum &&
+                            loadedConductors == 3 ->
+                            pvcAluminium3Loaded
+
+                        else -> return null
+                    }
+
+                InsulationType.XLPE,
+                InsulationType.EPR ->
+                    when {
+                        material == ConductorMaterial.Copper &&
+                            loadedConductors == 2 ->
+                            xlpeCopper2Loaded
+
+                        material == ConductorMaterial.Copper &&
+                            loadedConductors == 3 ->
+                            xlpeCopper3Loaded
+
+                        material == ConductorMaterial.Aluminum &&
+                            loadedConductors == 2 ->
+                            xlpeAluminium2Loaded
+
+                        material == ConductorMaterial.Aluminum &&
+                            loadedConductors == 3 ->
+                            xlpeAluminium3Loaded
+
+                        else -> return null
+                    }
+
+                InsulationType.Rubber ->
                     return null
             }
 
-        val row = table[section] ?: return null
-
-        return row[method]
+        return table[section]?.get(key)
     }
 
-    fun methodToKey(methodCode: String): String =
-        when {
-            methodCode.equals("A1", true) -> "A1"
-            methodCode.equals("A2", true) -> "A2"
-            methodCode.equals("B1", true) -> "B1"
-            methodCode.equals("B2", true) -> "B2"
-            methodCode.equals("C", true) -> "C"
-            methodCode.equals("D1", true) -> "D1"
-            methodCode.equals("D2", true) -> "D2"
+    /*
+     * IEC 60364-5-52 Table B.52.5
+     * XLPE/EPR, three loaded conductors.
+     */
+    val xlpeCopper3Loaded = mapOf(
+        1.5 to mapOf("A1" to 17.0, "A2" to 16.5, "B1" to 20.0, "B2" to 19.5, "C" to 22.0, "D1" to 21.0, "D2" to 23.0),
+        2.5 to mapOf("A1" to 23.0, "A2" to 22.0, "B1" to 28.0, "B2" to 26.0, "C" to 30.0, "D1" to 28.0, "D2" to 30.0),
+        4.0 to mapOf("A1" to 31.0, "A2" to 30.0, "B1" to 37.0, "B2" to 35.0, "C" to 40.0, "D1" to 36.0, "D2" to 39.0),
+        6.0 to mapOf("A1" to 40.0, "A2" to 38.0, "B1" to 48.0, "B2" to 44.0, "C" to 52.0, "D1" to 44.0, "D2" to 49.0),
+        10.0 to mapOf("A1" to 54.0, "A2" to 51.0, "B1" to 66.0, "B2" to 60.0, "C" to 71.0, "D1" to 58.0, "D2" to 65.0),
+        16.0 to mapOf("A1" to 73.0, "A2" to 68.0, "B1" to 88.0, "B2" to 80.0, "C" to 96.0, "D1" to 75.0, "D2" to 84.0),
+        25.0 to mapOf("A1" to 95.0, "A2" to 89.0, "B1" to 117.0, "B2" to 105.0, "C" to 119.0, "D1" to 96.0, "D2" to 107.0),
+        35.0 to mapOf("A1" to 117.0, "A2" to 109.0, "B1" to 144.0, "B2" to 128.0, "C" to 147.0, "D1" to 115.0, "D2" to 129.0),
+        50.0 to mapOf("A1" to 141.0, "A2" to 130.0, "B1" to 175.0, "B2" to 154.0, "C" to 179.0, "D1" to 135.0, "D2" to 153.0),
+        70.0 to mapOf("A1" to 179.0, "A2" to 164.0, "B1" to 222.0, "B2" to 194.0, "C" to 229.0, "D1" to 167.0, "D2" to 188.0),
+        95.0 to mapOf("A1" to 216.0, "A2" to 197.0, "B1" to 269.0, "B2" to 233.0, "C" to 278.0, "D1" to 197.0, "D2" to 226.0),
+        120.0 to mapOf("A1" to 249.0, "A2" to 227.0, "B1" to 312.0, "B2" to 268.0, "C" to 322.0, "D1" to 223.0, "D2" to 257.0),
+        150.0 to mapOf("A1" to 285.0, "A2" to 259.0, "B1" to 342.0, "B2" to 300.0, "C" to 371.0, "D1" to 251.0, "D2" to 287.0),
+        185.0 to mapOf("A1" to 324.0, "A2" to 295.0, "B1" to 384.0, "B2" to 340.0, "C" to 424.0, "D1" to 281.0, "D2" to 324.0),
+        240.0 to mapOf("A1" to 380.0, "A2" to 346.0, "B1" to 450.0, "B2" to 398.0, "C" to 500.0, "D1" to 324.0, "D2" to 375.0),
+        300.0 to mapOf("A1" to 435.0, "A2" to 396.0, "B1" to 514.0, "B2" to 455.0, "C" to 576.0, "D1" to 365.0, "D2" to 419.0)
+    )
 
-            methodCode.contains("A1", true) -> "A1"
-            methodCode.contains("A2", true) -> "A2"
-            methodCode.contains("B1", true) -> "B1"
-            methodCode.contains("B2", true) -> "B2"
-            methodCode.contains("D1", true) -> "D1"
-            methodCode.contains("D2", true) -> "D2"
-            methodCode.contains("C", true) -> "C"
-
-            else -> methodCode.trim().uppercase()
-        }
-
-    val allInstallationMethods: List<InstallationMethod> =
-        listOf(
-            InstallationMethod("A1", "Insulated conductors in conduit in thermally insulated wall"),
-            InstallationMethod("A2", "Multicore cable in conduit in thermally insulated wall"),
-            InstallationMethod("B1", "Insulated conductors in conduit on wall"),
-            InstallationMethod("B2", "Multicore cable in conduit on wall"),
-            InstallationMethod("C", "Cable clipped direct"),
-            InstallationMethod("D1", "Multicore cable in duct in ground"),
-            InstallationMethod("D2", "Single-core cables in duct in ground")
-        )
-}
+    val xlpeAluminium3Loaded = mapOf(
+        2.5 to mapOf("A1" to 19.0, "A2" to 18.0, "B1" to 22.0, "B2" to 21.0, "C" to 24.0, "D1" to 22.0),
+        4.0 to mapOf("A1" to 25.0, "A2" to 24.0, "B1" to 29.0, "B2" to 28.0, "C" to 32.0, "D1" to 28.0),
+        6.0 to mapOf("A1" to 32.0
