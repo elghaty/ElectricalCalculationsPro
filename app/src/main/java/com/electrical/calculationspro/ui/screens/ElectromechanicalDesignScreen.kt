@@ -1,3 +1,4 @@
+
 package com.electrical.calculationspro.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.outlined.Factory
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -26,10 +26,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,15 +33,6 @@ import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.Standard
 
-/**
- * Unified engineering workspace for electromechanical calculations.
- *
- * IMPORTANT:
- * - This screen contains navigation/presentation only.
- * - It does not implement engineering calculations.
- * - Existing calculation engines/screens remain the source of calculations.
- * - SLD is intentionally NOT included here.
- */
 enum class ElectromechanicalModule {
     LOAD,
     CURRENT,
@@ -67,36 +54,20 @@ fun ElectromechanicalDesignScreen(
     onBack: () -> Unit,
     onOpenModule: ((ElectromechanicalModule) -> Unit)? = null
 ) {
-    var selectedModule by rememberSaveable {
-        mutableStateOf<ElectromechanicalModule?>(null)
-    }
-
-    val module = selectedModule
-
-    if (module != null && onOpenModule != null) {
-        onOpenModule(module)
-        return
-    }
-
     val arabic = language == AppLanguage.ARABIC
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(
-                horizontal = 16.dp,
-                vertical = 12.dp
-            )
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (arabic) {
                         "التصميم الكهروميكانيكي"
@@ -106,9 +77,7 @@ fun ElectromechanicalDesignScreen(
                     style = MaterialTheme.typography.headlineSmall
                 )
 
-                Spacer(
-                    modifier = Modifier.padding(top = 3.dp)
-                )
+                Spacer(modifier = Modifier.padding(top = 3.dp))
 
                 Text(
                     text = if (arabic) {
@@ -120,31 +89,19 @@ fun ElectromechanicalDesignScreen(
                 )
             }
 
-            TextButton(
-                onClick = onBack
-            ) {
-                Text(
-                    text = if (arabic) {
-                        "رجوع"
-                    } else {
-                        "Back"
-                    }
-                )
+            TextButton(onClick = onBack) {
+                Text(if (arabic) "رجوع" else "Back")
             }
         }
 
-        Spacer(
-            modifier = Modifier.padding(top = 10.dp)
-        )
+        Spacer(modifier = Modifier.padding(top = 10.dp))
 
         StandardCard(
             language = language,
             standard = standard
         )
 
-        Spacer(
-            modifier = Modifier.padding(top = 14.dp)
-        )
+        Spacer(modifier = Modifier.padding(top = 14.dp))
 
         Text(
             text = if (arabic) {
@@ -155,14 +112,12 @@ fun ElectromechanicalDesignScreen(
             style = MaterialTheme.typography.titleMedium
         )
 
-        Spacer(
-            modifier = Modifier.padding(top = 8.dp)
-        )
+        Spacer(modifier = Modifier.padding(top = 8.dp))
 
         ModuleGrid(
             language = language,
-            onModuleSelected = {
-                selectedModule = it
+            onModuleSelected = { module ->
+                onOpenModule?.invoke(module)
             }
         )
     }
@@ -187,32 +142,24 @@ private fun StandardCard(
                 .padding(16.dp)
         ) {
             Text(
-                text = if (arabic) {
-                    "الكود / المعيار"
-                } else {
-                    "Design Standard"
-                },
+                text = if (arabic) "الكود / المعيار" else "Design Standard",
                 style = MaterialTheme.typography.titleSmall
             )
 
-            Spacer(
-                modifier = Modifier.padding(top = 4.dp)
-            )
+            Spacer(modifier = Modifier.padding(top = 4.dp))
 
             Text(
                 text = standard.name,
                 style = MaterialTheme.typography.bodyLarge
             )
 
-            Spacer(
-                modifier = Modifier.padding(top = 2.dp)
-            )
+            Spacer(modifier = Modifier.padding(top = 2.dp))
 
             Text(
                 text = if (arabic) {
-                    "سيتم استخدام المعيار المحدد في دورة التصميم والحسابات."
+                    "المعيار المحدد للمشروع"
                 } else {
-                    "The selected standard is carried through the design workflow."
+                    "The selected project design standard"
                 },
                 style = MaterialTheme.typography.bodySmall
             )
@@ -229,70 +176,70 @@ private fun ModuleGrid(
 
     val modules = listOf(
         DesignModuleItem(
-            module = ElectromechanicalModule.LOAD,
-            title = if (arabic) "الأحمال" else "Loads",
-            subtitle = if (arabic) "Load Schedule" else "Load Schedule",
-            icon = Icons.Outlined.Power
+            ElectromechanicalModule.LOAD,
+            if (arabic) "الأحمال" else "Loads",
+            if (arabic) "جدول الأحمال" else "Load Schedule",
+            Icons.Outlined.Power
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.CURRENT,
-            title = if (arabic) "التيار" else "Current",
-            subtitle = if (arabic) "Design Current" else "Design Current",
-            icon = Icons.Outlined.Calculate
+            ElectromechanicalModule.CURRENT,
+            if (arabic) "التيار" else "Current",
+            if (arabic) "تيار التصميم" else "Design Current",
+            Icons.Outlined.Calculate
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.CABLE,
-            title = if (arabic) "الكابلات" else "Cables",
-            subtitle = if (arabic) "Conductor Sizing" else "Conductor Sizing",
-            icon = Icons.Outlined.Bolt
+            ElectromechanicalModule.CABLE,
+            if (arabic) "الكابلات" else "Cables",
+            if (arabic) "اختيار مقطع الكابل" else "Conductor Sizing",
+            Icons.Outlined.Bolt
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.VOLTAGE_DROP,
-            title = if (arabic) "هبوط الجهد" else "Voltage Drop",
-            subtitle = if (arabic) "Voltage Drop Study" else "Voltage Drop Study",
-            icon = Icons.Outlined.Bolt
+            ElectromechanicalModule.VOLTAGE_DROP,
+            if (arabic) "هبوط الجهد" else "Voltage Drop",
+            if (arabic) "دراسة هبوط الجهد" else "Voltage Drop Study",
+            Icons.Outlined.Bolt
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.BREAKER,
-            title = if (arabic) "القواطع" else "Breakers",
-            subtitle = if (arabic) "Breaker Selection" else "Breaker Selection",
-            icon = Icons.Outlined.Security
+            ElectromechanicalModule.BREAKER,
+            if (arabic) "القواطع" else "Breakers",
+            if (arabic) "اختيار القواطع" else "Breaker Selection",
+            Icons.Outlined.Security
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.SHORT_CIRCUIT,
-            title = if (arabic) "القصر الكهربائي" else "Short Circuit",
-            subtitle = if (arabic) "Fault Current" else "Fault Current",
-            icon = Icons.Outlined.Bolt
+            ElectromechanicalModule.SHORT_CIRCUIT,
+            if (arabic) "القصر الكهربائي" else "Short Circuit",
+            if (arabic) "تيار القصر" else "Fault Current",
+            Icons.Outlined.Bolt
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.PROTECTION,
-            title = if (arabic) "الحماية" else "Protection",
-            subtitle = if (arabic) "Protection Study" else "Protection Study",
-            icon = Icons.Outlined.Security
+            ElectromechanicalModule.PROTECTION,
+            if (arabic) "الحماية" else "Protection",
+            if (arabic) "دراسة الحماية" else "Protection Study",
+            Icons.Outlined.Security
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.TRANSFORMER,
-            title = if (arabic) "المحولات" else "Transformers",
-            subtitle = if (arabic) "Transformer Design" else "Transformer Design",
-            icon = Icons.Outlined.Memory
+            ElectromechanicalModule.TRANSFORMER,
+            if (arabic) "المحولات" else "Transformers",
+            if (arabic) "اختيار المحول" else "Transformer Design",
+            Icons.Outlined.Memory
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.GENERATOR,
-            title = if (arabic) "المولدات" else "Generators",
-            subtitle = if (arabic) "Generator Design" else "Generator Design",
-            icon = Icons.Outlined.Factory
+            ElectromechanicalModule.GENERATOR,
+            if (arabic) "المولدات" else "Generators",
+            if (arabic) "اختيار المولد" else "Generator Design",
+            Icons.Outlined.Factory
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.PANEL,
-            title = if (arabic) "اللوحات" else "Panels",
-            subtitle = if (arabic) "Panel Design" else "Panel Design",
-            icon = Icons.Outlined.ElectricalServices
+            ElectromechanicalModule.PANEL,
+            if (arabic) "اللوحات" else "Panels",
+            if (arabic) "تصميم اللوحات" else "Panel Design",
+            Icons.Outlined.ElectricalServices
         ),
         DesignModuleItem(
-            module = ElectromechanicalModule.PUMP,
-            title = if (arabic) "المضخات" else "Pumps",
-            subtitle = if (arabic) "Flow / Head / Power" else "Flow / Head / Power",
-            icon = Icons.Outlined.WaterDrop
+            ElectromechanicalModule.PUMP,
+            if (arabic) "المضخات" else "Pumps",
+            if (arabic) "التصرف والرفع والقدرة" else "Flow / Head / Power",
+            Icons.Outlined.WaterDrop
         )
     )
 
@@ -309,16 +256,12 @@ private fun ModuleGrid(
                     DesignModuleCard(
                         modifier = Modifier.weight(1f),
                         item = item,
-                        onClick = {
-                            onModuleSelected(item.module)
-                        }
+                        onClick = { onModuleSelected(item.module) }
                     )
                 }
 
                 repeat(4 - row.size) {
-                    Spacer(
-                        modifier = Modifier.weight(1f)
-                    )
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -348,10 +291,7 @@ private fun DesignModuleCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(
-                    horizontal = 10.dp,
-                    vertical = 14.dp
-                ),
+                .padding(horizontal = 10.dp, vertical = 14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
@@ -359,18 +299,14 @@ private fun DesignModuleCard(
                 contentDescription = item.title
             )
 
-            Spacer(
-                modifier = Modifier.padding(top = 7.dp)
-            )
+            Spacer(modifier = Modifier.padding(top = 7.dp))
 
             Text(
                 text = item.title,
                 style = MaterialTheme.typography.titleSmall
             )
 
-            Spacer(
-                modifier = Modifier.padding(top = 2.dp)
-            )
+            Spacer(modifier = Modifier.padding(top = 2.dp))
 
             Text(
                 text = item.subtitle,
