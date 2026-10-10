@@ -1,3 +1,4 @@
+
 package com.electrical.calculationspro.data.catalog
 
 object CatalogSources {
@@ -37,13 +38,16 @@ object CatalogSources {
 
     val siemens3vm11103ed220aa0 = CatalogSource(
         manufacturer = Manufacturer.SIEMENS,
-        sourceName = "Siemens",
+        sourceName = "Siemens Industry Mall",
         sourceReference = "3VM11103ED220AA0",
-        status = ProductFamilyStatus.VERIFIED_PRODUCT,
-        officialUrl = "",
+        status = ProductFamilyStatus.VERIFIED_FAMILY,
+        officialUrl =
+            "https://mall.industry.siemens.com/mall/en/WW/Catalog/Products/10122014",
         verificationNote =
-            "Exact Siemens reference retained as a controlled catalogue record. " +
-                "Voltage-specific breaking-capacity data must be verified from the current manufacturer documentation before selection."
+            "The exact commercial reference and its voltage-specific breaking-capacity data " +
+                "have not been verified against an exact official product page. " +
+                "Family-level reference only; excluded from final compliant product selection " +
+                "until the exact manufacturer data is confirmed."
     )
 
     val schneiderLc1d25d7 = CatalogSource(
