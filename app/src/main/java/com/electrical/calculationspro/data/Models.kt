@@ -27,74 +27,69 @@ data class InstallationMethod(
     val description: String
 )
 
-val iecInstallationMethods =
-    IecTables.allInstallationMethods
+val iecInstallationMethods: List<InstallationMethod> =
+    listOf(
+        InstallationMethod(
+            code = "A1",
+            description = "A1 — Single-core conductors in conduit in a thermally insulated wall"
+        ),
+        InstallationMethod(
+            code = "A2",
+            description = "A2 — Multicore cable in conduit in a thermally insulated wall"
+        ),
+        InstallationMethod(
+            code = "B1",
+            description = "B1 — Single-core conductors in conduit on or in a wall"
+        ),
+        InstallationMethod(
+            code = "B2",
+            description = "B2 — Multicore cable in conduit on or in a wall"
+        ),
+        InstallationMethod(
+            code = "C",
+            description = "C — Cable clipped direct"
+        ),
+        InstallationMethod(
+            code = "D1",
+            description = "D1 — Cable in underground conduit"
+        ),
+        InstallationMethod(
+            code = "D2",
+            description = "D2 — Direct-buried cable"
+        )
+    )
 
 data class ConductorSizingInput(
     val currentType: CurrentType =
         CurrentType.AlternatingSinglePhase,
-
     val voltage: Double = 230.0,
-
     val load: Double = 5000.0,
-
     val powerFactor: Double = 0.90,
-
     val lineLength: Double = 60.0,
-
     val installationMethod: InstallationMethod =
         iecInstallationMethods.first(),
-
     val ambientTemp: Double = 30.0,
-
     val conductor: ConductorMaterial =
         ConductorMaterial.Copper,
-
     val insulation: InsulationType =
         InsulationType.PVC,
-
     val circuitsInConduit: Int = 1,
-
     val maxVoltageDrop: Double = 4.0
 )
 
 data class ConductorSizingResult(
     val designCurrent: Double,
-
     val recommendedSection: Double,
-
     val selectedSection: Double,
-
     val ampacity: Double,
-
     val voltageDropPercent: Double,
-
     val voltageDropVolts: Double,
-
     val protectiveDevice: Double,
-
     val shortCircuitCurrentKA: Double = 0.0,
-
     val breakerWithinCableCapacity: Boolean = false,
-
     val voltageDropWithinLimit: Boolean = false,
-
     val notes: List<String>,
-
-    /**
-     * Selected cable from the equipment catalog.
-     *
-     * Nullable because a verified manufacturer catalog
-     * item may not be available for every combination.
-     */
     val catalogCable: CableCatalogItem? = null,
-
-    /**
-     * Selected breaker from the equipment catalog.
-     *
-     * Nullable because exact Icu/Ics data may require
-     * the final manufacturer configuration.
-     */
     val catalogBreaker: BreakerCatalogItem? = null
 )
 
