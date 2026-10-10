@@ -12,6 +12,13 @@ import com.electrical.calculationspro.data.catalog.Manufacturer
 import com.electrical.calculationspro.data.catalog.PanelCatalogItem
 import com.electrical.calculationspro.data.catalog.TransformerCatalogItem
 
+enum class SelectionFailureReason {
+    INVALID_INPUT,
+    NO_CATALOG_MATCH,
+    PRELIMINARY_ONLY,
+    CODE_COMPLIANCE_NOT_VERIFIED
+}
+
 object EquipmentSelectionCalculator {
 
     data class EquipmentCatalogResult<T>(
@@ -19,7 +26,8 @@ object EquipmentSelectionCalculator {
         val alternatives: List<T>,
         val valid: Boolean,
         val message: String,
-        val standard: Standard = Standard.IEC
+        val standard: Standard = Standard.IEC,
+        val failureReason: SelectionFailureReason? = null
     )
 
     fun selectBreaker(
@@ -37,7 +45,7 @@ object EquipmentSelectionCalculator {
 
         if (!breakingCapacityKA.isFinite() || breakingCapacityKA < 0.0) {
             return invalid(
-                "Required breaking capacity must be finite and cannot be negative.",
+                "Required breaking capacity must be finite and non-negative.",
                 standard
             )
         }
@@ -116,44 +124,72 @@ object EquipmentSelectionCalculator {
             manufacturer = manufacturer
         )
 
-        val candidates = buildList {
+        val allCandidates = buildList {
             catalogResult.selected?.let(::add)
             addAll(catalogResult.alternatives)
+        }.distinctBy { "${it.manufacturer}:${it.model}" }
+
+        val sectionCandidates = allCandidates.filter {
+            it.sectionMm2.isFinite() && it.sectionMm2 >= sectionMm2
         }
-            .distinctBy { "${it.manufacturer}:${it.model}" }
-            .asSequence()
-            .filter { it.sectionMm2.isFinite() && it.sectionMm2 >= sectionMm2 }
-            .filter {
-                it.conductorMaterial.equals(
-                    material.trim(),
-                    ignoreCase = true
-                )
-            }
-            .filter {
-                it.insulation.equals(
-                    insulation.trim(),
-                    ignoreCase = true
-                )
-            }
-            .filter { it.cores == cores }
-            .filter { it.voltageClassV >= voltageV }
-            .sortedWith(
-                compareBy<CableCatalogItem> { it.sectionMm2 }
-                    .thenBy { it.manufacturer.name }
-                    .thenBy { it.model }
-            )
-            .toList()
+
+        val materialCandidates = sectionCandidates.filter {
+            it.conductorMaterial.equals(material.trim(), ignoreCase = true)
+        }
+
+        val insulationCandidates = materialCandidates.filter {
+            it.insulation.equals(insulation.trim(), ignoreCase = true)
+        }
+
+        val coreCandidates = insulationCandidates.filter {
+            it.cores == cores
+        }
+
+        val voltageCandidates = coreCandidates.filter {
+            it.voltageClassV >= voltageV
+        }.sortedWith(
+            compareBy<CableCatalogItem> { it.sectionMm2 }
+                .thenBy { it.manufacturer.name }
+                .thenBy { it.model }
+        )
+
+        val reason = when {
+            sectionCandidates.isEmpty() ->
+                "No catalog item has the required minimum section."
+
+            materialCandidates.isEmpty() ->
+                "No catalog item matches conductor material '$material'."
+
+            insulationCandidates.isEmpty() ->
+                "No catalog item matches insulation '$insulation'."
+
+            coreCandidates.isEmpty() ->
+                "No catalog item matches the requested core count: $cores."
+
+            voltageCandidates.isEmpty() ->
+                "No catalog item meets the minimum voltage class of ${voltageV}V."
+
+            else ->
+                "A preliminary catalog match was found, but final code compliance is not verified."
+        }
+
+        val matched = voltageCandidates.isNotEmpty()
 
         return EquipmentCatalogResult(
-            selected = candidates.firstOrNull(),
-            alternatives = candidates.drop(1),
+            selected = voltageCandidates.firstOrNull(),
+            alternatives = voltageCandidates.drop(1),
             valid = false,
-            message = if (candidates.isNotEmpty()) {
-                "PRELIMINARY CATALOG MATCH ONLY. Section, conductor material, insulation, core count and voltage class have been filtered. Final approval still requires code-based ampacity, installation correction factors, voltage-drop verification, short-circuit withstand and exact-product documentation."
+            message = if (matched) {
+                "PRELIMINARY ONLY. Cable filters matched. Verify corrected ampacity, installation method, voltage drop, short-circuit withstand and exact manufacturer documentation before approval."
             } else {
-                "NO MATCHING CATALOG ITEM. No listed item meets the requested minimum section, material, insulation, core count and voltage class."
+                reason
             },
-            standard = standard
+            standard = standard,
+            failureReason = if (matched) {
+                SelectionFailureReason.PRELIMINARY_ONLY
+            } else {
+                SelectionFailureReason.NO_CATALOG_MATCH
+            }
         )
     }
 
@@ -234,14 +270,28 @@ object EquipmentSelectionCalculator {
 
     private fun <T> EquipmentSelectionResult<T>.toCoreResult(
         standard: Standard
-    ): EquipmentCatalogResult<T> =
-        EquipmentCatalogResult(
+    ): EquipmentCatalogResult<T> {
+        val reason = when {
+            valid -> null
+            selected == null ->
+                SelectionFailureReason.NO_CATALOG_MATCH
+            message.contains("PRELIMINARY", ignoreCase = true) ->
+                SelectionFailureReason.PRELIMINARY_ONLY
+            message.contains("NOT VERIFIED", ignoreCase = true) ->
+                SelectionFailureReason.CODE_COMPLIANCE_NOT_VERIFIED
+            else ->
+                SelectionFailureReason.NO_CATALOG_MATCH
+        }
+
+        return EquipmentCatalogResult(
             selected = selected,
             alternatives = alternatives,
             valid = valid,
             message = message,
-            standard = standard
+            standard = standard,
+            failureReason = reason
         )
+    }
 
     private fun <T> invalid(
         message: String,
@@ -252,6 +302,7 @@ object EquipmentSelectionCalculator {
             alternatives = emptyList(),
             valid = false,
             message = message,
-            standard = standard
+            standard = standard,
+            failureReason = SelectionFailureReason.INVALID_INPUT
         )
 }
