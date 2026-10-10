@@ -1,5 +1,14 @@
 package com.electrical.calculationspro.data.catalog
 
+/**
+ * Low-voltage busbar engineering reference catalogue.
+ *
+ * Current ratings are preliminary sizing references, not verified
+ * manufacturer products. Short-circuit withstand is intentionally
+ * unavailable until supported by verified assembly documentation.
+ *
+ * Generic records must never pass final CodeCompliance evaluation.
+ */
 object BusbarCatalog {
 
     private val standardRatings = listOf(
@@ -19,13 +28,20 @@ object BusbarCatalog {
         6300.0
     )
 
+    /**
+     * Returns generic reference ratings for preliminary design only.
+     *
+     * The 4-pole value is a nominal configuration reference.
+     * Actual neutral sizing and assembly configuration require
+     * project-specific engineering verification.
+     */
     fun generic(): List<BusbarCatalogItem> =
-        standardRatings.map {
+        standardRatings.map { current ->
             BusbarCatalogItem(
                 manufacturer = Manufacturer.GENERIC,
-                family = "LV Busbar",
-                model = "LV Busbar ${it.toInt()} A",
-                ratedCurrentA = it,
+                family = "LV Busbar - Engineering Reference",
+                model = "Generic LV Busbar ${current.toInt()} A - Not a Verified Product",
+                ratedCurrentA = current,
                 voltageV = 415.0,
                 shortCircuitKA = null,
                 poles = 4,
@@ -33,14 +49,35 @@ object BusbarCatalog {
             )
         }
 
+    /**
+     * Preliminary current-based selection only.
+     *
+     * This method does not verify short-circuit withstand,
+     * temperature rise, enclosure compatibility, or IEC 61439
+     * assembly compliance.
+     */
     fun select(
         requiredCurrentA: Double
-    ): List<BusbarCatalogItem> =
-        generic()
-            .filter {
-                it.ratedCurrentA >= requiredCurrentA
+    ): List<BusbarCatalogItem> {
+
+        if (!requiredCurrentA.isFinite() ||
+            requiredCurrentA <= 0.0
+        ) {
+            return emptyList()
+        }
+
+        return generic()
+            .filter { item ->
+                item.ratedCurrentA >= requiredCurrentA
             }
-            .sortedBy {
-                it.ratedCurrentA
+            .sortedBy { item ->
+                item.ratedCurrentA
             }
+    }
+
+    /**
+     * Exposes the nominal reference rating series.
+     */
+    fun standardRatingsA(): List<Double> =
+        standardRatings.toList()
 }
