@@ -1403,8 +1403,8 @@ object IecTables {
             "UNDERGROUND_CONDUIT" -> "D1"
             "DIRECT_BURIED" -> "D2"
 
-            else -> method
+                        else -> method
                 .trim()
                 .uppercase()
-        )
+        }
 }
