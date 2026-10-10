@@ -10,6 +10,7 @@ import com.electrical.calculationspro.data.catalog.EquipmentSelectionResult
 import com.electrical.calculationspro.data.catalog.GeneratorCatalogItem
 import com.electrical.calculationspro.data.catalog.Manufacturer
 import com.electrical.calculationspro.data.catalog.PanelCatalogItem
+import com.electrical.calculationspro.data.catalog.TechnicalRequirement
 import com.electrical.calculationspro.data.catalog.TransformerCatalogItem
 
 enum class SelectionFailureReason {
@@ -268,6 +269,65 @@ object EquipmentSelectionCalculator {
             .toCoreResult(standard)
     }
 
+    /**
+     * Selects equipment using the complete technical requirement and the
+     * existing catalog/code-compliance validation pipeline.
+     *
+     * A result is valid only when CatalogSelector confirms compliance.
+     */
+    fun selectCompliantCable(
+        requirement: TechnicalRequirement.Cable,
+        manufacturer: Manufacturer? = null
+    ): EquipmentCatalogResult<CableCatalogItem> =
+        CatalogSelector.selectCompliantCable(
+            requirement = requirement,
+            manufacturer = manufacturer
+        ).toCoreResult(requirement.standard)
+
+    fun selectCompliantBreaker(
+        requirement: TechnicalRequirement.Breaker,
+        manufacturer: Manufacturer? = null
+    ): EquipmentCatalogResult<BreakerCatalogItem> =
+        CatalogSelector.selectCompliantBreaker(
+            requirement = requirement,
+            manufacturer = manufacturer
+        ).toCoreResult(requirement.standard)
+
+    fun selectCompliantTransformer(
+        requirement: TechnicalRequirement.Transformer
+    ): EquipmentCatalogResult<TransformerCatalogItem> =
+        CatalogSelector.selectCompliantTransformer(
+            requirement = requirement
+        ).toCoreResult(requirement.standard)
+
+    fun selectCompliantGenerator(
+        requirement: TechnicalRequirement.Generator
+    ): EquipmentCatalogResult<GeneratorCatalogItem> =
+        CatalogSelector.selectCompliantGenerator(
+            requirement = requirement
+        ).toCoreResult(requirement.standard)
+
+    fun selectCompliantBusbar(
+        requirement: TechnicalRequirement.Busbar
+    ): EquipmentCatalogResult<BusbarCatalogItem> =
+        CatalogSelector.selectCompliantBusbar(
+            requirement = requirement
+        ).toCoreResult(requirement.standard)
+
+    fun selectCompliantContactor(
+        requirement: TechnicalRequirement.Contactor
+    ): EquipmentCatalogResult<ContactorCatalogItem> =
+        CatalogSelector.selectCompliantContactor(
+            requirement = requirement
+        ).toCoreResult(requirement.standard)
+
+    fun selectCompliantPanel(
+        requirement: TechnicalRequirement.Panel
+    ): EquipmentCatalogResult<PanelCatalogItem> =
+        CatalogSelector.selectCompliantPanel(
+            requirement = requirement
+        ).toCoreResult(requirement.standard)
+
     private fun <T> EquipmentSelectionResult<T>.toCoreResult(
         standard: Standard
     ): EquipmentCatalogResult<T> {
@@ -275,10 +335,13 @@ object EquipmentSelectionCalculator {
             valid -> null
             selected == null ->
                 SelectionFailureReason.NO_CATALOG_MATCH
+
             message.contains("PRELIMINARY", ignoreCase = true) ->
                 SelectionFailureReason.PRELIMINARY_ONLY
+
             message.contains("NOT VERIFIED", ignoreCase = true) ->
                 SelectionFailureReason.CODE_COMPLIANCE_NOT_VERIFIED
+
             else ->
                 SelectionFailureReason.NO_CATALOG_MATCH
         }
