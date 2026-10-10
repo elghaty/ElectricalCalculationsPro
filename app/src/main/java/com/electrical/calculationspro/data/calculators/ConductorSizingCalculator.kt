@@ -1,3 +1,4 @@
+
 package com.electrical.calculationspro.data.calculators
 
 import com.electrical.calculationspro.data.ConductorSizingInput
@@ -7,6 +8,7 @@ import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.catalog.BreakerCatalogItem
 import com.electrical.calculationspro.data.catalog.CableCatalogItem
 import com.electrical.calculationspro.data.catalog.Manufacturer
+import com.electrical.calculationspro.data.catalog.TechnicalRequirement
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
 import com.electrical.calculationspro.data.standards.CodeRuleRegistry
 import com.electrical.calculationspro.data.standards.EngineeringRuleBook
@@ -282,22 +284,67 @@ object ConductorSizingCalculator {
         val shortCircuitKA =
             shortCircuit?.shortCircuitCurrentKA ?: 0.0
 
-        val cableResult = EquipmentSelectionCalculator.selectCable(
-            sectionMm2 = section,
-            manufacturer = manufacturer,
+        /*
+         * Catalogue selection uses the actual engineering requirement,
+         * including conductor material, insulation, voltage, core count
+         * and selected code. A preliminary match is not treated as
+         * final product compliance.
+         */
+        val cableRequirement = TechnicalRequirement.Cable(
+            requiredSectionMm2 = section,
+            requiredVoltageV = input.voltage.toInt(),
+            cores = when (input.currentType) {
+                CurrentType.DirectCurrent,
+                CurrentType.AlternatingSinglePhase -> 2
+
+                CurrentType.AlternatingTwoPhase,
+                CurrentType.AlternatingThreePhase -> 3
+            },
+            material = input.conductor,
+            insulation = input.insulation,
             standard = standard
+        )
+
+        val cableResult = EquipmentSelectionCalculator.selectCompliantCable(
+            requirement = cableRequirement,
+            manufacturer = manufacturer
         )
 
         val catalogCable: CableCatalogItem? = cableResult.selected
 
+        /*
+         * A final breaker selection requires a positive prospective
+         * fault-current requirement. Until that value is supplied,
+         * retain a preliminary candidate only; it cannot pass final
+         * engineering verification.
+         */
         val breakerResult =
             if (breakerRating > EPSILON) {
-                EquipmentSelectionCalculator.selectBreaker(
-                    ratedCurrentA = breakerRating,
-                    breakingCapacityKA = shortCircuitKA,
-                    manufacturer = manufacturer,
-                    standard = standard
-                )
+                if (shortCircuitKA > EPSILON) {
+                    EquipmentSelectionCalculator.selectCompliantBreaker(
+                        requirement = TechnicalRequirement.Breaker(
+                            requiredCurrentA = breakerRating,
+                            requiredVoltageV = input.voltage,
+                            requiredBreakingCapacityKA = shortCircuitKA,
+                            poles = when (input.currentType) {
+                                CurrentType.DirectCurrent -> 2
+                                CurrentType.AlternatingSinglePhase -> 2
+
+                                CurrentType.AlternatingTwoPhase,
+                                CurrentType.AlternatingThreePhase -> 3
+                            },
+                            standard = standard
+                        ),
+                        manufacturer = manufacturer
+                    )
+                } else {
+                    EquipmentSelectionCalculator.selectBreaker(
+                        ratedCurrentA = breakerRating,
+                        breakingCapacityKA = 0.0,
+                        manufacturer = manufacturer,
+                        standard = standard
+                    )
+                }
             } else {
                 null
             }
