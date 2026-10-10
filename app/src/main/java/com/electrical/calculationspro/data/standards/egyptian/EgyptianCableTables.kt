@@ -15,7 +15,7 @@ object EgyptianCableTables {
         val conductor: ConductorMaterial,
         val insulation: InsulationType,
         val installationMethod: String,
-        val ambientTemperatureC: Double,
+        val ambientTemperatureC: Double?,
         val loadedConductors: Int
     )
 
@@ -26,25 +26,24 @@ object EgyptianCableTables {
         val notes: List<String>
     )
 
-    private val standardSections =
-        listOf(
-            1.5,
-            2.5,
-            4.0,
-            6.0,
-            10.0,
-            16.0,
-            25.0,
-            35.0,
-            50.0,
-            70.0,
-            95.0,
-            120.0,
-            150.0,
-            185.0,
-            240.0,
-            300.0
-        )
+    private val standardSections = listOf(
+        1.5,
+        2.5,
+        4.0,
+        6.0,
+        10.0,
+        16.0,
+        25.0,
+        35.0,
+        50.0,
+        70.0,
+        95.0,
+        120.0,
+        150.0,
+        185.0,
+        240.0,
+        300.0
+    )
 
     fun standardSections(): List<Double> =
         standardSections
@@ -52,28 +51,28 @@ object EgyptianCableTables {
     fun ampacity(
         request: CableAmpacityRequest
     ): CableAmpacityResult {
-
         val notes = mutableListOf<String>()
 
         if (request.sectionMm2 <= 0.0) {
             notes += "Cable section must be greater than zero."
-
             return unavailable(notes)
         }
 
         if (request.loadedConductors <= 0) {
             notes += "Loaded conductor count must be greater than zero."
-
             return unavailable(notes)
         }
 
+        val ambientTemperature = request.ambientTemperatureC
         if (
-            request.ambientTemperatureC < -50.0 ||
-            request.ambientTemperatureC > 100.0
+            ambientTemperature != null &&
+            (
+                ambientTemperature < -50.0 ||
+                    ambientTemperature > 100.0
+                )
         ) {
             notes +=
                 "Ambient temperature is outside the supported input range."
-
             return unavailable(notes)
         }
 
@@ -83,6 +82,11 @@ object EgyptianCableTables {
 
         notes +=
             "IEC ampacity data is deliberately not substituted."
+
+        if (ambientTemperature == null) {
+            notes +=
+                "Ambient temperature was not specified; no temperature correction was applied."
+        }
 
         return unavailable(notes)
     }
