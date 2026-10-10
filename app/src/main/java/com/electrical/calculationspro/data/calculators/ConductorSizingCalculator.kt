@@ -1,4 +1,3 @@
-
 package com.electrical.calculationspro.data.calculators
 
 import com.electrical.calculationspro.data.ConductorSizingInput
@@ -13,10 +12,11 @@ import com.electrical.calculationspro.data.standards.CodeRuleRegistry
 import com.electrical.calculationspro.data.standards.EngineeringRuleBook
 
 /**
- * Code-driven conductor sizing.
+ * Code-driven conductor sizing integrated with the existing
+ * project models, engineering calculators and equipment catalogues.
  *
- * Missing numerical code data must never be converted into a fabricated
- * correction factor, ampacity or automatic conductor recommendation.
+ * Missing verified engineering data never produces a fabricated
+ * conductor size or a false compliance status.
  */
 object ConductorSizingCalculator {
 
@@ -32,46 +32,54 @@ object ConductorSizingCalculator {
         validateInput(input)
         validateDemandAndDiversity(demandFactor, diversityFactor)
 
-        val ruleStatus = resolveRequiredRules(standard)
-        val engine = CodeEngineFactory.get(standard)
-
         val rawCurrent = LoadCalculator.designCurrent(
             loadWatts = input.load,
             voltage = input.voltage,
             powerFactor = input.powerFactor,
             currentType = input.currentType
         )
+
         val designCurrent = LoadCalculator.applyDemandAndDiversity(
             current = rawCurrent,
             demandFactor = demandFactor,
             diversityFactor = diversityFactor
         )
 
+        val engine = CodeEngineFactory.get(standard)
+        val codeRulesVerified = requiredRulesVerified(standard)
+
         val temperatureFactor = engine.ambientTemperatureFactor(
             insulation = input.insulation,
             ambientTemperatureC = input.ambientTemp
         )
-        val groupingFactor = engine.groupingFactor(input.circuitsInConduit)
+
+        val groupingFactor = engine.groupingFactor(
+            input.circuitsInConduit
+        )
 
         if (!isValidTemperatureFactor(temperatureFactor)) {
             return unavailableResult(
-                designCurrent,
-                rawCurrent,
-                standard,
-                "Verified ambient-temperature correction data are unavailable for this selected code and insulation."
+                input = input,
+                designCurrent = designCurrent,
+                rawCurrent = rawCurrent,
+                standard = standard,
+                reason = "Verified ambient-temperature correction data are unavailable."
             )
         }
 
         if (!isValidGroupingFactor(groupingFactor)) {
             return unavailableResult(
-                designCurrent,
-                rawCurrent,
-                standard,
-                "Verified grouping correction data are unavailable for the specified installation arrangement."
+                input = input,
+                designCurrent = designCurrent,
+                rawCurrent = rawCurrent,
+                standard = standard,
+                reason = "Verified grouping correction data are unavailable."
             )
         }
 
-        val requiredBaseIz = designCurrent / temperatureFactor / groupingFactor
+        val requiredBaseAmpacity =
+            designCurrent / temperatureFactor / groupingFactor
+
         val sections = engine.standardConductorSections()
             .filter { it.isFinite() && it > EPSILON }
             .distinct()
@@ -79,10 +87,11 @@ object ConductorSizingCalculator {
 
         if (sections.isEmpty()) {
             return unavailableResult(
-                designCurrent,
-                rawCurrent,
-                standard,
-                "The selected standard has no available conductor-section dataset."
+                input = input,
+                designCurrent = designCurrent,
+                rawCurrent = rawCurrent,
+                standard = standard,
+                reason = "No conductor-section dataset is available for the selected standard."
             )
         }
 
@@ -94,18 +103,20 @@ object ConductorSizingCalculator {
                 installationMethod = input.installationMethod,
                 loadedConductors = loadedConductorCount(input.currentType)
             )
+
             baseAmpacity != null &&
                 baseAmpacity.isFinite() &&
                 baseAmpacity > 0.0 &&
-                baseAmpacity + EPSILON >= requiredBaseIz
+                baseAmpacity + EPSILON >= requiredBaseAmpacity
         }
 
         if (selectedSection == null) {
             return unavailableResult(
-                designCurrent,
-                rawCurrent,
-                standard,
-                "No listed conductor section has verified ampacity sufficient for this design. The largest listed section is not automatically recommended."
+                input = input,
+                designCurrent = designCurrent,
+                rawCurrent = rawCurrent,
+                standard = standard,
+                reason = "No listed conductor section has verified ampacity sufficient for this design."
             )
         }
 
@@ -113,11 +124,12 @@ object ConductorSizingCalculator {
             input = input,
             section = selectedSection,
             designCurrent = designCurrent,
-            rawDesignCurrent = rawCurrent,
+            rawCurrent = rawCurrent,
             standard = standard,
-            requiredBaseIz = requiredBaseIz,
+            demandFactor = demandFactor,
+            diversityFactor = diversityFactor,
             manufacturer = manufacturer,
-            codeRulesVerified = ruleStatus
+            codeRulesVerified = codeRulesVerified
         )
     }
 
@@ -130,13 +142,12 @@ object ConductorSizingCalculator {
         manufacturer: Manufacturer? = null
     ): ConductorSizingResult {
         validateInput(input)
+
         require(selectedSection.isFinite() && selectedSection > EPSILON) {
             "Selected conductor section must be finite and greater than zero."
         }
-        validateDemandAndDiversity(demandFactor, diversityFactor)
 
-        val ruleStatus = resolveRequiredRules(standard)
-        val engine = CodeEngineFactory.get(standard)
+        validateDemandAndDiversity(demandFactor, diversityFactor)
 
         val rawCurrent = LoadCalculator.designCurrent(
             loadWatts = input.load,
@@ -144,59 +155,46 @@ object ConductorSizingCalculator {
             powerFactor = input.powerFactor,
             currentType = input.currentType
         )
+
         val designCurrent = LoadCalculator.applyDemandAndDiversity(
             current = rawCurrent,
             demandFactor = demandFactor,
             diversityFactor = diversityFactor
         )
 
+        val engine = CodeEngineFactory.get(standard)
+
         val temperatureFactor = engine.ambientTemperatureFactor(
             insulation = input.insulation,
             ambientTemperatureC = input.ambientTemp
         )
-        val groupingFactor = engine.groupingFactor(input.circuitsInConduit)
+
+        val groupingFactor = engine.groupingFactor(
+            input.circuitsInConduit
+        )
 
         if (!isValidTemperatureFactor(temperatureFactor) ||
             !isValidGroupingFactor(groupingFactor)
         ) {
-            val drop = VoltageDropCalculator.calculate(
-                current = designCurrent,
-                length = input.lineLength,
-                sectionMm2 = selectedSection,
-                powerFactor = input.powerFactor,
-                currentType = input.currentType,
-                material = input.conductor,
-                voltage = input.voltage
-            )
-            return ConductorSizingResult(
+            return unavailableSelectedSectionResult(
+                input = input,
+                section = selectedSection,
                 designCurrent = designCurrent,
-                recommendedSection = 0.0,
-                selectedSection = selectedSection,
-                ampacity = 0.0,
-                voltageDropPercent = drop.first,
-                voltageDropVolts = drop.second,
-                protectiveDevice = 0.0,
-                notes = listOf(
-                    "SELECTED SECTION — NOT VERIFIED FOR CODE COMPLIANCE",
-                    "Code: ${engine.codeName}",
-                    "Selected section: %.1f mm²".format(selectedSection),
-                    "Voltage drop is a preliminary calculation only.",
-                    "Verified ambient-temperature and/or grouping correction data are unavailable.",
-                    "Corrected ampacity, breaker coordination and final code compliance were not verified."
-                )
+                standard = standard,
+                reason = "Verified temperature or grouping correction data are unavailable."
             )
         }
 
-        val requiredBaseIz = designCurrent / temperatureFactor / groupingFactor
         return evaluateSection(
             input = input,
             section = selectedSection,
             designCurrent = designCurrent,
-            rawDesignCurrent = rawCurrent,
+            rawCurrent = rawCurrent,
             standard = standard,
-            requiredBaseIz = requiredBaseIz,
+            demandFactor = demandFactor,
+            diversityFactor = diversityFactor,
             manufacturer = manufacturer,
-            codeRulesVerified = ruleStatus
+            codeRulesVerified = requiredRulesVerified(standard)
         )
     }
 
@@ -204,9 +202,10 @@ object ConductorSizingCalculator {
         input: ConductorSizingInput,
         section: Double,
         designCurrent: Double,
-        rawDesignCurrent: Double,
+        rawCurrent: Double,
         standard: Standard,
-        requiredBaseIz: Double,
+        demandFactor: Double,
+        diversityFactor: Double,
         manufacturer: Manufacturer?,
         codeRulesVerified: Boolean
     ): ConductorSizingResult {
@@ -216,7 +215,10 @@ object ConductorSizingCalculator {
             insulation = input.insulation,
             ambientTemperatureC = input.ambientTemp
         )
-        val groupingFactor = engine.groupingFactor(input.circuitsInConduit)
+
+        val groupingFactor = engine.groupingFactor(
+            input.circuitsInConduit
+        )
 
         val factorsVerified =
             isValidTemperatureFactor(temperatureFactor) &&
@@ -230,11 +232,12 @@ object ConductorSizingCalculator {
             loadedConductors = loadedConductorCount(input.currentType)
         )?.takeIf { it.isFinite() && it > 0.0 }
 
-        val correctedAmpacity = if (factorsVerified && baseAmpacity != null) {
-            baseAmpacity * temperatureFactor * groupingFactor
-        } else {
-            0.0
-        }
+        val correctedAmpacity =
+            if (factorsVerified && baseAmpacity != null) {
+                baseAmpacity * temperatureFactor * groupingFactor
+            } else {
+                0.0
+            }
 
         val voltageDrop = VoltageDropCalculator.calculateCodeDriven(
             current = designCurrent,
@@ -249,7 +252,7 @@ object ConductorSizingCalculator {
             maxVoltageDropPercent = input.maxVoltageDrop
         )
 
-        val protectiveDevice = if (correctedAmpacity > EPSILON) {
+        val breakerRating = if (correctedAmpacity > EPSILON) {
             BreakerSelectionCalculator.selectRating(
                 designCurrentA = designCurrent,
                 cableAmpacityA = correctedAmpacity,
@@ -259,6 +262,11 @@ object ConductorSizingCalculator {
             0.0
         }
 
+        /*
+         * Source fault level is deliberately zero until the actual
+         * source/network fault level is supplied. This is not a
+         * verified short-circuit study.
+         */
         val shortCircuit = runCatching {
             ShortCircuitCalculator.calculate(
                 voltage = input.voltage,
@@ -271,37 +279,45 @@ object ConductorSizingCalculator {
             )
         }.getOrNull()
 
-        val shortCircuitKA = shortCircuit?.shortCircuitCurrentKA ?: 0.0
+        val shortCircuitKA =
+            shortCircuit?.shortCircuitCurrentKA ?: 0.0
 
         val cableResult = EquipmentSelectionCalculator.selectCable(
             sectionMm2 = section,
             manufacturer = manufacturer,
             standard = standard
         )
+
         val catalogCable: CableCatalogItem? = cableResult.selected
 
-        val breakerResult = if (protectiveDevice > EPSILON) {
-            EquipmentSelectionCalculator.selectBreaker(
-                ratedCurrentA = protectiveDevice,
-                breakingCapacityKA = shortCircuitKA,
-                manufacturer = manufacturer,
-                standard = standard
-            )
-        } else {
-            null
-        }
-        val catalogBreaker: BreakerCatalogItem? = breakerResult?.selected
+        val breakerResult =
+            if (breakerRating > EPSILON) {
+                EquipmentSelectionCalculator.selectBreaker(
+                    ratedCurrentA = breakerRating,
+                    breakingCapacityKA = shortCircuitKA,
+                    manufacturer = manufacturer,
+                    standard = standard
+                )
+            } else {
+                null
+            }
 
-        val ampacityVerified = baseAmpacity != null && factorsVerified
+        val catalogBreaker: BreakerCatalogItem? =
+            breakerResult?.selected
+
+        val ampacityVerified =
+            baseAmpacity != null && factorsVerified
+
         val ampacityWithinLimit =
-            ampacityVerified && correctedAmpacity + EPSILON >= designCurrent
+            ampacityVerified &&
+                correctedAmpacity + EPSILON >= designCurrent
 
         val breakerWithinCapacity =
-            protectiveDevice > EPSILON &&
+            breakerRating > EPSILON &&
                 correctedAmpacity > EPSILON &&
                 BreakerSelectionCalculator.satisfiesCoordination(
                     designCurrentA = designCurrent,
-                    breakerRatingA = protectiveDevice,
+                    breakerRatingA = breakerRating,
                     cableAmpacityA = correctedAmpacity
                 )
 
@@ -322,16 +338,33 @@ object ConductorSizingCalculator {
             add("CODE-DRIVEN CONDUCTOR DESIGN")
             add("Code: ${engine.codeName}")
             add("Code revision: ${engine.codeRevision}")
-            add("Raw design current = %.2f A".format(rawDesignCurrent))
+            add("Raw design current = %.2f A".format(rawCurrent))
+            add("Demand factor = %.3f".format(demandFactor))
+            add("Diversity factor = %.3f".format(diversityFactor))
             add("Design current Ib = %.2f A".format(designCurrent))
             add("Selected section = %.1f mm²".format(section))
-            add("Required base Iz = %.2f A".format(requiredBaseIz))
 
             if (baseAmpacity != null && factorsVerified) {
+                val requiredBaseAmpacity =
+                    designCurrent / temperatureFactor / groupingFactor
+
+                add(
+                    "Required base ampacity = %.2f A"
+                        .format(requiredBaseAmpacity)
+                )
                 add("Base ampacity = %.2f A".format(baseAmpacity))
-                add("Ambient correction factor = %.3f".format(temperatureFactor))
-                add("Grouping factor = %.3f".format(groupingFactor))
-                add("Corrected ampacity Iz = %.2f A".format(correctedAmpacity))
+                add(
+                    "Ambient correction factor = %.3f"
+                        .format(temperatureFactor)
+                )
+                add(
+                    "Grouping factor = %.3f"
+                        .format(groupingFactor)
+                )
+                add(
+                    "Corrected ampacity Iz = %.2f A"
+                        .format(correctedAmpacity)
+                )
                 add(
                     if (ampacityWithinLimit) {
                         "Ampacity verification: PASS"
@@ -340,15 +373,26 @@ object ConductorSizingCalculator {
                     }
                 )
             } else {
-                add("CODE DATA INCOMPLETE: verified ampacity/correction data unavailable.")
+                add(
+                    "CODE DATA INCOMPLETE: verified ampacity or correction-factor data are unavailable."
+                )
             }
 
-            add("Voltage drop = %.3f V".format(voltageDrop.voltageDropVolts))
-            add("Voltage drop = %.3f %%".format(voltageDrop.voltageDropPercent))
+            add(
+                "Voltage drop = %.3f V"
+                    .format(voltageDrop.voltageDropVolts)
+            )
+            add(
+                "Voltage drop = %.3f %%"
+                    .format(voltageDrop.voltageDropPercent)
+            )
             addAll(voltageDrop.notes)
 
-            if (protectiveDevice > EPSILON) {
-                add("Engineering breaker rating In = %.0f A".format(protectiveDevice))
+            if (breakerRating > EPSILON) {
+                add(
+                    "Engineering breaker rating In = %.0f A"
+                        .format(breakerRating)
+                )
                 add(
                     if (breakerWithinCapacity) {
                         "Breaker/cable coordination Ib <= In <= Iz: PASS"
@@ -357,40 +401,57 @@ object ConductorSizingCalculator {
                     }
                 )
             } else {
-                add("No verified breaker rating was established from the available ampacity data.")
+                add(
+                    "No verified breaker rating was established from the available ampacity data."
+                )
             }
 
             add(
-                "Short-circuit study is preliminary until source fault level and complete network data are supplied."
+                "Short-circuit assessment is preliminary: the source fault level has not been supplied."
             )
 
             if (catalogCable != null) {
-                add("Preliminary catalog cable = ${catalogCable.model}")
+                add("Catalogue cable model = ${catalogCable.model}")
                 add("Cable manufacturer = ${catalogCable.manufacturer}")
-                add("Cable catalog status: ${cableResult.message}")
+                add("Cable catalogue status = ${cableResult.message}")
             } else {
-                add("No matching catalog cable reference was found.")
+                add(
+                    "No matching cable catalogue item was found; catalogue compliance is NOT VERIFIED."
+                )
             }
 
             if (catalogBreaker != null) {
-                add("Preliminary catalog breaker = ${catalogBreaker.model}")
+                add("Catalogue breaker model = ${catalogBreaker.model}")
                 add("Breaker manufacturer = ${catalogBreaker.manufacturer}")
-                add("Breaker catalog status = ${breakerResult?.message}")
-            } else if (protectiveDevice > EPSILON) {
-                add("No matching catalog breaker was found.")
+                add("Breaker catalogue status = ${breakerResult?.message}")
+            } else if (breakerRating > EPSILON) {
+                add(
+                    "No matching breaker catalogue item was found; catalogue compliance is NOT VERIFIED."
+                )
             }
 
             if (!codeRulesVerified) {
-                add("FINAL CODE COMPLIANCE: NOT VERIFIED; one or more code rules are incomplete.")
+                add(
+                    "FINAL CODE COMPLIANCE: NOT VERIFIED; required code references are incomplete."
+                )
             }
+
             if (!factorsVerified) {
-                add("Correction factors are unavailable; corrected ampacity is not verified.")
+                add(
+                    "Correction factors are unavailable; corrected ampacity is NOT VERIFIED."
+                )
             }
+
             if (!cableResult.valid) {
-                add("CATALOG CABLE COMPLIANCE: NOT VERIFIED.")
+                add(
+                    "CATALOGUE CABLE COMPLIANCE: NOT VERIFIED. ${cableResult.message}"
+                )
             }
+
             if (breakerResult != null && !breakerResult.valid) {
-                add("CATALOG BREAKER COMPLIANCE: NOT VERIFIED.")
+                add(
+                    "CATALOGUE BREAKER COMPLIANCE: NOT VERIFIED. ${breakerResult.message}"
+                )
             }
 
             add(
@@ -401,10 +462,30 @@ object ConductorSizingCalculator {
                 }
             )
 
-            addAll(EngineeringRuleBook.auditTrail(standard, CodeRuleRegistry.RuleDomain.CONDUCTOR))
-            addAll(EngineeringRuleBook.auditTrail(standard, CodeRuleRegistry.RuleDomain.AMPACITY))
-            addAll(EngineeringRuleBook.auditTrail(standard, CodeRuleRegistry.RuleDomain.INSTALLATION_METHOD))
-            addAll(EngineeringRuleBook.auditTrail(standard, CodeRuleRegistry.RuleDomain.VOLTAGE_DROP))
+            addAll(
+                EngineeringRuleBook.auditTrail(
+                    standard,
+                    CodeRuleRegistry.RuleDomain.CONDUCTOR
+                )
+            )
+            addAll(
+                EngineeringRuleBook.auditTrail(
+                    standard,
+                    CodeRuleRegistry.RuleDomain.AMPACITY
+                )
+            )
+            addAll(
+                EngineeringRuleBook.auditTrail(
+                    standard,
+                    CodeRuleRegistry.RuleDomain.INSTALLATION_METHOD
+                )
+            )
+            addAll(
+                EngineeringRuleBook.auditTrail(
+                    standard,
+                    CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
+                )
+            )
         }
 
         return ConductorSizingResult(
@@ -414,7 +495,7 @@ object ConductorSizingCalculator {
             ampacity = correctedAmpacity,
             voltageDropPercent = voltageDrop.voltageDropPercent,
             voltageDropVolts = voltageDrop.voltageDropVolts,
-            protectiveDevice = protectiveDevice,
+            protectiveDevice = breakerRating,
             shortCircuitCurrentKA = shortCircuitKA,
             breakerWithinCableCapacity = breakerWithinCapacity,
             voltageDropWithinLimit = voltageDropWithinLimit,
@@ -424,7 +505,70 @@ object ConductorSizingCalculator {
         )
     }
 
-    private fun resolveRequiredRules(standard: Standard): Boolean {
+    private fun unavailableSelectedSectionResult(
+        input: ConductorSizingInput,
+        section: Double,
+        designCurrent: Double,
+        standard: Standard,
+        reason: String
+    ): ConductorSizingResult {
+        val drop = VoltageDropCalculator.calculate(
+            current = designCurrent,
+            length = input.lineLength,
+            sectionMm2 = section,
+            powerFactor = input.powerFactor,
+            currentType = input.currentType,
+            material = input.conductor,
+            voltage = input.voltage
+        )
+
+        return ConductorSizingResult(
+            designCurrent = designCurrent,
+            recommendedSection = 0.0,
+            selectedSection = section,
+            ampacity = 0.0,
+            voltageDropPercent = drop.first,
+            voltageDropVolts = drop.second,
+            protectiveDevice = 0.0,
+            notes = listOf(
+                "SELECTED SECTION — NOT VERIFIED FOR CODE COMPLIANCE",
+                "Code: ${CodeEngineFactory.get(standard).codeName}",
+                "Selected section = %.1f mm²".format(section),
+                reason,
+                "Corrected ampacity, breaker coordination and final code compliance were not verified."
+            )
+        )
+    }
+
+    private fun unavailableResult(
+        input: ConductorSizingInput,
+        designCurrent: Double,
+        rawCurrent: Double,
+        standard: Standard,
+        reason: String
+    ): ConductorSizingResult =
+        ConductorSizingResult(
+            designCurrent = designCurrent,
+            recommendedSection = 0.0,
+            selectedSection = 0.0,
+            ampacity = 0.0,
+            voltageDropPercent = 0.0,
+            voltageDropVolts = 0.0,
+            protectiveDevice = 0.0,
+            notes = listOf(
+                "AUTOMATIC CONDUCTOR SIZING: NOT VERIFIED",
+                "Code: ${CodeEngineFactory.get(standard).codeName}",
+                "Voltage = %.2f V".format(input.voltage),
+                "Load = %.2f W".format(input.load),
+                "Line length = %.2f m".format(input.lineLength),
+                "Raw design current = %.2f A".format(rawCurrent),
+                "Design current = %.2f A".format(designCurrent),
+                reason,
+                "No conductor recommendation has been issued because required verified data are unavailable."
+            )
+        )
+
+    private fun requiredRulesVerified(standard: Standard): Boolean {
         val conductor = EngineeringRuleBook.requireReference(
             standard,
             CodeRuleRegistry.RuleDomain.CONDUCTOR
@@ -441,6 +585,7 @@ object ConductorSizingCalculator {
             standard,
             CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
         )
+
         return conductor.verified &&
             ampacity.verified &&
             installation.verified &&
@@ -452,30 +597,6 @@ object ConductorSizingCalculator {
 
     private fun isValidGroupingFactor(value: Double): Boolean =
         value.isFinite() && value > EPSILON && value <= 1.0
-
-    private fun unavailableResult(
-        designCurrent: Double,
-        rawDesignCurrent: Double,
-        standard: Standard,
-        reason: String
-    ): ConductorSizingResult =
-        ConductorSizingResult(
-            designCurrent = designCurrent,
-            recommendedSection = 0.0,
-            selectedSection = 0.0,
-            ampacity = 0.0,
-            voltageDropPercent = 0.0,
-            voltageDropVolts = 0.0,
-            protectiveDevice = 0.0,
-            notes = listOf(
-                "AUTOMATIC CONDUCTOR SIZING: NOT VERIFIED",
-                "Code: ${CodeEngineFactory.get(standard).codeName}",
-                "Raw design current: %.2f A".format(rawDesignCurrent),
-                "Design current: %.2f A".format(designCurrent),
-                reason,
-                "A zero section means no recommendation was issued; it is not a valid cable size."
-            )
-        )
 
     private fun loadedConductorCount(currentType: CurrentType): Int =
         when (currentType) {
@@ -502,16 +623,17 @@ object ConductorSizingCalculator {
             "Voltage must be finite and greater than zero."
         }
         require(input.load.isFinite() && input.load >= 0.0) {
-            "Load must be finite and cannot be negative."
+            "Load must be finite and non-negative."
         }
-        require(input.powerFactor.isFinite() &&
-            input.powerFactor > 0.0 &&
-            input.powerFactor <= 1.0
+        require(
+            input.powerFactor.isFinite() &&
+                input.powerFactor > 0.0 &&
+                input.powerFactor <= 1.0
         ) {
-            "Power factor must be finite, greater than 0 and not greater than 1."
+            "Power factor must be finite, greater than zero and not greater than 1."
         }
         require(input.lineLength.isFinite() && input.lineLength >= 0.0) {
-            "Line length must be finite and cannot be negative."
+            "Line length must be finite and non-negative."
         }
         require(input.ambientTemp.isFinite() && input.ambientTemp > -50.0) {
             "Ambient temperature is invalid."
