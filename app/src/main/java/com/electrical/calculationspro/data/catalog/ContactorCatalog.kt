@@ -1,3 +1,4 @@
+
 package com.electrical.calculationspro.data.catalog
 
 object ContactorCatalog {
@@ -29,18 +30,28 @@ object ContactorCatalog {
         current: Double
     ): ContactorCatalogItem {
 
-        val source = when (manufacturer) {
-            Manufacturer.SCHNEIDER_ELECTRIC ->
-                CatalogSources.schneiderCompactNsx
+        val isExactSchneider25A =
+            manufacturer == Manufacturer.SCHNEIDER_ELECTRIC &&
+                current == 25.0
 
-            else ->
+        val source =
+            if (isExactSchneider25A) {
+                CatalogSources.schneiderLc1d25d7
+            } else {
                 CatalogSources.generic
-        }
+            }
+
+        val model =
+            if (isExactSchneider25A) {
+                "LC1D25D7"
+            } else {
+                "$family $current A - exact reference required"
+            }
 
         return ContactorCatalogItem(
             manufacturer = manufacturer,
             family = family,
-            model = "$family $current A",
+            model = model,
             ratedCurrentA = current,
             voltageV = 400.0,
             utilizationCategory = "AC-3",
@@ -49,20 +60,20 @@ object ContactorCatalog {
     }
 
     fun schneider(): List<ContactorCatalogItem> =
-        standardRatings.map {
+        standardRatings.map { current ->
             create(
-                Manufacturer.SCHNEIDER_ELECTRIC,
-                "TeSys",
-                it
+                manufacturer = Manufacturer.SCHNEIDER_ELECTRIC,
+                family = "TeSys",
+                current = current
             )
         }
 
     fun generic(): List<ContactorCatalogItem> =
-        standardRatings.map {
+        standardRatings.map { current ->
             create(
-                Manufacturer.GENERIC,
-                "AC-3 Contactor",
-                it
+                manufacturer = Manufacturer.GENERIC,
+                family = "AC-3 Contactor",
+                current = current
             )
         }
 
@@ -71,12 +82,17 @@ object ContactorCatalog {
 
     fun select(
         motorCurrentA: Double
-    ): List<ContactorCatalogItem> =
-        all()
+    ): List<ContactorCatalogItem> {
+        require(motorCurrentA >= 0.0) {
+            "Motor current cannot be negative."
+        }
+
+        return all()
             .filter {
                 it.ratedCurrentA >= motorCurrentA
             }
             .sortedBy {
                 it.ratedCurrentA
             }
+    }
 }
