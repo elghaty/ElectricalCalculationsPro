@@ -1,6 +1,14 @@
-
 package com.electrical.calculationspro.data.catalog
 
+/**
+ * Contactor catalogue.
+ *
+ * Only the exact Schneider LC1D25D7 reference is represented as
+ * a verified commercial product in this catalogue.
+ *
+ * Other ratings are generic engineering references and cannot
+ * pass final CodeCompliance evaluation.
+ */
 object ContactorCatalog {
 
     private val standardRatings = listOf(
@@ -24,75 +32,91 @@ object ContactorCatalog {
         400.0
     )
 
-    private fun create(
-        manufacturer: Manufacturer,
-        family: String,
+    private fun createGeneric(
         current: Double
-    ): ContactorCatalogItem {
-
-        val isExactSchneider25A =
-            manufacturer == Manufacturer.SCHNEIDER_ELECTRIC &&
-                current == 25.0
-
-        val source =
-            if (isExactSchneider25A) {
-                CatalogSources.schneiderLc1d25d7
-            } else {
-                CatalogSources.generic
-            }
-
-        val model =
-            if (isExactSchneider25A) {
-                "LC1D25D7"
-            } else {
-                "$family $current A - exact reference required"
-            }
-
-        return ContactorCatalogItem(
-            manufacturer = manufacturer,
-            family = family,
-            model = model,
+    ): ContactorCatalogItem =
+        ContactorCatalogItem(
+            manufacturer = Manufacturer.GENERIC,
+            family = "AC-3 Contactor - Engineering Reference",
+            model = "Generic AC-3 Contactor ${current.toInt()} A - Not a Verified Product",
             ratedCurrentA = current,
             voltageV = 400.0,
             utilizationCategory = "AC-3",
-            source = source
+            source = CatalogSources.generic
         )
-    }
 
+    /**
+     * Exact manufacturer reference:
+     * Schneider Electric TeSys D LC1D25D7.
+     *
+     * The coil code is part of the commercial reference.
+     * Verify coil voltage and application compatibility before use.
+     */
     fun schneider(): List<ContactorCatalogItem> =
-        standardRatings.map { current ->
-            create(
+        listOf(
+            ContactorCatalogItem(
                 manufacturer = Manufacturer.SCHNEIDER_ELECTRIC,
-                family = "TeSys",
-                current = current
+                family = "TeSys D",
+                model = "LC1D25D7",
+                ratedCurrentA = 25.0,
+                voltageV = 440.0,
+                utilizationCategory = "AC-3",
+                source = CatalogSources.schneiderLc1d25d7
             )
-        }
+        )
 
+    /**
+     * Generic ratings for preliminary engineering selection only.
+     */
     fun generic(): List<ContactorCatalogItem> =
-        standardRatings.map { current ->
-            create(
-                manufacturer = Manufacturer.GENERIC,
-                family = "AC-3 Contactor",
-                current = current
-            )
-        }
+        standardRatings.map(::createGeneric)
 
+    /**
+     * All available records: verified exact product plus generic
+     * reference ratings. Generic records are not approved products.
+     */
     fun all(): List<ContactorCatalogItem> =
         schneider() + generic()
 
+    /**
+     * Preliminary selection by current rating.
+     * A returned candidate is not automatically compliant.
+     */
     fun select(
         motorCurrentA: Double
     ): List<ContactorCatalogItem> {
-        require(motorCurrentA >= 0.0) {
-            "Motor current cannot be negative."
+
+        if (!motorCurrentA.isFinite() || motorCurrentA <= 0.0) {
+            return emptyList()
         }
 
         return all()
-            .filter {
-                it.ratedCurrentA >= motorCurrentA
+            .filter { item ->
+                item.ratedCurrentA >= motorCurrentA
             }
-            .sortedBy {
-                it.ratedCurrentA
-            }
+            .sortedWith(
+                compareBy<ContactorCatalogItem> {
+                    it.ratedCurrentA
+                }.thenBy {
+                    if (
+                        it.source.status ==
+                        ProductFamilyStatus.VERIFIED_PRODUCT
+                    ) {
+                        0
+                    } else {
+                        1
+                    }
+                }.thenBy {
+                    it.manufacturer.name
+                }.thenBy {
+                    it.model
+                }
+            )
     }
+
+    /**
+     * Exposes nominal reference ratings for preliminary sizing.
+     */
+    fun standardRatingsA(): List<Double> =
+        standardRatings.toList()
 }
