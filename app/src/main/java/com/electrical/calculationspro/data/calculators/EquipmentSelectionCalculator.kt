@@ -28,28 +28,25 @@ object EquipmentSelectionCalculator {
         manufacturer: Manufacturer? = null,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<BreakerCatalogItem> {
-
-        if (ratedCurrentA <= 0.0) {
+        if (!ratedCurrentA.isFinite() || ratedCurrentA <= 0.0) {
             return invalid(
-                "Breaker rated current must be greater than zero.",
+                "Breaker rated current must be finite and greater than zero.",
                 standard
             )
         }
 
-        if (breakingCapacityKA < 0.0) {
+        if (!breakingCapacityKA.isFinite() || breakingCapacityKA < 0.0) {
             return invalid(
-                "Required breaking capacity cannot be negative.",
+                "Required breaking capacity must be finite and cannot be negative.",
                 standard
             )
         }
 
-        return CatalogSelector
-            .selectBreaker(
-                designCurrentA = ratedCurrentA,
-                shortCircuitKA = breakingCapacityKA,
-                manufacturer = manufacturer
-            )
-            .toCoreResult(standard)
+        return CatalogSelector.selectBreaker(
+            designCurrentA = ratedCurrentA,
+            shortCircuitKA = breakingCapacityKA,
+            manufacturer = manufacturer
+        ).toCoreResult(standard)
     }
 
     fun selectBreaker(
@@ -69,20 +66,17 @@ object EquipmentSelectionCalculator {
         manufacturer: Manufacturer? = null,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<CableCatalogItem> {
-
-        if (sectionMm2 <= 0.0) {
+        if (!sectionMm2.isFinite() || sectionMm2 <= 0.0) {
             return invalid(
-                "Required cable section must be greater than zero.",
+                "Required cable section must be finite and greater than zero.",
                 standard
             )
         }
 
-        return CatalogSelector
-            .selectCable(
-                requiredSectionMm2 = sectionMm2,
-                manufacturer = manufacturer
-            )
-            .toCoreResult(standard)
+        return CatalogSelector.selectCable(
+            requiredSectionMm2 = sectionMm2,
+            manufacturer = manufacturer
+        ).toCoreResult(standard)
     }
 
     fun selectCable(
@@ -94,87 +88,71 @@ object EquipmentSelectionCalculator {
         manufacturer: Manufacturer? = null,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<CableCatalogItem> {
-
-        if (sectionMm2 <= 0.0) {
+        if (!sectionMm2.isFinite() || sectionMm2 <= 0.0) {
             return invalid(
-                "Required cable section must be greater than zero.",
+                "Required cable section must be finite and greater than zero.",
                 standard
             )
         }
 
         if (material.isBlank()) {
-            return invalid(
-                "Cable conductor material is required.",
-                standard
-            )
+            return invalid("Cable conductor material is required.", standard)
         }
 
         if (insulation.isBlank()) {
-            return invalid(
-                "Cable insulation is required.",
-                standard
-            )
+            return invalid("Cable insulation is required.", standard)
         }
 
         if (cores <= 0) {
-            return invalid(
-                "Cable core count must be greater than zero.",
-                standard
-            )
+            return invalid("Cable core count must be greater than zero.", standard)
         }
 
         if (voltageV <= 0) {
-            return invalid(
-                "Cable voltage must be greater than zero.",
-                standard
-            )
+            return invalid("Cable voltage must be greater than zero.", standard)
         }
 
-        val catalogResult =
-            CatalogSelector.selectCable(
-                requiredSectionMm2 = sectionMm2,
-                manufacturer = manufacturer
-            )
+        val catalogResult = CatalogSelector.selectCable(
+            requiredSectionMm2 = sectionMm2,
+            manufacturer = manufacturer
+        )
 
-        val candidates =
-            buildList {
-                catalogResult.selected?.let(::add)
-                addAll(catalogResult.alternatives)
+        val candidates = buildList {
+            catalogResult.selected?.let(::add)
+            addAll(catalogResult.alternatives)
+        }
+            .distinctBy { "${it.manufacturer}:${it.model}" }
+            .asSequence()
+            .filter { it.sectionMm2.isFinite() && it.sectionMm2 >= sectionMm2 }
+            .filter {
+                it.conductorMaterial.equals(
+                    material.trim(),
+                    ignoreCase = true
+                )
             }
-                .asSequence()
-                .filter {
-                    it.conductorMaterial.equals(
-                        material.trim(),
-                        ignoreCase = true
-                    )
-                }
-                .filter {
-                    it.insulation.equals(
-                        insulation.trim(),
-                        ignoreCase = true
-                    )
-                }
-                .filter {
-                    it.cores == cores
-                }
-                .filter {
-                    it.voltageClassV >= voltageV
-                }
-                .sortedBy {
-                    it.sectionMm2
-                }
-                .toList()
+            .filter {
+                it.insulation.equals(
+                    insulation.trim(),
+                    ignoreCase = true
+                )
+            }
+            .filter { it.cores == cores }
+            .filter { it.voltageClassV >= voltageV }
+            .sortedWith(
+                compareBy<CableCatalogItem> { it.sectionMm2 }
+                    .thenBy { it.manufacturer.name }
+                    .thenBy { it.model }
+            )
+            .toList()
 
         return EquipmentCatalogResult(
             selected = candidates.firstOrNull(),
             alternatives = candidates.drop(1),
-            valid = candidates.isNotEmpty(),
-            message =
-                if (candidates.isNotEmpty()) {
-                    "Catalog cable satisfies the requested material, insulation, core count and voltage requirements."
-                } else {
-                    "No catalog cable satisfies all requested engineering requirements."
-                },
+            valid = false,
+            message = if (candidates.isNotEmpty()) {
+                "PRELIMINARY CATALOG MATCH ONLY. Section, conductor material, insulation, core count and voltage class have been filtered. Final approval still requires code-based ampacity, installation correction factors, voltage-drop verification, short-circuit withstand and exact-product documentation."
+            } else {
+                "NO MATCHING CATALOG ITEM. No listed item meets the requested minimum section, material, insulation, core count and voltage class."
+            },
             standard = standard
         )
     }
@@ -183,16 +161,14 @@ object EquipmentSelectionCalculator {
         requiredKva: Double,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<TransformerCatalogItem> {
-
-        if (requiredKva <= 0.0) {
+        if (!requiredKva.isFinite() || requiredKva <= 0.0) {
             return invalid(
-                "Required transformer rating must be greater than zero.",
+                "Required transformer rating must be finite and greater than zero.",
                 standard
             )
         }
 
-        return CatalogSelector
-            .selectTransformer(requiredKva)
+        return CatalogSelector.selectTransformer(requiredKva)
             .toCoreResult(standard)
     }
 
@@ -200,16 +176,14 @@ object EquipmentSelectionCalculator {
         requiredKva: Double,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<GeneratorCatalogItem> {
-
-        if (requiredKva <= 0.0) {
+        if (!requiredKva.isFinite() || requiredKva <= 0.0) {
             return invalid(
-                "Required generator rating must be greater than zero.",
+                "Required generator rating must be finite and greater than zero.",
                 standard
             )
         }
 
-        return CatalogSelector
-            .selectGenerator(requiredKva)
+        return CatalogSelector.selectGenerator(requiredKva)
             .toCoreResult(standard)
     }
 
@@ -217,16 +191,14 @@ object EquipmentSelectionCalculator {
         ratedCurrentA: Double,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<BusbarCatalogItem> {
-
-        if (ratedCurrentA <= 0.0) {
+        if (!ratedCurrentA.isFinite() || ratedCurrentA <= 0.0) {
             return invalid(
-                "Required busbar current must be greater than zero.",
+                "Required busbar current must be finite and greater than zero.",
                 standard
             )
         }
 
-        return CatalogSelector
-            .selectBusbar(ratedCurrentA)
+        return CatalogSelector.selectBusbar(ratedCurrentA)
             .toCoreResult(standard)
     }
 
@@ -234,16 +206,14 @@ object EquipmentSelectionCalculator {
         motorCurrentA: Double,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<ContactorCatalogItem> {
-
-        if (motorCurrentA <= 0.0) {
+        if (!motorCurrentA.isFinite() || motorCurrentA <= 0.0) {
             return invalid(
-                "Motor current must be greater than zero.",
+                "Motor current must be finite and greater than zero.",
                 standard
             )
         }
 
-        return CatalogSelector
-            .selectContactor(motorCurrentA)
+        return CatalogSelector.selectContactor(motorCurrentA)
             .toCoreResult(standard)
     }
 
@@ -251,16 +221,14 @@ object EquipmentSelectionCalculator {
         ratedCurrentA: Double,
         standard: Standard = Standard.IEC
     ): EquipmentCatalogResult<PanelCatalogItem> {
-
-        if (ratedCurrentA <= 0.0) {
+        if (!ratedCurrentA.isFinite() || ratedCurrentA <= 0.0) {
             return invalid(
-                "Panel rated current must be greater than zero.",
+                "Panel rated current must be finite and greater than zero.",
                 standard
             )
         }
 
-        return CatalogSelector
-            .selectPanel(ratedCurrentA)
+        return CatalogSelector.selectPanel(ratedCurrentA)
             .toCoreResult(standard)
     }
 
@@ -268,10 +236,10 @@ object EquipmentSelectionCalculator {
         standard: Standard
     ): EquipmentCatalogResult<T> =
         EquipmentCatalogResult(
-            selected = this.selected,
-            alternatives = this.alternatives,
-            valid = this.valid,
-            message = this.message,
+            selected = selected,
+            alternatives = alternatives,
+            valid = valid,
+            message = message,
             standard = standard
         )
 
