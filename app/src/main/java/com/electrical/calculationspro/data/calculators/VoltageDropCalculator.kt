@@ -1,8 +1,10 @@
+
 package com.electrical.calculationspro.data.calculators
 
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.Standard
+import com.electrical.calculationspro.data.standards.CodeEngineFactory
 import com.electrical.calculationspro.data.standards.CodeRuleRegistry
 import com.electrical.calculationspro.data.standards.EngineeringRuleBook
 import kotlin.math.sqrt
@@ -12,14 +14,14 @@ import kotlin.math.sqrt
  *
  * Architecture:
  *
- *     Standard
- *        ↓
+ * Standard
+ *     ↓
  * EngineeringRuleBook
- *        ↓
+ *     ↓
  * Voltage-drop rule/reference
- *        ↓
+ *     ↓
  * Electrical calculation
- *        ↓
+ *     ↓
  * Verification against code limit
  *
  * Catalogue R/X data can be supplied for final equipment-based design.
@@ -35,14 +37,12 @@ object VoltageDropCalculator {
 
     /*
      * Used only by the legacy section/material calculation.
-     *
      * Final design should use manufacturer catalogue R/X data.
      */
     private const val DEFAULT_AC_REACTANCE_OHM_PER_KM = 0.08
 
     /**
      * Legacy/public API.
-     *
      * This preserves the original numerical calculation.
      */
     fun calculate(
@@ -99,16 +99,10 @@ object VoltageDropCalculator {
     }
 
     /**
-     * CODE-DRIVEN VOLTAGE DROP CALCULATION.
-     *
-     * The standard is not metadata only.
+     * Code-driven voltage-drop calculation.
      *
      * The selected standard is resolved through EngineeringRuleBook,
      * and its voltage-drop reference is recorded in the result notes.
-     *
-     * If a verified numerical voltage-drop limit is available from
-     * the selected standard engine, it is used automatically when
-     * maxVoltageDropPercent is not explicitly supplied.
      *
      * A supplied maxVoltageDropPercent remains useful for project
      * design criteria that are stricter than the code.
@@ -181,10 +175,8 @@ object VoltageDropCalculator {
             )
 
         /*
-         * Resolve the code limit through the selected StandardEngine.
-         *
-         * The rule book proves that the domain exists.
-         * The StandardEngine supplies the actual numerical value.
+         * Resolve the numerical code limit through the selected engine.
+         * The Pair API is retained for backward compatibility.
          */
         val codeLimit =
             CodeEngineFactory
@@ -200,22 +192,17 @@ object VoltageDropCalculator {
                 }
 
         /*
-         * The Pair API cannot carry audit metadata.
-         *
-         * Therefore this method remains compatible while the
-         * verification-aware API below provides the complete
-         * engineering record.
+         * This legacy API cannot return verification metadata.
+         * Use calculateCodeDriven() when the full audit record is needed.
          */
+        @Suppress("UNUSED_VARIABLE")
+        val resolvedLimit = effectiveLimit
+
         return result
     }
 
     /**
-     * PROFESSIONAL VERIFICATION API.
-     *
-     * Returns calculation + code verification + audit trail.
-     *
-     * This is the preferred API for reports and final engineering
-     * workflows.
+     * Professional verification result.
      */
     data class CodeDrivenResult(
         val voltageDropPercent: Double,
@@ -256,6 +243,24 @@ object VoltageDropCalculator {
 
         require(sectionMm2 > EPSILON) {
             "Conductor section must be greater than zero."
+        }
+
+        if (maxVoltageDropPercent != null) {
+            require(maxVoltageDropPercent > 0.0) {
+                "Maximum voltage-drop percentage must be greater than zero."
+            }
+        }
+
+        if (resistanceOhmPerKm != null) {
+            require(resistanceOhmPerKm >= 0.0) {
+                "Cable resistance cannot be negative."
+            }
+        }
+
+        if (reactanceOhmPerKm != null) {
+            require(reactanceOhmPerKm >= 0.0) {
+                "Cable reactance cannot be negative."
+            }
         }
 
         val rule =
@@ -306,7 +311,9 @@ object VoltageDropCalculator {
 
         val allowed =
             maxVoltageDropPercent
-                ?: codeLimit.takeIf { it > EPSILON }
+                ?: codeLimit.takeIf {
+                    it > EPSILON
+                }
 
         val withinLimit =
             allowed != null &&
@@ -328,6 +335,7 @@ object VoltageDropCalculator {
                 add("Code revision: ${engine.codeRevision}")
                 add("Rule domain: VOLTAGE_DROP")
                 add("Circuit category: $circuitCategory")
+
                 add(
                     "Voltage drop = %.3f V (%.3f %%)"
                         .format(
@@ -390,8 +398,7 @@ object VoltageDropCalculator {
         return CodeDrivenResult(
             voltageDropPercent = calculation.first,
             voltageDropVolts = calculation.second,
-            receivingEndVoltageV =
-                voltage - calculation.second,
+            receivingEndVoltageV = voltage - calculation.second,
             allowedVoltageDropPercent = allowed,
             withinCodeLimit = withinLimit,
             codeVerified = codeVerified,
@@ -406,7 +413,6 @@ object VoltageDropCalculator {
 
     /**
      * Catalogue-data calculation.
-     *
      * R and X are in ohm/km.
      */
     fun calculate(
@@ -437,9 +443,8 @@ object VoltageDropCalculator {
         val sinPhi =
             sqrt(
                 (
-                    1.0 -
-                        powerFactor * powerFactor
-                    ).coerceAtLeast(0.0)
+                    1.0 - powerFactor * powerFactor
+                ).coerceAtLeast(0.0)
             )
 
         val loopFactor =
@@ -471,10 +476,8 @@ object VoltageDropCalculator {
             loopFactor *
                 current *
                 (
-                    resistanceOhm *
-                        powerFactor +
-                        reactanceOhm *
-                        sinPhi
+                    resistanceOhm * powerFactor +
+                        reactanceOhm * sinPhi
                 )
 
         val voltageDropPercent =
@@ -482,8 +485,7 @@ object VoltageDropCalculator {
                 voltage *
                 100.0
 
-        return voltageDropPercent to
-            voltageDropVolts
+        return voltageDropPercent to voltageDropVolts
     }
 
     fun voltageDropPercent(
