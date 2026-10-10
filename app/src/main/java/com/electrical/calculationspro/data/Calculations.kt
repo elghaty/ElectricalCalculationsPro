@@ -3,6 +3,7 @@ package com.electrical.calculationspro.data
 import com.electrical.calculationspro.data.calculators.BreakerSelectionCalculator
 import com.electrical.calculationspro.data.calculators.ConductorSizingCalculator
 import com.electrical.calculationspro.data.calculators.EquipmentSelectionCalculator
+import com.electrical.calculationspro.data.calculators.GeneratorSizingCalculator
 import com.electrical.calculationspro.data.calculators.LoadCalculator
 import com.electrical.calculationspro.data.calculators.PowerCalculator
 import com.electrical.calculationspro.data.calculators.ShortCircuitCalculator
@@ -730,6 +731,22 @@ object ElectricalCalculations {
     ): EquipmentSelectionCalculator.EquipmentCatalogResult<GeneratorCatalogItem> =
         selectGeneratorFromCatalog(
             requiredKva = requiredKva,
+            standard = standard
+        )
+
+    /**
+     * Complete generator sizing through the public engineering facade.
+     *
+     * This routes load assumptions and standard selection to the dedicated
+     * generator calculator; it does not claim catalogue compliance unless
+     * the catalogue/compliance pipeline confirms it.
+     */
+    fun calculateGeneratorSizing(
+        input: GeneratorSizingCalculator.Input,
+        standard: Standard = Standard.IEC
+    ): GeneratorSizingCalculator.Result =
+        GeneratorSizingCalculator.calculate(
+            input = input,
             standard = standard
         )
 
