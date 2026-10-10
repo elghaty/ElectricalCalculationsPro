@@ -10,41 +10,18 @@ import com.electrical.calculationspro.data.standards.EngineeringRuleBook
 import kotlin.math.sqrt
 
 /**
- * PROFESSIONAL VOLTAGE DROP ENGINE
+ * Professional voltage-drop calculation and verification.
  *
- * Architecture:
- *
- * Standard
- *     ↓
- * EngineeringRuleBook
- *     ↓
- * Voltage-drop rule/reference
- *     ↓
- * Electrical calculation
- *     ↓
- * Verification against code limit
- *
- * Catalogue R/X data can be supplied for final equipment-based design.
- *
- * The legacy APIs are preserved for compatibility.
+ * Project criteria are not treated as verified code limits.
+ * Legacy calculation signatures are retained for compatibility.
  */
 object VoltageDropCalculator {
 
     private const val EPSILON = 1.0e-9
-
     private const val COPPER_RESISTIVITY_OHM_MM2_PER_M = 0.0175
     private const val ALUMINUM_RESISTIVITY_OHM_MM2_PER_M = 0.0282
-
-    /*
-     * Used only by the legacy section/material calculation.
-     * Final design should use manufacturer catalogue R/X data.
-     */
     private const val DEFAULT_AC_REACTANCE_OHM_PER_KM = 0.08
 
-    /**
-     * Legacy/public API.
-     * This preserves the original numerical calculation.
-     */
     fun calculate(
         current: Double,
         length: Double,
@@ -54,38 +31,21 @@ object VoltageDropCalculator {
         material: ConductorMaterial,
         voltage: Double
     ): Pair<Double, Double> {
-
-        validateCommonInput(
-            current = current,
-            length = length,
-            powerFactor = powerFactor,
-            voltage = voltage
-        )
-
+        validateCommonInput(current, length, powerFactor, voltage)
         require(sectionMm2 > EPSILON) {
             "Conductor section must be greater than zero."
         }
 
-        val resistivity =
-            when (material) {
-                ConductorMaterial.Copper ->
-                    COPPER_RESISTIVITY_OHM_MM2_PER_M
+        val resistivity = when (material) {
+            ConductorMaterial.Copper -> COPPER_RESISTIVITY_OHM_MM2_PER_M
+            ConductorMaterial.Aluminum -> ALUMINUM_RESISTIVITY_OHM_MM2_PER_M
+        }
 
-                ConductorMaterial.Aluminum ->
-                    ALUMINUM_RESISTIVITY_OHM_MM2_PER_M
-            }
-
-        val resistanceOhmPerKm =
-            resistivity * 1000.0 / sectionMm2
-
-        val reactanceOhmPerKm =
-            when (currentType) {
-                CurrentType.DirectCurrent ->
-                    0.0
-
-                else ->
-                    DEFAULT_AC_REACTANCE_OHM_PER_KM
-            }
+        val resistanceOhmPerKm = resistivity * 1000.0 / sectionMm2
+        val reactanceOhmPerKm = when (currentType) {
+            CurrentType.DirectCurrent -> 0.0
+            else -> DEFAULT_AC_REACTANCE_OHM_PER_KM
+        }
 
         return calculate(
             current = current,
@@ -98,15 +58,6 @@ object VoltageDropCalculator {
         )
     }
 
-    /**
-     * Code-driven voltage-drop calculation.
-     *
-     * The selected standard is resolved through EngineeringRuleBook,
-     * and its voltage-drop reference is recorded in the result notes.
-     *
-     * A supplied maxVoltageDropPercent remains useful for project
-     * design criteria that are stricter than the code.
-     */
     fun calculate(
         current: Double,
         length: Double,
@@ -119,91 +70,57 @@ object VoltageDropCalculator {
         circuitCategory: String = "general",
         maxVoltageDropPercent: Double? = null
     ): Pair<Double, Double> {
-
-        validateCommonInput(
-            current = current,
-            length = length,
-            powerFactor = powerFactor,
-            voltage = voltage
-        )
-
+        validateCommonInput(current, length, powerFactor, voltage)
         require(sectionMm2 > EPSILON) {
             "Conductor section must be greater than zero."
         }
 
-        val rule =
-            EngineeringRuleBook.resolve(
-                standard = standard,
-                domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
-            )
-
+        val rule = EngineeringRuleBook.resolve(
+            standard = standard,
+            domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
+        )
         require(rule.references.isNotEmpty()) {
             "No voltage-drop engineering rule is registered for $standard."
         }
 
-        val resistanceOhmPerKm =
-            when (material) {
-                ConductorMaterial.Copper ->
-                    COPPER_RESISTIVITY_OHM_MM2_PER_M *
-                        1000.0 /
-                        sectionMm2
+        val resistivity = when (material) {
+            ConductorMaterial.Copper -> COPPER_RESISTIVITY_OHM_MM2_PER_M
+            ConductorMaterial.Aluminum -> ALUMINUM_RESISTIVITY_OHM_MM2_PER_M
+        }
 
-                ConductorMaterial.Aluminum ->
-                    ALUMINUM_RESISTIVITY_OHM_MM2_PER_M *
-                        1000.0 /
-                        sectionMm2
-            }
+        val resistanceOhmPerKm = resistivity * 1000.0 / sectionMm2
+        val reactanceOhmPerKm = when (currentType) {
+            CurrentType.DirectCurrent -> 0.0
+            else -> DEFAULT_AC_REACTANCE_OHM_PER_KM
+        }
 
-        val reactanceOhmPerKm =
-            when (currentType) {
-                CurrentType.DirectCurrent ->
-                    0.0
+        val result = calculate(
+            current = current,
+            length = length,
+            powerFactor = powerFactor,
+            currentType = currentType,
+            voltage = voltage,
+            resistanceOhmPerKm = resistanceOhmPerKm,
+            reactanceOhmPerKm = reactanceOhmPerKm
+        )
 
-                else ->
-                    DEFAULT_AC_REACTANCE_OHM_PER_KM
-            }
+        // Resolve the code limit for compatibility; this Pair API cannot
+        // return verification metadata. Use calculateCodeDriven() for that.
+        val codeLimit = CodeEngineFactory.get(standard)
+            .maximumVoltageDropPercent(circuitCategory)
 
-        val result =
-            calculate(
-                current = current,
-                length = length,
-                powerFactor = powerFactor,
-                currentType = currentType,
-                voltage = voltage,
-                resistanceOhmPerKm = resistanceOhmPerKm,
-                reactanceOhmPerKm = reactanceOhmPerKm
-            )
-
-        /*
-         * Resolve the numerical code limit through the selected engine.
-         * The Pair API is retained for backward compatibility.
-         */
-        val codeLimit =
-            CodeEngineFactory
-                .get(standard)
-                .maximumVoltageDropPercent(
-                    circuitCategory = circuitCategory
-                )
-
-        val effectiveLimit =
-            maxVoltageDropPercent
-                ?: codeLimit.takeIf {
-                    it > EPSILON
-                }
-
-        /*
-         * This legacy API cannot return verification metadata.
-         * Use calculateCodeDriven() when the full audit record is needed.
-         */
         @Suppress("UNUSED_VARIABLE")
-        val resolvedLimit = effectiveLimit
+        val effectiveLimit = when {
+            maxVoltageDropPercent != null && codeLimit > EPSILON ->
+                minOf(maxVoltageDropPercent, codeLimit)
+            maxVoltageDropPercent != null -> maxVoltageDropPercent
+            codeLimit > EPSILON -> codeLimit
+            else -> null
+        }
 
         return result
     }
 
-    /**
-     * Professional verification result.
-     */
     data class CodeDrivenResult(
         val voltageDropPercent: Double,
         val voltageDropVolts: Double,
@@ -233,173 +150,158 @@ object VoltageDropCalculator {
         resistanceOhmPerKm: Double? = null,
         reactanceOhmPerKm: Double? = null
     ): CodeDrivenResult {
-
-        validateCommonInput(
-            current = current,
-            length = length,
-            powerFactor = powerFactor,
-            voltage = voltage
-        )
-
+        validateCommonInput(current, length, powerFactor, voltage)
         require(sectionMm2 > EPSILON) {
             "Conductor section must be greater than zero."
         }
 
         if (maxVoltageDropPercent != null) {
-            require(maxVoltageDropPercent > 0.0) {
-                "Maximum voltage-drop percentage must be greater than zero."
+            require(maxVoltageDropPercent.isFinite() && maxVoltageDropPercent > 0.0) {
+                "Maximum voltage-drop percentage must be finite and greater than zero."
             }
         }
-
         if (resistanceOhmPerKm != null) {
-            require(resistanceOhmPerKm >= 0.0) {
-                "Cable resistance cannot be negative."
+            require(resistanceOhmPerKm.isFinite() && resistanceOhmPerKm >= 0.0) {
+                "Cable resistance must be finite and cannot be negative."
             }
         }
-
         if (reactanceOhmPerKm != null) {
-            require(reactanceOhmPerKm >= 0.0) {
-                "Cable reactance cannot be negative."
+            require(reactanceOhmPerKm.isFinite() && reactanceOhmPerKm >= 0.0) {
+                "Cable reactance must be finite and cannot be negative."
             }
         }
 
-        val rule =
-            EngineeringRuleBook.requireReference(
-                standard = standard,
-                domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
+        val rule = EngineeringRuleBook.requireReference(
+            standard = standard,
+            domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
+        )
+        val engine = CodeEngineFactory.get(standard)
+
+        val resistance = resistanceOhmPerKm ?: when (material) {
+            ConductorMaterial.Copper ->
+                COPPER_RESISTIVITY_OHM_MM2_PER_M * 1000.0 / sectionMm2
+            ConductorMaterial.Aluminum ->
+                ALUMINUM_RESISTIVITY_OHM_MM2_PER_M * 1000.0 / sectionMm2
+        }
+
+        val reactance = reactanceOhmPerKm ?: when (currentType) {
+            CurrentType.DirectCurrent -> 0.0
+            else -> DEFAULT_AC_REACTANCE_OHM_PER_KM
+        }
+
+        val calculation = calculate(
+            current = current,
+            length = length,
+            powerFactor = powerFactor,
+            currentType = currentType,
+            voltage = voltage,
+            resistanceOhmPerKm = resistance,
+            reactanceOhmPerKm = reactance
+        )
+
+        val codeLimit = engine.maximumVoltageDropPercent(circuitCategory)
+        val verifiedCodeLimit = codeLimit.takeIf {
+            it.isFinite() && it > EPSILON
+        }
+        val projectLimit = maxVoltageDropPercent
+
+        val effectiveLimit = when {
+            verifiedCodeLimit != null && projectLimit != null ->
+                minOf(verifiedCodeLimit, projectLimit)
+            verifiedCodeLimit != null -> verifiedCodeLimit
+            projectLimit != null -> projectLimit
+            else -> null
+        }
+
+        val withinLimit = effectiveLimit != null &&
+            calculation.first <= effectiveLimit + EPSILON
+
+        // A user-entered project limit is never evidence of a code limit.
+        val codeVerified = rule.verified && verifiedCodeLimit != null
+
+        val references = EngineeringRuleBook.referenceIds(
+            standard = standard,
+            domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
+        )
+
+        val notes = buildList {
+            add("Standard: ${engine.codeName}")
+            add("Code revision: ${engine.codeRevision}")
+            add("Rule domain: VOLTAGE_DROP")
+            add("Circuit category: $circuitCategory")
+            add(
+                "Calculated voltage drop = %.3f V (%.3f %%)"
+                    .format(calculation.second, calculation.first)
             )
 
-        val engine =
-            CodeEngineFactory.get(standard)
-
-        val resistance =
-            resistanceOhmPerKm
-                ?: when (material) {
-                    ConductorMaterial.Copper ->
-                        COPPER_RESISTIVITY_OHM_MM2_PER_M *
-                            1000.0 /
-                            sectionMm2
-
-                    ConductorMaterial.Aluminum ->
-                        ALUMINUM_RESISTIVITY_OHM_MM2_PER_M *
-                            1000.0 /
-                            sectionMm2
-                }
-
-        val reactance =
-            reactanceOhmPerKm
-                ?: when (currentType) {
-                    CurrentType.DirectCurrent -> 0.0
-                    else -> DEFAULT_AC_REACTANCE_OHM_PER_KM
-                }
-
-        val calculation =
-            calculate(
-                current = current,
-                length = length,
-                powerFactor = powerFactor,
-                currentType = currentType,
-                voltage = voltage,
-                resistanceOhmPerKm = resistance,
-                reactanceOhmPerKm = reactance
-            )
-
-        val codeLimit =
-            engine.maximumVoltageDropPercent(
-                circuitCategory = circuitCategory
-            )
-
-        val allowed =
-            maxVoltageDropPercent
-                ?: codeLimit.takeIf {
-                    it > EPSILON
-                }
-
-        val withinLimit =
-            allowed != null &&
-                calculation.first <= allowed + EPSILON
-
-        val codeVerified =
-            rule.verified &&
-                allowed != null
-
-        val references =
-            EngineeringRuleBook.referenceIds(
-                standard = standard,
-                domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
-            )
-
-        val notes =
-            buildList {
-                add("Standard: ${engine.codeName}")
-                add("Code revision: ${engine.codeRevision}")
-                add("Rule domain: VOLTAGE_DROP")
-                add("Circuit category: $circuitCategory")
-
+            if (verifiedCodeLimit != null) {
                 add(
-                    "Voltage drop = %.3f V (%.3f %%)"
-                        .format(
-                            calculation.second,
-                            calculation.first
-                        )
+                    "Verified code voltage-drop limit = %.3f %%"
+                        .format(verifiedCodeLimit)
                 )
-
-                if (allowed != null) {
-                    add(
-                        "Allowed voltage drop = %.3f %%"
-                            .format(allowed)
-                    )
-
-                    add(
-                        if (withinLimit) {
-                            "Code/project voltage-drop verification: PASS"
-                        } else {
-                            "Code/project voltage-drop verification: FAIL"
-                        }
-                    )
-                } else {
-                    add(
-                        "Voltage-drop limit is not available as a verified numerical value for the selected code/category."
-                    )
-                }
-
-                if (resistanceOhmPerKm != null) {
-                    add(
-                        "Cable resistance taken from manufacturer/catalogue data."
-                    )
-                } else {
-                    add(
-                        "Cable resistance derived from conductor material and section; final design should prefer manufacturer catalogue data."
-                    )
-                }
-
-                if (reactanceOhmPerKm != null) {
-                    add(
-                        "Cable reactance taken from manufacturer/catalogue data."
-                    )
-                } else {
-                    add(
-                        "Cable reactance uses engineering fallback; final design should prefer manufacturer catalogue data."
-                    )
-                }
-
-                if (!rule.verified) {
-                    add(rule.message)
-                }
-
-                addAll(
-                    EngineeringRuleBook.auditTrail(
-                        standard = standard,
-                        domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
-                    )
+            } else {
+                add(
+                    "No verified numerical voltage-drop limit is available for this code/category."
                 )
             }
+
+            if (projectLimit != null) {
+                add("Project design criterion = %.3f %%".format(projectLimit))
+            }
+
+            if (effectiveLimit != null) {
+                add("Effective assessment limit = %.3f %%".format(effectiveLimit))
+                add(
+                    if (withinLimit) {
+                        "Voltage-drop assessment against available limit: PASS"
+                    } else {
+                        "Voltage-drop assessment against available limit: FAIL"
+                    }
+                )
+            } else {
+                add(
+                    "Voltage-drop compliance cannot be assessed because neither a verified code limit nor a project criterion is available."
+                )
+            }
+
+            add(
+                if (codeVerified) {
+                    "Code-limit verification status: VERIFIED"
+                } else {
+                    "Code-limit verification status: NOT VERIFIED; a project criterion cannot substitute for a verified code limit."
+                }
+            )
+
+            add(
+                if (resistanceOhmPerKm != null) {
+                    "Cable resistance taken from manufacturer/catalogue data."
+                } else {
+                    "Cable resistance derived from conductor material and section; final design should prefer manufacturer catalogue data."
+                }
+            )
+            add(
+                if (reactanceOhmPerKm != null) {
+                    "Cable reactance taken from manufacturer/catalogue data."
+                } else {
+                    "Cable reactance uses an engineering fallback; final design should prefer manufacturer catalogue data."
+                }
+            )
+
+            if (!rule.verified) add(rule.message)
+
+            addAll(
+                EngineeringRuleBook.auditTrail(
+                    standard = standard,
+                    domain = CodeRuleRegistry.RuleDomain.VOLTAGE_DROP
+                )
+            )
+        }
 
         return CodeDrivenResult(
             voltageDropPercent = calculation.first,
             voltageDropVolts = calculation.second,
             receivingEndVoltageV = voltage - calculation.second,
-            allowedVoltageDropPercent = allowed,
+            allowedVoltageDropPercent = effectiveLimit,
             withinCodeLimit = withinLimit,
             codeVerified = codeVerified,
             standard = standard,
@@ -412,8 +314,7 @@ object VoltageDropCalculator {
     }
 
     /**
-     * Catalogue-data calculation.
-     * R and X are in ohm/km.
+     * Catalogue-data calculation. R and X are in ohm/km.
      */
     fun calculate(
         current: Double,
@@ -424,66 +325,27 @@ object VoltageDropCalculator {
         resistanceOhmPerKm: Double,
         reactanceOhmPerKm: Double
     ): Pair<Double, Double> {
-
-        validateCommonInput(
-            current = current,
-            length = length,
-            powerFactor = powerFactor,
-            voltage = voltage
-        )
-
-        require(resistanceOhmPerKm >= 0.0) {
-            "Cable resistance cannot be negative."
+        validateCommonInput(current, length, powerFactor, voltage)
+        require(resistanceOhmPerKm.isFinite() && resistanceOhmPerKm >= 0.0) {
+            "Cable resistance must be finite and cannot be negative."
+        }
+        require(reactanceOhmPerKm.isFinite() && reactanceOhmPerKm >= 0.0) {
+            "Cable reactance must be finite and cannot be negative."
         }
 
-        require(reactanceOhmPerKm >= 0.0) {
-            "Cable reactance cannot be negative."
+        val sinPhi = sqrt((1.0 - powerFactor * powerFactor).coerceAtLeast(0.0))
+        val loopFactor = when (currentType) {
+            CurrentType.DirectCurrent -> 2.0
+            CurrentType.AlternatingSinglePhase -> 2.0
+            CurrentType.AlternatingTwoPhase -> 2.0
+            CurrentType.AlternatingThreePhase -> sqrt(3.0)
         }
 
-        val sinPhi =
-            sqrt(
-                (
-                    1.0 - powerFactor * powerFactor
-                ).coerceAtLeast(0.0)
-            )
-
-        val loopFactor =
-            when (currentType) {
-                CurrentType.DirectCurrent ->
-                    2.0
-
-                CurrentType.AlternatingSinglePhase ->
-                    2.0
-
-                CurrentType.AlternatingTwoPhase ->
-                    2.0
-
-                CurrentType.AlternatingThreePhase ->
-                    sqrt(3.0)
-            }
-
-        val resistanceOhm =
-            resistanceOhmPerKm *
-                length /
-                1000.0
-
-        val reactanceOhm =
-            reactanceOhmPerKm *
-                length /
-                1000.0
-
-        val voltageDropVolts =
-            loopFactor *
-                current *
-                (
-                    resistanceOhm * powerFactor +
-                        reactanceOhm * sinPhi
-                )
-
-        val voltageDropPercent =
-            voltageDropVolts /
-                voltage *
-                100.0
+        val resistanceOhm = resistanceOhmPerKm * length / 1000.0
+        val reactanceOhm = reactanceOhmPerKm * length / 1000.0
+        val voltageDropVolts = loopFactor * current *
+            (resistanceOhm * powerFactor + reactanceOhm * sinPhi)
+        val voltageDropPercent = voltageDropVolts / voltage * 100.0
 
         return voltageDropPercent to voltageDropVolts
     }
@@ -496,16 +358,9 @@ object VoltageDropCalculator {
         currentType: CurrentType,
         material: ConductorMaterial,
         voltage: Double
-    ): Double =
-        calculate(
-            current = current,
-            length = length,
-            sectionMm2 = sectionMm2,
-            powerFactor = powerFactor,
-            currentType = currentType,
-            material = material,
-            voltage = voltage
-        ).first
+    ): Double = calculate(
+        current, length, sectionMm2, powerFactor, currentType, material, voltage
+    ).first
 
     fun voltageDropVolts(
         current: Double,
@@ -515,16 +370,9 @@ object VoltageDropCalculator {
         currentType: CurrentType,
         material: ConductorMaterial,
         voltage: Double
-    ): Double =
-        calculate(
-            current = current,
-            length = length,
-            sectionMm2 = sectionMm2,
-            powerFactor = powerFactor,
-            currentType = currentType,
-            material = material,
-            voltage = voltage
-        ).second
+    ): Double = calculate(
+        current, length, sectionMm2, powerFactor, currentType, material, voltage
+    ).second
 
     fun voltageDropPercent(
         current: Double,
@@ -534,16 +382,10 @@ object VoltageDropCalculator {
         voltage: Double,
         resistanceOhmPerKm: Double,
         reactanceOhmPerKm: Double
-    ): Double =
-        calculate(
-            current = current,
-            length = length,
-            powerFactor = powerFactor,
-            currentType = currentType,
-            voltage = voltage,
-            resistanceOhmPerKm = resistanceOhmPerKm,
-            reactanceOhmPerKm = reactanceOhmPerKm
-        ).first
+    ): Double = calculate(
+        current, length, powerFactor, currentType, voltage,
+        resistanceOhmPerKm, reactanceOhmPerKm
+    ).first
 
     fun voltageDropVolts(
         current: Double,
@@ -553,16 +395,10 @@ object VoltageDropCalculator {
         voltage: Double,
         resistanceOhmPerKm: Double,
         reactanceOhmPerKm: Double
-    ): Double =
-        calculate(
-            current = current,
-            length = length,
-            powerFactor = powerFactor,
-            currentType = currentType,
-            voltage = voltage,
-            resistanceOhmPerKm = resistanceOhmPerKm,
-            reactanceOhmPerKm = reactanceOhmPerKm
-        ).second
+    ): Double = calculate(
+        current, length, powerFactor, currentType, voltage,
+        resistanceOhmPerKm, reactanceOhmPerKm
+    ).second
 
     private fun validateCommonInput(
         current: Double,
@@ -570,23 +406,17 @@ object VoltageDropCalculator {
         powerFactor: Double,
         voltage: Double
     ) {
-        require(current >= 0.0) {
-            "Current cannot be negative."
+        require(current.isFinite() && current >= 0.0) {
+            "Current must be finite and cannot be negative."
         }
-
-        require(length >= 0.0) {
-            "Length cannot be negative."
+        require(length.isFinite() && length >= 0.0) {
+            "Length must be finite and cannot be negative."
         }
-
-        require(voltage > EPSILON) {
-            "Voltage must be greater than zero."
+        require(voltage.isFinite() && voltage > EPSILON) {
+            "Voltage must be finite and greater than zero."
         }
-
-        require(
-            powerFactor > EPSILON &&
-                powerFactor <= 1.0
-        ) {
-            "Power factor must be > 0 and <= 1."
+        require(powerFactor.isFinite() && powerFactor > EPSILON && powerFactor <= 1.0) {
+            "Power factor must be finite, greater than 0 and not greater than 1."
         }
     }
 }
