@@ -1,5 +1,15 @@
 package com.electrical.calculationspro.data.catalog
 
+/**
+ * Generator catalogue.
+ *
+ * Standard ratings are engineering reference values only.
+ * They are not verified commercial products and must not be
+ * represented as products of a named manufacturer.
+ *
+ * Final compliance requires an exact verified product reference,
+ * official manufacturer data, and sufficient technical ratings.
+ */
 object GeneratorCatalog {
 
     private val standardKva = listOf(
@@ -32,16 +42,14 @@ object GeneratorCatalog {
         2500.0
     )
 
-    private fun create(
-        manufacturer: Manufacturer,
-        family: String,
+    private fun createReference(
         kva: Double
     ): GeneratorCatalogItem {
 
         return GeneratorCatalogItem(
-            manufacturer = manufacturer,
-            family = family,
-            model = "$family ${kva.toInt()} kVA",
+            manufacturer = Manufacturer.GENERIC,
+            family = "Diesel Generator - Reference Rating",
+            model = "Generic Generator ${kva.toInt()} kVA - Not a Verified Product",
             ratedPowerKva = kva,
             ratedPowerKw = kva * 0.8,
             voltageV = 400.0,
@@ -51,39 +59,51 @@ object GeneratorCatalog {
         )
     }
 
+    /**
+     * Generic engineering reference ratings.
+     *
+     * These records support preliminary sizing only.
+     * They must not be treated as manufacturer-certified equipment.
+     */
     fun generic(): List<GeneratorCatalogItem> =
-        standardKva.map {
-            create(
-                Manufacturer.GENERIC,
-                "Diesel Generator",
-                it
-            )
-        }
+        standardKva.map(::createReference)
 
+    /**
+     * Backward-compatible method.
+     *
+     * No manufacturer-specific products are asserted here because
+     * exact commercial references and their technical documents
+     * have not been verified.
+     */
     fun allFamilies(): List<GeneratorCatalogItem> =
-        standardKva.flatMap { kva ->
-            listOf(
-                create(
-                    Manufacturer.SIEMENS,
-                    "Generator Package",
-                    kva
-                ),
-                create(
-                    Manufacturer.GENERIC,
-                    "Diesel Generator",
-                    kva
-                )
-            )
-        }
+        generic()
 
+    /**
+     * Returns preliminary sizing candidates whose nominal ratings
+     * meet or exceed the requested apparent power.
+     *
+     * This method does not establish final catalogue compliance.
+     */
     fun select(
         requiredKva: Double
-    ): List<GeneratorCatalogItem> =
-        allFamilies()
+    ): List<GeneratorCatalogItem> {
+
+        if (!requiredKva.isFinite() || requiredKva <= 0.0) {
+            return emptyList()
+        }
+
+        return generic()
             .filter {
                 it.ratedPowerKva >= requiredKva
             }
             .sortedBy {
                 it.ratedPowerKva
             }
+    }
+
+    /**
+     * Exposes the available nominal reference ratings.
+     */
+    fun standardRatingsKva(): List<Double> =
+        standardKva.toList()
 }
