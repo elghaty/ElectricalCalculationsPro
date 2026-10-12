@@ -1,4 +1,3 @@
-
 package com.electrical.calculationspro
 
 import android.os.Bundle
@@ -231,6 +230,10 @@ private fun ElectricalCalculationsProApp() {
                 onOpenProjectManagement = {
                     screen = AppScreen.PROJECT_MANAGEMENT
                 },
+                onOpenDesign = {
+                    mainTab = MainTab.DESIGN
+                    screen = AppScreen.HOME
+                },
                 onOpenModule = { module ->
                     selectedModule = module
                     when (module) {
@@ -275,6 +278,10 @@ private fun ElectricalCalculationsProApp() {
                 onOpenProjectManagement = {
                     screen = AppScreen.PROJECT_MANAGEMENT
                 },
+                onOpenDesign = {
+                    mainTab = MainTab.DESIGN
+                    screen = AppScreen.HOME
+                },
                 onOpenModule = { module ->
                     selectedModule = module
                     when (module) {
@@ -307,6 +314,7 @@ private fun MainWorkspaceContent(
     project: DesignProject?,
     standard: Standard,
     onOpenProjectManagement: () -> Unit,
+    onOpenDesign: () -> Unit,
     onOpenModule: (ElectromechanicalModule) -> Unit,
     onOpenSld: () -> Unit
 ) {
@@ -316,7 +324,7 @@ private fun MainWorkspaceContent(
                 language = language,
                 project = project,
                 onOpenProjectManagement = onOpenProjectManagement,
-                onOpenDesign = {},
+                onOpenDesign = onOpenDesign,
                 onOpenSld = onOpenSld
             )
         }
