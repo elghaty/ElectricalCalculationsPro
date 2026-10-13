@@ -1,51 +1,30 @@
+
 package com.electrical.calculationspro.ui.screens
 
 import android.app.Activity
-import android.content.Context
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.ElectricalServices
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Warning
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ConductorMaterial
 import com.electrical.calculationspro.data.CurrentType
@@ -54,6 +33,15 @@ import com.electrical.calculationspro.data.InstallationMethod
 import com.electrical.calculationspro.data.InsulationType
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.data.iecInstallationMethods
+import com.electrical.calculationspro.ui.components.EngineeringInput
+import com.electrical.calculationspro.ui.components.EngineeringPage
+import com.electrical.calculationspro.ui.components.EngineeringPrimaryButton
+import com.electrical.calculationspro.ui.components.EngineeringResult
+import com.electrical.calculationspro.ui.components.EngineeringSecondaryButton
+import com.electrical.calculationspro.ui.components.EngineeringSection
+import com.electrical.calculationspro.ui.components.EngineeringStatus
+import com.electrical.calculationspro.ui.components.EngineeringValueRow
+import java.util.Locale
 
 private data class VoltageDropStudy(
     val currentA: Double,
@@ -80,642 +68,434 @@ fun ProfessionalVoltageDropScreen(
     val arabic = language == AppLanguage.ARABIC
     val context = LocalContext.current
 
+    val backAction: () -> Unit = {
+        if (onBack != null) {
+            onBack()
+        } else {
+            (context as? Activity)?.finish()
+        }
+    }
+
     var currentType by remember {
         mutableStateOf(CurrentType.AlternatingThreePhase)
     }
-
-    var voltage by remember {
-        mutableStateOf("400")
-    }
-
-    var loadKw by remember {
-        mutableStateOf("100")
-    }
-
-    var current by remember {
-        mutableStateOf("")
-    }
-
-    var pf by remember {
-        mutableStateOf("0.90")
-    }
-
-    var length by remember {
-        mutableStateOf("50")
-    }
-
-    var section by remember {
-        mutableStateOf("70")
-    }
-
-    var parallelRuns by remember {
-        mutableStateOf("1")
-    }
-
-    var ambient by remember {
-        mutableStateOf("30")
-    }
-
-    var circuits by remember {
-        mutableStateOf("1")
-    }
-
-    var maxDrop by remember {
-        mutableStateOf("5")
-    }
+    var voltage by remember { mutableStateOf("400") }
+    var loadKw by remember { mutableStateOf("100") }
+    var current by remember { mutableStateOf("") }
+    var pf by remember { mutableStateOf("0.90") }
+    var length by remember { mutableStateOf("50") }
+    var section by remember { mutableStateOf("70") }
+    var parallelRuns by remember { mutableStateOf("1") }
+    var ambient by remember { mutableStateOf("30") }
+    var circuits by remember { mutableStateOf("1") }
+    var maxDrop by remember { mutableStateOf("5") }
 
     var material by remember {
         mutableStateOf(ConductorMaterial.Copper)
     }
-
     var insulation by remember {
         mutableStateOf(InsulationType.XLPE)
     }
-
     var installation by remember {
         mutableStateOf(
             iecInstallationMethods.firstOrNull()
-                ?: InstallationMethod(
-                    "DEFAULT",
-                    "Default installation"
-                )
+                ?: InstallationMethod("DEFAULT", "Default installation")
         )
     }
 
     var study by remember {
         mutableStateOf<VoltageDropStudy?>(null)
     }
+    var error by remember {
+        mutableStateOf<String?>(null)
+    }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme.background
+    fun invalidateResult() {
+        study = null
+        error = null
+    }
+
+    fun runStudy(autoSelect: Boolean) {
+        try {
+            val parsedVoltage = voltage.toDoubleOrNull()
+            val parsedLoad = loadKw.toDoubleOrNull()
+            val parsedCurrent = current.toDoubleOrNull()
+            val parsedPf = pf.toDoubleOrNull()
+            val parsedLength = length.toDoubleOrNull()
+            val parsedSection = section.toDoubleOrNull()
+            val parsedRuns = parallelRuns.toIntOrNull()
+            val parsedAmbient = ambient.toDoubleOrNull()
+            val parsedCircuits = circuits.toIntOrNull()
+            val parsedMaxDrop = maxDrop.toDoubleOrNull()
+
+            when {
+                parsedVoltage == null || !parsedVoltage.isFinite() ||
+                    parsedVoltage <= 0.0 ->
+                    throw IllegalArgumentException(
+                        if (arabic) "جهد النظام يجب أن يكون أكبر من صفر." else
+                            "System voltage must be greater than zero."
+                    )
+
+                parsedPf == null || !parsedPf.isFinite() ||
+                    parsedPf <= 0.0 || parsedPf > 1.0 ->
+                    throw IllegalArgumentException(
+                        if (arabic) "معامل القدرة يجب أن يكون أكبر من صفر ولا يتجاوز 1." else
+                            "Power factor must be greater than zero and no more than 1."
+                    )
+
+                parsedLength == null || !parsedLength.isFinite() ||
+                    parsedLength < 0.0 ->
+                    throw IllegalArgumentException(
+                        if (arabic) "طول الكابل لا يمكن أن يكون سالبًا." else
+                            "Cable length cannot be negative."
+                    )
+
+                parsedRuns == null || parsedRuns < 1 ->
+                    throw IllegalArgumentException(
+                        if (arabic) "عدد المسارات المتوازية يجب أن يكون 1 على الأقل." else
+                            "Parallel runs must be at least 1."
+                    )
+
+                parsedAmbient == null || !parsedAmbient.isFinite() ->
+                    throw IllegalArgumentException(
+                        if (arabic) "أدخل درجة حرارة صحيحة." else
+                            "Enter a valid ambient temperature."
+                    )
+
+                parsedCircuits == null || parsedCircuits < 1 ->
+                    throw IllegalArgumentException(
+                        if (arabic) "عدد الدوائر يجب أن يكون 1 على الأقل." else
+                            "Number of circuits must be at least 1."
+                    )
+
+                parsedMaxDrop == null || !parsedMaxDrop.isFinite() ||
+                    parsedMaxDrop <= 0.0 ->
+                    throw IllegalArgumentException(
+                        if (arabic) "الحد المسموح لهبوط الجهد يجب أن يكون أكبر من صفر." else
+                            "Maximum voltage drop must be greater than zero."
+                    )
+
+                parsedCurrent != null &&
+                    (!parsedCurrent.isFinite() || parsedCurrent < 0.0) ->
+                    throw IllegalArgumentException(
+                        if (arabic) "قيمة التيار غير صالحة." else
+                            "Current value is invalid."
+                    )
+
+                parsedCurrent == null &&
+                    (parsedLoad == null || !parsedLoad.isFinite() ||
+                        parsedLoad <= 0.0) ->
+                    throw IllegalArgumentException(
+                        if (arabic) "أدخل حملًا موجبًا أو تيارًا صالحًا." else
+                            "Enter a positive load or a valid current."
+                    )
+
+                !autoSelect &&
+                    (parsedSection == null || !parsedSection.isFinite() ||
+                        parsedSection <= 0.0) ->
+                    throw IllegalArgumentException(
+                        if (arabic) "مقطع الكابل يجب أن يكون أكبر من صفر." else
+                            "Cable section must be greater than zero."
+                    )
+            }
+
+            study = calculateStudy(
+                standard = standard,
+                currentType = currentType,
+                voltage = parsedVoltage!!,
+                loadKw = parsedLoad,
+                currentInput = parsedCurrent,
+                pf = parsedPf!!,
+                length = parsedLength!!,
+                section = parsedSection ?: 70.0,
+                parallelRuns = parsedRuns!!,
+                ambient = parsedAmbient!!,
+                circuits = parsedCircuits!!,
+                maxDrop = parsedMaxDrop!!,
+                material = material,
+                insulation = insulation,
+                installation = installation,
+                autoSelect = autoSelect
             )
+            error = null
+
+            val result = study
+            if (result != null && result.selectedSectionMm2 != null) {
+                section = formatNumber(result.selectedSectionMm2)
+            }
+        } catch (exception: Exception) {
+            study = null
+            error = exception.message
+                ?: if (arabic) "تعذر تنفيذ الدراسة الهندسية." else
+                    "The engineering study could not be completed."
+        }
+    }
+
+    EngineeringPage(
+        title = if (arabic) "دراسة هبوط الجهد" else "Voltage Drop Study",
+        subtitle = if (arabic) {
+            "حساب هبوط الجهد والتحقق من سعة الكابل وفق المعيار المختار"
+        } else {
+            "Voltage-drop calculation and cable ampacity verification"
+        } + "\n${standard.shortName} • ${ElectricalCalculations.standardCodeName(standard)}",
+        onBack = backAction
     ) {
-
-        /*
-         * Permanent navigation header.
-         *
-         * The back arrow is ALWAYS visible.
-         * If onBack exists, it is used.
-         * Otherwise the current Activity is finished.
-         */
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    MaterialTheme.colorScheme.surface
-                )
-                .padding(
-                    horizontal = 8.dp,
-                    vertical = 8.dp
-                ),
-            verticalAlignment = Alignment.CenterVertically
+        EngineeringSection(
+            title = if (arabic) "نظام التغذية والحمل" else "System and Load"
         ) {
-
-            Icon(
-                imageVector = Icons.Outlined.ArrowBack,
-                contentDescription =
-                    if (arabic) {
-                        "رجوع"
-                    } else {
-                        "Back"
-                    },
-                tint =
-                    MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .width(30.dp)
-                    .clickable {
-                        if (onBack != null) {
-                            onBack()
-                        } else {
-                            (context as? Activity)?.finish()
-                        }
-                    }
-            )
-
-            Spacer(
-                modifier = Modifier.width(6.dp)
-            )
-
-            TextButton(
-                onClick = {
-                    if (onBack != null) {
-                        onBack()
-                    } else {
-                        (context as? Activity)?.finish()
-                    }
+            ChoiceField(
+                label = if (arabic) "نوع النظام" else "System Type",
+                value = currentTypeLabel(currentType, arabic),
+                items = CurrentType.entries.map {
+                    currentTypeLabel(it, arabic)
+                },
+                onSelect = {
+                    currentType = CurrentType.entries[it]
+                    invalidateResult()
                 }
-            ) {
-                Text(
-                    if (arabic) {
-                        "رجوع"
-                    } else {
-                        "Back"
-                    }
-                )
-            }
+            )
 
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            EngineeringInput(
+                value = voltage,
+                label = if (arabic) "جهد النظام (V)" else "System Voltage (V)",
+                onValueChange = {
+                    voltage = it
+                    invalidateResult()
+                }
+            )
 
-                Text(
-                    text =
-                        if (arabic) {
-                            "دراسة هبوط الجهد"
-                        } else {
-                            "Voltage Drop Study"
-                        },
-                    color =
-                        MaterialTheme.colorScheme.onSurface,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Bold
-                )
+            EngineeringInput(
+                value = loadKw,
+                label = if (arabic) "الحمل الفعال (kW)" else "Active Load (kW)",
+                onValueChange = {
+                    loadKw = it
+                    invalidateResult()
+                }
+            )
 
-                Text(
-                    text =
-                        "${standard.shortName} • ${
-                            ElectricalCalculations
-                                .standardCodeName(standard)
-                        }",
-                    color =
-                        MaterialTheme
-                            .colorScheme
-                            .onSurfaceVariant,
-                    fontSize = 11.sp
-                )
-            }
+            EngineeringInput(
+                value = current,
+                label = if (arabic) "التيار المحسوب مسبقًا (A) - اختياري" else
+                    "Known Current (A) - optional",
+                onValueChange = {
+                    current = it
+                    invalidateResult()
+                }
+            )
 
-            Icon(
-                imageVector =
-                    Icons.Outlined.ElectricalServices,
-                contentDescription = null,
-                tint =
-                    MaterialTheme.colorScheme.primary,
-                modifier = Modifier.width(28.dp)
+            EngineeringInput(
+                value = pf,
+                label = if (arabic) "معامل القدرة (PF)" else "Power Factor (PF)",
+                onValueChange = {
+                    pf = it
+                    invalidateResult()
+                }
+            )
+
+            Text(
+                text = if (arabic) {
+                    "إذا أدخلت تيارًا موجبًا، فسيُستخدم بدلًا من التيار المستنتج من الحمل."
+                } else {
+                    "A positive known current takes precedence over current calculated from load."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(
-                    rememberScrollState()
-                )
-                .padding(14.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(12.dp)
+        EngineeringSection(
+            title = if (arabic) "بيانات الكابل والتركيب" else "Cable and Installation"
         ) {
-
-            SectionTitle(
-                if (arabic) {
-                    "نظام التغذية والحمل"
-                } else {
-                    "SYSTEM & LOAD"
+            EngineeringInput(
+                value = length,
+                label = if (arabic) "طول المسار في اتجاه واحد (m)" else
+                    "One-way Route Length (m)",
+                onValueChange = {
+                    length = it
+                    invalidateResult()
                 }
             )
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor =
-                        MaterialTheme.colorScheme.surface
-                )
-            ) {
-
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(10.dp)
-                ) {
-
-                    FourColumnRow(
-                        first = {
-                            DropdownField(
-                                label =
-                                    if (arabic) {
-                                        "نوع النظام"
-                                    } else {
-                                        "System Type"
-                                    },
-                                value =
-                                    currentTypeLabel(
-                                        currentType,
-                                        arabic
-                                    ),
-                                items =
-                                    CurrentType.entries.map {
-                                        currentTypeLabel(
-                                            it,
-                                            arabic
-                                        )
-                                    },
-                                onSelect = { index ->
-                                    currentType =
-                                        CurrentType
-                                            .entries[index]
-                                }
-                            )
-                        },
-                        second = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "جهد النظام (V)"
-                                    } else {
-                                        "System Voltage (V)"
-                                    },
-                                value = voltage,
-                                onValueChange = {
-                                    voltage = it
-                                }
-                            )
-                        },
-                        third = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "الحمل (kW)"
-                                    } else {
-                                        "Load (kW)"
-                                    },
-                                value = loadKw,
-                                onValueChange = {
-                                    loadKw = it
-                                }
-                            )
-                        },
-                        fourth = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "التيار A"
-                                    } else {
-                                        "Current A"
-                                    },
-                                value = current,
-                                onValueChange = {
-                                    current = it
-                                }
-                            )
-                        }
-                    )
-
-                    FourColumnRow(
-                        first = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "معامل القدرة"
-                                    } else {
-                                        "Power Factor"
-                                    },
-                                value = pf,
-                                onValueChange = {
-                                    pf = it
-                                }
-                            )
-                        },
-                        second = {},
-                        third = {},
-                        fourth = {}
-                    )
-                }
-            }
-
-            SectionTitle(
-                if (arabic) {
-                    "بيانات الكابل"
-                } else {
-                    "CABLE DATA"
+            EngineeringInput(
+                value = section,
+                label = if (arabic) "مقطع الموصل (mm²)" else "Conductor Section (mm²)",
+                onValueChange = {
+                    section = it
+                    invalidateResult()
                 }
             )
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor =
-                        MaterialTheme.colorScheme.surface
-                )
-            ) {
-
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(10.dp)
-                ) {
-
-                    FourColumnRow(
-                        first = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "الطول m"
-                                    } else {
-                                        "Length m"
-                                    },
-                                value = length,
-                                onValueChange = {
-                                    length = it
-                                }
-                            )
-                        },
-                        second = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "المقطع mm²"
-                                    } else {
-                                        "Section mm²"
-                                    },
-                                value = section,
-                                onValueChange = {
-                                    section = it
-                                }
-                            )
-                        },
-                        third = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "عدد المسارات"
-                                    } else {
-                                        "Parallel Runs"
-                                    },
-                                value = parallelRuns,
-                                onValueChange = {
-                                    parallelRuns = it
-                                }
-                            )
-                        },
-                        fourth = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "درجة الحرارة °C"
-                                    } else {
-                                        "Ambient °C"
-                                    },
-                                value = ambient,
-                                onValueChange = {
-                                    ambient = it
-                                }
-                            )
-                        }
-                    )
-
-                    FourColumnRow(
-                        first = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "عدد الدوائر"
-                                    } else {
-                                        "Circuits"
-                                    },
-                                value = circuits,
-                                onValueChange = {
-                                    circuits = it
-                                }
-                            )
-                        },
-                        second = {
-                            DropdownField(
-                                label =
-                                    if (arabic) {
-                                        "مادة الموصل"
-                                    } else {
-                                        "Conductor Material"
-                                    },
-                                value = material.name,
-                                items =
-                                    ConductorMaterial
-                                        .entries
-                                        .map {
-                                            it.name
-                                        },
-                                onSelect = { index ->
-                                    material =
-                                        ConductorMaterial
-                                            .entries[index]
-                                }
-                            )
-                        },
-                        third = {
-                            DropdownField(
-                                label =
-                                    if (arabic) {
-                                        "العازل"
-                                    } else {
-                                        "Insulation"
-                                    },
-                                value = insulation.name,
-                                items =
-                                    InsulationType
-                                        .entries
-                                        .map {
-                                            it.name
-                                        },
-                                onSelect = { index ->
-                                    insulation =
-                                        InsulationType
-                                            .entries[index]
-                                }
-                            )
-                        },
-                        fourth = {
-                            DropdownField(
-                                label =
-                                    if (arabic) {
-                                        "طريقة التركيب"
-                                    } else {
-                                        "Installation Method"
-                                    },
-                                value =
-                                    installation.description,
-                                items =
-                                    iecInstallationMethods
-                                        .map {
-                                            it.description
-                                        },
-                                onSelect = { index ->
-                                    installation =
-                                        iecInstallationMethods[index]
-                                }
-                            )
-                        }
-                    )
-                }
-            }
-
-            SectionTitle(
-                if (arabic) {
-                    "حدود التصميم"
-                } else {
-                    "DESIGN LIMIT"
+            EngineeringInput(
+                value = parallelRuns,
+                label = if (arabic) "عدد المسارات المتوازية" else "Parallel Runs",
+                onValueChange = {
+                    parallelRuns = it
+                    invalidateResult()
                 }
             )
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor =
-                        MaterialTheme.colorScheme.surface
-                )
-            ) {
-
-                Column(
-                    modifier = Modifier.padding(14.dp)
-                ) {
-
-                    FourColumnRow(
-                        first = {
-                            NumberField(
-                                label =
-                                    if (arabic) {
-                                        "أقصى هبوط جهد %"
-                                    } else {
-                                        "Maximum Voltage Drop %"
-                                    },
-                                value = maxDrop,
-                                onValueChange = {
-                                    maxDrop = it
-                                }
-                            )
-                        },
-                        second = {},
-                        third = {},
-                        fourth = {}
-                    )
+            EngineeringInput(
+                value = ambient,
+                label = if (arabic) "درجة الحرارة المحيطة (°C)" else
+                    "Ambient Temperature (°C)",
+                onValueChange = {
+                    ambient = it
+                    invalidateResult()
                 }
-            }
+            )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement =
-                    Arrangement.spacedBy(10.dp)
-            ) {
+            EngineeringInput(
+                value = circuits,
+                label = if (arabic) "عدد الدوائر المجمعة" else
+                    "Number of Grouped Circuits",
+                onValueChange = {
+                    circuits = it
+                    invalidateResult()
+                }
+            )
 
-                Button(
-                    modifier =
-                        Modifier.weight(1f),
-                    onClick = {
+            ChoiceField(
+                label = if (arabic) "مادة الموصل" else "Conductor Material",
+                value = materialLabel(material, arabic),
+                items = ConductorMaterial.entries.map {
+                    materialLabel(it, arabic)
+                },
+                onSelect = {
+                    material = ConductorMaterial.entries[it]
+                    invalidateResult()
+                }
+            )
 
-                        study = runCatching {
+            ChoiceField(
+                label = if (arabic) "نوع العازل" else "Insulation",
+                value = insulationLabel(insulation, arabic),
+                items = InsulationType.entries.map {
+                    insulationLabel(it, arabic)
+                },
+                onSelect = {
+                    insulation = InsulationType.entries[it]
+                    invalidateResult()
+                }
+            )
 
-                            calculateStudy(
-                                standard = standard,
-                                currentType = currentType,
-                                voltage =
-                                    voltage.toDouble(),
-                                loadKw =
-                                    loadKw.toDoubleOrNull(),
-                                currentInput =
-                                    current.toDoubleOrNull(),
-                                pf = pf.toDouble(),
-                                length =
-                                    length.toDouble(),
-                                section =
-                                    section.toDouble(),
-                                parallelRuns =
-                                    parallelRuns.toInt(),
-                                ambient =
-                                    ambient.toDouble(),
-                                circuits =
-                                    circuits.toInt(),
-                                maxDrop =
-                                    maxDrop.toDouble(),
-                                material = material,
-                                insulation = insulation,
-                                installation =
-                                    installation
-                            )
+            ChoiceField(
+                label = if (arabic) "طريقة التركيب" else "Installation Method",
+                value = installation.description,
+                items = iecInstallationMethods.map { it.description },
+                onSelect = {
+                    installation = iecInstallationMethods[it]
+                    invalidateResult()
+                }
+            )
+        }
 
-                        }.getOrNull()
-                    }
-                ) {
+        EngineeringSection(
+            title = if (arabic) "حدود التصميم" else "Design Limits"
+        ) {
+            EngineeringInput(
+                value = maxDrop,
+                label = if (arabic) "أقصى هبوط جهد مسموح (%)" else
+                    "Maximum Allowed Voltage Drop (%)",
+                onValueChange = {
+                    maxDrop = it
+                    invalidateResult()
+                }
+            )
 
-                    Icon(
-                        imageVector =
-                            Icons.Outlined.Calculate,
+            Text(
+                text = if (arabic) {
+                    "يجب تحديد حد هبوط الجهد طبقًا لمتطلبات المشروع والكود المعتمد؛ القيمة الافتراضية 5% ليست اعتمادًا تلقائيًا."
+                } else {
+                    "Set the voltage-drop limit from project requirements and the adopted code. The default 5% is not automatic code approval."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            EngineeringPrimaryButton(
+                text = if (arabic) "إجراء الدراسة" else "Run Study",
+                onClick = { runStudy(autoSelect = false) },
+                modifier = Modifier.weight(1f),
+                leadingIcon = {
+                    androidx.compose.material3.Icon(
+                        imageVector = Icons.Outlined.Calculate,
                         contentDescription = null
                     )
-
-                    Spacer(
-                        modifier = Modifier.width(6.dp)
-                    )
-
-                    Text(
-                        if (arabic) {
-                            "إجراء الدراسة"
-                        } else {
-                            "RUN STUDY"
-                        }
-                    )
                 }
+            )
 
-                OutlinedButton(
-                    modifier =
-                        Modifier.weight(1f),
+            EngineeringSecondaryButton(
+                text = if (arabic) "اختيار المقطع" else "Auto Size",
+                onClick = { runStudy(autoSelect = true) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        error?.let {
+            EngineeringStatus(
+                text = it,
+                success = false
+            )
+        }
+
+        study?.let {
+            StudyResultSection(
+                study = it,
+                arabic = arabic
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun ChoiceField(
+    label: String,
+    value: String,
+    items: List<String>,
+    onSelect: (Int) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = value,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            items.forEachIndexed { index, item ->
+                DropdownMenuItem(
+                    text = { Text(item) },
                     onClick = {
-
-                        study = runCatching {
-
-                            calculateStudy(
-                                standard = standard,
-                                currentType = currentType,
-                                voltage =
-                                    voltage.toDouble(),
-                                loadKw =
-                                    loadKw.toDoubleOrNull(),
-                                currentInput =
-                                    current.toDoubleOrNull(),
-                                pf = pf.toDouble(),
-                                length =
-                                    length.toDouble(),
-                                section =
-                                    section.toDouble(),
-                                parallelRuns =
-                                    parallelRuns.toInt(),
-                                ambient =
-                                    ambient.toDouble(),
-                                circuits =
-                                    circuits.toInt(),
-                                maxDrop =
-                                    maxDrop.toDouble(),
-                                material = material,
-                                insulation = insulation,
-                                installation =
-                                    installation,
-                                autoSelect = true
-                            )
-
-                        }.getOrNull()
+                        onSelect(index)
+                        expanded = false
                     }
-                ) {
-
-                    Text(
-                        if (arabic) {
-                            "اختيار المقطع"
-                        } else {
-                            "AUTO SIZE"
-                        }
-                    )
-                }
-            }
-
-            study?.let {
-                StudyResultCard(
-                    study = it,
-                    arabic = arabic
                 )
             }
-
-            Spacer(
-                modifier = Modifier.height(24.dp)
-            )
         }
     }
 }
@@ -738,804 +518,314 @@ private fun calculateStudy(
     installation: InstallationMethod,
     autoSelect: Boolean = false
 ): VoltageDropStudy {
-
-    require(voltage > 0.0)
-    require(pf > 0.0 && pf <= 1.0)
-    require(length >= 0.0)
-    require(section > 0.0)
+    require(voltage.isFinite() && voltage > 0.0)
+    require(pf.isFinite() && pf > 0.0 && pf <= 1.0)
+    require(length.isFinite() && length >= 0.0)
+    require(section.isFinite() && section > 0.0)
     require(parallelRuns >= 1)
     require(circuits >= 1)
-    require(maxDrop > 0.0)
+    require(ambient.isFinite())
+    require(maxDrop.isFinite() && maxDrop > 0.0)
 
-    val calculatedCurrent =
-        currentInput?.takeIf {
-            it > 0.0
-        } ?: run {
+    val calculatedCurrent = currentInput?.takeIf { it > 0.0 } ?: run {
+        require(loadKw != null && loadKw.isFinite() && loadKw > 0.0)
 
-            require(loadKw != null)
-            require(loadKw > 0.0)
+        ElectricalCalculations.calculateDesignCurrent(
+            loadWatts = loadKw * 1000.0,
+            voltage = voltage,
+            powerFactor = pf,
+            currentType = currentType
+        )
+    }
 
-            ElectricalCalculations
-                .calculateDesignCurrent(
-                    loadWatts =
-                        loadKw * 1000.0,
-                    voltage = voltage,
-                    powerFactor = pf,
-                    currentType = currentType
-                )
-        }
+    require(calculatedCurrent.isFinite() && calculatedCurrent > 0.0) {
+        "Calculated current must be greater than zero."
+    }
 
-    val temperatureFactor =
-        runCatching {
+    val temperatureFactor = runCatching {
+        ElectricalCalculations.ambientTemperatureFactor(
+            standard = standard,
+            insulation = insulation,
+            ambientTemperatureC = ambient
+        )
+    }.getOrDefault(1.0)
 
-            ElectricalCalculations
-                .ambientTemperatureFactor(
-                    standard = standard,
-                    insulation = insulation,
-                    ambientTemperatureC =
-                        ambient
-                )
+    val groupingFactor = runCatching {
+        ElectricalCalculations.groupingFactor(
+            standard = standard,
+            numberOfCircuits = circuits
+        )
+    }.getOrDefault(1.0)
 
-        }.getOrDefault(1.0)
-
-    val groupingFactor =
-        runCatching {
-
-            ElectricalCalculations
-                .groupingFactor(
-                    standard = standard,
-                    numberOfCircuits =
-                        circuits
-                )
-
-        }.getOrDefault(1.0)
-
-    val effectiveCurrent =
-        calculatedCurrent /
-            parallelRuns
-
+    val effectiveCurrent = calculatedCurrent / parallelRuns
     val correctionFactor =
-        (
-            temperatureFactor *
-                groupingFactor
-            ).coerceAtLeast(0.01)
+        (temperatureFactor * groupingFactor).coerceAtLeast(0.01)
+    val requiredAmpacity = effectiveCurrent / correctionFactor
 
-    val requiredAmpacity =
-        effectiveCurrent /
-            correctionFactor
-
-    val sections =
-        ElectricalCalculations
-            .standardConductorSections(
-                standard
+    val sections = ElectricalCalculations.standardConductorSections(standard)
+        .ifEmpty {
+            listOf(
+                1.5, 2.5, 4.0, 6.0, 10.0, 16.0, 25.0, 35.0,
+                50.0, 70.0, 95.0, 120.0, 150.0, 185.0, 240.0, 300.0
             )
-            .ifEmpty {
-
-                listOf(
-                    1.5,
-                    2.5,
-                    4.0,
-                    6.0,
-                    10.0,
-                    16.0,
-                    25.0,
-                    35.0,
-                    50.0,
-                    70.0,
-                    95.0,
-                    120.0,
-                    150.0,
-                    185.0,
-                    240.0,
-                    300.0
-                )
-            }
-
-    var selected =
-        if (autoSelect) {
-            null
-        } else {
-            section
         }
 
-    var selectedAmpacity: Double? =
-        null
+    var selected: Double? = if (autoSelect) null else section
+    var selectedAmpacity: Double? = null
 
     for (candidate in sections) {
-
-        val ampacity =
-            runCatching {
-
-                ElectricalCalculations
-                    .conductorAmpacity(
-                        standard = standard,
-                        sectionMm2 = candidate,
-                        material = material,
-                        insulation = insulation,
-                        installationMethod =
-                            installation,
-                        loadedConductors =
-                            when (currentType) {
-
-                                CurrentType
-                                    .AlternatingThreePhase ->
-                                    3
-
-                                else ->
-                                    2
-                            }
-                    )
-
-            }.getOrNull()
+        val ampacity = runCatching {
+            ElectricalCalculations.conductorAmpacity(
+                standard = standard,
+                sectionMm2 = candidate,
+                material = material,
+                insulation = insulation,
+                installationMethod = installation,
+                loadedConductors = if (
+                    currentType == CurrentType.AlternatingThreePhase
+                ) 3 else 2
+            )
+        }.getOrNull()
 
         if (
             autoSelect &&
             ampacity != null &&
-            ampacity *
-                correctionFactor >=
-            effectiveCurrent
+            ampacity * correctionFactor >= effectiveCurrent
         ) {
-
             selected = candidate
             selectedAmpacity = ampacity
-
             break
         }
 
-        if (
-            !autoSelect &&
-            candidate == section
-        ) {
-
-            selectedAmpacity =
-                ampacity
+        if (!autoSelect && candidate == section) {
+            selectedAmpacity = ampacity
         }
     }
 
     if (selected == null) {
-        selected =
-            sections.lastOrNull()
+        selected = sections.lastOrNull()
     }
 
-    require(selected != null)
+    require(selected != null) {
+        "No conductor sections are available for the selected standard."
+    }
 
     val actualSection = selected
 
     if (selectedAmpacity == null) {
-
-        selectedAmpacity =
-            runCatching {
-
-                ElectricalCalculations
-                    .conductorAmpacity(
-                        standard = standard,
-                        sectionMm2 =
-                            actualSection,
-                        material = material,
-                        insulation = insulation,
-                        installationMethod =
-                            installation,
-                        loadedConductors =
-                            when (currentType) {
-
-                                CurrentType
-                                    .AlternatingThreePhase ->
-                                    3
-
-                                else ->
-                                    2
-                            }
-                    )
-
-            }.getOrNull()
+        selectedAmpacity = runCatching {
+            ElectricalCalculations.conductorAmpacity(
+                standard = standard,
+                sectionMm2 = actualSection,
+                material = material,
+                insulation = insulation,
+                installationMethod = installation,
+                loadedConductors = if (
+                    currentType == CurrentType.AlternatingThreePhase
+                ) 3 else 2
+            )
+        }.getOrNull()
     }
 
-    val vd =
-        ElectricalCalculations
-            .calculateVoltageDrop(
-                current =
-                    effectiveCurrent,
-                length = length,
-                sectionMm2 =
-                    actualSection,
-                powerFactor = pf,
-                currentType =
-                    currentType,
-                material = material,
-                voltage = voltage
-            )
+    val voltageDrop = ElectricalCalculations.calculateVoltageDrop(
+        current = effectiveCurrent,
+        length = length,
+        sectionMm2 = actualSection,
+        powerFactor = pf,
+        currentType = currentType,
+        material = material,
+        voltage = voltage
+    )
 
-    val vdVolts = vd.second
-    val vdPercent = vd.first
+    val voltageDropPercent = voltageDrop.first
+    val voltageDropVolts = voltageDrop.second
 
-    val correctedAmpacity =
-        selectedAmpacity?.let {
-            it *
-                temperatureFactor *
-                groupingFactor
-        }
+    require(voltageDropPercent.isFinite() && voltageDropVolts.isFinite()) {
+        "The voltage-drop calculation returned an invalid value."
+    }
 
-    val totalAmpacity =
-        correctedAmpacity?.let {
-            it * parallelRuns
-        }
+    val correctedAmpacity = selectedAmpacity?.let {
+        it * temperatureFactor * groupingFactor
+    }
+    val totalAmpacity = correctedAmpacity?.let {
+        it * parallelRuns
+    }
 
-    val ampacityPass =
-        totalAmpacity == null ||
-            totalAmpacity >=
-            calculatedCurrent
+    val ampacityPass = totalAmpacity != null &&
+        totalAmpacity >= calculatedCurrent
+    val voltageDropPass = voltageDropPercent <= maxDrop
 
-    val voltageDropPass =
-        vdPercent <= maxDrop
-
-    val notes =
-        mutableListOf<String>()
+    val notes = mutableListOf<String>()
 
     if (selectedAmpacity == null) {
-
-        notes +=
+        notes += if (true) {
             "Verified ampacity data is not available for this exact standard/material/insulation/installation combination."
+        } else {
+            ""
+        }
     }
-
     if (!ampacityPass) {
-
-        notes +=
-            "Selected conductor does not satisfy the calculated thermal current requirement."
+        notes += "Selected conductor does not satisfy the calculated thermal current requirement."
     }
-
     if (!voltageDropPass) {
-
-        notes +=
-            "Voltage drop exceeds the specified design limit."
+        notes += "Voltage drop exceeds the specified design limit."
     }
-
     if (parallelRuns > 1) {
-
-        notes +=
-            "Parallel runs were included in the current and ampacity assessment."
+        notes += "Parallel runs were included in the current and ampacity assessment."
     }
-
     if (autoSelect) {
-
-        notes +=
-            "Automatic sizing selected the first standard conductor section satisfying the available ampacity data."
+        notes += "Automatic sizing selected the first standard conductor section satisfying the available ampacity data."
     }
 
     return VoltageDropStudy(
-        currentA =
-            calculatedCurrent,
-        requiredAmpacityA =
-            requiredAmpacity,
-        selectedSectionMm2 =
-            actualSection,
-        ampacityA =
-            totalAmpacity,
-        temperatureFactor =
-            temperatureFactor,
-        groupingFactor =
-            groupingFactor,
-        voltageDropV =
-            vdVolts,
-        voltageDropPercent =
-            vdPercent,
-        receivingVoltageV =
-            voltage - vdVolts,
-        allowedVoltageDropPercent =
-            maxDrop,
-        voltageDropPass =
-            voltageDropPass,
-        ampacityPass =
-            ampacityPass,
+        currentA = calculatedCurrent,
+        requiredAmpacityA = requiredAmpacity,
+        selectedSectionMm2 = actualSection,
+        ampacityA = totalAmpacity,
+        temperatureFactor = temperatureFactor,
+        groupingFactor = groupingFactor,
+        voltageDropV = voltageDropVolts,
+        voltageDropPercent = voltageDropPercent,
+        receivingVoltageV = voltage - voltageDropVolts,
+        allowedVoltageDropPercent = maxDrop,
+        voltageDropPass = voltageDropPass,
+        ampacityPass = ampacityPass,
         notes = notes
     )
 }
 
 @Composable
-private fun StudyResultCard(
+private fun StudyResultSection(
     study: VoltageDropStudy,
     arabic: Boolean
 ) {
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme.colorScheme.surface
-        )
+    EngineeringSection(
+        title = if (arabic) "نتيجة الدراسة الهندسية" else "Engineering Results"
     ) {
+        EngineeringResult(
+            title = if (arabic) "هبوط الجهد" else "Voltage Drop",
+            value = "${formatNumber(study.voltageDropV)} V  (${formatNumber(study.voltageDropPercent)}%)",
+            success = study.voltageDropPass
+        )
 
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement =
-                Arrangement.spacedBy(10.dp)
-        ) {
+        EngineeringResult(
+            title = if (arabic) "المقطع المختار" else "Selected Conductor Section",
+            value = "${formatNumber(study.selectedSectionMm2 ?: 0.0)} mm²",
+            success = study.ampacityPass
+        )
 
-            Text(
-                text =
-                    if (arabic) {
-                        "نتيجة الدراسة الهندسية"
-                    } else {
-                        "ENGINEERING STUDY RESULT"
-                    },
-                color =
-                    MaterialTheme.colorScheme.primary,
-                fontSize = 18.sp,
-                fontWeight =
-                    FontWeight.Bold
+        EngineeringValueRow(
+            label = if (arabic) "تيار التصميم" else "Design Current",
+            value = "${formatNumber(study.currentA)} A"
+        )
+        EngineeringValueRow(
+            label = if (arabic) "السعة بعد التصحيح" else "Corrected Ampacity",
+            value = study.ampacityA?.let { "${formatNumber(it)} A" }
+                ?: if (arabic) "غير متاحة" else "Unavailable"
+        )
+        EngineeringValueRow(
+            label = if (arabic) "الحد المطلوب للسعة" else "Required Ampacity",
+            value = "${formatNumber(study.requiredAmpacityA)} A"
+        )
+        EngineeringValueRow(
+            label = if (arabic) "معامل الحرارة" else "Temperature Factor",
+            value = formatNumber(study.temperatureFactor)
+        )
+        EngineeringValueRow(
+            label = if (arabic) "معامل التجميع" else "Grouping Factor",
+            value = formatNumber(study.groupingFactor)
+        )
+        EngineeringValueRow(
+            label = if (arabic) "جهد الاستقبال" else "Receiving Voltage",
+            value = "${formatNumber(study.receivingVoltageV)} V"
+        )
+        EngineeringValueRow(
+            label = if (arabic) "الحد المسموح لهبوط الجهد" else "Allowed Voltage Drop",
+            value = "${formatNumber(study.allowedVoltageDropPercent)}%"
+        )
+
+        EngineeringStatus(
+            text = if (study.voltageDropPass) {
+                if (arabic) "اختبار هبوط الجهد: مطابق للحد المدخل." else
+                    "Voltage-drop check: within the entered limit."
+            } else {
+                if (arabic) "اختبار هبوط الجهد: غير مطابق للحد المدخل." else
+                    "Voltage-drop check: exceeds the entered limit."
+            },
+            success = study.voltageDropPass
+        )
+
+        EngineeringStatus(
+            text = if (study.ampacityPass) {
+                if (arabic) "اختبار سعة الكابل: مطابق للتيار المحسوب." else
+                    "Cable ampacity check: satisfies the calculated current."
+            } else {
+                if (arabic) "اختبار سعة الكابل: غير مطابق أو بيانات السعة غير متاحة." else
+                    "Cable ampacity check: fails or verified ampacity data is unavailable."
+            },
+            success = study.ampacityPass
+        )
+
+        study.notes.forEach { note ->
+            EngineeringStatus(
+                text = note,
+                success = false
             )
-
-            ResultRow(
-                if (arabic) {
-                    "تيار التصميم"
-                } else {
-                    "Design Current"
-                },
-                "%.3f A".format(
-                    study.currentA
-                )
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "المقطع المختار"
-                } else {
-                    "Selected Section"
-                },
-                "${study.selectedSectionMm2} mm²"
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "Iz بعد معاملات التصحيح"
-                } else {
-                    "Corrected Iz"
-                },
-                study.ampacityA?.let {
-                    "%.2f A".format(it)
-                } ?: "N/A"
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "معامل الحرارة"
-                } else {
-                    "Temperature Factor"
-                },
-                "%.3f".format(
-                    study.temperatureFactor
-                )
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "معامل التجميع"
-                } else {
-                    "Grouping Factor"
-                },
-                "%.3f".format(
-                    study.groupingFactor
-                )
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "هبوط الجهد"
-                } else {
-                    "Voltage Drop"
-                },
-                "%.3f V".format(
-                    study.voltageDropV
-                )
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "هبوط الجهد %"
-                } else {
-                    "Voltage Drop %"
-                },
-                "%.3f %%".format(
-                    study.voltageDropPercent
-                )
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "جهد الاستقبال"
-                } else {
-                    "Receiving Voltage"
-                },
-                "%.3f V".format(
-                    study.receivingVoltageV
-                )
-            )
-
-            ResultRow(
-                if (arabic) {
-                    "الحد المسموح"
-                } else {
-                    "Allowed Limit"
-                },
-                "%.2f %%".format(
-                    study.allowedVoltageDropPercent
-                )
-            )
-
-            StatusRow(
-                title =
-                    if (arabic) {
-                        "اختبار هبوط الجهد"
-                    } else {
-                        "Voltage Drop Check"
-                    },
-                passValue =
-                    study.voltageDropPass,
-                arabic = arabic
-            )
-
-            StatusRow(
-                title =
-                    if (arabic) {
-                        "اختبار سعة الكابل"
-                    } else {
-                        "Cable Ampacity Check"
-                    },
-                passValue =
-                    study.ampacityPass,
-                arabic = arabic
-            )
-
-            if (study.notes.isNotEmpty()) {
-
-                Spacer(
-                    modifier =
-                        Modifier.height(4.dp)
-                )
-
-                study.notes.forEach { note ->
-
-                    Row(
-                        verticalAlignment =
-                            Alignment.Top
-                    ) {
-
-                        Icon(
-                            imageVector =
-                                Icons.Outlined.Info,
-                            contentDescription =
-                                null,
-                            tint =
-                                MaterialTheme
-                                    .colorScheme
-                                    .tertiary,
-                            modifier =
-                                Modifier.width(20.dp)
-                        )
-
-                        Spacer(
-                            modifier =
-                                Modifier.width(6.dp)
-                        )
-
-                        Text(
-                            text = note,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
         }
-    }
-}
-
-@Composable
-private fun StatusRow(
-    title: String,
-    passValue: Boolean,
-    arabic: Boolean
-) {
-
-    Row(
-        modifier =
-            Modifier.fillMaxWidth(),
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
-
-        Icon(
-            imageVector =
-                if (passValue) {
-                    Icons.Outlined.CheckCircle
-                } else {
-                    Icons.Outlined.Warning
-                },
-            contentDescription = null,
-            tint =
-                if (passValue) {
-                    Color(0xFF2E7D32)
-                } else {
-                    Color(0xFFE65100)
-                },
-            modifier =
-                Modifier.width(24.dp)
-        )
-
-        Spacer(
-            modifier =
-                Modifier.width(8.dp)
-        )
 
         Text(
-            text = title,
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .onSurfaceVariant,
-            modifier =
-                Modifier.weight(1f)
+            text = if (arabic) {
+                "هذه النتيجة تعتمد على بيانات السعة المتاحة في التطبيق وإعدادات الدراسة. راجع مرجع الكود وجداول الشركة المصنعة قبل اعتماد التصميم."
+            } else {
+                "Results depend on the ampacity data available in the app and the study inputs. Verify code references and manufacturer tables before design approval."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-
-        Text(
-            text =
-                if (passValue) {
-                    if (arabic) {
-                        "مطابق"
-                    } else {
-                        "PASS"
-                    }
-                } else {
-                    if (arabic) {
-                        "غير مطابق"
-                    } else {
-                        "FAIL"
-                    }
-                },
-            color =
-                if (passValue) {
-                    Color(0xFF2E7D32)
-                } else {
-                    Color(0xFFE65100)
-                },
-            fontWeight =
-                FontWeight.Bold
-        )
-    }
-}
-
-@Composable
-private fun ResultRow(
-    label: String,
-    value: String
-) {
-
-    Row(
-        modifier =
-            Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.SpaceBetween
-    ) {
-
-        Text(
-            text = label,
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .onSurfaceVariant,
-            fontSize = 13.sp
-        )
-
-        Text(
-            text = value,
-            color =
-                MaterialTheme
-                    .colorScheme
-                    .onSurface,
-            fontSize = 14.sp,
-            fontWeight =
-                FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-private fun SectionTitle(
-    text: String
-) {
-
-    Text(
-        text = text,
-        color =
-            MaterialTheme
-                .colorScheme
-                .primary,
-        fontSize = 13.sp,
-        fontWeight =
-            FontWeight.Bold,
-        letterSpacing = 0.8.sp
-    )
-}
-
-@Composable
-private fun NumberField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-
-    OutlinedTextField(
-        modifier =
-            modifier.fillMaxWidth(),
-        value = value,
-        onValueChange = { input ->
-
-            onValueChange(
-                input.filter {
-                    it.isDigit() ||
-                        it == '.' ||
-                        it == '-'
-                }
-            )
-        },
-        label = {
-            Text(label)
-        },
-        singleLine = true
-    )
-}
-
-@Composable
-private fun DropdownField(
-    label: String,
-    value: String,
-    items: List<String>,
-    onSelect: (Int) -> Unit
-) {
-
-    var expanded by remember {
-        mutableStateOf(false)
-    }
-
-    Box(
-        modifier =
-            Modifier.fillMaxWidth()
-    ) {
-
-        OutlinedButton(
-            modifier =
-                Modifier.fillMaxWidth(),
-            onClick = {
-                expanded = true
-            }
-        ) {
-
-            Text(
-                text = "$label: $value",
-                modifier =
-                    Modifier.fillMaxWidth(),
-                maxLines = 2
-            )
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-            }
-        ) {
-
-            items.forEachIndexed {
-                    index,
-                    item ->
-
-                DropdownMenuItem(
-                    text = {
-                        Text(item)
-                    },
-                    onClick = {
-
-                        expanded = false
-
-                        onSelect(index)
-                    }
-                )
-            }
-        }
-    }
-}
-
-/*
- * Four columns per row.
- *
- * No FlowRow.
- * No experimental Compose API.
- *
- * weight() is used only inside RowScope.
- */
-@Composable
-private fun FourColumnRow(
-    first: @Composable () -> Unit,
-    second: @Composable () -> Unit,
-    third: @Composable () -> Unit,
-    fourth: @Composable () -> Unit
-) {
-
-    Row(
-        modifier =
-            Modifier.fillMaxWidth(),
-        horizontalArrangement =
-            Arrangement.spacedBy(10.dp),
-        verticalAlignment =
-            Alignment.Top
-    ) {
-
-        Box(
-            modifier =
-                Modifier.weight(1f)
-        ) {
-            first()
-        }
-
-        Box(
-            modifier =
-                Modifier.weight(1f)
-        ) {
-            second()
-        }
-
-        Box(
-            modifier =
-                Modifier.weight(1f)
-        ) {
-            third()
-        }
-
-        Box(
-            modifier =
-                Modifier.weight(1f)
-        ) {
-            fourth()
-        }
     }
 }
 
 private fun currentTypeLabel(
     type: CurrentType,
     arabic: Boolean
-): String {
+): String = when (type) {
+    CurrentType.DirectCurrent ->
+        if (arabic) "تيار مستمر DC" else "Direct Current (DC)"
 
-    return when (type) {
+    CurrentType.AlternatingSinglePhase ->
+        if (arabic) "متردد أحادي الطور" else "Single-Phase AC"
 
-        CurrentType.DirectCurrent ->
-            if (arabic) {
-                "تيار مستمر DC"
-            } else {
-                "DC"
-            }
+    CurrentType.AlternatingTwoPhase ->
+        if (arabic) "متردد ثنائي الطور" else "Two-Phase AC"
 
-        CurrentType.AlternatingSinglePhase ->
-            if (arabic) {
-                "أحادي الطور 1Φ"
-            } else {
-                "Single Phase"
-            }
+    CurrentType.AlternatingThreePhase ->
+        if (arabic) "متردد ثلاثي الطور" else "Three-Phase AC"
+}
 
-        CurrentType.AlternatingTwoPhase ->
-            if (arabic) {
-                "ثنائي الطور 2Φ"
-            } else {
-                "Two Phase"
-            }
+private fun materialLabel(
+    material: ConductorMaterial,
+    arabic: Boolean
+): String = when (material) {
+    ConductorMaterial.Copper ->
+        if (arabic) "نحاس" else "Copper"
 
-        CurrentType.AlternatingThreePhase ->
-            if (arabic) {
-                "ثلاثي الطور 3Φ"
-            } else {
-                "Three Phase"
-            }
-    }
+    ConductorMaterial.Aluminium ->
+        if (arabic) "ألومنيوم" else "Aluminium"
+
+    else -> material.name
+}
+
+private fun insulationLabel(
+    insulation: InsulationType,
+    arabic: Boolean
+): String = when (insulation) {
+    InsulationType.XLPE ->
+        if (arabic) "XLPE" else "XLPE"
+
+    else -> insulation.name
+}
+
+private fun formatNumber(value: Double?): String {
+    if (value == null || !value.isFinite()) return "—"
+    return String.format(Locale.US, "%.3f", value)
 }
