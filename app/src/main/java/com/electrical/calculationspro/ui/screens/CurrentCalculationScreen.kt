@@ -1,25 +1,13 @@
+
 package com.electrical.calculationspro.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,6 +19,13 @@ import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.CurrentType
 import com.electrical.calculationspro.data.project.DesignProjectCoreBridge
+import com.electrical.calculationspro.ui.components.EngineeringInput
+import com.electrical.calculationspro.ui.components.EngineeringPage
+import com.electrical.calculationspro.ui.components.EngineeringPrimaryButton
+import com.electrical.calculationspro.ui.components.EngineeringResult
+import com.electrical.calculationspro.ui.components.EngineeringSection
+import com.electrical.calculationspro.ui.components.EngineeringStatus
+import java.util.Locale
 import kotlin.math.abs
 
 @Composable
@@ -38,329 +33,200 @@ fun CurrentCalculationScreen(
     language: AppLanguage,
     onBack: () -> Unit
 ) {
-    val arabic =
-        language == AppLanguage.ARABIC
+    val arabic = language == AppLanguage.ARABIC
 
-    var loadKw by remember {
-        mutableStateOf("100")
-    }
-
-    var voltage by remember {
-        mutableStateOf("400")
-    }
-
-    var powerFactor by remember {
-        mutableStateOf("0.90")
-    }
+    var loadKw by remember { mutableStateOf("100") }
+    var voltage by remember { mutableStateOf("400") }
+    var powerFactor by remember { mutableStateOf("0.90") }
 
     var currentType by remember {
-        mutableStateOf(
-            CurrentType.AlternatingThreePhase
-        )
+        mutableStateOf(CurrentType.AlternatingThreePhase)
     }
 
-    var result by remember {
-        mutableStateOf<Double?>(null)
-    }
+    var result by remember { mutableStateOf<Double?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
 
-    var error by remember {
-        mutableStateOf<String?>(null)
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(
-                rememberScrollState()
-            )
-            .padding(18.dp),
-        verticalArrangement =
-            Arrangement.spacedBy(12.dp)
+    EngineeringPage(
+        title = if (arabic) "حساب تيار التصميم" else "Design Current",
+        subtitle = if (arabic) {
+            "حساب التيار من الحمل والجهد ومعامل القدرة"
+        } else {
+            "Calculate current from load, voltage and power factor"
+        },
+        onBack = onBack
     ) {
-
-        Row(
-            modifier =
-                Modifier.fillMaxWidth()
+        EngineeringSection(
+            title = if (arabic) "بيانات التصميم" else "Design Inputs"
         ) {
+            EngineeringInput(
+                value = loadKw,
+                label = if (arabic) "الحمل الفعال (kW)" else "Active Load (kW)",
+                onValueChange = {
+                    loadKw = it
+                    error = null
+                    result = null
+                }
+            )
 
-            IconButton(
-                onClick = onBack
-            ) {
-                Icon(
-                    imageVector =
-                        Icons.Outlined.ArrowBack,
-                    contentDescription =
-                        if (arabic)
-                            "رجوع"
-                        else
-                            "Back"
-                )
-            }
+            EngineeringInput(
+                value = voltage,
+                label = if (arabic) "الجهد (V)" else "Voltage (V)",
+                onValueChange = {
+                    voltage = it
+                    error = null
+                    result = null
+                }
+            )
 
-            Text(
-                text =
-                    if (arabic)
-                        "حساب تيار التصميم"
-                    else
-                        "Design Current Calculation",
-                style =
-                    MaterialTheme.typography.headlineSmall,
-                modifier =
-                    Modifier.padding(
-                        top = 12.dp
-                    )
+            EngineeringInput(
+                value = powerFactor,
+                label = if (arabic) "معامل القدرة (PF)" else "Power Factor (PF)",
+                onValueChange = {
+                    powerFactor = it
+                    error = null
+                    result = null
+                }
+            )
+
+            CurrentTypeSelector(
+                value = currentType,
+                arabic = arabic,
+                onSelect = {
+                    currentType = it
+                    error = null
+                    result = null
+                }
             )
         }
 
-        Text(
-            text =
-                if (arabic) {
-                    "الحساب يتم من خلال محرك الحسابات المركزي للمشروع."
-                } else {
-                    "Calculation is performed through the central project engineering engine."
-                }
-        )
-
-        OutlinedTextField(
-            value = loadKw,
-            onValueChange = {
-                loadKw = sanitizeNumber(it)
-                error = null
-            },
-            modifier =
-                Modifier.fillMaxWidth(),
-            label = {
-                Text(
-                    if (arabic)
-                        "الحمل (kW)"
-                    else
-                        "Load (kW)"
-                )
-            },
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = voltage,
-            onValueChange = {
-                voltage = sanitizeNumber(it)
-                error = null
-            },
-            modifier =
-                Modifier.fillMaxWidth(),
-            label = {
-                Text(
-                    if (arabic)
-                        "الجهد (V)"
-                    else
-                        "Voltage (V)"
-                )
-            },
-            singleLine = true
-        )
-
-        OutlinedTextField(
-            value = powerFactor,
-            onValueChange = {
-                powerFactor = sanitizeNumber(it)
-                error = null
-            },
-            modifier =
-                Modifier.fillMaxWidth(),
-            label = {
-                Text(
-                    if (arabic)
-                        "معامل القدرة PF"
-                    else
-                        "Power Factor PF"
-                )
-            },
-            singleLine = true
-        )
-
-        CurrentTypeSelector(
-            value = currentType,
-            arabic = arabic,
-            onSelect = {
-                currentType = it
-                error = null
-            }
-        )
-
-        Button(
+        EngineeringPrimaryButton(
+            text = if (arabic) "احسب تيار التصميم" else "Calculate Design Current",
             onClick = {
+                val load = loadKw.toDoubleOrNull()
+                val v = voltage.toDoubleOrNull()
+                val pf = powerFactor.toDoubleOrNull()
 
-                val load =
-                    loadKw.toDoubleOrNull()
-
-                val v =
-                    voltage.toDoubleOrNull()
-
-                val pf =
-                    powerFactor.toDoubleOrNull()
-
-                if (
-                    load == null ||
-                    v == null ||
-                    pf == null
-                ) {
-                    result = null
-
-                    error =
-                        if (arabic)
+                val validationError = when {
+                    load == null || v == null || pf == null -> {
+                        if (arabic) {
                             "أدخل قيمًا رقمية صحيحة."
-                        else
+                        } else {
                             "Enter valid numeric values."
+                        }
+                    }
 
-                    return@Button
-                }
+                    !load.isFinite() || !v.isFinite() || !pf.isFinite() -> {
+                        if (arabic) {
+                            "القيم المدخلة غير صالحة."
+                        } else {
+                            "The entered values are invalid."
+                        }
+                    }
 
-                if (load < 0.0) {
-                    result = null
-
-                    error =
-                        if (arabic)
+                    load < 0.0 -> {
+                        if (arabic) {
                             "الحمل لا يمكن أن يكون سالبًا."
-                        else
+                        } else {
                             "Load cannot be negative."
+                        }
+                    }
 
-                    return@Button
-                }
-
-                if (v <= 0.0) {
-                    result = null
-
-                    error =
-                        if (arabic)
+                    v <= 0.0 -> {
+                        if (arabic) {
                             "الجهد يجب أن يكون أكبر من صفر."
-                        else
+                        } else {
                             "Voltage must be greater than zero."
+                        }
+                    }
 
-                    return@Button
-                }
-
-                if (pf <= 0.0 || pf > 1.0) {
-                    result = null
-
-                    error =
-                        if (arabic)
-                            "معامل القدرة يجب أن يكون أكبر من صفر وأقصى قيمة 1."
-                        else
+                    pf <= 0.0 || pf > 1.0 -> {
+                        if (arabic) {
+                            "معامل القدرة يجب أن يكون أكبر من صفر ولا يتجاوز 1."
+                        } else {
                             "Power factor must be greater than zero and no more than 1."
+                        }
+                    }
 
-                    return@Button
+                    else -> null
                 }
 
-                try {
-
-                    result =
-                        DesignProjectCoreBridge
-                            .calculateDesignCurrentFromKw(
-                                loadKw = load,
-                                voltage = v,
-                                powerFactor = pf,
+                if (validationError != null) {
+                    result = null
+                    error = validationError
+                } else {
+                    try {
+                        val calculatedCurrent =
+                            DesignProjectCoreBridge.calculateDesignCurrentFromKw(
+                                loadKw = load!!,
+                                voltage = v!!,
+                                powerFactor = pf!!,
                                 currentType = currentType
                             )
 
-                    error = null
-
-                } catch (exception: Exception) {
-
-                    result = null
-
-                    error =
-                        exception.message
-                            ?: if (arabic)
+                        if (!calculatedCurrent.isFinite() || calculatedCurrent < 0.0) {
+                            result = null
+                            error = if (arabic) {
+                                "أعاد محرك الحساب قيمة غير صالحة."
+                            } else {
+                                "The calculation engine returned an invalid value."
+                            }
+                        } else {
+                            result = calculatedCurrent
+                            error = null
+                        }
+                    } catch (exception: Exception) {
+                        result = null
+                        error = exception.message
+                            ?: if (arabic) {
                                 "تعذر تنفيذ الحساب."
-                            else
+                            } else {
                                 "Calculation failed."
+                            }
+                    }
                 }
-            },
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic)
-                    "احسب التيار"
-                else
-                    "Calculate Current"
-            )
-        }
-
-        error?.let {
-            Card(
-                modifier =
-                    Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = it,
-                    color =
-                        MaterialTheme.colorScheme.error,
-                    modifier =
-                        Modifier.padding(16.dp)
-                )
             }
+        )
+
+        error?.let { message ->
+            EngineeringStatus(
+                text = message,
+                success = false
+            )
         }
 
         result?.let { current ->
-
-            Card(
-                modifier =
-                    Modifier.fillMaxWidth()
+            EngineeringSection(
+                title = if (arabic) "نتيجة الحساب" else "Calculation Result"
             ) {
+                EngineeringResult(
+                    title = if (arabic) {
+                        "تيار التصميم"
+                    } else {
+                        "Design Current"
+                    },
+                    value = formatCurrent(current)
+                )
 
-                Column(
-                    modifier =
-                        Modifier.padding(18.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(8.dp)
-                ) {
+                Text(
+                    text = if (arabic) {
+                        "نوع النظام: ${currentTypeTitle(currentType, true)}"
+                    } else {
+                        "System type: ${currentTypeTitle(currentType, false)}"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
 
-                    Text(
-                        text =
-                            if (arabic)
-                                "نتيجة الحساب"
-                            else
-                                "Calculation Result",
-                        style =
-                            MaterialTheme.typography.titleMedium
-                    )
-
-                    Text(
-                        text =
-                            formatCurrent(current),
-                        style =
-                            MaterialTheme.typography.headlineMedium
-                    )
-
-                    Text(
-                        text =
-                            if (arabic) {
-                                "تيار التصميم"
-                            } else {
-                                "Design Current"
-                            }
-                    )
-                }
+                Text(
+                    text = if (arabic) {
+                        "الحمل: $loadKw kW | الجهد: $voltage V | معامل القدرة: $powerFactor"
+                    } else {
+                        "Load: $loadKw kW | Voltage: $voltage V | Power factor: $powerFactor"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-        }
-
-        Spacer(
-            modifier =
-                Modifier.height(8.dp)
-        )
-
-        Button(
-            onClick = onBack,
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-            Text(
-                if (arabic)
-                    "رجوع"
-                else
-                    "Back"
-            )
         }
     }
 }
@@ -371,52 +237,39 @@ private fun CurrentTypeSelector(
     arabic: Boolean,
     onSelect: (CurrentType) -> Unit
 ) {
-    var expanded by remember {
-        mutableStateOf(false)
-    }
+    var expanded by remember { mutableStateOf(false) }
 
-    Column {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = if (arabic) "نوع التيار" else "Current Type",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
 
-        Button(
-            onClick = {
-                expanded = true
-            },
-            modifier =
-                Modifier.fillMaxWidth()
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text(
-                currentTypeTitle(
-                    value,
-                    arabic
-                )
-            )
+            Text(currentTypeTitle(value, arabic))
         }
 
         DropdownMenu(
             expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-            }
+            onDismissRequest = { expanded = false }
         ) {
-
-            CurrentType.values()
-                .forEach { type ->
-
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                currentTypeTitle(
-                                    type,
-                                    arabic
-                                )
-                            )
-                        },
-                        onClick = {
-                            onSelect(type)
-                            expanded = false
-                        }
-                    )
-                }
+            CurrentType.values().forEach { type ->
+                DropdownMenuItem(
+                    text = {
+                        Text(currentTypeTitle(type, arabic))
+                    },
+                    onClick = {
+                        onSelect(type)
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }
@@ -424,58 +277,25 @@ private fun CurrentTypeSelector(
 private fun currentTypeTitle(
     type: CurrentType,
     arabic: Boolean
-): String =
-    when (type) {
-
+): String {
+    return when (type) {
         CurrentType.DirectCurrent ->
-            if (arabic)
-                "تيار مستمر DC"
-            else
-                "Direct Current DC"
+            if (arabic) "تيار مستمر DC" else "Direct Current (DC)"
 
         CurrentType.AlternatingSinglePhase ->
-            if (arabic)
-                "تيار متردد أحادي الطور"
-            else
-                "AC Single Phase"
+            if (arabic) "تيار متردد أحادي الطور" else "Single-Phase AC"
 
         CurrentType.AlternatingTwoPhase ->
-            if (arabic)
-                "تيار متردد ثنائي الطور"
-            else
-                "AC Two Phase"
+            if (arabic) "تيار متردد ثنائي الطور" else "Two-Phase AC"
 
         CurrentType.AlternatingThreePhase ->
-            if (arabic)
-                "تيار متردد ثلاثي الطور"
-            else
-                "AC Three Phase"
+            if (arabic) "تيار متردد ثلاثي الطور" else "Three-Phase AC"
     }
+}
 
-private fun sanitizeNumber(
-    value: String
-): String =
-    value.filter { character ->
-        character.isDigit() ||
-            character == '.' ||
-            character == '-'
-    }
+private fun formatCurrent(value: Double): String {
+    if (!value.isFinite()) return "—"
 
-private fun formatCurrent(
-    value: Double
-): String {
-
-    if (!value.isFinite()) {
-        return "0.00 A"
-    }
-
-    val normalized =
-        if (abs(value) < 0.000001)
-            0.0
-        else
-            value
-
-    return "%.3f A".format(
-        normalized
-    )
+    val normalized = if (abs(value) < 0.000001) 0.0 else value
+    return String.format(Locale.US, "%.3f A", normalized)
 }
