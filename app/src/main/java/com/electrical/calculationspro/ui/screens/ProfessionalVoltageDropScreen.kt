@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Calculate
 import androidx.compose.material3.DropdownMenu
@@ -23,7 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ConductorMaterial
@@ -132,70 +130,70 @@ fun ProfessionalVoltageDropScreen(
                 parsedVoltage == null || !parsedVoltage.isFinite() ||
                     parsedVoltage <= 0.0 ->
                     throw IllegalArgumentException(
-                        if (arabic) "جهد النظام يجب أن يكون أكبر من صفر." else
-                            "System voltage must be greater than zero."
+                        if (arabic) "جهد النظام يجب أن يكون أكبر من صفر."
+                        else "System voltage must be greater than zero."
                     )
 
                 parsedPf == null || !parsedPf.isFinite() ||
                     parsedPf <= 0.0 || parsedPf > 1.0 ->
                     throw IllegalArgumentException(
-                        if (arabic) "معامل القدرة يجب أن يكون أكبر من صفر ولا يتجاوز 1." else
-                            "Power factor must be greater than zero and no more than 1."
+                        if (arabic) "معامل القدرة يجب أن يكون أكبر من صفر ولا يتجاوز 1."
+                        else "Power factor must be greater than zero and no more than 1."
                     )
 
                 parsedLength == null || !parsedLength.isFinite() ||
                     parsedLength < 0.0 ->
                     throw IllegalArgumentException(
-                        if (arabic) "طول الكابل لا يمكن أن يكون سالبًا." else
-                            "Cable length cannot be negative."
+                        if (arabic) "طول الكابل لا يمكن أن يكون سالبًا."
+                        else "Cable length cannot be negative."
                     )
 
                 parsedRuns == null || parsedRuns < 1 ->
                     throw IllegalArgumentException(
-                        if (arabic) "عدد المسارات المتوازية يجب أن يكون 1 على الأقل." else
-                            "Parallel runs must be at least 1."
+                        if (arabic) "عدد المسارات المتوازية يجب أن يكون 1 على الأقل."
+                        else "Parallel runs must be at least 1."
                     )
 
                 parsedAmbient == null || !parsedAmbient.isFinite() ->
                     throw IllegalArgumentException(
-                        if (arabic) "أدخل درجة حرارة صحيحة." else
-                            "Enter a valid ambient temperature."
+                        if (arabic) "أدخل درجة حرارة صحيحة."
+                        else "Enter a valid ambient temperature."
                     )
 
                 parsedCircuits == null || parsedCircuits < 1 ->
                     throw IllegalArgumentException(
-                        if (arabic) "عدد الدوائر يجب أن يكون 1 على الأقل." else
-                            "Number of circuits must be at least 1."
+                        if (arabic) "عدد الدوائر يجب أن يكون 1 على الأقل."
+                        else "Number of circuits must be at least 1."
                     )
 
                 parsedMaxDrop == null || !parsedMaxDrop.isFinite() ||
                     parsedMaxDrop <= 0.0 ->
                     throw IllegalArgumentException(
-                        if (arabic) "الحد المسموح لهبوط الجهد يجب أن يكون أكبر من صفر." else
-                            "Maximum voltage drop must be greater than zero."
+                        if (arabic) "الحد المسموح لهبوط الجهد يجب أن يكون أكبر من صفر."
+                        else "Maximum voltage drop must be greater than zero."
                     )
 
                 parsedCurrent != null &&
                     (!parsedCurrent.isFinite() || parsedCurrent < 0.0) ->
                     throw IllegalArgumentException(
-                        if (arabic) "قيمة التيار غير صالحة." else
-                            "Current value is invalid."
+                        if (arabic) "قيمة التيار غير صالحة."
+                        else "Current value is invalid."
                     )
 
                 parsedCurrent == null &&
                     (parsedLoad == null || !parsedLoad.isFinite() ||
                         parsedLoad <= 0.0) ->
                     throw IllegalArgumentException(
-                        if (arabic) "أدخل حملًا موجبًا أو تيارًا صالحًا." else
-                            "Enter a positive load or a valid current."
+                        if (arabic) "أدخل حملًا موجبًا أو تيارًا صالحًا."
+                        else "Enter a positive load or a valid current."
                     )
 
                 !autoSelect &&
                     (parsedSection == null || !parsedSection.isFinite() ||
                         parsedSection <= 0.0) ->
                     throw IllegalArgumentException(
-                        if (arabic) "مقطع الكابل يجب أن يكون أكبر من صفر." else
-                            "Cable section must be greater than zero."
+                        if (arabic) "مقطع الكابل يجب أن يكون أكبر من صفر."
+                        else "Cable section must be greater than zero."
                     )
             }
 
@@ -226,18 +224,20 @@ fun ProfessionalVoltageDropScreen(
         } catch (exception: Exception) {
             study = null
             error = exception.message
-                ?: if (arabic) "تعذر تنفيذ الدراسة الهندسية." else
-                    "The engineering study could not be completed."
+                ?: if (arabic) "تعذر تنفيذ الدراسة الهندسية."
+                else "The engineering study could not be completed."
         }
     }
 
     EngineeringPage(
         title = if (arabic) "دراسة هبوط الجهد" else "Voltage Drop Study",
-        subtitle = if (arabic) {
-            "حساب هبوط الجهد والتحقق من سعة الكابل وفق المعيار المختار"
-        } else {
-            "Voltage-drop calculation and cable ampacity verification"
-        } + "\n${standard.shortName} • ${ElectricalCalculations.standardCodeName(standard)}",
+        subtitle = (
+            if (arabic) {
+                "حساب هبوط الجهد والتحقق من سعة الكابل وفق المعيار المختار"
+            } else {
+                "Voltage-drop calculation and cable ampacity verification"
+            }
+        ) + "\n${standard.shortName} • ${ElectricalCalculations.standardCodeName(standard)}",
         onBack = backAction
     ) {
         EngineeringSection(
@@ -275,8 +275,8 @@ fun ProfessionalVoltageDropScreen(
 
             EngineeringInput(
                 value = current,
-                label = if (arabic) "التيار المحسوب مسبقًا (A) - اختياري" else
-                    "Known Current (A) - optional",
+                label = if (arabic) "التيار المحسوب مسبقًا (A) - اختياري"
+                else "Known Current (A) - optional",
                 onValueChange = {
                     current = it
                     invalidateResult()
@@ -308,8 +308,8 @@ fun ProfessionalVoltageDropScreen(
         ) {
             EngineeringInput(
                 value = length,
-                label = if (arabic) "طول المسار في اتجاه واحد (m)" else
-                    "One-way Route Length (m)",
+                label = if (arabic) "طول المسار في اتجاه واحد (m)"
+                else "One-way Route Length (m)",
                 onValueChange = {
                     length = it
                     invalidateResult()
@@ -318,7 +318,8 @@ fun ProfessionalVoltageDropScreen(
 
             EngineeringInput(
                 value = section,
-                label = if (arabic) "مقطع الموصل (mm²)" else "Conductor Section (mm²)",
+                label = if (arabic) "مقطع الموصل (mm²)"
+                else "Conductor Section (mm²)",
                 onValueChange = {
                     section = it
                     invalidateResult()
@@ -336,8 +337,8 @@ fun ProfessionalVoltageDropScreen(
 
             EngineeringInput(
                 value = ambient,
-                label = if (arabic) "درجة الحرارة المحيطة (°C)" else
-                    "Ambient Temperature (°C)",
+                label = if (arabic) "درجة الحرارة المحيطة (°C)"
+                else "Ambient Temperature (°C)",
                 onValueChange = {
                     ambient = it
                     invalidateResult()
@@ -346,8 +347,8 @@ fun ProfessionalVoltageDropScreen(
 
             EngineeringInput(
                 value = circuits,
-                label = if (arabic) "عدد الدوائر المجمعة" else
-                    "Number of Grouped Circuits",
+                label = if (arabic) "عدد الدوائر المجمعة"
+                else "Number of Grouped Circuits",
                 onValueChange = {
                     circuits = it
                     invalidateResult()
@@ -394,8 +395,8 @@ fun ProfessionalVoltageDropScreen(
         ) {
             EngineeringInput(
                 value = maxDrop,
-                label = if (arabic) "أقصى هبوط جهد مسموح (%)" else
-                    "Maximum Allowed Voltage Drop (%)",
+                label = if (arabic) "أقصى هبوط جهد مسموح (%)"
+                else "Maximum Allowed Voltage Drop (%)",
                 onValueChange = {
                     maxDrop = it
                     invalidateResult()
@@ -658,23 +659,27 @@ private fun calculateStudy(
     val notes = mutableListOf<String>()
 
     if (selectedAmpacity == null) {
-        notes += if (true) {
+        notes +=
             "Verified ampacity data is not available for this exact standard/material/insulation/installation combination."
-        } else {
-            ""
-        }
     }
+
     if (!ampacityPass) {
-        notes += "Selected conductor does not satisfy the calculated thermal current requirement."
+        notes +=
+            "Selected conductor does not satisfy the calculated thermal current requirement."
     }
+
     if (!voltageDropPass) {
         notes += "Voltage drop exceeds the specified design limit."
     }
+
     if (parallelRuns > 1) {
-        notes += "Parallel runs were included in the current and ampacity assessment."
+        notes +=
+            "Parallel runs were included in the current and ampacity assessment."
     }
+
     if (autoSelect) {
-        notes += "Automatic sizing selected the first standard conductor section satisfying the available ampacity data."
+        notes +=
+            "Automatic sizing selected the first standard conductor section satisfying the available ampacity data."
     }
 
     return VoltageDropStudy(
@@ -718,27 +723,33 @@ private fun StudyResultSection(
             label = if (arabic) "تيار التصميم" else "Design Current",
             value = "${formatNumber(study.currentA)} A"
         )
+
         EngineeringValueRow(
             label = if (arabic) "السعة بعد التصحيح" else "Corrected Ampacity",
             value = study.ampacityA?.let { "${formatNumber(it)} A" }
                 ?: if (arabic) "غير متاحة" else "Unavailable"
         )
+
         EngineeringValueRow(
             label = if (arabic) "الحد المطلوب للسعة" else "Required Ampacity",
             value = "${formatNumber(study.requiredAmpacityA)} A"
         )
+
         EngineeringValueRow(
             label = if (arabic) "معامل الحرارة" else "Temperature Factor",
             value = formatNumber(study.temperatureFactor)
         )
+
         EngineeringValueRow(
             label = if (arabic) "معامل التجميع" else "Grouping Factor",
             value = formatNumber(study.groupingFactor)
         )
+
         EngineeringValueRow(
             label = if (arabic) "جهد الاستقبال" else "Receiving Voltage",
             value = "${formatNumber(study.receivingVoltageV)} V"
         )
+
         EngineeringValueRow(
             label = if (arabic) "الحد المسموح لهبوط الجهد" else "Allowed Voltage Drop",
             value = "${formatNumber(study.allowedVoltageDropPercent)}%"
@@ -746,22 +757,22 @@ private fun StudyResultSection(
 
         EngineeringStatus(
             text = if (study.voltageDropPass) {
-                if (arabic) "اختبار هبوط الجهد: مطابق للحد المدخل." else
-                    "Voltage-drop check: within the entered limit."
+                if (arabic) "اختبار هبوط الجهد: مطابق للحد المدخل."
+                else "Voltage-drop check: within the entered limit."
             } else {
-                if (arabic) "اختبار هبوط الجهد: غير مطابق للحد المدخل." else
-                    "Voltage-drop check: exceeds the entered limit."
+                if (arabic) "اختبار هبوط الجهد: غير مطابق للحد المدخل."
+                else "Voltage-drop check: exceeds the entered limit."
             },
             success = study.voltageDropPass
         )
 
         EngineeringStatus(
             text = if (study.ampacityPass) {
-                if (arabic) "اختبار سعة الكابل: مطابق للتيار المحسوب." else
-                    "Cable ampacity check: satisfies the calculated current."
+                if (arabic) "اختبار سعة الكابل: مطابق للتيار المحسوب."
+                else "Cable ampacity check: satisfies the calculated current."
             } else {
-                if (arabic) "اختبار سعة الكابل: غير مطابق أو بيانات السعة غير متاحة." else
-                    "Cable ampacity check: fails or verified ampacity data is unavailable."
+                if (arabic) "اختبار سعة الكابل: غير مطابق أو بيانات السعة غير متاحة."
+                else "Cable ampacity check: fails or verified ampacity data is unavailable."
             },
             success = study.ampacityPass
         )
@@ -809,19 +820,15 @@ private fun materialLabel(
     ConductorMaterial.Copper ->
         if (arabic) "نحاس" else "Copper"
 
-    ConductorMaterial.Aluminium ->
-        if (arabic) "ألومنيوم" else "Aluminium"
-
-    else -> material.name
+    ConductorMaterial.Aluminum ->
+        if (arabic) "ألومنيوم" else "Aluminum"
 }
 
 private fun insulationLabel(
     insulation: InsulationType,
     arabic: Boolean
 ): String = when (insulation) {
-    InsulationType.XLPE ->
-        if (arabic) "XLPE" else "XLPE"
-
+    InsulationType.XLPE -> "XLPE"
     else -> insulation.name
 }
 
