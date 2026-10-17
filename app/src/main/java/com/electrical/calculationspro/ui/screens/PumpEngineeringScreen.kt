@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.pumps.PumpCalculationInput
@@ -32,6 +32,7 @@ import com.electrical.calculationspro.ui.components.EngineeringSection
 import com.electrical.calculationspro.ui.components.EngineeringSectionTitle
 import com.electrical.calculationspro.ui.components.EngineeringStatus
 import com.electrical.calculationspro.ui.components.EngineeringValueRow
+import com.electrical.calculationspro.ui.components.FourColumnFields
 
 @Composable
 fun PumpEngineeringScreen(
@@ -76,7 +77,9 @@ fun PumpEngineeringScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(
+                    androidx.compose.ui.unit.Dp(10f)
+                )
             ) {
                 EngineeringSecondaryButton(
                     text = if (arabic) "مياه" else "Water",
@@ -115,137 +118,213 @@ fun PumpEngineeringScreen(
         EngineeringSection(
             title = if (arabic) "بيانات التصرف" else "Flow Data"
         ) {
-            EngineeringInput(
-                value = flow,
-                label = if (arabic) "التصرف" else "Flow",
-                onValueChange = {
-                    flow = it
-                    result = null
-                    error = null
+            FourColumnFields {
+                item {
+                    EngineeringInput(
+                        value = flow,
+                        label = if (arabic) "التصرف" else "Flow",
+                        onValueChange = {
+                            flow = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            FlowUnitSelector(
-                selected = flowUnit,
-                arabic = arabic,
-                onSelected = {
-                    flowUnit = it
-                    result = null
-                    error = null
+                item {
+                    FlowUnitSelector(
+                        selected = flowUnit,
+                        arabic = arabic,
+                        onSelected = {
+                            flowUnit = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
+            }
         }
 
         EngineeringSection(
             title = if (arabic) "الرأس الهيدروليكي" else "Hydraulic Head"
         ) {
-            EngineeringInput(
-                value = staticHead,
-                label = if (arabic) "الرفع الاستاتيكي H (m)" else "Static Head H (m)",
-                onValueChange = {
-                    staticHead = it
-                    result = null
-                    error = null
+            FourColumnFields {
+                item {
+                    EngineeringInput(
+                        value = staticHead,
+                        label = if (arabic) {
+                            "الرفع الاستاتيكي H (m)"
+                        } else {
+                            "Static Head H (m)"
+                        },
+                        onValueChange = {
+                            staticHead = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = frictionHead,
-                label = if (arabic) "فاقد الاحتكاك (m)" else "Friction Head (m)",
-                onValueChange = {
-                    frictionHead = it
-                    result = null
-                    error = null
+                item {
+                    EngineeringInput(
+                        value = frictionHead,
+                        label = if (arabic) {
+                            "فاقد الاحتكاك (m)"
+                        } else {
+                            "Friction Head (m)"
+                        },
+                        onValueChange = {
+                            frictionHead = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = minorHead,
-                label = if (arabic) "الفواقد الثانوية (m)" else "Minor Losses (m)",
-                onValueChange = {
-                    minorHead = it
-                    result = null
-                    error = null
+                item {
+                    EngineeringInput(
+                        value = minorHead,
+                        label = if (arabic) {
+                            "الفواقد الثانوية (m)"
+                        } else {
+                            "Minor Losses (m)"
+                        },
+                        onValueChange = {
+                            minorHead = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = pressureHead,
-                label = if (arabic) "رأس الضغط المطلوب (m)" else "Required Pressure Head (m)",
-                onValueChange = {
-                    pressureHead = it
-                    result = null
-                    error = null
+                item {
+                    EngineeringInput(
+                        value = pressureHead,
+                        label = if (arabic) {
+                            "رأس الضغط المطلوب (m)"
+                        } else {
+                            "Required Pressure Head (m)"
+                        },
+                        onValueChange = {
+                            pressureHead = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
+            }
         }
 
         EngineeringSection(
             title = if (arabic) "الكفاءات" else "Efficiencies"
         ) {
-            EngineeringInput(
-                value = pumpEfficiency,
-                label = if (arabic) "كفاءة الطلمبة (%)" else "Pump Efficiency (%)",
-                onValueChange = {
-                    pumpEfficiency = it
-                    result = null
-                    error = null
+            FourColumnFields {
+                item {
+                    EngineeringInput(
+                        value = pumpEfficiency,
+                        label = if (arabic) {
+                            "كفاءة الطلمبة (%)"
+                        } else {
+                            "Pump Efficiency (%)"
+                        },
+                        onValueChange = {
+                            pumpEfficiency = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = motorEfficiency,
-                label = if (arabic) "كفاءة الموتور (%)" else "Motor Efficiency (%)",
-                onValueChange = {
-                    motorEfficiency = it
-                    result = null
-                    error = null
+                item {
+                    EngineeringInput(
+                        value = motorEfficiency,
+                        label = if (arabic) {
+                            "كفاءة الموتور (%)"
+                        } else {
+                            "Motor Efficiency (%)"
+                        },
+                        onValueChange = {
+                            motorEfficiency = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
+            }
         }
 
         EngineeringSection(
-            title = if (arabic) "بيانات التشغيل والطاقة" else "Operating & Energy Data"
+            title = if (arabic) {
+                "بيانات التشغيل والطاقة"
+            } else {
+                "Operating & Energy Data"
+            }
         ) {
-            EngineeringInput(
-                value = operatingHours,
-                label = if (arabic) "ساعات التشغيل / يوم" else "Operating Hours / Day",
-                onValueChange = {
-                    operatingHours = it
-                    result = null
-                    error = null
+            FourColumnFields {
+                item {
+                    EngineeringInput(
+                        value = operatingHours,
+                        label = if (arabic) {
+                            "ساعات التشغيل / يوم"
+                        } else {
+                            "Operating Hours / Day"
+                        },
+                        onValueChange = {
+                            operatingHours = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = operatingDaysMonth,
-                label = if (arabic) "أيام التشغيل / شهر" else "Operating Days / Month",
-                onValueChange = {
-                    operatingDaysMonth = it
-                    result = null
-                    error = null
+                item {
+                    EngineeringInput(
+                        value = operatingDaysMonth,
+                        label = if (arabic) {
+                            "أيام التشغيل / شهر"
+                        } else {
+                            "Operating Days / Month"
+                        },
+                        onValueChange = {
+                            operatingDaysMonth = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = operatingDaysYear,
-                label = if (arabic) "أيام التشغيل / سنة" else "Operating Days / Year",
-                onValueChange = {
-                    operatingDaysYear = it
-                    result = null
-                    error = null
+                item {
+                    EngineeringInput(
+                        value = operatingDaysYear,
+                        label = if (arabic) {
+                            "أيام التشغيل / سنة"
+                        } else {
+                            "Operating Days / Year"
+                        },
+                        onValueChange = {
+                            operatingDaysYear = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = tariff,
-                label = if (arabic) "تعريفة الكهرباء / kWh" else "Energy Tariff / kWh",
-                onValueChange = {
-                    tariff = it
-                    result = null
-                    error = null
+                item {
+                    EngineeringInput(
+                        value = tariff,
+                        label = if (arabic) {
+                            "تعريفة الكهرباء / kWh"
+                        } else {
+                            "Energy Tariff / kWh"
+                        },
+                        onValueChange = {
+                            tariff = it
+                            result = null
+                            error = null
+                        }
+                    )
                 }
-            )
+            }
         }
 
         EngineeringPrimaryButton(
@@ -254,7 +333,11 @@ fun PumpEngineeringScreen(
                 try {
                     val flowValue = flow.toDoubleOrNull()
 
-                    if (flowValue == null || !flowValue.isFinite() || flowValue <= 0.0) {
+                    if (
+                        flowValue == null ||
+                        !flowValue.isFinite() ||
+                        flowValue <= 0.0
+                    ) {
                         result = null
                         error = if (arabic) {
                             "أدخل قيمة صحيحة وموجبة للتصرف."
@@ -300,14 +383,22 @@ fun PumpEngineeringScreen(
                         return@EngineeringPrimaryButton
                     }
 
-                    val staticHeadValue = staticHead.toDoubleOrNull() ?: 0.0
-                    val frictionHeadValue = frictionHead.toDoubleOrNull() ?: 0.0
-                    val minorHeadValue = minorHead.toDoubleOrNull() ?: 0.0
-                    val pressureHeadValue = pressureHead.toDoubleOrNull() ?: 0.0
-                    val operatingHoursValue = operatingHours.toDoubleOrNull() ?: 0.0
-                    val operatingDaysMonthValue = operatingDaysMonth.toDoubleOrNull() ?: 30.0
-                    val operatingDaysYearValue = operatingDaysYear.toDoubleOrNull() ?: 365.0
-                    val tariffValue = tariff.toDoubleOrNull() ?: 0.0
+                    val staticHeadValue =
+                        staticHead.toDoubleOrNull() ?: 0.0
+                    val frictionHeadValue =
+                        frictionHead.toDoubleOrNull() ?: 0.0
+                    val minorHeadValue =
+                        minorHead.toDoubleOrNull() ?: 0.0
+                    val pressureHeadValue =
+                        pressureHead.toDoubleOrNull() ?: 0.0
+                    val operatingHoursValue =
+                        operatingHours.toDoubleOrNull() ?: 0.0
+                    val operatingDaysMonthValue =
+                        operatingDaysMonth.toDoubleOrNull() ?: 30.0
+                    val operatingDaysYearValue =
+                        operatingDaysYear.toDoubleOrNull() ?: 365.0
+                    val tariffValue =
+                        tariff.toDoubleOrNull() ?: 0.0
 
                     val numericValues = listOf(
                         staticHeadValue,
@@ -320,7 +411,11 @@ fun PumpEngineeringScreen(
                         tariffValue
                     )
 
-                    if (numericValues.any { !it.isFinite() || it < 0.0 }) {
+                    if (
+                        numericValues.any {
+                            !it.isFinite() || it < 0.0
+                        }
+                    ) {
                         result = null
                         error = if (arabic) {
                             "تأكد من أن قيم الرفع والفواقد والتشغيل والتعريفة أرقام غير سالبة."
@@ -393,7 +488,11 @@ fun PumpEngineeringScreen(
         } ?: run {
             if (error == null) {
                 EngineeringEmptyState(
-                    title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
+                    title = if (arabic) {
+                        "لا توجد نتيجة بعد"
+                    } else {
+                        "No Result Yet"
+                    },
                     message = if (arabic) {
                         "أدخل بيانات التصميم ثم اضغط حساب التصميم لعرض النتائج."
                     } else {
@@ -426,9 +525,7 @@ private fun FlowUnitSelector(
             PumpFlowUnit.entries.forEach { unit ->
                 DropdownMenuItem(
                     text = {
-                        androidx.compose.material3.Text(
-                            text = flowUnitLabel(unit, arabic)
-                        )
+                        Text(text = flowUnitLabel(unit, arabic))
                     },
                     onClick = {
                         onSelected(unit)
@@ -465,55 +562,93 @@ private fun PumpResultCard(
     EngineeringSection(
         title = if (arabic) "نتائج التصميم" else "Design Results"
     ) {
-        EngineeringResult(
-            title = if (arabic) "التصرف" else "Flow",
-            value = "${formatValue(result.flowM3PerHour)} m³/h  |  " +
-                "${formatValue(result.flowM3PerSecond)} m³/s"
-        )
+        FourColumnFields {
+            item {
+                EngineeringResult(
+                    title = if (arabic) "التصرف" else "Flow",
+                    value = "${formatValue(result.flowM3PerHour)} m³/h  |  " +
+                        "${formatValue(result.flowM3PerSecond)} m³/s"
+                )
+            }
 
-        EngineeringResult(
-            title = if (arabic) "الرأس الديناميكي الكلي TDH" else "Total Dynamic Head — TDH",
-            value = "${formatValue(result.totalDynamicHeadM)} m"
-        )
+            item {
+                EngineeringResult(
+                    title = if (arabic) {
+                        "الرأس الديناميكي الكلي TDH"
+                    } else {
+                        "Total Dynamic Head — TDH"
+                    },
+                    value = "${formatValue(result.totalDynamicHeadM)} m"
+                )
+            }
 
-        EngineeringResult(
-            title = if (arabic) "القدرة الهيدروليكية" else "Hydraulic Power",
-            value = "${formatValue(result.hydraulicPowerKw)} kW"
-        )
+            item {
+                EngineeringResult(
+                    title = if (arabic) {
+                        "القدرة الهيدروليكية"
+                    } else {
+                        "Hydraulic Power"
+                    },
+                    value = "${formatValue(result.hydraulicPowerKw)} kW"
+                )
+            }
 
-        EngineeringResult(
-            title = if (arabic) "قدرة العمود" else "Shaft Power",
-            value = "${formatValue(result.shaftPowerKw)} kW"
-        )
+            item {
+                EngineeringResult(
+                    title = if (arabic) "قدرة العمود" else "Shaft Power",
+                    value = "${formatValue(result.shaftPowerKw)} kW"
+                )
+            }
 
-        EngineeringResult(
-            title = if (arabic) "قدرة دخل الموتور" else "Motor Input Power",
-            value = "${formatValue(result.motorInputPowerKw)} kW"
-        )
+            item {
+                EngineeringResult(
+                    title = if (arabic) {
+                        "قدرة دخل الموتور"
+                    } else {
+                        "Motor Input Power"
+                    },
+                    value = "${formatValue(result.motorInputPowerKw)} kW"
+                )
+            }
 
-        EngineeringResult(
-            title = if (arabic) "قدرة الموتور المقترحة" else "Recommended Motor Rating",
-            value = "${formatValue(result.recommendedMotorRatingKw)} kW"
-        )
+            item {
+                EngineeringResult(
+                    title = if (arabic) {
+                        "قدرة الموتور المقترحة"
+                    } else {
+                        "Recommended Motor Rating"
+                    },
+                    value = "${formatValue(result.recommendedMotorRatingKw)} kW"
+                )
+            }
+        }
 
         EngineeringSectionTitle(
             text = if (arabic) "استهلاك الطاقة" else "Energy Consumption"
         )
 
-        EngineeringValueRow(
-            label = if (arabic) "يومي" else "Daily",
-            value = "${formatValue(result.dailyEnergyKwh)} kWh"
-        )
+        FourColumnFields {
+            item {
+                EngineeringValueRow(
+                    label = if (arabic) "يومي" else "Daily",
+                    value = "${formatValue(result.dailyEnergyKwh)} kWh"
+                )
+            }
 
-        EngineeringValueRow(
-            label = if (arabic) "شهري" else "Monthly",
-            value = "${formatValue(result.monthlyEnergyKwh)} kWh"
-        )
+            item {
+                EngineeringValueRow(
+                    label = if (arabic) "شهري" else "Monthly",
+                    value = "${formatValue(result.monthlyEnergyKwh)} kWh"
+                )
+            }
 
-        EngineeringValueRow(
-            label = if (arabic) "سنوي" else "Yearly",
-            value = "${formatValue(result.yearlyEnergyKwh)} kWh"
-        )
+            item {
+                EngineeringValueRow(
+                    label = if (arabic) "سنوي" else "Yearly",
+                    value = "${formatValue(result.yearlyEnergyKwh)} kWh"
+                )
+            }
+        }
 
         if (result.warnings.isNotEmpty()) {
             EngineeringSectionTitle(
