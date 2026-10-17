@@ -1,4 +1,3 @@
-
 package com.electrical.calculationspro.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +30,6 @@ import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.ui.components.EngineeringPage
 import com.electrical.calculationspro.ui.components.EngineeringSection
-import com.electrical.calculationspro.ui.components.EngineeringSectionTitle
 import com.electrical.calculationspro.ui.components.EngineeringValueRow
 
 enum class ElectromechanicalModule {
@@ -45,7 +43,8 @@ enum class ElectromechanicalModule {
     TRANSFORMER,
     GENERATOR,
     PANEL,
-    PUMP
+    PUMP,
+    WATER_FLOW_VELOCITY
 }
 
 @Composable
@@ -95,9 +94,9 @@ fun ElectromechanicalDesignScreen(
 
         EngineeringSection(
             title = if (arabic) {
-                "وحدات التصميم الكهربائي"
+                "وحدات التصميم الكهروميكانيكي"
             } else {
-                "Electrical Design Modules"
+                "Electromechanical Design Modules"
             }
         ) {
             ModuleGrid(
@@ -214,6 +213,20 @@ private fun electricalModules(
             module = ElectromechanicalModule.PUMP,
             title = if (arabic) "المضخات" else "Pumps",
             subtitle = if (arabic) "التصرف والرفع والقدرة" else "Flow / Head / Power",
+            icon = Icons.Outlined.WaterDrop
+        ),
+        DesignModuleItem(
+            module = ElectromechanicalModule.WATER_FLOW_VELOCITY,
+            title = if (arabic) {
+                "التصرف والسرعة والقطر"
+            } else {
+                "Flow / Velocity / Diameter",
+            },
+            subtitle = if (arabic) {
+                "حسابات المواسير"
+            } else {
+                "Pipe Hydraulic Calculations"
+            },
             icon = Icons.Outlined.WaterDrop
         )
     )
