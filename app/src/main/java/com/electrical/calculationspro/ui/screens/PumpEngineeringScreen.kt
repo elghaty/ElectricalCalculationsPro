@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.electrical.calculationspro.data.AppLanguage
 import com.electrical.calculationspro.data.ElectricalCalculations
 import com.electrical.calculationspro.data.pumps.PumpCalculationInput
@@ -22,6 +23,7 @@ import com.electrical.calculationspro.data.pumps.PumpFlow
 import com.electrical.calculationspro.data.pumps.PumpFlowUnit
 import com.electrical.calculationspro.data.pumps.PumpHead
 import com.electrical.calculationspro.data.pumps.PumpSystemType
+import com.electrical.calculationspro.data.water.WaterDesignEngine
 import com.electrical.calculationspro.ui.components.EngineeringEmptyState
 import com.electrical.calculationspro.ui.components.EngineeringInput
 import com.electrical.calculationspro.ui.components.EngineeringPage
@@ -33,6 +35,21 @@ import com.electrical.calculationspro.ui.components.EngineeringSectionTitle
 import com.electrical.calculationspro.ui.components.EngineeringStatus
 import com.electrical.calculationspro.ui.components.EngineeringValueRow
 import com.electrical.calculationspro.ui.components.FourColumnFields
+
+private data class SuctionPipeMaterial(
+    val name: String,
+    val labelAr: String,
+    val labelEn: String
+)
+
+private val suctionPipeMaterials = listOf(
+    SuctionPipeMaterial("HDPE", "بولي إيثيلين HDPE", "HDPE"),
+    SuctionPipeMaterial("UPVC", "يو بي في سي UPVC", "UPVC"),
+    SuctionPipeMaterial("Ductile iron", "حديد دكتايل", "Ductile iron"),
+    SuctionPipeMaterial("Steel", "حديد صلب", "Steel"),
+    SuctionPipeMaterial("Cast iron", "حديد زهر", "Cast iron"),
+    SuctionPipeMaterial("Concrete", "خرسانة", "Concrete")
+)
 
 @Composable
 fun PumpEngineeringScreen(
@@ -48,27 +65,46 @@ fun PumpEngineeringScreen(
     var flowUnit by remember {
         mutableStateOf(PumpFlowUnit.LITERS_PER_SECOND)
     }
+
     var staticHead by remember { mutableStateOf("") }
     var frictionHead by remember { mutableStateOf("") }
     var minorHead by remember { mutableStateOf("") }
     var pressureHead by remember { mutableStateOf("") }
+
+    // Suction-line inputs. The suction friction loss is calculated automatically.
+    var suctionLength by remember { mutableStateOf("") }
+    var suctionDiameter by remember { mutableStateOf("") }
+    var suctionMaterial by remember {
+        mutableStateOf(suctionPipeMaterials.first())
+    }
+
     var pumpEfficiency by remember { mutableStateOf("75") }
     var motorEfficiency by remember { mutableStateOf("92") }
     var operatingHours by remember { mutableStateOf("8") }
     var operatingDaysMonth by remember { mutableStateOf("30") }
     var operatingDaysYear by remember { mutableStateOf("365") }
     var tariff by remember { mutableStateOf("0") }
+
     var result by remember {
         mutableStateOf<PumpCalculationResult?>(null)
     }
+    var calculatedSuctionLoss by remember { mutableStateOf<Double?>(null) }
+    var calculatedTotalFriction by remember { mutableStateOf<Double?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+
+    fun clearResult() {
+        result = null
+        calculatedSuctionLoss = null
+        calculatedTotalFriction = null
+        error = null
+    }
 
     EngineeringPage(
         title = if (arabic) "تصميم الطلمبات" else "Pump Engineering",
         subtitle = if (arabic) {
-            "حساب التصرف والرأس الكلي والقدرة واستهلاك الطاقة"
+            "التصرف والهيد والفواقد والقدرة واستهلاك الطاقة"
         } else {
-            "Flow, total dynamic head, power and energy analysis"
+            "Flow, head losses, power and energy analysis"
         },
         onBack = onBack
     ) {
@@ -77,16 +113,13 @@ fun PumpEngineeringScreen(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(
-                    androidx.compose.ui.unit.Dp(10f)
-                )
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 EngineeringSecondaryButton(
                     text = if (arabic) "مياه" else "Water",
                     onClick = {
                         systemType = PumpSystemType.WATER
-                        result = null
-                        error = null
+                        clearResult()
                     },
                     modifier = Modifier.weight(1f),
                     enabled = systemType != PumpSystemType.WATER
@@ -96,8 +129,7 @@ fun PumpEngineeringScreen(
                     text = if (arabic) "صرف صحي" else "Sewage",
                     onClick = {
                         systemType = PumpSystemType.SEWAGE
-                        result = null
-                        error = null
+                        clearResult()
                     },
                     modifier = Modifier.weight(1f),
                     enabled = systemType != PumpSystemType.SEWAGE
@@ -116,7 +148,7 @@ fun PumpEngineeringScreen(
         }
 
         EngineeringSection(
-            title = if (arabic) "بيانات التصرف" else "Flow Data"
+            title = if (arabic) "التصرف المطلوب" else "Required Flow"
         ) {
             FourColumnFields {
                 item {
@@ -125,8 +157,7 @@ fun PumpEngineeringScreen(
                         label = if (arabic) "التصرف" else "Flow",
                         onValueChange = {
                             flow = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -137,8 +168,7 @@ fun PumpEngineeringScreen(
                         arabic = arabic,
                         onSelected = {
                             flowUnit = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -146,21 +176,91 @@ fun PumpEngineeringScreen(
         }
 
         EngineeringSection(
-            title = if (arabic) "الرأس الهيدروليكي" else "Hydraulic Head"
+            title = if (arabic) {
+                "بيانات خط السحب"
+            } else {
+                "Suction Pipe Data"
+            }
         ) {
+            EngineeringStatus(
+                text = if (arabic) {
+                    "أدخل طول خط السحب والقطر الداخلي الفعلي. سيحسب البرنامج فاقد الاحتكاك ويضيفه إلى الفواقد الكلية مرة واحدة."
+                } else {
+                    "Enter suction-line length and actual internal diameter. Suction friction loss is calculated and included once in total losses."
+                }
+            )
+
+            FourColumnFields {
+                item {
+                    EngineeringInput(
+                        value = suctionLength,
+                        label = if (arabic) {
+                            "طول خط السحب (m)"
+                        } else {
+                            "Suction Length (m)"
+                        },
+                        onValueChange = {
+                            suctionLength = it
+                            clearResult()
+                        }
+                    )
+                }
+
+                item {
+                    EngineeringInput(
+                        value = suctionDiameter,
+                        label = if (arabic) {
+                            "القطر الداخلي (mm)"
+                        } else {
+                            "Internal Diameter (mm)"
+                        },
+                        onValueChange = {
+                            suctionDiameter = it
+                            clearResult()
+                        }
+                    )
+                }
+
+                item {
+                    SuctionPipeMaterialSelector(
+                        selected = suctionMaterial,
+                        arabic = arabic,
+                        onSelected = {
+                            suctionMaterial = it
+                            clearResult()
+                        }
+                    )
+                }
+            }
+        }
+
+        EngineeringSection(
+            title = if (arabic) {
+                "الرأس الهيدروليكي والفواقد الأخرى"
+            } else {
+                "Hydraulic Head and Other Losses"
+            }
+        ) {
+            EngineeringStatus(
+                text = if (arabic) {
+                    "فاقد خط السحب سيُحسب تلقائيًا. حقل فاقد الاحتكاك هنا مخصص لباقي الخطوط فقط، ولا تكرر فيه فاقد السحب."
+                } else {
+                    "Suction loss is calculated automatically. Enter other-line friction losses here; do not include suction loss again."
+                }
+            )
+
             FourColumnFields {
                 item {
                     EngineeringInput(
                         value = staticHead,
                         label = if (arabic) {
-                            "الرفع الاستاتيكي H (m)"
+                            "الرفع الاستاتيكي (m)"
                         } else {
-                            "Static Head H (m)"
+                            "Static Head (m)"
                         },
                         onValueChange = {
                             staticHead = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -169,14 +269,13 @@ fun PumpEngineeringScreen(
                     EngineeringInput(
                         value = frictionHead,
                         label = if (arabic) {
-                            "فاقد الاحتكاك (m)"
+                            "فاقد باقي الخطوط (m)"
                         } else {
-                            "Friction Head (m)"
+                            "Other Friction Loss (m)"
                         },
                         onValueChange = {
                             frictionHead = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -185,14 +284,13 @@ fun PumpEngineeringScreen(
                     EngineeringInput(
                         value = minorHead,
                         label = if (arabic) {
-                            "الفواقد الثانوية (m)"
+                            "الفواقد الموضعية (m)"
                         } else {
                             "Minor Losses (m)"
                         },
                         onValueChange = {
                             minorHead = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -207,8 +305,7 @@ fun PumpEngineeringScreen(
                         },
                         onValueChange = {
                             pressureHead = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -229,8 +326,7 @@ fun PumpEngineeringScreen(
                         },
                         onValueChange = {
                             pumpEfficiency = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -245,8 +341,7 @@ fun PumpEngineeringScreen(
                         },
                         onValueChange = {
                             motorEfficiency = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -257,7 +352,7 @@ fun PumpEngineeringScreen(
             title = if (arabic) {
                 "بيانات التشغيل والطاقة"
             } else {
-                "Operating & Energy Data"
+                "Operating and Energy Data"
             }
         ) {
             FourColumnFields {
@@ -271,8 +366,7 @@ fun PumpEngineeringScreen(
                         },
                         onValueChange = {
                             operatingHours = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -287,8 +381,7 @@ fun PumpEngineeringScreen(
                         },
                         onValueChange = {
                             operatingDaysMonth = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -303,8 +396,7 @@ fun PumpEngineeringScreen(
                         },
                         onValueChange = {
                             operatingDaysYear = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -319,8 +411,7 @@ fun PumpEngineeringScreen(
                         },
                         onValueChange = {
                             tariff = it
-                            result = null
-                            error = null
+                            clearResult()
                         }
                     )
                 }
@@ -338,18 +429,81 @@ fun PumpEngineeringScreen(
                         !flowValue.isFinite() ||
                         flowValue <= 0.0
                     ) {
-                        result = null
+                        clearResult()
                         error = if (arabic) {
-                            "أدخل قيمة صحيحة وموجبة للتصرف."
+                            "أدخل تصرفًا صحيحًا وموجبًا."
                         } else {
-                            "Enter a valid positive flow value."
+                            "Enter a valid positive flow."
+                        }
+                        return@EngineeringPrimaryButton
+                    }
+
+                    val flowM3PerHour = flowToM3PerHour(
+                        value = flowValue,
+                        unit = flowUnit
+                    )
+
+                    if (!flowM3PerHour.isFinite() || flowM3PerHour <= 0.0) {
+                        clearResult()
+                        error = if (arabic) {
+                            "تعذر تحويل التصرف إلى م³/ساعة."
+                        } else {
+                            "Could not convert flow to m³/h."
+                        }
+                        return@EngineeringPrimaryButton
+                    }
+
+                    val suctionLengthValue =
+                        parseOptionalNonNegative(suctionLength)
+                    val suctionDiameterValue =
+                        parseOptionalNonNegative(suctionDiameter)
+
+                    if (suctionLengthValue == null || suctionDiameterValue == null) {
+                        clearResult()
+                        error = if (arabic) {
+                            "بيانات خط السحب يجب أن تكون أرقامًا صحيحة غير سالبة."
+                        } else {
+                            "Suction pipe data must be valid non-negative numbers."
+                        }
+                        return@EngineeringPrimaryButton
+                    }
+
+                    val hasSuctionLength = suctionLengthValue > 0.0
+                    val hasSuctionDiameter = suctionDiameterValue > 0.0
+
+                    if (hasSuctionLength != hasSuctionDiameter) {
+                        clearResult()
+                        error = if (arabic) {
+                            "أدخل طول خط السحب والقطر الداخلي معًا، أو اترك الاثنين فارغين/صفرًا."
+                        } else {
+                            "Enter both suction length and internal diameter, or leave both empty/zero."
+                        }
+                        return@EngineeringPrimaryButton
+                    }
+
+                    val suctionLoss = if (hasSuctionLength && hasSuctionDiameter) {
+                        WaterDesignEngine.calculateFrictionLoss(
+                            flowM3PerHour = flowM3PerHour,
+                            diameterMm = suctionDiameterValue,
+                            lengthM = suctionLengthValue,
+                            material = suctionMaterial.name
+                        )
+                    } else {
+                        0.0
+                    }
+
+                    if (!suctionLoss.isFinite() || suctionLoss < 0.0) {
+                        clearResult()
+                        error = if (arabic) {
+                            "تعذر حساب فاقد خط السحب. راجع التصرف والقطر والطول."
+                        } else {
+                            "Could not calculate suction loss. Check flow, diameter and length."
                         }
                         return@EngineeringPrimaryButton
                     }
 
                     val pumpEfficiencyValue =
                         pumpEfficiency.toDoubleOrNull()?.div(100.0)
-
                     val motorEfficiencyValue =
                         motorEfficiency.toDoubleOrNull()?.div(100.0)
 
@@ -359,7 +513,7 @@ fun PumpEngineeringScreen(
                         pumpEfficiencyValue <= 0.0 ||
                         pumpEfficiencyValue > 1.0
                     ) {
-                        result = null
+                        clearResult()
                         error = if (arabic) {
                             "كفاءة الطلمبة يجب أن تكون أكبر من 0 ولا تتجاوز 100%."
                         } else {
@@ -374,7 +528,7 @@ fun PumpEngineeringScreen(
                         motorEfficiencyValue <= 0.0 ||
                         motorEfficiencyValue > 1.0
                     ) {
-                        result = null
+                        clearResult()
                         error = if (arabic) {
                             "كفاءة الموتور يجب أن تكون أكبر من 0 ولا تتجاوز 100%."
                         } else {
@@ -384,25 +538,25 @@ fun PumpEngineeringScreen(
                     }
 
                     val staticHeadValue =
-                        staticHead.toDoubleOrNull() ?: 0.0
-                    val frictionHeadValue =
-                        frictionHead.toDoubleOrNull() ?: 0.0
+                        parseNonNegative(staticHead)
+                    val otherFrictionHeadValue =
+                        parseNonNegative(frictionHead)
                     val minorHeadValue =
-                        minorHead.toDoubleOrNull() ?: 0.0
+                        parseNonNegative(minorHead)
                     val pressureHeadValue =
-                        pressureHead.toDoubleOrNull() ?: 0.0
+                        parseNonNegative(pressureHead)
                     val operatingHoursValue =
-                        operatingHours.toDoubleOrNull() ?: 0.0
+                        parseNonNegative(operatingHours)
                     val operatingDaysMonthValue =
-                        operatingDaysMonth.toDoubleOrNull() ?: 30.0
+                        parseNonNegative(operatingDaysMonth)
                     val operatingDaysYearValue =
-                        operatingDaysYear.toDoubleOrNull() ?: 365.0
+                        parseNonNegative(operatingDaysYear)
                     val tariffValue =
-                        tariff.toDoubleOrNull() ?: 0.0
+                        parseNonNegative(tariff)
 
                     val numericValues = listOf(
                         staticHeadValue,
-                        frictionHeadValue,
+                        otherFrictionHeadValue,
                         minorHeadValue,
                         pressureHeadValue,
                         operatingHoursValue,
@@ -411,26 +565,31 @@ fun PumpEngineeringScreen(
                         tariffValue
                     )
 
-                    if (
-                        numericValues.any {
-                            !it.isFinite() || it < 0.0
-                        }
-                    ) {
-                        result = null
+                    if (numericValues.any { it == null }) {
+                        clearResult()
                         error = if (arabic) {
-                            "تأكد من أن قيم الرفع والفواقد والتشغيل والتعريفة أرقام غير سالبة."
+                            "راجع قيم الرفع والفواقد والتشغيل والتعريفة؛ يجب أن تكون أرقامًا غير سالبة."
                         } else {
                             "Head, losses, operating data and tariff must be valid non-negative numbers."
                         }
                         return@EngineeringPrimaryButton
                     }
 
+                    val staticHeadM = staticHeadValue!!
+                    val otherFrictionHeadM = otherFrictionHeadValue!!
+                    val minorLossM = minorHeadValue!!
+                    val pressureHeadM = pressureHeadValue!!
+                    val operatingHoursPerDay = operatingHoursValue!!
+                    val operatingDaysPerMonthValue = operatingDaysMonthValue!!
+                    val operatingDaysPerYearValue = operatingDaysYearValue!!
+                    val tariffPerKwh = tariffValue!!
+
                     if (
-                        operatingHoursValue > 24.0 ||
-                        operatingDaysMonthValue > 31.0 ||
-                        operatingDaysYearValue > 366.0
+                        operatingHoursPerDay > 24.0 ||
+                        operatingDaysPerMonthValue > 31.0 ||
+                        operatingDaysPerYearValue > 366.0
                     ) {
-                        result = null
+                        clearResult()
                         error = if (arabic) {
                             "راجع ساعات التشغيل وأيام التشغيل المدخلة."
                         } else {
@@ -439,6 +598,9 @@ fun PumpEngineeringScreen(
                         return@EngineeringPrimaryButton
                     }
 
+                    val totalFrictionHeadM =
+                        otherFrictionHeadM + suctionLoss
+
                     val input = PumpCalculationInput(
                         systemType = systemType,
                         flow = PumpFlow(
@@ -446,23 +608,27 @@ fun PumpEngineeringScreen(
                             unit = flowUnit
                         ),
                         head = PumpHead(
-                            staticHeadM = staticHeadValue,
-                            frictionHeadM = frictionHeadValue,
-                            minorLossHeadM = minorHeadValue,
-                            requiredPressureHeadM = pressureHeadValue
+                            staticHeadM = staticHeadM,
+                            frictionHeadM = totalFrictionHeadM,
+                            minorLossHeadM = minorLossM,
+                            requiredPressureHeadM = pressureHeadM
                         ),
                         pumpEfficiency = pumpEfficiencyValue,
                         motorEfficiency = motorEfficiencyValue,
-                        operatingHoursPerDay = operatingHoursValue,
-                        operatingDaysPerMonth = operatingDaysMonthValue,
-                        operatingDaysPerYear = operatingDaysYearValue,
-                        energyTariffPerKwh = tariffValue
+                        operatingHoursPerDay = operatingHoursPerDay,
+                        operatingDaysPerMonth = operatingDaysPerMonthValue,
+                        operatingDaysPerYear = operatingDaysPerYearValue,
+                        energyTariffPerKwh = tariffPerKwh
                     )
 
                     result = ElectricalCalculations.calculatePump(input)
+                    calculatedSuctionLoss = suctionLoss
+                    calculatedTotalFriction = totalFrictionHeadM
                     error = null
                 } catch (exception: Exception) {
                     result = null
+                    calculatedSuctionLoss = null
+                    calculatedTotalFriction = null
                     error = exception.message
                         ?: if (arabic) {
                             "تعذر إجراء الحساب. راجع بيانات الإدخال."
@@ -480,26 +646,82 @@ fun PumpEngineeringScreen(
             )
         }
 
-        result?.let { calculationResult ->
-            PumpResultCard(
-                result = calculationResult,
-                arabic = arabic
-            )
-        } ?: run {
-            if (error == null) {
-                EngineeringEmptyState(
-                    title = if (arabic) {
-                        "لا توجد نتيجة بعد"
+        if (result != null) {
+            EngineeringSection(
+                title = if (arabic) {
+                    "نتائج خط السحب"
+                } else {
+                    "Suction Pipe Results"
+                }
+            ) {
+                EngineeringValueRow(
+                    label = if (arabic) {
+                        "فاقد الاحتكاك بخط السحب"
                     } else {
-                        "No Result Yet"
+                        "Suction Friction Loss"
                     },
-                    message = if (arabic) {
-                        "أدخل بيانات التصميم ثم اضغط حساب التصميم لعرض النتائج."
+                    value = "${formatValue(calculatedSuctionLoss ?: 0.0)} m"
+                )
+                EngineeringValueRow(
+                    label = if (arabic) {
+                        "إجمالي فاقد الاحتكاك المستخدم في الحساب"
                     } else {
-                        "Enter the design data and calculate to display the engineering results."
-                    }
+                        "Total Friction Loss Used"
+                    },
+                    value = "${formatValue(calculatedTotalFriction ?: 0.0)} m"
+                )
+
+                if (
+                    suctionLength.toDoubleOrNull()?.let { it > 0.0 } == true &&
+                    suctionDiameter.toDoubleOrNull()?.let { it > 0.0 } == true
+                ) {
+                    val velocity = WaterDesignEngine.calculateVelocity(
+                        flowM3PerHour = flowToM3PerHour(
+                            flow.toDoubleOrNull() ?: 0.0,
+                            flowUnit
+                        ),
+                        diameterMm = suctionDiameter.toDoubleOrNull() ?: 0.0
+                    )
+
+                    EngineeringValueRow(
+                        label = if (arabic) {
+                            "سرعة المياه بخط السحب"
+                        } else {
+                            "Suction Water Velocity"
+                        },
+                        value = "${formatValue(velocity)} m/s"
+                    )
+
+                    EngineeringStatus(
+                        text = if (arabic) {
+                            "راجع ملاءمة سرعة السحب وNPSH من بيانات الموقع وكتالوج الطلمبة؛ حساب فاقد الاحتكاك وحده لا يثبت سلامة السحب."
+                        } else {
+                            "Verify suction velocity and NPSH using site data and the pump curve; friction loss alone does not confirm safe suction conditions."
+                        },
+                        success = false
+                    )
+                }
+            }
+
+            result?.let { calculationResult ->
+                PumpResultCard(
+                    result = calculationResult,
+                    arabic = arabic
                 )
             }
+        } else if (error == null) {
+            EngineeringEmptyState(
+                title = if (arabic) {
+                    "لا توجد نتيجة بعد"
+                } else {
+                    "No Result Yet"
+                },
+                message = if (arabic) {
+                    "أدخل التصرف والهيد والفواقد وبيانات خط السحب، ثم اضغط حساب التصميم."
+                } else {
+                    "Enter flow, head, losses and suction pipe data, then calculate."
+                }
+            )
         }
     }
 }
@@ -524,11 +746,48 @@ private fun FlowUnitSelector(
         ) {
             PumpFlowUnit.entries.forEach { unit ->
                 DropdownMenuItem(
-                    text = {
-                        Text(text = flowUnitLabel(unit, arabic))
-                    },
+                    text = { Text(text = flowUnitLabel(unit, arabic)) },
                     onClick = {
                         onSelected(unit)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuctionPipeMaterialSelector(
+    selected: SuctionPipeMaterial,
+    arabic: Boolean,
+    onSelected: (SuctionPipeMaterial) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        EngineeringSecondaryButton(
+            text = if (arabic) selected.labelAr else selected.labelEn,
+            onClick = { expanded = true }
+        )
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            suctionPipeMaterials.forEach { material ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = if (arabic) {
+                                material.labelAr
+                            } else {
+                                material.labelEn
+                            }
+                        )
+                    },
+                    onClick = {
+                        onSelected(material)
                         expanded = false
                     }
                 )
@@ -554,6 +813,27 @@ private fun flowUnitLabel(
         if (arabic) "لتر / دقيقة — L/min" else "L/min"
 }
 
+private fun flowToM3PerHour(
+    value: Double,
+    unit: PumpFlowUnit
+): Double = when (unit) {
+    PumpFlowUnit.LITERS_PER_SECOND -> value * 3.6
+    PumpFlowUnit.CUBIC_METERS_PER_HOUR -> value
+    PumpFlowUnit.CUBIC_METERS_PER_SECOND -> value * 3600.0
+    PumpFlowUnit.LITERS_PER_MINUTE -> value * 0.06
+}
+
+private fun parseOptionalNonNegative(value: String): Double? {
+    if (value.isBlank()) return 0.0
+    val parsed = value.toDoubleOrNull() ?: return null
+    return parsed.takeIf { it.isFinite() && it >= 0.0 }
+}
+
+private fun parseNonNegative(value: String): Double? {
+    val parsed = value.toDoubleOrNull() ?: return null
+    return parsed.takeIf { it.isFinite() && it >= 0.0 }
+}
+
 @Composable
 private fun PumpResultCard(
     result: PumpCalculationResult,
@@ -566,7 +846,7 @@ private fun PumpResultCard(
             item {
                 EngineeringResult(
                     title = if (arabic) "التصرف" else "Flow",
-                    value = "${formatValue(result.flowM3PerHour)} m³/h  |  " +
+                    value = "${formatValue(result.flowM3PerHour)} m³/h | " +
                         "${formatValue(result.flowM3PerSecond)} m³/s"
                 )
             }
@@ -678,6 +958,6 @@ private fun PumpResultCard(
     }
 }
 
-private fun formatValue(value: Double): String {
-    return "%.3f".format(value)
+private fun formatValue(value: Double): String =
+    String.format(java.util.Locale.US, "%.3f", value)
 }
