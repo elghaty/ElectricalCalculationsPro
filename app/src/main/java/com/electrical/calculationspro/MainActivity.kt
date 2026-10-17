@@ -53,6 +53,7 @@ import com.electrical.calculationspro.ui.screens.ElectromechanicalDesignScreen
 import com.electrical.calculationspro.ui.screens.ElectromechanicalModule
 import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
 import com.electrical.calculationspro.ui.screens.PumpEngineeringScreen
+import com.electrical.calculationspro.ui.screens.WaterFlowVelocityScreen
 import com.electrical.calculationspro.ui.screens.sld.SldEditorScreen
 import com.electrical.calculationspro.ui.theme.ElectricalCalculationsProTheme
 
@@ -86,6 +87,7 @@ private enum class AppScreen {
     CURRENT,
     VOLTAGE_DROP,
     PUMP,
+    WATER_FLOW_VELOCITY,
     MODULE_NOT_CONNECTED,
     SLD
 }
@@ -180,6 +182,17 @@ private fun ElectricalCalculationsProApp() {
             return
         }
 
+        AppScreen.WATER_FLOW_VELOCITY -> {
+            WaterFlowVelocityScreen(
+                language = language,
+                onBack = {
+                    screen = AppScreen.HOME
+                    mainTab = MainTab.DESIGN
+                }
+            )
+            return
+        }
+
         AppScreen.SLD -> {
             SldEditorScreen(
                 language = language,
@@ -246,6 +259,9 @@ private fun ElectricalCalculationsProApp() {
                         ElectromechanicalModule.PUMP ->
                             screen = AppScreen.PUMP
 
+                        ElectromechanicalModule.WATER_FLOW_VELOCITY ->
+                            screen = AppScreen.WATER_FLOW_VELOCITY
+
                         else ->
                             screen = AppScreen.MODULE_NOT_CONNECTED
                     }
@@ -293,6 +309,9 @@ private fun ElectricalCalculationsProApp() {
 
                         ElectromechanicalModule.PUMP ->
                             screen = AppScreen.PUMP
+
+                        ElectromechanicalModule.WATER_FLOW_VELOCITY ->
+                            screen = AppScreen.WATER_FLOW_VELOCITY
 
                         else ->
                             screen = AppScreen.MODULE_NOT_CONNECTED
@@ -382,7 +401,11 @@ private fun ProjectHomeTab(
             .padding(horizontal = 18.dp, vertical = 12.dp)
     ) {
         Text(
-            text = if (arabic) "مساحة العمل الهندسية" else "Engineering Workspace",
+            text = if (arabic) {
+                "مساحة العمل الهندسية"
+            } else {
+                "Engineering Workspace"
+            },
             style = MaterialTheme.typography.headlineSmall
         )
 
@@ -395,7 +418,11 @@ private fun ProjectHomeTab(
             WorkspaceCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Outlined.ElectricalServices,
-                title = if (arabic) "التصميم الكهروميكانيكي" else "Electromechanical Design",
+                title = if (arabic) {
+                    "التصميم الكهروميكانيكي"
+                } else {
+                    "Electromechanical Design"
+                },
                 subtitle = if (arabic) {
                     "الكهرباء والمياه والصرف والمضخات"
                 } else {
@@ -456,7 +483,11 @@ private fun ProjectHomeTab(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (arabic) "إدارة المشروعات" else "Project Management"
+                        text = if (arabic) {
+                            "إدارة المشروعات"
+                        } else {
+                            "Project Management"
+                        }
                     )
                 }
             }
@@ -614,6 +645,13 @@ private fun moduleTitle(
         ElectromechanicalModule.PUMP ->
             if (arabic) "المضخات" else "Pumps"
 
+        ElectromechanicalModule.WATER_FLOW_VELOCITY ->
+            if (arabic) {
+                "التصرف والسرعة والقطر"
+            } else {
+                "Flow / Velocity / Diameter"
+            }
+
         null -> if (arabic) "وحدة التصميم" else "Design Module"
     }
 }
@@ -641,7 +679,11 @@ private fun ReportsHomeTab(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = if (arabic) "التقارير الهندسية" else "Engineering Reports",
+            text = if (arabic) {
+                "التقارير الهندسية"
+            } else {
+                "Engineering Reports"
+            },
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -827,7 +869,11 @@ private fun mainTabTitle(
             if (arabic) "المشروع" else "Project"
 
         MainTab.DESIGN ->
-            if (arabic) "التصميم الكهروميكانيكي" else "Electromechanical Design"
+            if (arabic) {
+                "التصميم الكهروميكانيكي"
+            } else {
+                "Electromechanical Design"
+            }
 
         MainTab.SLD -> "SLD Designer"
 
