@@ -960,4 +960,4 @@ private fun PumpResultCard(
 
 private fun formatValue(value: Double): String =
     String.format(java.util.Locale.US, "%.3f", value)
-}
+
