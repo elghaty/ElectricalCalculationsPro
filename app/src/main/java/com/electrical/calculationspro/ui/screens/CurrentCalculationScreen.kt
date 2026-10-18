@@ -25,6 +25,7 @@ import com.electrical.calculationspro.ui.components.EngineeringPrimaryButton
 import com.electrical.calculationspro.ui.components.EngineeringResult
 import com.electrical.calculationspro.ui.components.EngineeringSection
 import com.electrical.calculationspro.ui.components.EngineeringStatus
+import com.electrical.calculationspro.ui.components.FourColumnFields
 import java.util.Locale
 import kotlin.math.abs
 
@@ -46,6 +47,11 @@ fun CurrentCalculationScreen(
     var result by remember { mutableStateOf<Double?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
 
+    fun clearResult() {
+        result = null
+        error = null
+    }
+
     EngineeringPage(
         title = if (arabic) "حساب تيار التصميم" else "Design Current",
         subtitle = if (arabic) {
@@ -58,49 +64,71 @@ fun CurrentCalculationScreen(
         EngineeringSection(
             title = if (arabic) "بيانات التصميم" else "Design Inputs"
         ) {
-            EngineeringInput(
-                value = loadKw,
-                label = if (arabic) "الحمل الفعال (kW)" else "Active Load (kW)",
-                onValueChange = {
-                    loadKw = it
-                    error = null
-                    result = null
+            FourColumnFields {
+                item {
+                    EngineeringInput(
+                        value = loadKw,
+                        label = if (arabic) {
+                            "الحمل الفعال (kW)"
+                        } else {
+                            "Active Load (kW)"
+                        },
+                        onValueChange = {
+                            loadKw = it
+                            clearResult()
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = voltage,
-                label = if (arabic) "الجهد (V)" else "Voltage (V)",
-                onValueChange = {
-                    voltage = it
-                    error = null
-                    result = null
+                item {
+                    EngineeringInput(
+                        value = voltage,
+                        label = if (arabic) {
+                            "الجهد (V)"
+                        } else {
+                            "Voltage (V)"
+                        },
+                        onValueChange = {
+                            voltage = it
+                            clearResult()
+                        }
+                    )
                 }
-            )
 
-            EngineeringInput(
-                value = powerFactor,
-                label = if (arabic) "معامل القدرة (PF)" else "Power Factor (PF)",
-                onValueChange = {
-                    powerFactor = it
-                    error = null
-                    result = null
+                item {
+                    EngineeringInput(
+                        value = powerFactor,
+                        label = if (arabic) {
+                            "معامل القدرة (PF)"
+                        } else {
+                            "Power Factor (PF)"
+                        },
+                        onValueChange = {
+                            powerFactor = it
+                            clearResult()
+                        }
+                    )
                 }
-            )
 
-            CurrentTypeSelector(
-                value = currentType,
-                arabic = arabic,
-                onSelect = {
-                    currentType = it
-                    error = null
-                    result = null
+                item {
+                    CurrentTypeSelector(
+                        value = currentType,
+                        arabic = arabic,
+                        onSelect = {
+                            currentType = it
+                            clearResult()
+                        }
+                    )
                 }
-            )
+            }
         }
 
         EngineeringPrimaryButton(
-            text = if (arabic) "احسب تيار التصميم" else "Calculate Design Current",
+            text = if (arabic) {
+                "احسب تيار التصميم"
+            } else {
+                "Calculate Design Current"
+            },
             onClick = {
                 val load = loadKw.toDoubleOrNull()
                 val v = voltage.toDoubleOrNull()
@@ -115,7 +143,9 @@ fun CurrentCalculationScreen(
                         }
                     }
 
-                    !load.isFinite() || !v.isFinite() || !pf.isFinite() -> {
+                    !load.isFinite() ||
+                        !v.isFinite() ||
+                        !pf.isFinite() -> {
                         if (arabic) {
                             "القيم المدخلة غير صالحة."
                         } else {
@@ -163,7 +193,10 @@ fun CurrentCalculationScreen(
                                 currentType = currentType
                             )
 
-                        if (!calculatedCurrent.isFinite() || calculatedCurrent < 0.0) {
+                        if (
+                            !calculatedCurrent.isFinite() ||
+                            calculatedCurrent < 0.0
+                        ) {
                             result = null
                             error = if (arabic) {
                                 "أعاد محرك الحساب قيمة غير صالحة."
@@ -196,7 +229,11 @@ fun CurrentCalculationScreen(
 
         result?.let { current ->
             EngineeringSection(
-                title = if (arabic) "نتيجة الحساب" else "Calculation Result"
+                title = if (arabic) {
+                    "نتيجة الحساب"
+                } else {
+                    "Calculation Result"
+                }
             ) {
                 EngineeringResult(
                     title = if (arabic) {
@@ -296,6 +333,8 @@ private fun currentTypeTitle(
 private fun formatCurrent(value: Double): String {
     if (!value.isFinite()) return "—"
 
-    val normalized = if (abs(value) < 0.000001) 0.0 else value
+    val normalized =
+        if (abs(value) < 0.000001) 0.0 else value
+
     return String.format(Locale.US, "%.3f A", normalized)
 }
