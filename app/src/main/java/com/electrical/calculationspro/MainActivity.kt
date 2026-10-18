@@ -1,3 +1,4 @@
+
 package com.electrical.calculationspro
 
 import android.os.Bundle
@@ -51,6 +52,7 @@ import com.electrical.calculationspro.ui.project.ProjectDashboardScreen
 import com.electrical.calculationspro.ui.screens.CurrentCalculationScreen
 import com.electrical.calculationspro.ui.screens.ElectromechanicalDesignScreen
 import com.electrical.calculationspro.ui.screens.ElectromechanicalModule
+import com.electrical.calculationspro.ui.screens.LoadScheduleScreen
 import com.electrical.calculationspro.ui.screens.ProfessionalVoltageDropScreen
 import com.electrical.calculationspro.ui.screens.PumpEngineeringScreen
 import com.electrical.calculationspro.ui.screens.WaterFlowVelocityScreen
@@ -84,6 +86,7 @@ private enum class MainTab {
 private enum class AppScreen {
     HOME,
     PROJECT_MANAGEMENT,
+    LOAD,
     CURRENT,
     VOLTAGE_DROP,
     PUMP,
@@ -143,6 +146,27 @@ private fun ElectricalCalculationsProApp() {
                     standard = activeProject?.electricalStandard ?: Standard.IEC
                     screen = AppScreen.HOME
                     mainTab = MainTab.PROJECT
+                }
+            )
+            return
+        }
+
+        AppScreen.LOAD -> {
+            LoadScheduleScreen(
+                language = language,
+                project = activeProject,
+                onBack = {
+                    activeProject = DesignProjectCoreBridge.getActiveProject()
+                    standard = activeProject?.electricalStandard ?: Standard.IEC
+                    screen = AppScreen.HOME
+                    mainTab = MainTab.DESIGN
+                },
+                onProjectUpdated = { updatedProject ->
+                    activeProject =
+                        DesignProjectCoreBridge.getActiveProject()
+                            ?: updatedProject
+                    standard =
+                        activeProject?.electricalStandard ?: Standard.IEC
                 }
             )
             return
@@ -250,6 +274,9 @@ private fun ElectricalCalculationsProApp() {
                 onOpenModule = { module ->
                     selectedModule = module
                     when (module) {
+                        ElectromechanicalModule.LOAD ->
+                            screen = AppScreen.LOAD
+
                         ElectromechanicalModule.CURRENT ->
                             screen = AppScreen.CURRENT
 
@@ -301,6 +328,9 @@ private fun ElectricalCalculationsProApp() {
                 onOpenModule = { module ->
                     selectedModule = module
                     when (module) {
+                        ElectromechanicalModule.LOAD ->
+                            screen = AppScreen.LOAD
+
                         ElectromechanicalModule.CURRENT ->
                             screen = AppScreen.CURRENT
 
