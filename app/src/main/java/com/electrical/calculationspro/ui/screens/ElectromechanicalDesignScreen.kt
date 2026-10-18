@@ -1,9 +1,8 @@
+
 package com.electrical.calculationspro.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -30,6 +29,7 @@ import com.electrical.calculationspro.data.Standard
 import com.electrical.calculationspro.ui.components.EngineeringPage
 import com.electrical.calculationspro.ui.components.EngineeringSection
 import com.electrical.calculationspro.ui.components.EngineeringValueRow
+import com.electrical.calculationspro.ui.components.FourColumnGrid
 
 enum class ElectromechanicalModule {
     LOAD,
@@ -99,7 +99,6 @@ fun ElectromechanicalDesignScreen(
             }
         ) {
             ModuleGrid(
-                language = language,
                 modules = electricalModules(language),
                 onModuleSelected = { module ->
                     onOpenModule?.invoke(module)
@@ -111,33 +110,21 @@ fun ElectromechanicalDesignScreen(
 
 @Composable
 private fun ModuleGrid(
-    language: AppLanguage,
     modules: List<DesignModuleItem>,
     onModuleSelected: (ElectromechanicalModule) -> Unit
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+    FourColumnGrid(
+        horizontalSpacing = 10,
+        verticalSpacing = 10
     ) {
-        modules.chunked(4).forEach { moduleRow ->
-            Row(
+        modules.forEach { item ->
+            DesignModuleCard(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                moduleRow.forEach { item ->
-                    DesignModuleCard(
-                        modifier = Modifier.weight(1f),
-                        item = item,
-                        onClick = {
-                            onModuleSelected(item.module)
-                        }
-                    )
+                item = item,
+                onClick = {
+                    onModuleSelected(item.module)
                 }
-
-                repeat(4 - moduleRow.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
+            )
         }
     }
 }
