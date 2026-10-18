@@ -1,3 +1,4 @@
+
 package com.electrical.calculationspro.ui.components
 
 import androidx.compose.foundation.background
@@ -79,6 +80,15 @@ fun EngineeringCard(
     }
 }
 
+/**
+ * Shared responsive grid:
+ * - 4 columns on wide screens.
+ * - 3 columns on medium-width screens.
+ * - 2 columns on narrow screens.
+ *
+ * FourColumnGrid keeps its existing name to preserve compatibility
+ * with the current engineering screens.
+ */
 @Composable
 fun FourColumnGrid(
     modifier: Modifier = Modifier,
@@ -91,45 +101,49 @@ fun FourColumnGrid(
         content = content
     ) { measurables, constraints ->
 
-        val columns = 4
+        val unboundedWidth = constraints.maxWidth == Int.MAX_VALUE
+
+        val availableWidth = if (unboundedWidth) {
+            max(
+                constraints.minWidth,
+                900.dp.roundToPx()
+            )
+        } else {
+            constraints.maxWidth
+        }
+
+        val columns = when {
+            availableWidth >= 760.dp.roundToPx() -> 4
+            availableWidth >= 520.dp.roundToPx() -> 3
+            else -> 2
+        }
 
         val spacingX = horizontalSpacing.dp.roundToPx()
         val spacingY = verticalSpacing.dp.roundToPx()
 
-        /*
-         * Keep the measure policy valid for both bounded and unbounded
-         * width constraints.
-         */
-        val availableWidth = constraints.maxWidth
-
         if (measurables.isEmpty()) {
             layout(
-                width = constraints.minWidth,
+                width = availableWidth,
                 height = constraints.minHeight
-            ) {
-                // Nothing to place.
-            }
-        } else if (availableWidth == Int.MAX_VALUE) {
+            ) {}
+        } else {
+            val totalHorizontalSpacing =
+                spacingX * (columns - 1)
 
-            /*
-             * Unbounded width:
-             * measure children naturally, then arrange them in four
-             * columns using the largest child width.
-             */
+            val columnWidth = max(
+                1,
+                (availableWidth - totalHorizontalSpacing) / columns
+            )
+
+            val childConstraints = constraints.copy(
+                minWidth = 0,
+                maxWidth = columnWidth,
+                minHeight = 0
+            )
+
             val measured = measurables.map { measurable ->
-                measurable.measure(
-                    constraints.copy(
-                        minWidth = 0,
-                        maxWidth = constraints.maxWidth
-                    )
-                )
+                measurable.measure(childConstraints)
             }
-
-            val naturalColumnWidth =
-                measured.maxOfOrNull { it.width } ?: 0
-
-            val columnWidth =
-                max(1, naturalColumnWidth)
 
             val rowCount =
                 (measured.size + columns - 1) / columns
@@ -139,109 +153,20 @@ fun FourColumnGrid(
             measured.forEachIndexed { index, placeable ->
                 val row = index / columns
 
-                rowHeights[row] =
-                    max(
-                        rowHeights[row],
-                        placeable.height
-                    )
+                rowHeights[row] = max(
+                    rowHeights[row],
+                    placeable.height
+                )
             }
 
             val totalHeight =
                 rowHeights.sum() +
                     spacingY * max(0, rowCount - 1)
 
-            val finalWidth =
-                columnWidth * columns +
-                    spacingX * (columns - 1)
-
-            val finalHeight =
-                totalHeight.coerceIn(
-                    constraints.minHeight,
-                    constraints.maxHeight
-                )
-
-            layout(
-                width = finalWidth,
-                height = finalHeight
-            ) {
-                var y = 0
-
-                rowHeights.forEachIndexed { row, rowHeight ->
-
-                    for (column in 0 until columns) {
-                        val index =
-                            row * columns + column
-
-                        if (index >= measured.size) {
-                            continue
-                        }
-
-                        val placeable =
-                            measured[index]
-
-                        val x =
-                            column *
-                                (columnWidth + spacingX)
-
-                        placeable.placeRelative(
-                            x = x,
-                            y = y
-                        )
-                    }
-
-                    y += rowHeight + spacingY
-                }
-            }
-        } else {
-
-            /*
-             * Normal bounded layout:
-             * divide the available width equally between four columns.
-             */
-            val columnWidth =
-                max(
-                    1,
-                    (
-                        availableWidth -
-                            spacingX * (columns - 1)
-                        ) / columns
-                )
-
-            val measured =
-                measurables.map { measurable ->
-                    measurable.measure(
-                        constraints.copy(
-                            minWidth = columnWidth,
-                            maxWidth = columnWidth
-                        )
-                    )
-                }
-
-            val rowCount =
-                (measured.size + columns - 1) / columns
-
-            val rowHeights =
-                IntArray(rowCount)
-
-            measured.forEachIndexed { index, placeable ->
-                val row = index / columns
-
-                rowHeights[row] =
-                    max(
-                        rowHeights[row],
-                        placeable.height
-                    )
-            }
-
-            val totalHeight =
-                rowHeights.sum() +
-                    spacingY * max(0, rowCount - 1)
-
-            val finalHeight =
-                totalHeight.coerceIn(
-                    constraints.minHeight,
-                    constraints.maxHeight
-                )
+            val finalHeight = totalHeight.coerceIn(
+                constraints.minHeight,
+                constraints.maxHeight
+            )
 
             layout(
                 width = availableWidth,
@@ -250,21 +175,15 @@ fun FourColumnGrid(
                 var y = 0
 
                 rowHeights.forEachIndexed { row, rowHeight ->
-
                     for (column in 0 until columns) {
-                        val index =
-                            row * columns + column
+                        val index = row * columns + column
 
                         if (index >= measured.size) {
                             continue
                         }
 
-                        val placeable =
-                            measured[index]
-
-                        val x =
-                            column *
-                                (columnWidth + spacingX)
+                        val placeable = measured[index]
+                        val x = column * (columnWidth + spacingX)
 
                         placeable.placeRelative(
                             x = x,
@@ -299,7 +218,6 @@ fun FourColumnFields(
 }
 
 interface FourColumnScope {
-
     fun item(
         content: @Composable () -> Unit
     )
@@ -307,8 +225,7 @@ interface FourColumnScope {
 
 private class FourColumnScopeImpl : FourColumnScope {
 
-    val items =
-        mutableListOf<@Composable () -> Unit>()
+    val items = mutableListOf<@Composable () -> Unit>()
 
     override fun item(
         content: @Composable () -> Unit
