@@ -547,9 +547,9 @@ fun SldEditorScreen(
         calculationSummary = null
 
         status = if (arabic) {
-            "تم التوصيل من ${first.name} إلى ${second.name}. اتجاه التوصيل محفوظ كما اخترته."
+            "تم التوصيل من ${first.name} إلى ${second.name}. اتجاه السهم من الأول إلى الثاني."
         } else {
-            "Connected ${first.name} to ${second.name}. The selected direction is preserved."
+            "Connected ${first.name} to ${second.name}. Arrow direction is first to second."
         }
     }
 
@@ -559,17 +559,32 @@ fun SldEditorScreen(
         if (!connectMode) return
 
         val start = connectionStartId
+
         if (start == null) {
             connectionStartId = nodeId
-            status = if (arabic) {
-                "تم اختيار بداية التوصيل. اختر العنصر التالي لتحديد اتجاه المغذي."
-            } else {
-                "Start selected. Select the downstream element to set feeder direction."
+            val startNode = network.nodes.firstOrNull {
+                it.id == nodeId
             }
-        } else {
-            connectNodes(start, nodeId)
-            connectionStartId = null
+
+            status = if (arabic) {
+                "بداية التوصيل: ${startNode?.name ?: "العنصر"}. اختر العنصر التالي."
+            } else {
+                "Connection start: ${startNode?.name ?: "element"}. Select the next element."
+            }
+            return
         }
+
+        if (start == nodeId) {
+            status = if (arabic) {
+                "اختر عنصرًا مختلفًا لإكمال التوصيل."
+            } else {
+                "Select a different element to complete the connection."
+            }
+            return
+        }
+
+        connectNodes(start, nodeId)
+        connectionStartId = null
     }
 
     fun moveNode(nodeId: String, dx: Float, dy: Float) {
@@ -596,6 +611,14 @@ fun SldEditorScreen(
             moveNode(nodeId, dx, dy)
         }
     )
+    val currentHandleNodeTap by rememberUpdatedState<
+        (String) -> Unit
+    >(
+        { nodeId ->
+            handleNodeTap(nodeId)
+        }
+    )
+    val currentConnectMode by rememberUpdatedState(connectMode)
 
     Column(
         modifier = Modifier
@@ -820,19 +843,21 @@ fun SldEditorScreen(
 
             Button(
                 onClick = {
-                    connectMode = !connectMode
+                    val enablingConnectionMode = !connectMode
+                    connectMode = enablingConnectionMode
                     connectionStartId = null
-                    status = if (connectMode) {
+
+                    status = if (enablingConnectionMode) {
+                        if (arabic) {
+                            "وضع التوصيل مفعل: اضغط العنصر الأول ثم العنصر الثاني. اتجاه السهم من الأول إلى الثاني."
+                        } else {
+                            "Connection mode enabled: tap the first element, then the second. Arrow points from first to second."
+                        }
+                    } else {
                         if (arabic) {
                             "تم إيقاف وضع التوصيل."
                         } else {
                             "Connection mode disabled."
-                        }
-                    } else {
-                        if (arabic) {
-                            "وضع التوصيل: اختر المصدر أولًا ثم العنصر التالي."
-                        } else {
-                            "Connection mode: select upstream first, then downstream."
                         }
                     }
                 }
@@ -986,16 +1011,12 @@ fun SldEditorScreen(
                     modifier = Modifier
                         .width(SLD_CANVAS_WIDTH.dp)
                         .height(SLD_CANVAS_HEIGHT.dp)
-                        .pointerInput(
-                            network.nodes,
-                            connectMode,
-                            connectionStartId
-                        ) {
+                        .pointerInput(density.density) {
                             detectTapGestures { tap ->
                                 val tapX = tap.x / density.density
                                 val tapY = tap.y / density.density
 
-                                val hit = network.nodes
+                                val hit = currentNetwork.nodes
                                     .asReversed()
                                     .firstOrNull { node ->
                                         tapX >= node.x - 8f &&
@@ -1007,11 +1028,11 @@ fun SldEditorScreen(
                                     }
 
                                 if (hit != null) {
-                                    handleNodeTap(hit.id)
+                                    currentHandleNodeTap(hit.id)
                                 }
                             }
                         }
-                        .pointerInput(Unit) {
+                        .pointerInput(density.density) {
                             var dragNodeId: String? = null
 
                             detectDragGestures(
@@ -1031,18 +1052,21 @@ fun SldEditorScreen(
                                         }
 
                                     dragNodeId = hit?.id
-                                    if (hit != null) {
+
+                                    if (hit != null && !currentConnectMode) {
                                         selectedNodeId = hit.id
                                     }
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    dragNodeId?.let { id ->
-                                        currentMoveNode(
-                                            id,
-                                            dragAmount.x / density.density,
-                                            dragAmount.y / density.density
-                                        )
+                                    if (!currentConnectMode) {
+                                        dragNodeId?.let { id ->
+                                            currentMoveNode(
+                                                id,
+                                                dragAmount.x / density.density,
+                                                dragAmount.y / density.density
+                                            )
+                                        }
                                     }
                                 },
                                 onDragEnd = {
@@ -1082,16 +1106,6 @@ fun SldEditorScreen(
                     val nodesById = network.nodes.associateBy { it.id }
                     val panelGeometries =
                         buildPanelDrawingGeometry(network)
-
-                    val memberToPanel = mutableMapOf<String, String>()
-
-                    panelGeometries.forEach { geometry ->
-                        geometry.memberIds.forEach { memberId ->
-                            if (memberId !in memberToPanel) {
-                                memberToPanel[memberId] = geometry.panelId
-                            }
-                        }
-                    }
 
                     panelGeometries.forEach { geometry ->
                         drawRect(
@@ -1165,15 +1179,18 @@ fun SldEditorScreen(
                         val h = SLD_NODE_HEIGHT.dp.toPx()
 
                         val isSelected = node.id == selectedNodeId
-                        val borderColor = if (isSelected) {
-                            Color(0xFF1976D2)
-                        } else {
-                            Color(0xFF34495E)
+                        val isConnectionStart = node.id == connectionStartId
+
+                        val borderColor = when {
+                            isConnectionStart -> Color(0xFF008577)
+                            isSelected -> Color(0xFF1976D2)
+                            else -> Color(0xFF34495E)
                         }
-                        val fillColor = if (isSelected) {
-                            Color(0xFFE3F2FD)
-                        } else {
-                            Color.White
+
+                        val fillColor = when {
+                            isConnectionStart -> Color(0xFFD5F5F0)
+                            isSelected -> Color(0xFFE3F2FD)
+                            else -> Color.White
                         }
 
                         when (node.type) {
@@ -1467,9 +1484,9 @@ fun SldEditorScreen(
                             paint
                         )
 
-                        if (isSelected) {
+                        if (isSelected || isConnectionStart) {
                             drawRect(
-                                color = Color(0xFF1976D2),
+                                color = borderColor,
                                 topLeft = Offset(
                                     left - 4.dp.toPx(),
                                     top - 4.dp.toPx()
