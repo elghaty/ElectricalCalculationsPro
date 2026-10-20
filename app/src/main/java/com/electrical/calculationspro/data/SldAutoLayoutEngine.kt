@@ -1,42 +1,36 @@
 
 package com.electrical.calculationspro.data
 
+import java.util.ArrayDeque
 import kotlin.math.max
+import kotlin.math.round
 
 /**
- * Topology-aware SLD auto-layout.
+ * SLD topology-aware auto-layout.
  *
  * Responsibilities:
- * - Change node coordinates only.
- * - Preserve all electrical connections and their directions.
- * - Treat PANEL, internal BUS nodes and internal BREAKER nodes
- *   as one physical switchgear assembly.
- * - Keep external feeders and loads outside the panel enclosure.
- * - Place disconnected equipment separately for editor review.
+ * - Reposition nodes without modifying electrical connections.
+ * - Preserve connection IDs, direction and engineering properties.
+ * - Treat valid internal panel BUSBAR connections as assembly links.
+ * - Keep external cable feeders outside the internal assembly.
+ * - Keep disconnected and cyclic components visible.
  *
- * This class does not perform electrical calculations.
+ * This class performs graphic layout only. It does not perform
+ * electrical calculations or change network topology.
  */
 object SldAutoLayoutEngine {
-
-    private const val NODE_WIDTH = 180f
-    private const val NODE_HEIGHT = 100f
-
-    private const val LEVEL_GAP = 300f
-    private const val COLUMN_GAP = 300f
-    private const val ROW_GAP = 180f
 
     private const val START_X = 120f
     private const val START_Y = 100f
 
-    private const val PANEL_LEFT_MARGIN = 40f
-    private const val PANEL_TOP_MARGIN = 30f
-    private const val PANEL_BREAKER_GAP = 150f
-    private const val PANEL_BREAKER_Y = 110f
-    private const val BUSBAR_Y = 45f
-
-    private const val DISCONNECTED_GAP_X = 360f
-    private const val DISCONNECTED_GAP_Y = 240f
+    private const val COLUMN_GAP = 320f
+    private const val ROW_GAP = 190f
+    private const val ASSEMBLY_GAP = 260f
     private const val GRID_SNAP = 20f
+
+    private const val INTERNAL_BUS_Y = 50f
+    private const val INTERNAL_BREAKER_START_Y = 170f
+    private const val INTERNAL_BREAKER_GAP_X = 200f
 
     data class LayoutResult(
         val network: SldNetwork,
@@ -49,11 +43,11 @@ object SldAutoLayoutEngine {
         val breakerIds: List<String>
     ) {
         val memberIds: Set<String>
-            get() = (busIds + breakerIds + panelId).toSet()
+            get() = (listOf(panelId) + busIds + breakerIds).toSet()
     }
 
     /**
-     * Computes new coordinates without changing network topology.
+     * Calculates new positions while preserving the electrical model.
      */
     fun arrange(network: SldNetwork): LayoutResult {
         if (network.nodes.isEmpty()) {
@@ -64,224 +58,193 @@ object SldAutoLayoutEngine {
         }
 
         val nodesById = network.nodes.associateBy { it.id }
+        val assemblies = buildPanelAssemblies(network, nodesById)
 
-        val assemblies = buildPanelAssemblies(network)
         val nodeToPanel = mutableMapOf<String, String>()
 
         assemblies.forEach { assembly ->
-            assembly.memberIds.forEach { nodeId ->
-                nodeToPanel.putIfAbsent(nodeId, assembly.panelId)
+            assembly.memberIds.forEach { memberId ->
+                nodeToPanel.putIfAbsent(memberId, assembly.panelId)
             }
         }
 
         fun representative(nodeId: String): String =
             nodeToPanel[nodeId] ?: nodeId
 
+        val representatives = network.nodes
+            .map { representative(it.id) }
+            .distinct()
+
+        val children = representatives.associateWith {
+            linkedSetOf<String>()
+        }.toMutableMap()
+
+        val parents = representatives.associateWith {
+            linkedSetOf<String>()
+        }.toMutableMap()
+
         /*
-         * Build the external graph.
-         *
-         * Internal BUSBAR connections are excluded.
-         * External cable directions are preserved.
-         * Nodes belonging to the same panel assembly are represented
-         * by that panel for layout purposes only.
+         * Collapse each physical panel assembly into one representative
+         * for the external graph. Internal busbar edges are not feeders.
          */
-        val children = network.nodes.associate {
-            it.id to linkedSetOf<String>()
-        }.toMutableMap()
-
-        val parents = network.nodes.associate {
-            it.id to linkedSetOf<String>()
-        }.toMutableMap()
-
         network.connections.forEach { connection ->
-            val fromNode = nodesById[connection.fromNodeId]
+            val from = nodesById[connection.fromNodeId]
                 ?: return@forEach
-            val toNode = nodesById[connection.toNodeId]
+            val to = nodesById[connection.toNodeId]
                 ?: return@forEach
 
-            if (connection.fromNodeId == connection.toNodeId) {
+            if (from.id == to.id) return@forEach
+
+            if (isInternalAssemblyConnection(connection, from, to)) {
                 return@forEach
             }
 
-            if (isInternalAssemblyConnection(connection, fromNode, toNode)) {
-                return@forEach
-            }
+            val fromId = representative(from.id)
+            val toId = representative(to.id)
 
-            val fromId = representative(fromNode.id)
-            val toId = representative(toNode.id)
-
-            if (fromId == toId) {
-                return@forEach
-            }
+            if (fromId == toId) return@forEach
 
             children.getValue(fromId).add(toId)
             parents.getValue(toId).add(fromId)
         }
 
         /*
-         * Determine graph roots.
-         * Sources are prioritized; other disconnected roots remain
-         * visible instead of being discarded.
+         * Start with source nodes, then include all other graph roots.
+         * A disconnected diagram remains editable and visible.
          */
-        val sources = network.nodes
+        val sourceIds = network.nodes
             .filter { it.type == SldNodeType.SOURCE }
-            .sortedBy { it.name.uppercase() }
-
-        val naturalRoots = network.nodes
-            .filter { node ->
-                val id = representative(node.id)
-                parents[id].orEmpty().isEmpty() && id == node.id
-            }
-            .sortedWith(
-                compareBy<SldNode> { typeOrder(it.type) }
-                    .thenBy { it.name.uppercase() }
-            )
-
-        val roots = (sources + naturalRoots)
             .map { representative(it.id) }
             .distinct()
-            .filter { it in nodesById }
+            .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
 
-        /*
-         * Breadth-first levels avoid recursive traversal problems
-         * when an unfinished diagram contains a cycle.
-         */
+        val rootIds = representatives
+            .filter { parents[it].orEmpty().isEmpty() }
+            .sortedWith(
+                compareBy<String> { rootPriority(nodesById[it]?.type) }
+                    .thenBy { nodesById[it]?.name.orEmpty().uppercase() }
+            )
+
+        val roots = (sourceIds + rootIds).distinct()
         val levels = mutableMapOf<String, Int>()
         val queue = ArrayDeque<String>()
 
-        roots.forEach { rootId ->
-            if (levels.putIfAbsent(rootId, 0) == null) {
-                queue.addLast(rootId)
+        roots.forEach { id ->
+            if (levels.putIfAbsent(id, 0) == null) {
+                queue.addLast(id)
             }
         }
 
+        /*
+         * Breadth-first traversal avoids recursive stack overflow and
+         * safely handles incomplete or cyclic editor diagrams.
+         */
         while (queue.isNotEmpty()) {
             val current = queue.removeFirst()
             val nextLevel = levels.getValue(current) + 1
 
             children[current].orEmpty()
-                .sortedWith(
-                    compareBy<String> { nodesById[it]?.name?.uppercase().orEmpty() }
-                )
+                .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
                 .forEach { childId ->
-                    val oldLevel = levels[childId]
-
-                    if (oldLevel == null) {
+                    if (childId !in levels) {
                         levels[childId] = nextLevel
                         queue.addLast(childId)
-                    } else if (nextLevel < oldLevel) {
-                        /*
-                         * Do not repeatedly re-enqueue nodes in cyclic
-                         * graphs. The first BFS level remains stable.
-                         */
                     }
                 }
         }
 
         /*
-         * Include nodes in disconnected components and cycle-only
-         * components so every piece of equipment remains visible.
+         * Cycle-only components may have no root. Give every remaining
+         * component a stable level instead of dropping its nodes.
          */
-        var disconnectedLevel = (levels.values.maxOrNull() ?: 0) + 2
+        var nextDisconnectedLevel =
+            (levels.values.maxOrNull() ?: 0) + 1
 
-        network.nodes
-            .map { representative(it.id) }
-            .distinct()
+        representatives
             .filter { it !in levels }
-            .sortedWith(
-                compareBy<String> { nodesById[it]?.name?.uppercase().orEmpty() }
-            )
+            .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
             .forEach { id ->
-                levels[id] = disconnectedLevel++
+                levels[id] = nextDisconnectedLevel++
             }
 
         /*
-         * Place representative nodes in levels.
-         *
-         * Each level receives a distinct vertical row for predictable
-         * left-to-right electrical flow.
+         * Lay out the external graph from left to right:
+         * upstream levels are columns; nodes at the same level are rows.
          */
         val positions = mutableMapOf<String, Pair<Float, Float>>()
 
-        val representatives = network.nodes
-            .map { representative(it.id) }
-            .distinct()
-
-        val byLevel = representatives
+        val orderedByLevel = representatives
             .groupBy { levels[it] ?: 0 }
             .toSortedMap()
 
-        byLevel.forEach { (level, ids) ->
-            val sortedIds = ids.sortedWith(
+        orderedByLevel.forEach { (level, ids) ->
+            val orderedIds = ids.sortedWith(
                 compareBy<String> { rootPriority(nodesById[it]?.type) }
-                    .thenBy { nodesById[it]?.name?.uppercase().orEmpty() }
+                    .thenBy { nodesById[it]?.name.orEmpty().uppercase() }
             )
 
-            sortedIds.forEachIndexed { column, id ->
-                positions[id] = snap(
-                    START_X + column * COLUMN_GAP,
-                    START_Y + level * LEVEL_GAP
+            orderedIds.forEachIndexed { row, id ->
+                positions[id] = snapPoint(
+                    START_X + level * COLUMN_GAP,
+                    START_Y + row * ROW_GAP
                 )
             }
         }
 
         /*
-         * Put the source at the beginning of its level.
-         * This is a graphic preference only; connection direction
-         * remains exactly as it was in the original network.
+         * Prefer the source at the top of the first column.
+         * Only coordinates change; electrical direction is untouched.
          */
-        sources.forEach { source ->
-            val sourceId = representative(source.id)
-            val level = levels[sourceId] ?: 0
-            positions[sourceId] = snap(
+        sourceIds.forEachIndexed { index, id ->
+            positions[id] = snapPoint(
                 START_X,
-                START_Y + level * LEVEL_GAP
+                START_Y + index * ROW_GAP
             )
         }
 
         /*
-         * Place each panel assembly as one physical group.
-         * The panel coordinate is the enclosure anchor.
-         * Busbars and breakers are positioned relative to that anchor.
+         * Place panel members relative to their enclosure anchor.
+         * The drawing layer must use these positions consistently
+         * with its enclosure and busbar geometry.
          */
         assemblies.forEach { assembly ->
-            val panelPosition = positions[assembly.panelId]
+            val anchor = positions[assembly.panelId]
                 ?: (START_X to START_Y)
 
-            val panelX = panelPosition.first
-            val panelY = panelPosition.second
+            val panelX = anchor.first
+            val panelY = anchor.second
 
-            positions[assembly.panelId] = snap(panelX, panelY)
+            positions[assembly.panelId] = snapPoint(panelX, panelY)
 
             assembly.busIds.forEachIndexed { index, busId ->
-                positions[busId] = snap(
-                    panelX + PANEL_LEFT_MARGIN,
-                    panelY + BUSBAR_Y + index * 24f
+                positions[busId] = snapPoint(
+                    panelX + 40f,
+                    panelY + INTERNAL_BUS_Y + index * 24f
                 )
             }
 
-            val breakerCount = assembly.breakerIds.size
-
-            if (breakerCount > 0) {
-                val span = (breakerCount - 1) * PANEL_BREAKER_GAP
-                val firstX = panelX - span / 2f
-
-                assembly.breakerIds.forEachIndexed { index, breakerId ->
-                    positions[breakerId] = snap(
-                        firstX + index * PANEL_BREAKER_GAP,
-                        panelY + PANEL_BREAKER_Y
-                    )
-                }
+            /*
+             * Breakers receive stable, non-overlapping logical positions.
+             * Their graphical renderer must draw them inside the same
+             * physical enclosure rather than as independent panel boxes.
+             */
+            assembly.breakerIds.forEachIndexed { index, breakerId ->
+                positions[breakerId] = snapPoint(
+                    panelX + index * INTERNAL_BREAKER_GAP_X,
+                    panelY + INTERNAL_BREAKER_START_Y
+                )
             }
         }
 
         /*
-         * Keep direct breaker-to-load feeders outside the enclosure.
-         * Other downstream nodes keep their graph-derived placement.
+         * Place direct downstream loads outside the assembly.
+         * Connections and their direction are not rewritten.
          */
         network.connections.forEach { connection ->
-            val from = nodesById[connection.fromNodeId] ?: return@forEach
-            val to = nodesById[connection.toNodeId] ?: return@forEach
+            val from = nodesById[connection.fromNodeId]
+                ?: return@forEach
+            val to = nodesById[connection.toNodeId]
+                ?: return@forEach
 
             if (
                 from.type == SldNodeType.BREAKER &&
@@ -292,7 +255,7 @@ object SldAutoLayoutEngine {
                     ?: positions[representative(from.id)]
                     ?: return@forEach
 
-                positions[to.id] = snap(
+                positions[to.id] = snapPoint(
                     breakerPosition.first + COLUMN_GAP,
                     breakerPosition.second
                 )
@@ -300,32 +263,29 @@ object SldAutoLayoutEngine {
         }
 
         /*
-         * Place every remaining node. This also handles unusual or
-         * incomplete diagrams without dropping equipment.
+         * Ensure every node receives a coordinate, including nodes that
+         * belong to unusual or incomplete topologies.
          */
         network.nodes.forEachIndexed { index, node ->
             if (node.id !in positions) {
                 val rep = representative(node.id)
                 val base = positions[rep]
-                val row = index / 4
-                val column = index % 4
 
-                positions[node.id] = if (base != null && node.id == rep) {
+                positions[node.id] = if (
+                    node.id == rep && base != null
+                ) {
                     base
                 } else {
-                    snap(
-                        START_X + column * DISCONNECTED_GAP_X,
-                        START_Y + (levels[rep] ?: 0) * LEVEL_GAP +
-                            row * DISCONNECTED_GAP_Y
+                    snapPoint(
+                        START_X + (index % 4) * ASSEMBLY_GAP,
+                        START_Y + (index / 4) * ROW_GAP
                     )
                 }
             }
         }
 
         /*
-         * Translate all coordinates so the drawing starts near the
-         * canvas origin. This operation does not change relative
-         * positions or topology.
+         * Translate negative coordinates into the visible canvas area.
          */
         val minX = positions.values.minOfOrNull { it.first } ?: START_X
         val minY = positions.values.minOfOrNull { it.second } ?: START_Y
@@ -337,97 +297,92 @@ object SldAutoLayoutEngine {
             val point = positions[node.id] ?: (node.x to node.y)
 
             node.copy(
-                x = snap(point.first + offsetX, GRID_SNAP),
-                y = snap(point.second + offsetY, GRID_SNAP)
+                x = snap(point.first + offsetX),
+                y = snap(point.second + offsetY)
             )
         }
 
+        /*
+         * Return the original connection list unchanged.
+         */
         return LayoutResult(
             network = network.copy(nodes = updatedNodes),
             levels = levels
         )
     }
 
+    /**
+     * Finds BUS and BREAKER nodes connected to a PANEL exclusively
+     * through valid internal BUSBAR relationships.
+     */
     private fun buildPanelAssemblies(
-        network: SldNetwork
+        network: SldNetwork,
+        nodesById: Map<String, SldNode>
     ): List<PanelAssembly> {
-        val nodesById = network.nodes.associateBy { it.id }
+        val panels = network.nodes.filter {
+            it.type == SldNodeType.PANEL
+        }
 
-        return network.nodes
-            .filter { it.type == SldNodeType.PANEL }
-            .map { panel ->
-                val memberIds = linkedSetOf(panel.id)
-                val busIds = linkedSetOf<String>()
-                val breakerIds = linkedSetOf<String>()
+        val claimedMembers = mutableSetOf<String>()
 
-                /*
-                 * Expand only through valid internal BUSBAR edges.
-                 * A cable feeder never becomes part of the enclosure.
-                 */
-                var changed = true
+        return panels.map { panel ->
+            val memberIds = linkedSetOf(panel.id)
+            var changed = true
 
-                while (changed) {
-                    changed = false
+            while (changed) {
+                changed = false
 
-                    network.connections
-                        .filter {
-                            it.connectionType == SldConnectionType.BUSBAR
+                network.connections.forEach { connection ->
+                    if (
+                        connection.connectionType !=
+                        SldConnectionType.BUSBAR
+                    ) {
+                        return@forEach
+                    }
+
+                    val from = nodesById[connection.fromNodeId]
+                        ?: return@forEach
+                    val to = nodesById[connection.toNodeId]
+                        ?: return@forEach
+
+                    if (!isInternalAssemblyConnection(connection, from, to)) {
+                        return@forEach
+                    }
+
+                    val fromInside = from.id in memberIds
+                    val toInside = to.id in memberIds
+
+                    if (fromInside && to.type in INTERNAL_MEMBER_TYPES) {
+                        if (to.id !in claimedMembers || to.id == panel.id) {
+                            if (memberIds.add(to.id)) changed = true
                         }
-                        .forEach { connection ->
-                            val from = nodesById[connection.fromNodeId]
-                                ?: return@forEach
-                            val to = nodesById[connection.toNodeId]
-                                ?: return@forEach
+                    }
 
-                            if (!isInternalAssemblyConnection(connection, from, to)) {
-                                return@forEach
-                            }
-
-                            val fromInside = from.id in memberIds
-                            val toInside = to.id in memberIds
-
-                            if (fromInside && !toInside) {
-                                val eligible =
-                                    to.type == SldNodeType.BUS ||
-                                        to.type == SldNodeType.BREAKER
-
-                                if (eligible) {
-                                    memberIds.add(to.id)
-                                    changed = true
-                                }
-                            }
-
-                            if (toInside && !fromInside) {
-                                val eligible =
-                                    from.type == SldNodeType.BUS ||
-                                        from.type == SldNodeType.BREAKER
-
-                                if (eligible) {
-                                    memberIds.add(from.id)
-                                    changed = true
-                                }
-                            }
+                    if (toInside && from.type in INTERNAL_MEMBER_TYPES) {
+                        if (from.id !in claimedMembers || from.id == panel.id) {
+                            if (memberIds.add(from.id)) changed = true
                         }
-                }
-
-                memberIds.forEach { id ->
-                    when (nodesById[id]?.type) {
-                        SldNodeType.BUS -> busIds.add(id)
-                        SldNodeType.BREAKER -> breakerIds.add(id)
-                        else -> Unit
                     }
                 }
-
-                PanelAssembly(
-                    panelId = panel.id,
-                    busIds = busIds.sortedBy {
-                        nodesById[it]?.name?.uppercase().orEmpty()
-                    },
-                    breakerIds = breakerIds.sortedBy {
-                        nodesById[it]?.name?.uppercase().orEmpty()
-                    }
-                )
             }
+
+            val busIds = memberIds
+                .filter { nodesById[it]?.type == SldNodeType.BUS }
+                .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
+
+            val breakerIds = memberIds
+                .filter { nodesById[it]?.type == SldNodeType.BREAKER }
+                .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
+
+            claimedMembers.addAll(busIds)
+            claimedMembers.addAll(breakerIds)
+
+            PanelAssembly(
+                panelId = panel.id,
+                busIds = busIds,
+                breakerIds = breakerIds
+            )
+        }
     }
 
     private fun isInternalAssemblyConnection(
@@ -443,34 +398,28 @@ object SldAutoLayoutEngine {
         val second = to.type
 
         return (
-            first == SldNodeType.PANEL && second == SldNodeType.BUS
-        ) || (
-            first == SldNodeType.BUS && second == SldNodeType.PANEL
-        ) || (
-            first == SldNodeType.BUS && second == SldNodeType.BREAKER
-        ) || (
-            first == SldNodeType.BREAKER && second == SldNodeType.BUS
-        ) || (
-            first == SldNodeType.PANEL && second == SldNodeType.BREAKER
-        ) || (
-            first == SldNodeType.BREAKER && second == SldNodeType.PANEL
-        )
+            first == SldNodeType.PANEL &&
+                second == SldNodeType.BUS
+            ) || (
+            first == SldNodeType.BUS &&
+                second == SldNodeType.PANEL
+            ) || (
+            first == SldNodeType.BUS &&
+                second == SldNodeType.BREAKER
+            ) || (
+            first == SldNodeType.BREAKER &&
+                second == SldNodeType.BUS
+            ) || (
+            first == SldNodeType.PANEL &&
+                second == SldNodeType.BREAKER
+            ) || (
+            first == SldNodeType.BREAKER &&
+                second == SldNodeType.PANEL
+            )
     }
 
-    private fun typeOrder(type: SldNodeType): Int {
-        return when (type) {
-            SldNodeType.SOURCE -> 0
-            SldNodeType.GENERATOR -> 1
-            SldNodeType.TRANSFORMER -> 2
-            SldNodeType.BUS -> 3
-            SldNodeType.PANEL -> 4
-            SldNodeType.BREAKER -> 5
-            SldNodeType.LOAD -> 6
-        }
-    }
-
-    private fun rootPriority(type: SldNodeType?): Int {
-        return when (type) {
+    private fun rootPriority(type: SldNodeType?): Int =
+        when (type) {
             SldNodeType.SOURCE -> 0
             SldNodeType.GENERATOR -> 1
             SldNodeType.TRANSFORMER -> 2
@@ -480,13 +429,20 @@ object SldAutoLayoutEngine {
             SldNodeType.LOAD -> 6
             null -> 7
         }
+
+    private fun snapPoint(
+        x: Float,
+        y: Float
+    ): Pair<Float, Float> =
+        snap(x) to snap(y)
+
+    private fun snap(value: Float): Float {
+        if (GRID_SNAP <= 0f) return value
+        return round(value / GRID_SNAP) * GRID_SNAP
     }
 
-    private fun snap(value: Float): Float =
-        snap(value, GRID_SNAP)
-
-    private fun snap(value: Float, step: Float): Float {
-        if (step <= 0f) return value
-        return kotlin.math.round(value / step) * step
-    }
+    private val INTERNAL_MEMBER_TYPES = setOf(
+        SldNodeType.BUS,
+        SldNodeType.BREAKER
+    )
 }
