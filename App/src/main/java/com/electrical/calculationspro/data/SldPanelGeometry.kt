@@ -2,29 +2,35 @@
 package com.electrical.calculationspro.data
 
 import kotlin.math.max
+import kotlin.math.min
 
 /**
- * Shared physical geometry for panel enclosure, busbars and breakers.
+ * Physical geometry shared by SLD panel rendering and hit testing.
  *
- * Coordinates use the same logical canvas space as SldNode.x and SldNode.y.
- * This class calculates geometry only; it never changes electrical topology.
+ * Coordinates are in the same logical canvas space as SldNode.x/y.
+ * Geometry follows the actual node positions so rendering, dragging,
+ * selection and auto-layout remain aligned.
+ *
+ * This class does not modify topology or perform electrical calculations.
  */
 object SldPanelGeometry {
 
     private const val NODE_WIDTH = 180f
     private const val NODE_HEIGHT = 100f
 
-    private const val ENCLOSURE_LEFT_MARGIN = 24f
-    private const val ENCLOSURE_TOP_MARGIN = 28f
-    private const val ENCLOSURE_RIGHT_MARGIN = 24f
-    private const val ENCLOSURE_BOTTOM_MARGIN = 30f
+    private const val PANEL_MARGIN_X = 24f
+    private const val PANEL_MARGIN_TOP = 28f
+    private const val PANEL_MARGIN_BOTTOM = 28f
 
-    private const val BUSBAR_TOP = 62f
-    private const val BUSBAR_SIDE_MARGIN = 36f
-    private const val BREAKER_TOP = 142f
-    private const val BREAKER_WIDTH = 64f
-    private const val BREAKER_GAP = 36f
-    private const val MIN_ENCLOSURE_WIDTH = 240f
+    private const val BUSBAR_Y_OFFSET = 25f
+    private const val BUSBAR_SIDE_MARGIN = 24f
+
+    private const val BREAKER_SYMBOL_WIDTH = 50f
+    private const val BREAKER_SYMBOL_HEIGHT = 38f
+    private const val BREAKER_SYMBOL_Y_OFFSET = 7f
+
+    private const val MIN_PANEL_WIDTH = 240f
+    private const val MIN_PANEL_HEIGHT = 190f
 
     data class Point(
         val x: Float,
@@ -44,12 +50,16 @@ object SldPanelGeometry {
             get() = top + height
 
         fun contains(point: Point): Boolean =
-            point.x in left..right && point.y in top..bottom
+            point.x >= left &&
+                point.x <= right &&
+                point.y >= top &&
+                point.y <= bottom
     }
 
     data class BreakerGeometry(
         val nodeId: String,
-        val bounds: Rect,
+        val nodeBounds: Rect,
+        val symbolBounds: Rect,
         val center: Point,
         val connectionPoint: Point
     )
@@ -69,11 +79,10 @@ object SldPanelGeometry {
     )
 
     /**
-     * Returns the physical geometry of one panel.
+     * Builds geometry for a panel using the actual node coordinates.
      *
-     * Internal members are discovered from BUSBAR connections. Only
-     * breakers directly connected to the panel or its internal bus are
-     * placed in this enclosure. CABLE connections remain external feeders.
+     * BUSBAR connections identify internal panel members.
+     * CABLE connections are not treated as internal panel wiring.
      */
     fun calculate(
         network: SldNetwork,
@@ -83,28 +92,28 @@ object SldPanelGeometry {
         if (network.nodes.none { it.id == panel.id }) return null
 
         val nodesById = network.nodes.associateBy { it.id }
+
         val internalConnections = network.connections.filter {
             it.connectionType == SldConnectionType.BUSBAR
         }
 
-        val memberIds = linkedSetOf(panel.id)
+        val internalNodeIds = linkedSetOf(panel.id)
         val busIds = linkedSetOf<String>()
         val breakerIds = linkedSetOf<String>()
 
-        /*
-         * Discover only PANEL ↔ BUS ↔ BREAKER and PANEL ↔ BREAKER
-         * relationships. Do not absorb loads or external feeders.
-         */
         var changed: Boolean
+
         do {
             changed = false
 
             internalConnections.forEach { connection ->
-                val from = nodesById[connection.fromNodeId] ?: return@forEach
-                val to = nodesById[connection.toNodeId] ?: return@forEach
+                val from = nodesById[connection.fromNodeId]
+                    ?: return@forEach
+                val to = nodesById[connection.toNodeId]
+                    ?: return@forEach
 
-                val fromInside = from.id in memberIds
-                val toInside = to.id in memberIds
+                val fromInside = from.id in internalNodeIds
+                val toInside = to.id in internalNodeIds
 
                 if (!fromInside && !toInside) return@forEach
 
@@ -130,7 +139,9 @@ object SldPanelGeometry {
                     else -> null
                 } ?: return@forEach
 
-                if (memberIds.add(candidate.id)) changed = true
+                if (internalNodeIds.add(candidate.id)) {
+                    changed = true
+                }
 
                 when (candidate.type) {
                     SldNodeType.BUS -> busIds.add(candidate.id)
@@ -140,29 +151,77 @@ object SldPanelGeometry {
             }
         } while (changed)
 
-        val orderedBreakers = breakerIds
+        val breakers = breakerIds
             .mapNotNull(nodesById::get)
             .sortedWith(
                 compareBy<SldNode> { it.x }
+                    .thenBy { it.y }
                     .thenBy { it.name.uppercase() }
             )
+            .map { breaker ->
+                val symbolLeft =
+                    breaker.x + (NODE_WIDTH - BREAKER_SYMBOL_WIDTH) / 2f
 
-        val breakerCount = orderedBreakers.size
-        val requiredWidth = if (breakerCount == 0) {
-            MIN_ENCLOSURE_WIDTH
-        } else {
-            ENCLOSURE_LEFT_MARGIN +
-                ENCLOSURE_RIGHT_MARGIN +
-                breakerCount * BREAKER_WIDTH +
-                max(0, breakerCount - 1) * BREAKER_GAP
-        }
+                val symbolTop =
+                    breaker.y + BREAKER_SYMBOL_Y_OFFSET
 
-        val enclosureWidth = max(MIN_ENCLOSURE_WIDTH, requiredWidth)
-        val enclosureLeft = panel.x - ENCLOSURE_LEFT_MARGIN
-        val enclosureTop = panel.y - ENCLOSURE_TOP_MARGIN
-        val enclosureHeight = BREAKER_TOP +
-            BREAKER_WIDTH +
-            ENCLOSURE_BOTTOM_MARGIN
+                BreakerGeometry(
+                    nodeId = breaker.id,
+                    nodeBounds = Rect(
+                        left = breaker.x,
+                        top = breaker.y,
+                        width = NODE_WIDTH,
+                        height = NODE_HEIGHT
+                    ),
+                    symbolBounds = Rect(
+                        left = symbolLeft,
+                        top = symbolTop,
+                        width = BREAKER_SYMBOL_WIDTH,
+                        height = BREAKER_SYMBOL_HEIGHT
+                    ),
+                    center = Point(
+                        x = symbolLeft + BREAKER_SYMBOL_WIDTH / 2f,
+                        y = symbolTop + BREAKER_SYMBOL_HEIGHT / 2f
+                    ),
+                    connectionPoint = Point(
+                        x = breaker.x + NODE_WIDTH / 2f,
+                        y = breaker.y + BUSBAR_Y_OFFSET
+                    )
+                )
+            }
+
+        val busNodes = busIds.mapNotNull(nodesById::get)
+
+        /*
+         * Use the real positions of the panel and its internal members.
+         * This avoids calculating a second, conflicting set of breaker
+         * coordinates that would disagree with drag and hit testing.
+         */
+        val members = listOf(panel) +
+            busNodes +
+            breakers.mapNotNull { nodesById[it.nodeId] }
+
+        val minX = members.minOfOrNull { it.x } ?: panel.x
+        val minY = members.minOfOrNull { it.y } ?: panel.y
+
+        val maxX = members.maxOfOrNull { it.x + NODE_WIDTH }
+            ?: (panel.x + NODE_WIDTH)
+
+        val maxY = members.maxOfOrNull { it.y + NODE_HEIGHT }
+            ?: (panel.y + NODE_HEIGHT)
+
+        val enclosureLeft = minX - PANEL_MARGIN_X
+        val enclosureTop = minY - PANEL_MARGIN_TOP
+
+        val enclosureWidth = max(
+            MIN_PANEL_WIDTH,
+            maxX - minX + PANEL_MARGIN_X * 2f
+        )
+
+        val enclosureHeight = max(
+            MIN_PANEL_HEIGHT,
+            maxY - minY + PANEL_MARGIN_TOP + PANEL_MARGIN_BOTTOM
+        )
 
         val enclosure = Rect(
             left = enclosureLeft,
@@ -171,61 +230,50 @@ object SldPanelGeometry {
             height = enclosureHeight
         )
 
-        val busY = enclosureTop + BUSBAR_TOP
-        val busStartX = enclosure.left + BUSBAR_SIDE_MARGIN
-        val busEndX = enclosure.right - BUSBAR_SIDE_MARGIN
+        val busY = if (busNodes.isNotEmpty()) {
+            busNodes.map { it.y + BUSBAR_Y_OFFSET }.average().toFloat()
+        } else {
+            panel.y + BUSBAR_Y_OFFSET
+        }
 
-        val primaryBusId = busIds
-            .mapNotNull(nodesById::get)
-            .minByOrNull { it.x }
-            ?.id
+        val breakerCenters = breakers.map { it.connectionPoint.x }
 
-        val busbar = BusbarGeometry(
-            nodeId = primaryBusId,
-            start = Point(busStartX, busY),
-            end = Point(busEndX, busY)
+        val busStartX = min(
+            enclosure.right - BUSBAR_SIDE_MARGIN,
+            min(
+                panel.x + NODE_WIDTH / 2f,
+                breakerCenters.minOrNull() ?: (panel.x + NODE_WIDTH / 2f)
+            ) - BUSBAR_SIDE_MARGIN
         )
 
-        val breakerStartX = enclosure.left +
-            (enclosure.width -
-                (breakerCount * BREAKER_WIDTH +
-                    max(0, breakerCount - 1) * BREAKER_GAP)) / 2f
+        val busEndX = max(
+            enclosure.left + BUSBAR_SIDE_MARGIN,
+            max(
+                panel.x + NODE_WIDTH / 2f,
+                breakerCenters.maxOrNull() ?: (panel.x + NODE_WIDTH / 2f)
+            ) + BUSBAR_SIDE_MARGIN
+        )
 
-        val breakers = orderedBreakers.mapIndexed { index, breaker ->
-            val left = breakerStartX +
-                index * (BREAKER_WIDTH + BREAKER_GAP)
-            val top = enclosureTop + BREAKER_TOP
-            val bounds = Rect(
-                left = left,
-                top = top,
-                width = BREAKER_WIDTH,
-                height = BREAKER_WIDTH
-            )
-
-            BreakerGeometry(
-                nodeId = breaker.id,
-                bounds = bounds,
-                center = Point(
-                    left + BREAKER_WIDTH / 2f,
-                    top + BREAKER_WIDTH / 2f
-                ),
-                connectionPoint = Point(
-                    left + BREAKER_WIDTH / 2f,
-                    busY
-                )
-            )
-        }
+        val primaryBusId = busNodes
+            .minByOrNull { it.x }
+            ?.id
 
         return PanelLayout(
             panelId = panel.id,
             enclosure = enclosure,
-            busbar = busbar,
+            busbar = BusbarGeometry(
+                nodeId = primaryBusId,
+                start = Point(busStartX, busY),
+                end = Point(busEndX, busY)
+            ),
             breakers = breakers,
-            internalNodeIds = memberIds
+            internalNodeIds = internalNodeIds
         )
     }
 
-    fun calculateAll(network: SldNetwork): Map<String, PanelLayout> =
+    fun calculateAll(
+        network: SldNetwork
+    ): Map<String, PanelLayout> =
         network.nodes
             .asSequence()
             .filter { it.type == SldNodeType.PANEL }
