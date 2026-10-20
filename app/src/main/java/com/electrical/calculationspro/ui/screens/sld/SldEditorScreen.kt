@@ -40,7 +40,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,12 +68,124 @@ import com.electrical.calculationspro.data.SldNetwork
 import com.electrical.calculationspro.data.SldNode
 import com.electrical.calculationspro.data.SldNodeType
 import java.util.UUID
-import kotlin.math.abs
 
 private const val SLD_NODE_WIDTH = 180f
 private const val SLD_NODE_HEIGHT = 100f
 private const val SLD_CANVAS_WIDTH = 2600
 private const val SLD_CANVAS_HEIGHT = 1800
+
+private data class PanelDrawingGeometry(
+    val panelId: String,
+    val memberIds: Set<String>,
+    val left: Float,
+    val top: Float,
+    val right: Float,
+    val bottom: Float,
+    val busY: Float,
+    val busStartX: Float,
+    val busEndX: Float,
+    val breakerIds: List<String>
+)
+
+private fun buildPanelDrawingGeometry(
+    network: SldNetwork
+): List<PanelDrawingGeometry> {
+    val nodesById = network.nodes.associateBy { it.id }
+    val busbarConnections = network.connections.filter {
+        it.connectionType == SldConnectionType.BUSBAR
+    }
+
+    return network.nodes
+        .filter { it.type == SldNodeType.PANEL }
+        .mapNotNull { panel ->
+            val members = linkedSetOf(panel.id)
+            var changed: Boolean
+
+            do {
+                changed = false
+
+                busbarConnections.forEach { connection ->
+                    val from = nodesById[connection.fromNodeId] ?: return@forEach
+                    val to = nodesById[connection.toNodeId] ?: return@forEach
+
+                    val allowedPair =
+                        (from.type == SldNodeType.PANEL && to.type == SldNodeType.BUS) ||
+                        (from.type == SldNodeType.BUS && to.type == SldNodeType.PANEL) ||
+                        (from.type == SldNodeType.BUS && to.type == SldNodeType.BREAKER) ||
+                        (from.type == SldNodeType.BREAKER && to.type == SldNodeType.BUS) ||
+                        (from.type == SldNodeType.PANEL && to.type == SldNodeType.BREAKER) ||
+                        (from.type == SldNodeType.BREAKER && to.type == SldNodeType.PANEL)
+
+                    if (!allowedPair) return@forEach
+
+                    if (from.id in members && to.id !in members) {
+                        members.add(to.id)
+                        changed = true
+                    }
+
+                    if (to.id in members && from.id !in members) {
+                        members.add(from.id)
+                        changed = true
+                    }
+                }
+            } while (changed)
+
+            val memberNodes = members.mapNotNull(nodesById::get)
+            if (memberNodes.isEmpty()) return@mapNotNull null
+
+            val breakers = memberNodes
+                .filter { it.type == SldNodeType.BREAKER }
+                .sortedWith(
+                    compareBy<SldNode> { it.x }
+                        .thenBy { it.y }
+                        .thenBy { it.name }
+                )
+
+            val busNodes = memberNodes.filter {
+                it.type == SldNodeType.BUS
+            }
+
+            val minX = memberNodes.minOf { it.x }
+            val minY = memberNodes.minOf { it.y }
+            val maxX = memberNodes.maxOf { it.x + SLD_NODE_WIDTH }
+            val maxY = memberNodes.maxOf { it.y + SLD_NODE_HEIGHT }
+
+            val busY = when {
+                busNodes.isNotEmpty() ->
+                    busNodes.map { it.y + 25f }.average().toFloat()
+
+                breakers.isNotEmpty() ->
+                    breakers.minOf { it.y } + 25f
+
+                else ->
+                    panel.y + 25f
+            }
+
+            val busReferenceXs =
+                listOf(panel.x + SLD_NODE_WIDTH / 2f) +
+                    busNodes.map { it.x + SLD_NODE_WIDTH / 2f } +
+                    breakers.map { it.x + SLD_NODE_WIDTH / 2f }
+
+            PanelDrawingGeometry(
+                panelId = panel.id,
+                memberIds = members,
+                left = minX - 24f,
+                top = minY - 28f,
+                right = maxOf(minX - 24f + 240f, maxX + 24f),
+                bottom = maxOf(minY - 28f + 190f, maxY + 28f),
+                busY = busY,
+                busStartX = minOf(
+                    busReferenceXs.minOrNull() ?: panel.x,
+                    minX + 24f
+                ),
+                busEndX = maxOf(
+                    busReferenceXs.maxOrNull() ?: (panel.x + SLD_NODE_WIDTH),
+                    maxX - 24f
+                ),
+                breakerIds = breakers.map { it.id }
+            )
+        }
+}
 
 @Composable
 fun SldEditorScreen(
@@ -230,9 +341,7 @@ fun SldEditorScreen(
     fun handleNodeTap(nodeId: String) {
         selectedNodeId = nodeId
 
-        if (!connectMode) {
-            return
-        }
+        if (!connectMode) return
 
         val start = connectionStartId
         if (start == null) {
@@ -450,10 +559,7 @@ fun SldEditorScreen(
             )
         ) {
             Column(Modifier.padding(10.dp)) {
-                Text(
-                    status,
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Text(status, style = MaterialTheme.typography.bodyMedium)
                 Text(
                     if (arabic) {
                         "العناصر: ${network.nodes.size}  |  التوصيلات: ${network.connections.size}  |  أخطاء التحقق: ${validation.errors.size}"
@@ -466,7 +572,7 @@ fun SldEditorScreen(
             }
         }
 
-        if (calculationSummary != null) {
+        calculationSummary?.let { summary ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -476,7 +582,7 @@ fun SldEditorScreen(
                 )
             ) {
                 Text(
-                    calculationSummary!!,
+                    summary,
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -561,14 +667,12 @@ fun SldEditorScreen(
                                 val hit = network.nodes
                                     .asReversed()
                                     .firstOrNull { node ->
-                                        tapX >= node.x - 20f &&
-                                            tapX <= node.x + SLD_NODE_WIDTH + 20f &&
-                                            tapY >= node.y - 20f &&
-                                            tapY <= node.y + SLD_NODE_HEIGHT + 20f
+                                        tapX >= node.x - 8f &&
+                                            tapX <= node.x + SLD_NODE_WIDTH + 8f &&
+                                            tapY >= node.y - 8f &&
+                                            tapY <= node.y + SLD_NODE_HEIGHT + 8f
                                     }
-                                if (hit != null) {
-                                    handleNodeTap(hit.id)
-                                }
+                                if (hit != null) handleNodeTap(hit.id)
                             }
                         }
                         .pointerInput(network.nodes, selectedNodeId) {
@@ -579,17 +683,16 @@ fun SldEditorScreen(
                                     val hit = network.nodes
                                         .asReversed()
                                         .firstOrNull { node ->
-                                            x >= node.x - 20f &&
-                                                x <= node.x + SLD_NODE_WIDTH + 20f &&
-                                                y >= node.y - 20f &&
-                                                y <= node.y + SLD_NODE_HEIGHT + 20f
+                                            x >= node.x - 8f &&
+                                                x <= node.x + SLD_NODE_WIDTH + 8f &&
+                                                y >= node.y - 8f &&
+                                                y <= node.y + SLD_NODE_HEIGHT + 8f
                                         }
                                     if (hit != null) selectedNodeId = hit.id
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    val id = selectedNodeId
-                                    if (id != null) {
+                                    selectedNodeId?.let { id ->
                                         moveNode(
                                             id,
                                             dragAmount.x / density.density,
@@ -602,32 +705,95 @@ fun SldEditorScreen(
                 ) {
                     val gridColor = Color(0xFFE0E5EB)
                     val gridStep = 40.dp.toPx()
-                    var x = 0f
-                    while (x < size.width) {
+
+                    var gridX = 0f
+                    while (gridX < size.width) {
                         drawLine(
                             color = gridColor,
-                            start = Offset(x, 0f),
-                            end = Offset(x, size.height),
+                            start = Offset(gridX, 0f),
+                            end = Offset(gridX, size.height),
                             strokeWidth = 1f
                         )
-                        x += gridStep
+                        gridX += gridStep
                     }
-                    var y = 0f
-                    while (y < size.height) {
+
+                    var gridY = 0f
+                    while (gridY < size.height) {
                         drawLine(
                             color = gridColor,
-                            start = Offset(0f, y),
-                            end = Offset(size.width, y),
+                            start = Offset(0f, gridY),
+                            end = Offset(size.width, gridY),
                             strokeWidth = 1f
                         )
-                        y += gridStep
+                        gridY += gridStep
                     }
 
                     val nodesById = network.nodes.associateBy { it.id }
+                    val panelGeometries = buildPanelDrawingGeometry(network)
+                    val memberToPanel = mutableMapOf<String, String>()
 
-                    network.connections.forEach { connection ->
-                        val from = nodesById[connection.fromNodeId] ?: return@forEach
-                        val to = nodesById[connection.toNodeId] ?: return@forEach
+                    panelGeometries.forEach { geometry ->
+                        geometry.memberIds.forEach { memberId ->
+                            if (memberId !in memberToPanel) {
+                                memberToPanel[memberId] = geometry.panelId
+                            }
+                        }
+                    }
+
+                    // Draw the enclosure and the physical internal busbar first.
+                    panelGeometries.forEach { geometry ->
+                        val left = geometry.left.dp.toPx()
+                        val top = geometry.top.dp.toPx()
+                        val width = (geometry.right - geometry.left).dp.toPx()
+                        val height = (geometry.bottom - geometry.top).dp.toPx()
+
+                        drawRect(
+                            color = Color(0xFF687987),
+                            topLeft = Offset(left, top),
+                            size = Size(width, height),
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+
+                        drawLine(
+                            color = Color(0xFFB66A16),
+                            start = Offset(
+                                geometry.busStartX.dp.toPx(),
+                                geometry.busY.dp.toPx()
+                            ),
+                            end = Offset(
+                                geometry.busEndX.dp.toPx(),
+                                geometry.busY.dp.toPx()
+                            ),
+                            strokeWidth = 5.dp.toPx()
+                        )
+
+                        geometry.breakerIds.forEach { breakerId ->
+                            val breaker = nodesById[breakerId] ?: return@forEach
+                            val branchX =
+                                (breaker.x + SLD_NODE_WIDTH / 2f).dp.toPx()
+                            val branchY =
+                                (breaker.y + 25f).dp.toPx()
+
+                            drawLine(
+                                color = Color(0xFFB66A16),
+                                start = Offset(branchX, geometry.busY.dp.toPx()),
+                                end = Offset(branchX, branchY),
+                                strokeWidth = 3.dp.toPx()
+                            )
+                        }
+                    }
+
+                    // External feeders remain cable routes. Internal BUSBAR
+                    // connections are represented by the enclosure and bus.
+                    network.connections.forEach connectionLoop@{ connection ->
+                        if (connection.connectionType == SldConnectionType.BUSBAR) {
+                            return@connectionLoop
+                        }
+
+                        val from = nodesById[connection.fromNodeId]
+                            ?: return@connectionLoop
+                        val to = nodesById[connection.toNodeId]
+                            ?: return@connectionLoop
 
                         val start = Offset(
                             (from.x + SLD_NODE_WIDTH / 2f).dp.toPx(),
@@ -638,12 +804,6 @@ fun SldEditorScreen(
                             (to.y + SLD_NODE_HEIGHT / 2f).dp.toPx()
                         )
 
-                        val color = if (connection.connectionType == SldConnectionType.BUSBAR) {
-                            Color(0xFFB66A16)
-                        } else {
-                            Color(0xFF263746)
-                        }
-
                         val midX = (start.x + end.x) / 2f
                         val path = Path().apply {
                             moveTo(start.x, start.y)
@@ -651,12 +811,11 @@ fun SldEditorScreen(
                             lineTo(midX, end.y)
                             lineTo(end.x, end.y)
                         }
+
                         drawPath(
                             path = path,
-                            color = color,
-                            style = Stroke(
-                                width = if (connection.connectionType == SldConnectionType.BUSBAR) 4.dp.toPx() else 2.dp.toPx()
-                            )
+                            color = Color(0xFF263746),
+                            style = Stroke(width = 2.dp.toPx())
                         )
                     }
 
@@ -675,15 +834,6 @@ fun SldEditorScreen(
                             Color(0xFFE3F2FD)
                         } else {
                             Color.White
-                        }
-
-                        if (node.type == SldNodeType.PANEL) {
-                            drawRect(
-                                color = Color(0xFF687987),
-                                topLeft = Offset(left - 20.dp.toPx(), top - 20.dp.toPx()),
-                                size = Size(w + 40.dp.toPx(), h + 40.dp.toPx()),
-                                style = Stroke(width = 2.dp.toPx())
-                            )
                         }
 
                         when (node.type) {
@@ -799,6 +949,7 @@ fun SldEditorScreen(
                             textAlign = AndroidPaint.Align.CENTER
                             isAntiAlias = true
                         }
+
                         drawContext.canvas.nativeCanvas.drawText(
                             node.name.take(22),
                             left + w / 2f,
@@ -808,10 +959,17 @@ fun SldEditorScreen(
 
                         val detail = when (node.type) {
                             SldNodeType.LOAD -> "%.1f kW".format(node.loadKw)
-                            SldNodeType.TRANSFORMER -> if (node.ratedKva > 0) "${node.ratedKva.toInt()} kVA" else "${node.voltage.toInt()} V"
-                            SldNodeType.BREAKER -> if (node.ratedCurrentA > 0) "${node.ratedCurrentA.toInt()} A" else "Rating not set"
+                            SldNodeType.TRANSFORMER ->
+                                if (node.ratedKva > 0) "${node.ratedKva.toInt()} kVA"
+                                else "${node.voltage.toInt()} V"
+
+                            SldNodeType.BREAKER ->
+                                if (node.ratedCurrentA > 0) "${node.ratedCurrentA.toInt()} A"
+                                else "Rating not set"
+
                             else -> "${node.voltage.toInt()} V"
                         }
+
                         paint.textSize = 11.dp.toPx()
                         drawContext.canvas.nativeCanvas.drawText(
                             detail,
@@ -896,6 +1054,7 @@ private fun SldNodePropertiesDialog(
                     label = { Text(if (arabic) "الجهد (V)" else "Voltage (V)") },
                     singleLine = true
                 )
+
                 if (node.type == SldNodeType.LOAD) {
                     OutlinedTextField(
                         value = loadKw,
@@ -910,6 +1069,7 @@ private fun SldNodePropertiesDialog(
                         singleLine = true
                     )
                 }
+
                 if (node.type == SldNodeType.TRANSFORMER) {
                     OutlinedTextField(
                         value = ratedKva,
@@ -918,6 +1078,7 @@ private fun SldNodePropertiesDialog(
                         singleLine = true
                     )
                 }
+
                 if (node.type == SldNodeType.BREAKER) {
                     OutlinedTextField(
                         value = ratedCurrent,
