@@ -1,4 +1,3 @@
-
 package com.electrical.calculationspro.ui.screens.sld
 
 import android.graphics.Paint as AndroidPaint
@@ -34,7 +33,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +44,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -373,6 +372,13 @@ fun SldEditorScreen(
         calculationSummary = null
     }
 
+    // Keep the drag gesture active while the network changes during movement.
+    // The gesture always moves the node hit at drag start, not the current selection.
+    val currentNetwork by rememberUpdatedState(network)
+    val currentMoveNode by rememberUpdatedState<(String, Float, Float) -> Unit>(
+        { nodeId, dx, dy -> moveNode(nodeId, dx, dy) }
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -675,12 +681,14 @@ fun SldEditorScreen(
                                 if (hit != null) handleNodeTap(hit.id)
                             }
                         }
-                        .pointerInput(network.nodes, selectedNodeId) {
+                        .pointerInput(Unit) {
+                            var dragNodeId: String? = null
+
                             detectDragGestures(
                                 onDragStart = { point ->
                                     val x = point.x / density.density
                                     val y = point.y / density.density
-                                    val hit = network.nodes
+                                    val hit = currentNetwork.nodes
                                         .asReversed()
                                         .firstOrNull { node ->
                                             x >= node.x - 8f &&
@@ -688,17 +696,27 @@ fun SldEditorScreen(
                                                 y >= node.y - 8f &&
                                                 y <= node.y + SLD_NODE_HEIGHT + 8f
                                         }
-                                    if (hit != null) selectedNodeId = hit.id
+
+                                    dragNodeId = hit?.id
+                                    if (hit != null) {
+                                        selectedNodeId = hit.id
+                                    }
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    selectedNodeId?.let { id ->
-                                        moveNode(
+                                    dragNodeId?.let { id ->
+                                        currentMoveNode(
                                             id,
                                             dragAmount.x / density.density,
                                             dragAmount.y / density.density
                                         )
                                     }
+                                },
+                                onDragEnd = {
+                                    dragNodeId = null
+                                },
+                                onDragCancel = {
+                                    dragNodeId = null
                                 }
                             )
                         }
