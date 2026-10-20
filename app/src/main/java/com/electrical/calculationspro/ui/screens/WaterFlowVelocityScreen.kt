@@ -1,10 +1,14 @@
+
+
 package com.electrical.calculationspro.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -20,7 +24,6 @@ import com.electrical.calculationspro.ui.components.EngineeringResult
 import com.electrical.calculationspro.ui.components.EngineeringSecondaryButton
 import com.electrical.calculationspro.ui.components.EngineeringSection
 import com.electrical.calculationspro.ui.components.EngineeringStatus
-import com.electrical.calculationspro.ui.components.FourColumnFields
 
 private enum class HydraulicCalculationMode {
     VELOCITY_FROM_FLOW,
@@ -36,9 +39,7 @@ fun WaterFlowVelocityScreen(
     val arabic = language == AppLanguage.ARABIC
 
     var mode by remember {
-        mutableStateOf(
-            HydraulicCalculationMode.VELOCITY_FROM_FLOW
-        )
+        mutableStateOf(HydraulicCalculationMode.VELOCITY_FROM_FLOW)
     }
 
     var flow by remember { mutableStateOf("") }
@@ -61,9 +62,9 @@ fun WaterFlowVelocityScreen(
             "Flow, Velocity & Diameter Calculator"
         },
         subtitle = if (arabic) {
-            "حساب أي قيمة من القيم الثلاث باستخدام القيمتين الأخريين"
+            "اختر القيمة المطلوب حسابها وأدخل القيمتين الأخريين"
         } else {
-            "Calculate any one value from the other two"
+            "Select the value to calculate and enter the other two"
         },
         onBack = onBack
     ) {
@@ -75,50 +76,32 @@ fun WaterFlowVelocityScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 EngineeringSecondaryButton(
-                    text = if (arabic) {
-                        "حساب السرعة"
-                    } else {
-                        "Calculate Velocity"
-                    },
+                    text = if (arabic) "حساب السرعة" else "Calculate Velocity",
                     modifier = Modifier.weight(1f),
-                    enabled = mode !=
-                        HydraulicCalculationMode.VELOCITY_FROM_FLOW,
+                    enabled = mode != HydraulicCalculationMode.VELOCITY_FROM_FLOW,
                     onClick = {
-                        mode =
-                            HydraulicCalculationMode.VELOCITY_FROM_FLOW
+                        mode = HydraulicCalculationMode.VELOCITY_FROM_FLOW
                         clearResult()
                     }
                 )
 
                 EngineeringSecondaryButton(
-                    text = if (arabic) {
-                        "حساب التصرف"
-                    } else {
-                        "Calculate Flow"
-                    },
+                    text = if (arabic) "حساب التصرف" else "Calculate Flow",
                     modifier = Modifier.weight(1f),
-                    enabled = mode !=
-                        HydraulicCalculationMode.FLOW_FROM_VELOCITY,
+                    enabled = mode != HydraulicCalculationMode.FLOW_FROM_VELOCITY,
                     onClick = {
-                        mode =
-                            HydraulicCalculationMode.FLOW_FROM_VELOCITY
+                        mode = HydraulicCalculationMode.FLOW_FROM_VELOCITY
                         clearResult()
                     }
                 )
             }
 
             EngineeringSecondaryButton(
-                text = if (arabic) {
-                    "حساب القطر الداخلي"
-                } else {
-                    "Calculate Internal Diameter"
-                },
+                text = if (arabic) "حساب القطر الداخلي" else "Calculate Internal Diameter",
                 modifier = Modifier.fillMaxWidth(),
-                enabled = mode !=
-                    HydraulicCalculationMode.DIAMETER_FROM_FLOW_AND_VELOCITY,
+                enabled = mode != HydraulicCalculationMode.DIAMETER_FROM_FLOW_AND_VELOCITY,
                 onClick = {
-                    mode =
-                        HydraulicCalculationMode.DIAMETER_FROM_FLOW_AND_VELOCITY
+                    mode = HydraulicCalculationMode.DIAMETER_FROM_FLOW_AND_VELOCITY
                     clearResult()
                 }
             )
@@ -152,64 +135,97 @@ fun WaterFlowVelocityScreen(
         EngineeringSection(
             title = if (arabic) "بيانات الماسورة" else "Pipe Data"
         ) {
-            FourColumnFields {
-                if (
-                    mode !=
-                    HydraulicCalculationMode.FLOW_FROM_VELOCITY
+            // إعادة تركيب منطقة الإدخال عند تغيير التبويب،
+            // مع الاحتفاظ بالقيم في متغيرات الحالة خارج key.
+            key(mode) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item {
-                        EngineeringInput(
-                            value = flow,
-                            label = if (arabic) {
-                                "التصرف Q (م³/ساعة)"
-                            } else {
-                                "Flow Q (m³/h)"
-                            },
-                            onValueChange = {
-                                flow = it
-                                clearResult()
-                            }
-                        )
-                    }
-                }
+                    when (mode) {
+                        HydraulicCalculationMode.VELOCITY_FROM_FLOW -> {
+                            EngineeringInput(
+                                value = flow,
+                                label = if (arabic) {
+                                    "التصرف Q (م³/ساعة)"
+                                } else {
+                                    "Flow Q (m³/h)"
+                                },
+                                onValueChange = {
+                                    flow = it
+                                    clearResult()
+                                }
+                            )
 
-                if (
-                    mode !=
-                    HydraulicCalculationMode.VELOCITY_FROM_FLOW
-                ) {
-                    item {
-                        EngineeringInput(
-                            value = velocity,
-                            label = if (arabic) {
-                                "السرعة V (م/ث)"
-                            } else {
-                                "Velocity V (m/s)"
-                            },
-                            onValueChange = {
-                                velocity = it
-                                clearResult()
-                            }
-                        )
-                    }
-                }
+                            EngineeringInput(
+                                value = diameter,
+                                label = if (arabic) {
+                                    "القطر الداخلي D (مم)"
+                                } else {
+                                    "Internal Diameter D (mm)"
+                                },
+                                onValueChange = {
+                                    diameter = it
+                                    clearResult()
+                                }
+                            )
+                        }
 
-                if (
-                    mode !=
-                    HydraulicCalculationMode.DIAMETER_FROM_FLOW_AND_VELOCITY
-                ) {
-                    item {
-                        EngineeringInput(
-                            value = diameter,
-                            label = if (arabic) {
-                                "القطر الداخلي D (مم)"
-                            } else {
-                                "Internal Diameter D (mm)"
-                            },
-                            onValueChange = {
-                                diameter = it
-                                clearResult()
-                            }
-                        )
+                        HydraulicCalculationMode.FLOW_FROM_VELOCITY -> {
+                            EngineeringInput(
+                                value = velocity,
+                                label = if (arabic) {
+                                    "السرعة V (م/ث)"
+                                } else {
+                                    "Velocity V (m/s)"
+                                },
+                                onValueChange = {
+                                    velocity = it
+                                    clearResult()
+                                }
+                            )
+
+                            EngineeringInput(
+                                value = diameter,
+                                label = if (arabic) {
+                                    "القطر الداخلي D (مم)"
+                                } else {
+                                    "Internal Diameter D (mm)"
+                                },
+                                onValueChange = {
+                                    diameter = it
+                                    clearResult()
+                                }
+                            )
+                        }
+
+                        HydraulicCalculationMode.DIAMETER_FROM_FLOW_AND_VELOCITY -> {
+                            EngineeringInput(
+                                value = flow,
+                                label = if (arabic) {
+                                    "التصرف Q (م³/ساعة)"
+                                } else {
+                                    "Flow Q (m³/h)"
+                                },
+                                onValueChange = {
+                                    flow = it
+                                    clearResult()
+                                }
+                            )
+
+                            EngineeringInput(
+                                value = velocity,
+                                label = if (arabic) {
+                                    "السرعة V (م/ث)"
+                                } else {
+                                    "Velocity V (m/s)"
+                                },
+                                onValueChange = {
+                                    velocity = it
+                                    clearResult()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -230,16 +246,12 @@ fun WaterFlowVelocityScreen(
 
                 when (mode) {
                     HydraulicCalculationMode.VELOCITY_FROM_FLOW -> {
-                        val flowValue = flow.toDoubleOrNull()
-                        val diameterValue = diameter.toDoubleOrNull()
+                        val q = flow.toDoubleOrNull()
+                        val d = diameter.toDoubleOrNull()
 
                         if (
-                            flowValue == null ||
-                            !flowValue.isFinite() ||
-                            flowValue <= 0.0 ||
-                            diameterValue == null ||
-                            !diameterValue.isFinite() ||
-                            diameterValue <= 0.0
+                            q == null || !q.isFinite() || q <= 0.0 ||
+                            d == null || !d.isFinite() || d <= 0.0
                         ) {
                             error = if (arabic) {
                                 "أدخل تصرفًا وقطرًا داخليًا صحيحين أكبر من صفر."
@@ -249,16 +261,12 @@ fun WaterFlowVelocityScreen(
                             return@EngineeringPrimaryButton
                         }
 
-                        val calculatedVelocity =
-                            WaterDesignEngine.calculateVelocity(
-                                flowM3PerHour = flowValue,
-                                diameterMm = diameterValue
-                            )
+                        val calculated = WaterDesignEngine.calculateVelocity(
+                            flowM3PerHour = q,
+                            diameterMm = d
+                        )
 
-                        if (
-                            !calculatedVelocity.isFinite() ||
-                            calculatedVelocity <= 0.0
-                        ) {
+                        if (!calculated.isFinite() || calculated <= 0.0) {
                             error = if (arabic) {
                                 "تعذر حساب السرعة. راجع التصرف والقطر."
                             } else {
@@ -267,29 +275,18 @@ fun WaterFlowVelocityScreen(
                             return@EngineeringPrimaryButton
                         }
 
-                        velocity = formatHydraulicValue(calculatedVelocity)
-
-                        resultTitle = if (arabic) {
-                            "السرعة المحسوبة"
-                        } else {
-                            "Calculated Velocity"
-                        }
-
-                        resultValue =
-                            "${formatHydraulicValue(calculatedVelocity)} m/s"
+                        velocity = formatHydraulicValue(calculated)
+                        resultTitle = if (arabic) "السرعة المحسوبة" else "Calculated Velocity"
+                        resultValue = "${formatHydraulicValue(calculated)} m/s"
                     }
 
                     HydraulicCalculationMode.FLOW_FROM_VELOCITY -> {
-                        val velocityValue = velocity.toDoubleOrNull()
-                        val diameterValue = diameter.toDoubleOrNull()
+                        val v = velocity.toDoubleOrNull()
+                        val d = diameter.toDoubleOrNull()
 
                         if (
-                            velocityValue == null ||
-                            !velocityValue.isFinite() ||
-                            velocityValue <= 0.0 ||
-                            diameterValue == null ||
-                            !diameterValue.isFinite() ||
-                            diameterValue <= 0.0
+                            v == null || !v.isFinite() || v <= 0.0 ||
+                            d == null || !d.isFinite() || d <= 0.0
                         ) {
                             error = if (arabic) {
                                 "أدخل سرعة وقطرًا داخليًا صحيحين أكبر من صفر."
@@ -299,16 +296,12 @@ fun WaterFlowVelocityScreen(
                             return@EngineeringPrimaryButton
                         }
 
-                        val calculatedFlow =
-                            WaterDesignEngine.calculateFlow(
-                                diameterMm = diameterValue,
-                                velocityMPerS = velocityValue
-                            )
+                        val calculated = WaterDesignEngine.calculateFlow(
+                            diameterMm = d,
+                            velocityMPerS = v
+                        )
 
-                        if (
-                            !calculatedFlow.isFinite() ||
-                            calculatedFlow <= 0.0
-                        ) {
+                        if (!calculated.isFinite() || calculated <= 0.0) {
                             error = if (arabic) {
                                 "تعذر حساب التصرف. راجع السرعة والقطر."
                             } else {
@@ -317,29 +310,18 @@ fun WaterFlowVelocityScreen(
                             return@EngineeringPrimaryButton
                         }
 
-                        flow = formatHydraulicValue(calculatedFlow)
-
-                        resultTitle = if (arabic) {
-                            "التصرف المحسوب"
-                        } else {
-                            "Calculated Flow"
-                        }
-
-                        resultValue =
-                            "${formatHydraulicValue(calculatedFlow)} m³/h"
+                        flow = formatHydraulicValue(calculated)
+                        resultTitle = if (arabic) "التصرف المحسوب" else "Calculated Flow"
+                        resultValue = "${formatHydraulicValue(calculated)} m³/h"
                     }
 
                     HydraulicCalculationMode.DIAMETER_FROM_FLOW_AND_VELOCITY -> {
-                        val flowValue = flow.toDoubleOrNull()
-                        val velocityValue = velocity.toDoubleOrNull()
+                        val q = flow.toDoubleOrNull()
+                        val v = velocity.toDoubleOrNull()
 
                         if (
-                            flowValue == null ||
-                            !flowValue.isFinite() ||
-                            flowValue <= 0.0 ||
-                            velocityValue == null ||
-                            !velocityValue.isFinite() ||
-                            velocityValue <= 0.0
+                            q == null || !q.isFinite() || q <= 0.0 ||
+                            v == null || !v.isFinite() || v <= 0.0
                         ) {
                             error = if (arabic) {
                                 "أدخل تصرفًا وسرعة صحيحين أكبر من صفر."
@@ -349,16 +331,12 @@ fun WaterFlowVelocityScreen(
                             return@EngineeringPrimaryButton
                         }
 
-                        val calculatedDiameter =
-                            WaterDesignEngine.calculateDiameter(
-                                flowM3PerHour = flowValue,
-                                velocityMPerS = velocityValue
-                            )
+                        val calculated = WaterDesignEngine.calculateDiameter(
+                            flowM3PerHour = q,
+                            velocityMPerS = v
+                        )
 
-                        if (
-                            !calculatedDiameter.isFinite() ||
-                            calculatedDiameter <= 0.0
-                        ) {
+                        if (!calculated.isFinite() || calculated <= 0.0) {
                             error = if (arabic) {
                                 "تعذر حساب القطر. راجع التصرف والسرعة."
                             } else {
@@ -367,16 +345,13 @@ fun WaterFlowVelocityScreen(
                             return@EngineeringPrimaryButton
                         }
 
-                        diameter = formatHydraulicValue(calculatedDiameter)
-
+                        diameter = formatHydraulicValue(calculated)
                         resultTitle = if (arabic) {
                             "القطر الداخلي المحسوب"
                         } else {
                             "Calculated Internal Diameter"
                         }
-
-                        resultValue =
-                            "${formatHydraulicValue(calculatedDiameter)} mm"
+                        resultValue = "${formatHydraulicValue(calculated)} mm"
                     }
                 }
             }
@@ -391,11 +366,7 @@ fun WaterFlowVelocityScreen(
 
         if (resultTitle != null && resultValue != null) {
             EngineeringSection(
-                title = if (arabic) {
-                    "نتائج الحساب"
-                } else {
-                    "Calculation Results"
-                }
+                title = if (arabic) "نتائج الحساب" else "Calculation Results"
             ) {
                 EngineeringResult(
                     title = resultTitle!!,
@@ -413,21 +384,13 @@ fun WaterFlowVelocityScreen(
                 )
 
                 EngineeringResult(
-                    title = if (arabic) {
-                        "القطر الداخلي D"
-                    } else {
-                        "Internal Diameter D"
-                    },
+                    title = if (arabic) "القطر الداخلي D" else "Internal Diameter D",
                     value = "${diameter.ifBlank { "—" }} mm"
                 )
             }
         } else if (error == null) {
             EngineeringEmptyState(
-                title = if (arabic) {
-                    "لا توجد نتيجة بعد"
-                } else {
-                    "No Result Yet"
-                },
+                title = if (arabic) "لا توجد نتيجة بعد" else "No Result Yet",
                 message = if (arabic) {
                     "اختر نوع الحساب وأدخل القيم المطلوبة ثم اضغط احسب."
                 } else {
