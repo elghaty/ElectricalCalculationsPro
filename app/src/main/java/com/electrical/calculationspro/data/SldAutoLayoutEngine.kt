@@ -1,4 +1,3 @@
-
 package com.electrical.calculationspro.data
 
 import java.util.ArrayDeque
@@ -6,31 +5,23 @@ import kotlin.math.max
 import kotlin.math.round
 
 /**
- * SLD topology-aware auto-layout.
+ * Topology-aware SLD layout engine.
  *
- * Responsibilities:
- * - Reposition nodes without modifying electrical connections.
- * - Preserve connection IDs, direction and engineering properties.
- * - Treat valid internal panel BUSBAR connections as assembly links.
- * - Keep external cable feeders outside the internal assembly.
- * - Keep disconnected and cyclic components visible.
- *
- * This class performs graphic layout only. It does not perform
- * electrical calculations or change network topology.
+ * The engine changes graphical coordinates only.
+ * Electrical connections, IDs, direction and engineering
+ * properties are preserved.
  */
 object SldAutoLayoutEngine {
 
     private const val START_X = 120f
     private const val START_Y = 100f
-
     private const val COLUMN_GAP = 320f
     private const val ROW_GAP = 190f
-    private const val ASSEMBLY_GAP = 260f
+    private const val BREAKER_GAP_X = 200f
+    private const val BUS_OFFSET_X = 40f
+    private const val BUS_OFFSET_Y = 50f
+    private const val BREAKER_OFFSET_Y = 170f
     private const val GRID_SNAP = 20f
-
-    private const val INTERNAL_BUS_Y = 50f
-    private const val INTERNAL_BREAKER_START_Y = 170f
-    private const val INTERNAL_BREAKER_GAP_X = 200f
 
     data class LayoutResult(
         val network: SldNetwork,
@@ -47,14 +38,12 @@ object SldAutoLayoutEngine {
     }
 
     /**
-     * Calculates new positions while preserving the electrical model.
+     * Automatically arranges the diagram while preserving
+     * the original electrical topology.
      */
     fun arrange(network: SldNetwork): LayoutResult {
         if (network.nodes.isEmpty()) {
-            return LayoutResult(
-                network = network,
-                levels = emptyMap()
-            )
+            return LayoutResult(network, emptyMap())
         }
 
         val nodesById = network.nodes.associateBy { it.id }
@@ -63,13 +52,13 @@ object SldAutoLayoutEngine {
         val nodeToPanel = mutableMapOf<String, String>()
 
         assemblies.forEach { assembly ->
-            assembly.memberIds.forEach { memberId ->
-                nodeToPanel.putIfAbsent(memberId, assembly.panelId)
+            assembly.memberIds.forEach { id ->
+                nodeToPanel.putIfAbsent(id, assembly.panelId)
             }
         }
 
-        fun representative(nodeId: String): String =
-            nodeToPanel[nodeId] ?: nodeId
+        fun representative(id: String): String =
+            nodeToPanel[id] ?: id
 
         val representatives = network.nodes
             .map { representative(it.id) }
@@ -84,8 +73,8 @@ object SldAutoLayoutEngine {
         }.toMutableMap()
 
         /*
-         * Collapse each physical panel assembly into one representative
-         * for the external graph. Internal busbar edges are not feeders.
+         * External connections retain their original direction.
+         * Internal BUSBAR links are not treated as feeders.
          */
         network.connections.forEach { connection ->
             val from = nodesById[connection.fromNodeId]
@@ -108,24 +97,27 @@ object SldAutoLayoutEngine {
             parents.getValue(toId).add(fromId)
         }
 
-        /*
-         * Start with source nodes, then include all other graph roots.
-         * A disconnected diagram remains editable and visible.
-         */
         val sourceIds = network.nodes
             .filter { it.type == SldNodeType.SOURCE }
             .map { representative(it.id) }
             .distinct()
-            .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
+            .sortedBy {
+                nodesById[it]?.name.orEmpty().uppercase()
+            }
 
-        val rootIds = representatives
-            .filter { parents[it].orEmpty().isEmpty() }
-            .sortedWith(
-                compareBy<String> { rootPriority(nodesById[it]?.type) }
-                    .thenBy { nodesById[it]?.name.orEmpty().uppercase() }
-            )
+        val roots = (
+            sourceIds +
+                representatives.filter {
+                    parents[it].orEmpty().isEmpty()
+                }.sortedWith(
+                    compareBy<String> {
+                        rootPriority(nodesById[it]?.type)
+                    }.thenBy {
+                        nodesById[it]?.name.orEmpty().uppercase()
+                    }
+                )
+            ).distinct()
 
-        val roots = (sourceIds + rootIds).distinct()
         val levels = mutableMapOf<String, Int>()
         val queue = ArrayDeque<String>()
 
@@ -136,15 +128,17 @@ object SldAutoLayoutEngine {
         }
 
         /*
-         * Breadth-first traversal avoids recursive stack overflow and
-         * safely handles incomplete or cyclic editor diagrams.
+         * Breadth-first traversal supports incomplete diagrams
+         * and prevents recursive traversal of cyclic networks.
          */
         while (queue.isNotEmpty()) {
             val current = queue.removeFirst()
             val nextLevel = levels.getValue(current) + 1
 
             children[current].orEmpty()
-                .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
+                .sortedBy {
+                    nodesById[it]?.name.orEmpty().uppercase()
+                }
                 .forEach { childId ->
                     if (childId !in levels) {
                         levels[childId] = nextLevel
@@ -154,46 +148,45 @@ object SldAutoLayoutEngine {
         }
 
         /*
-         * Cycle-only components may have no root. Give every remaining
-         * component a stable level instead of dropping its nodes.
+         * Keep cyclic and disconnected components visible.
          */
-        var nextDisconnectedLevel =
+        var disconnectedLevel =
             (levels.values.maxOrNull() ?: 0) + 1
 
         representatives
             .filter { it !in levels }
-            .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
+            .sortedBy {
+                nodesById[it]?.name.orEmpty().uppercase()
+            }
             .forEach { id ->
-                levels[id] = nextDisconnectedLevel++
+                levels[id] = disconnectedLevel++
             }
 
-        /*
-         * Lay out the external graph from left to right:
-         * upstream levels are columns; nodes at the same level are rows.
-         */
         val positions = mutableMapOf<String, Pair<Float, Float>>()
 
-        val orderedByLevel = representatives
+        /*
+         * Position each external graph representative once.
+         */
+        representatives
             .groupBy { levels[it] ?: 0 }
             .toSortedMap()
-
-        orderedByLevel.forEach { (level, ids) ->
-            val orderedIds = ids.sortedWith(
-                compareBy<String> { rootPriority(nodesById[it]?.type) }
-                    .thenBy { nodesById[it]?.name.orEmpty().uppercase() }
-            )
-
-            orderedIds.forEachIndexed { row, id ->
-                positions[id] = snapPoint(
-                    START_X + level * COLUMN_GAP,
-                    START_Y + row * ROW_GAP
-                )
+            .forEach { (level, ids) ->
+                ids.sortedWith(
+                    compareBy<String> {
+                        rootPriority(nodesById[it]?.type)
+                    }.thenBy {
+                        nodesById[it]?.name.orEmpty().uppercase()
+                    }
+                ).forEachIndexed { row, id ->
+                    positions[id] = snapPoint(
+                        START_X + level * COLUMN_GAP,
+                        START_Y + row * ROW_GAP
+                    )
+                }
             }
-        }
 
         /*
-         * Prefer the source at the top of the first column.
-         * Only coordinates change; electrical direction is untouched.
+         * Keep source equipment at the beginning of the diagram.
          */
         sourceIds.forEachIndexed { index, id ->
             positions[id] = snapPoint(
@@ -203,9 +196,8 @@ object SldAutoLayoutEngine {
         }
 
         /*
-         * Place panel members relative to their enclosure anchor.
-         * The drawing layer must use these positions consistently
-         * with its enclosure and busbar geometry.
+         * Position every internal assembly relative to its panel.
+         * The assembly is laid out as one logical group.
          */
         assemblies.forEach { assembly ->
             val anchor = positions[assembly.panelId]
@@ -214,57 +206,73 @@ object SldAutoLayoutEngine {
             val panelX = anchor.first
             val panelY = anchor.second
 
-            positions[assembly.panelId] = snapPoint(panelX, panelY)
+            positions[assembly.panelId] =
+                snapPoint(panelX, panelY)
 
             assembly.busIds.forEachIndexed { index, busId ->
                 positions[busId] = snapPoint(
-                    panelX + 40f,
-                    panelY + INTERNAL_BUS_Y + index * 24f
+                    panelX + BUS_OFFSET_X,
+                    panelY + BUS_OFFSET_Y + index * 24f
                 )
             }
 
-            /*
-             * Breakers receive stable, non-overlapping logical positions.
-             * Their graphical renderer must draw them inside the same
-             * physical enclosure rather than as independent panel boxes.
-             */
             assembly.breakerIds.forEachIndexed { index, breakerId ->
                 positions[breakerId] = snapPoint(
-                    panelX + index * INTERNAL_BREAKER_GAP_X,
-                    panelY + INTERNAL_BREAKER_START_Y
+                    panelX + index * BREAKER_GAP_X,
+                    panelY + BREAKER_OFFSET_Y
                 )
             }
         }
 
         /*
-         * Place direct downstream loads outside the assembly.
-         * Connections and their direction are not rewritten.
+         * Place loads connected downstream of breakers.
+         * Each load gets a deterministic position. Multiple
+         * loads on the same breaker are vertically separated.
          */
-        network.connections.forEach { connection ->
-            val from = nodesById[connection.fromNodeId]
-                ?: return@forEach
-            val to = nodesById[connection.toNodeId]
+        val loadsByBreaker = network.connections
+            .mapNotNull { connection ->
+                if (
+                    connection.connectionType !=
+                    SldConnectionType.CABLE
+                ) {
+                    return@mapNotNull null
+                }
+
+                val from = nodesById[connection.fromNodeId]
+                    ?: return@mapNotNull null
+                val to = nodesById[connection.toNodeId]
+                    ?: return@mapNotNull null
+
+                if (
+                    from.type == SldNodeType.BREAKER &&
+                    to.type == SldNodeType.LOAD
+                ) {
+                    from.id to to.id
+                } else {
+                    null
+                }
+            }
+            .groupBy(
+                keySelector = { it.first },
+                valueTransform = { it.second }
+            )
+
+        loadsByBreaker.forEach { (breakerId, loadIds) ->
+            val breakerPosition = positions[breakerId]
                 ?: return@forEach
 
-            if (
-                from.type == SldNodeType.BREAKER &&
-                to.type == SldNodeType.LOAD &&
-                connection.connectionType == SldConnectionType.CABLE
-            ) {
-                val breakerPosition = positions[from.id]
-                    ?: positions[representative(from.id)]
-                    ?: return@forEach
-
-                positions[to.id] = snapPoint(
+            loadIds.distinct().forEachIndexed { index, loadId ->
+                positions[loadId] = snapPoint(
                     breakerPosition.first + COLUMN_GAP,
-                    breakerPosition.second
+                    breakerPosition.second +
+                        index * ROW_GAP
                 )
             }
         }
 
         /*
-         * Ensure every node receives a coordinate, including nodes that
-         * belong to unusual or incomplete topologies.
+         * Fallback positions ensure that no node disappears,
+         * even when the network is incomplete or unusual.
          */
         network.nodes.forEachIndexed { index, node ->
             if (node.id !in positions) {
@@ -277,7 +285,7 @@ object SldAutoLayoutEngine {
                     base
                 } else {
                     snapPoint(
-                        START_X + (index % 4) * ASSEMBLY_GAP,
+                        START_X + (index % 4) * COLUMN_GAP,
                         START_Y + (index / 4) * ROW_GAP
                     )
                 }
@@ -285,10 +293,15 @@ object SldAutoLayoutEngine {
         }
 
         /*
-         * Translate negative coordinates into the visible canvas area.
+         * Normalize coordinates to keep the diagram visible.
          */
-        val minX = positions.values.minOfOrNull { it.first } ?: START_X
-        val minY = positions.values.minOfOrNull { it.second } ?: START_Y
+        val minX = positions.values.minOfOrNull {
+            it.first
+        } ?: START_X
+
+        val minY = positions.values.minOfOrNull {
+            it.second
+        } ?: START_Y
 
         val offsetX = max(0f, START_X - minX)
         val offsetY = max(0f, START_Y - minY)
@@ -303,7 +316,7 @@ object SldAutoLayoutEngine {
         }
 
         /*
-         * Return the original connection list unchanged.
+         * Do not reconstruct or modify connections.
          */
         return LayoutResult(
             network = network.copy(nodes = updatedNodes),
@@ -311,25 +324,20 @@ object SldAutoLayoutEngine {
         )
     }
 
-    /**
-     * Finds BUS and BREAKER nodes connected to a PANEL exclusively
-     * through valid internal BUSBAR relationships.
-     */
     private fun buildPanelAssemblies(
         network: SldNetwork,
         nodesById: Map<String, SldNode>
     ): List<PanelAssembly> {
-        val panels = network.nodes.filter {
-            it.type == SldNodeType.PANEL
-        }
+        val panels = network.nodes
+            .filter { it.type == SldNodeType.PANEL }
 
         val claimedMembers = mutableSetOf<String>()
 
         return panels.map { panel ->
-            val memberIds = linkedSetOf(panel.id)
-            var changed = true
+            val members = linkedSetOf(panel.id)
+            var changed: Boolean
 
-            while (changed) {
+            do {
                 changed = false
 
                 network.connections.forEach { connection ->
@@ -342,37 +350,62 @@ object SldAutoLayoutEngine {
 
                     val from = nodesById[connection.fromNodeId]
                         ?: return@forEach
+
                     val to = nodesById[connection.toNodeId]
                         ?: return@forEach
 
-                    if (!isInternalAssemblyConnection(connection, from, to)) {
+                    if (
+                        !isInternalAssemblyConnection(
+                            connection,
+                            from,
+                            to
+                        )
+                    ) {
                         return@forEach
                     }
 
-                    val fromInside = from.id in memberIds
-                    val toInside = to.id in memberIds
+                    val fromInside = from.id in members
+                    val toInside = to.id in members
 
-                    if (fromInside && to.type in INTERNAL_MEMBER_TYPES) {
-                        if (to.id !in claimedMembers || to.id == panel.id) {
-                            if (memberIds.add(to.id)) changed = true
-                        }
+                    if (
+                        fromInside &&
+                        to.type in INTERNAL_MEMBER_TYPES &&
+                        (
+                            to.id !in claimedMembers ||
+                                to.id == panel.id
+                            )
+                    ) {
+                        if (members.add(to.id)) changed = true
                     }
 
-                    if (toInside && from.type in INTERNAL_MEMBER_TYPES) {
-                        if (from.id !in claimedMembers || from.id == panel.id) {
-                            if (memberIds.add(from.id)) changed = true
-                        }
+                    if (
+                        toInside &&
+                        from.type in INTERNAL_MEMBER_TYPES &&
+                        (
+                            from.id !in claimedMembers ||
+                                from.id == panel.id
+                            )
+                    ) {
+                        if (members.add(from.id)) changed = true
                     }
                 }
-            }
+            } while (changed)
 
-            val busIds = memberIds
-                .filter { nodesById[it]?.type == SldNodeType.BUS }
-                .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
+            val busIds = members
+                .filter {
+                    nodesById[it]?.type == SldNodeType.BUS
+                }
+                .sortedBy {
+                    nodesById[it]?.name.orEmpty().uppercase()
+                }
 
-            val breakerIds = memberIds
-                .filter { nodesById[it]?.type == SldNodeType.BREAKER }
-                .sortedBy { nodesById[it]?.name.orEmpty().uppercase() }
+            val breakerIds = members
+                .filter {
+                    nodesById[it]?.type == SldNodeType.BREAKER
+                }
+                .sortedBy {
+                    nodesById[it]?.name.orEmpty().uppercase()
+                }
 
             claimedMembers.addAll(busIds)
             claimedMembers.addAll(breakerIds)
@@ -390,7 +423,10 @@ object SldAutoLayoutEngine {
         from: SldNode,
         to: SldNode
     ): Boolean {
-        if (connection.connectionType != SldConnectionType.BUSBAR) {
+        if (
+            connection.connectionType !=
+            SldConnectionType.BUSBAR
+        ) {
             return false
         }
 
