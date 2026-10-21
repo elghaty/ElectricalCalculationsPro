@@ -79,6 +79,12 @@ private const val SLD_NODE_HEIGHT = 100f
 private const val SLD_CANVAS_WIDTH = 2600
 private const val SLD_CANVAS_HEIGHT = 1800
 
+private const val SLD_SYMBOL_CENTER_Y = 25f
+private const val SLD_PANEL_MARGIN_X = 24f
+private const val SLD_PANEL_MARGIN_Y = 28f
+private const val SLD_PANEL_MIN_WIDTH = 240f
+private const val SLD_PANEL_MIN_HEIGHT = 190f
+
 private data class PanelDrawingGeometry(
     val panelId: String,
     val memberIds: Set<String>,
@@ -92,10 +98,17 @@ private data class PanelDrawingGeometry(
     val breakerIds: List<String>
 )
 
+private data class SymbolBounds(
+    val center: Offset,
+    val halfWidth: Float,
+    val halfHeight: Float
+)
+
 private fun buildPanelDrawingGeometry(
     network: SldNetwork
 ): List<PanelDrawingGeometry> {
     val nodesById = network.nodes.associateBy { it.id }
+
     val busbarConnections = network.connections.filter {
         it.connectionType == SldConnectionType.BUSBAR
     }
@@ -112,6 +125,7 @@ private fun buildPanelDrawingGeometry(
                 busbarConnections.forEach { connection ->
                     val from = nodesById[connection.fromNodeId]
                         ?: return@forEach
+
                     val to = nodesById[connection.toNodeId]
                         ?: return@forEach
 
@@ -144,7 +158,10 @@ private fun buildPanelDrawingGeometry(
             } while (changed)
 
             val memberNodes = members.mapNotNull(nodesById::get)
-            if (memberNodes.isEmpty()) return@mapNotNull null
+
+            if (memberNodes.isEmpty()) {
+                return@mapNotNull null
+            }
 
             val breakers = memberNodes
                 .filter { it.type == SldNodeType.BREAKER }
@@ -160,75 +177,210 @@ private fun buildPanelDrawingGeometry(
 
             val minX = memberNodes.minOf { it.x }
             val minY = memberNodes.minOf { it.y }
+
             val maxX = memberNodes.maxOf {
                 it.x + SLD_NODE_WIDTH
             }
+
             val maxY = memberNodes.maxOf {
                 it.y + SLD_NODE_HEIGHT
             }
 
             val busY = when {
                 busNodes.isNotEmpty() ->
-                    busNodes.map { it.y + 25f }.average().toFloat()
+                    busNodes.map {
+                        it.y + SLD_SYMBOL_CENTER_Y
+                    }.average().toFloat()
 
                 breakers.isNotEmpty() ->
-                    breakers.minOf { it.y } + 25f
+                    breakers.minOf {
+                        it.y + SLD_SYMBOL_CENTER_Y
+                    }
 
-                else -> panel.y + 25f
+                else ->
+                    panel.y + SLD_SYMBOL_CENTER_Y
             }
 
             val busReferenceXs =
                 listOf(panel.x + SLD_NODE_WIDTH / 2f) +
-                    busNodes.map { it.x + SLD_NODE_WIDTH / 2f } +
-                    breakers.map { it.x + SLD_NODE_WIDTH / 2f }
+                    busNodes.map {
+                        it.x + SLD_NODE_WIDTH / 2f
+                    } +
+                    breakers.map {
+                        it.x + SLD_NODE_WIDTH / 2f
+                    }
 
             PanelDrawingGeometry(
                 panelId = panel.id,
                 memberIds = members,
-                left = minX - 24f,
-                top = minY - 28f,
-                right = maxOf(minX - 24f + 240f, maxX + 24f),
-                bottom = maxOf(minY - 28f + 190f, maxY + 28f),
+                left = minX - SLD_PANEL_MARGIN_X,
+                top = minY - SLD_PANEL_MARGIN_Y,
+                right = maxOf(
+                    minX - SLD_PANEL_MARGIN_X +
+                        SLD_PANEL_MIN_WIDTH,
+                    maxX + SLD_PANEL_MARGIN_X
+                ),
+                bottom = maxOf(
+                    minY - SLD_PANEL_MARGIN_Y +
+                        SLD_PANEL_MIN_HEIGHT,
+                    maxY + SLD_PANEL_MARGIN_Y
+                ),
                 busY = busY,
                 busStartX = minOf(
                     busReferenceXs.minOrNull() ?: panel.x,
-                    minX + 24f
+                    minX + SLD_PANEL_MARGIN_X
                 ),
                 busEndX = maxOf(
                     busReferenceXs.maxOrNull()
                         ?: (panel.x + SLD_NODE_WIDTH),
-                    maxX - 24f
+                    maxX - SLD_PANEL_MARGIN_X
                 ),
                 breakerIds = breakers.map { it.id }
             )
         }
 }
 
-private fun nodeCenter(node: SldNode): Offset =
-    Offset(
-        node.x + SLD_NODE_WIDTH / 2f,
-        node.y + SLD_NODE_HEIGHT / 2f
+/**
+ * The connection point is the center of the equipment symbol,
+ * not the center of the entire label area.
+ *
+ * Node coordinates are stored in dp units. Conversion to pixels
+ * happens only when drawing on the Canvas.
+ */
+private fun nodeCenter(node: SldNode): Offset {
+    return Offset(
+        x = node.x + SLD_NODE_WIDTH / 2f,
+        y = node.y + SLD_SYMBOL_CENTER_Y
     )
+}
 
+private fun isBreakerHorizontal(
+    node: SldNode,
+    network: SldNetwork
+): Boolean {
+    if (node.type != SldNodeType.BREAKER) return false
+
+    val nodesById = network.nodes.associateBy { it.id }
+
+    val connectedNodes = network.connections
+        .filter {
+            it.connectionType == SldConnectionType.CABLE &&
+                (
+                    it.fromNodeId == node.id ||
+                        it.toNodeId == node.id
+                    )
+        }
+        .mapNotNull { connection ->
+            val otherId = if (connection.fromNodeId == node.id) {
+                connection.toNodeId
+            } else {
+                connection.fromNodeId
+            }
+
+            nodesById[otherId]
+        }
+
+    if (connectedNodes.isEmpty()) return false
+
+    val center = nodeCenter(node)
+
+    val horizontalCount = connectedNodes.count { connected ->
+        val other = nodeCenter(connected)
+
+        abs(other.x - center.x) >=
+            abs(other.y - center.y)
+    }
+
+    val verticalCount = connectedNodes.size - horizontalCount
+
+    return horizontalCount >= verticalCount
+}
+
+private fun symbolBounds(
+    node: SldNode,
+    network: SldNetwork
+): SymbolBounds {
+    val center = nodeCenter(node)
+
+    return when (node.type) {
+        SldNodeType.SOURCE,
+        SldNodeType.GENERATOR -> {
+            SymbolBounds(
+                center = center,
+                halfWidth = 25f,
+                halfHeight = 25f
+            )
+        }
+
+        SldNodeType.TRANSFORMER -> {
+            SymbolBounds(
+                center = center,
+                halfWidth = 35f,
+                halfHeight = 22f
+            )
+        }
+
+        SldNodeType.BUS -> {
+            SymbolBounds(
+                center = center,
+                halfWidth = SLD_NODE_WIDTH / 2f - 15f,
+                halfHeight = 4f
+            )
+        }
+
+        SldNodeType.PANEL,
+        SldNodeType.LOAD -> {
+            SymbolBounds(
+                center = center,
+                halfWidth = SLD_NODE_WIDTH / 2f - 20f,
+                halfHeight = 21f
+            )
+        }
+
+        SldNodeType.BREAKER -> {
+            if (isBreakerHorizontal(node, network)) {
+                SymbolBounds(
+                    center = center,
+                    halfWidth = 25f,
+                    halfHeight = 19f
+                )
+            } else {
+                SymbolBounds(
+                    center = center,
+                    halfWidth = 19f,
+                    halfHeight = 24f
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Returns the intersection of the line between two symbol centers
+ * and the visible boundary of the first symbol.
+ */
 private fun connectionBoundaryPoint(
     node: SldNode,
-    target: SldNode
+    target: SldNode,
+    network: SldNetwork
 ): Offset {
-    val center = nodeCenter(node)
+    val bounds = symbolBounds(node, network)
+    val center = bounds.center
     val targetCenter = nodeCenter(target)
+
     val dx = targetCenter.x - center.x
     val dy = targetCenter.y - center.y
 
     if (dx == 0f && dy == 0f) return center
 
-    val scaleX = if (dx != 0f) {
-        (SLD_NODE_WIDTH / 2f) / abs(dx)
+    val scaleX = if (abs(dx) > 0.0001f) {
+        bounds.halfWidth / abs(dx)
     } else {
         Float.POSITIVE_INFINITY
     }
 
-    val scaleY = if (dy != 0f) {
-        (SLD_NODE_HEIGHT / 2f) / abs(dy)
+    val scaleY = if (abs(dy) > 0.0001f) {
+        bounds.halfHeight / abs(dy)
     } else {
         Float.POSITIVE_INFINITY
     }
@@ -236,8 +388,8 @@ private fun connectionBoundaryPoint(
     val scale = minOf(scaleX, scaleY)
 
     return Offset(
-        center.x + dx * scale,
-        center.y + dy * scale
+        x = center.x + dx * scale,
+        y = center.y + dy * scale
     )
 }
 
@@ -247,42 +399,64 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawArrowHead(
     color: Color,
     strokeWidth: Float
 ) {
-    val angle = atan2(tip.y - previous.y, tip.x - previous.x)
+    val angle = atan2(
+        tip.y - previous.y,
+        tip.x - previous.x
+    )
+
     val arrowLength = 10.dp.toPx()
     val wingAngle = Math.toRadians(150.0).toFloat()
 
     val left = Offset(
-        tip.x + arrowLength * cos(angle + wingAngle),
-        tip.y + arrowLength * sin(angle + wingAngle)
+        x = tip.x + arrowLength * cos(angle + wingAngle),
+        y = tip.y + arrowLength * sin(angle + wingAngle)
     )
 
     val right = Offset(
-        tip.x + arrowLength * cos(angle - wingAngle),
-        tip.y + arrowLength * sin(angle - wingAngle)
+        x = tip.x + arrowLength * cos(angle - wingAngle),
+        y = tip.y + arrowLength * sin(angle - wingAngle)
     )
 
-    drawLine(color, tip, left, strokeWidth)
-    drawLine(color, tip, right, strokeWidth)
+    drawLine(
+        color = color,
+        start = tip,
+        end = left,
+        strokeWidth = strokeWidth
+    )
+
+    drawLine(
+        color = color,
+        start = tip,
+        end = right,
+        strokeWidth = strokeWidth
+    )
 }
 
+/**
+ * Draws a directed cable from fromNodeId to toNodeId.
+ * The arrow always points to the destination node.
+ */
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDirectedCable(
     from: SldNode,
-    to: SldNode
+    to: SldNode,
+    network: SldNetwork
 ) {
-    val startDp = connectionBoundaryPoint(from, to)
-    val endDp = connectionBoundaryPoint(to, from)
+    val startDp = connectionBoundaryPoint(from, to, network)
+    val endDp = connectionBoundaryPoint(to, from, network)
 
     val start = Offset(
-        startDp.x.dp.toPx(),
-        startDp.y.dp.toPx()
+        x = startDp.x.dp.toPx(),
+        y = startDp.y.dp.toPx()
     )
+
     val end = Offset(
-        endDp.x.dp.toPx(),
-        endDp.y.dp.toPx()
+        x = endDp.x.dp.toPx(),
+        y = endDp.y.dp.toPx()
     )
 
     val dx = end.x - start.x
     val dy = end.y - start.y
+
     val strokeWidth = 2.dp.toPx()
     val color = Color(0xFF263746)
 
@@ -291,6 +465,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDirectedCable(
 
     if (abs(dx) >= abs(dy)) {
         val midX = (start.x + end.x) / 2f
+
         path.moveTo(start.x, start.y)
         path.lineTo(midX, start.y)
         path.lineTo(midX, end.y)
@@ -299,10 +474,11 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDirectedCable(
         arrowPrevious = if (abs(end.x - midX) > 1f) {
             Offset(midX, end.y)
         } else {
-            Offset(end.x, start.y)
+            Offset(midX, start.y)
         }
     } else {
         val midY = (start.y + end.y) / 2f
+
         path.moveTo(start.x, start.y)
         path.lineTo(start.x, midY)
         path.lineTo(end.x, midY)
@@ -311,7 +487,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDirectedCable(
         arrowPrevious = if (abs(end.y - midY) > 1f) {
             Offset(end.x, midY)
         } else {
-            Offset(start.x, end.y)
+            Offset(start.x, midY)
         }
     }
 
@@ -336,15 +512,33 @@ fun SldEditorScreen(
 ) {
     val arabic = language == AppLanguage.ARABIC
 
-    var network by remember { mutableStateOf(SldNetwork()) }
-    var selectedNodeId by remember { mutableStateOf<String?>(null) }
-    var connectionStartId by remember { mutableStateOf<String?>(null) }
-    var connectMode by remember { mutableStateOf(false) }
+    var network by remember {
+        mutableStateOf(SldNetwork())
+    }
+
+    var selectedNodeId by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var connectionStartId by remember {
+        mutableStateOf<String?>(null)
+    }
+
+    var connectMode by remember {
+        mutableStateOf(false)
+    }
+
     var connectionType by remember {
         mutableStateOf(SldConnectionType.CABLE)
     }
-    var showConnectionMenu by remember { mutableStateOf(false) }
-    var showNodeDialog by remember { mutableStateOf(false) }
+
+    var showConnectionMenu by remember {
+        mutableStateOf(false)
+    }
+
+    var showNodeDialog by remember {
+        mutableStateOf(false)
+    }
 
     var status by remember {
         mutableStateOf(
@@ -371,7 +565,9 @@ fun SldEditorScreen(
     fun addNode(type: SldNodeType) {
         if (
             type == SldNodeType.SOURCE &&
-            network.nodes.any { it.type == SldNodeType.SOURCE }
+            network.nodes.any {
+                it.type == SldNodeType.SOURCE
+            }
         ) {
             status = if (arabic) {
                 "يوجد مصدر بالفعل. لا تضف مصدرًا آخر قبل تحديد نظام تشغيل المصادر."
@@ -409,7 +605,9 @@ fun SldEditorScreen(
         }
 
         val sameTypeCount =
-            network.nodes.count { it.type == type } + 1
+            network.nodes.count {
+                it.type == type
+            } + 1
 
         val node = SldNode(
             id = UUID.randomUUID().toString(),
@@ -418,7 +616,11 @@ fun SldEditorScreen(
             x = 120f + column * 300f,
             y = 120f + row * 220f,
             voltage = network.nodes.firstOrNull()?.voltage ?: 400.0,
-            loadKw = if (type == SldNodeType.LOAD) 10.0 else 0.0,
+            loadKw = if (type == SldNodeType.LOAD) {
+                10.0
+            } else {
+                0.0
+            },
             ratedKva = if (type == SldNodeType.TRANSFORMER) {
                 500.0
             } else {
@@ -441,7 +643,10 @@ fun SldEditorScreen(
             }
         )
 
-        network = network.copy(nodes = network.nodes + node)
+        network = network.copy(
+            nodes = network.nodes + node
+        )
+
         selectedNodeId = node.id
         connectionStartId = null
         calculationSummary = null
@@ -453,7 +658,10 @@ fun SldEditorScreen(
         }
     }
 
-    fun connectNodes(firstId: String, secondId: String) {
+    fun connectNodes(
+        firstId: String,
+        secondId: String
+    ) {
         if (firstId == secondId) {
             status = if (arabic) {
                 "لا يمكن توصيل العنصر بنفسه."
@@ -466,6 +674,7 @@ fun SldEditorScreen(
         val first = network.nodes.firstOrNull {
             it.id == firstId
         }
+
         val second = network.nodes.firstOrNull {
             it.id == secondId
         }
@@ -479,17 +688,31 @@ fun SldEditorScreen(
             return
         }
 
-        if (
-            network.connections.any {
-                it.fromNodeId == firstId &&
-                    it.toNodeId == secondId &&
-                    it.connectionType == connectionType
-            }
-        ) {
+        /*
+         * A physical connection must not be duplicated simply
+         * by reversing the order in which its endpoints are selected.
+         *
+         * The stored direction of an existing connection is preserved.
+         */
+        val duplicateConnection = network.connections.any { existing ->
+            existing.connectionType == connectionType &&
+                (
+                    (
+                        existing.fromNodeId == firstId &&
+                            existing.toNodeId == secondId
+                        ) ||
+                    (
+                        existing.fromNodeId == secondId &&
+                            existing.toNodeId == firstId
+                        )
+                    )
+        }
+
+        if (duplicateConnection) {
             status = if (arabic) {
-                "هذا التوصيل موجود بالفعل."
+                "هذا التوصيل موجود بالفعل بين العنصرين."
             } else {
-                "This connection already exists."
+                "A connection of this type already exists between these elements."
             }
             return
         }
@@ -544,6 +767,7 @@ fun SldEditorScreen(
         network = network.copy(
             connections = network.connections + connection
         )
+
         calculationSummary = null
 
         status = if (arabic) {
@@ -562,6 +786,7 @@ fun SldEditorScreen(
 
         if (start == null) {
             connectionStartId = nodeId
+
             val startNode = network.nodes.firstOrNull {
                 it.id == nodeId
             }
@@ -571,6 +796,7 @@ fun SldEditorScreen(
             } else {
                 "Connection start: ${startNode?.name ?: "element"}. Select the next element."
             }
+
             return
         }
 
@@ -587,7 +813,11 @@ fun SldEditorScreen(
         connectionStartId = null
     }
 
-    fun moveNode(nodeId: String, dx: Float, dy: Float) {
+    fun moveNode(
+        nodeId: String,
+        dx: Float,
+        dy: Float
+    ) {
         network = network.copy(
             nodes = network.nodes.map { node ->
                 if (node.id == nodeId) {
@@ -600,10 +830,12 @@ fun SldEditorScreen(
                 }
             }
         )
+
         calculationSummary = null
     }
 
     val currentNetwork by rememberUpdatedState(network)
+
     val currentMoveNode by rememberUpdatedState<
         (String, Float, Float) -> Unit
     >(
@@ -611,6 +843,7 @@ fun SldEditorScreen(
             moveNode(nodeId, dx, dy)
         }
     )
+
     val currentHandleNodeTap by rememberUpdatedState<
         (String) -> Unit
     >(
@@ -618,6 +851,7 @@ fun SldEditorScreen(
             handleNodeTap(nodeId)
         }
     )
+
     val currentConnectMode by rememberUpdatedState(connectMode)
 
     Column(
@@ -628,14 +862,21 @@ fun SldEditorScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 6.dp
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (onBack != null) {
                 IconButton(onClick = onBack) {
                     Icon(
                         Icons.Outlined.ArrowBack,
-                        contentDescription = if (arabic) "رجوع" else "Back"
+                        contentDescription = if (arabic) {
+                            "رجوع"
+                        } else {
+                            "Back"
+                        }
                     )
                 }
             }
@@ -646,7 +887,9 @@ fun SldEditorScreen(
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     if (arabic) {
                         "مصمم المخطط الأحادي SLD"
@@ -670,10 +913,13 @@ fun SldEditorScreen(
             Button(
                 onClick = {
                     val gate =
-                        SldEngineeringFacade.checkEngineeringTopology(network)
+                        SldEngineeringFacade.checkEngineeringTopology(
+                            network
+                        )
 
                     if (!gate.valid) {
                         calculationSummary = null
+
                         status = gate.errorMessage ?: if (arabic) {
                             "الشبكة غير جاهزة للحساب."
                         } else {
@@ -682,7 +928,9 @@ fun SldEditorScreen(
                     } else {
                         try {
                             val result =
-                                SldEngineeringFacade.calculateUpstream(network)
+                                SldEngineeringFacade.calculateUpstream(
+                                    network
+                                )
 
                             calculationSummary = buildString {
                                 appendLine(
@@ -692,30 +940,37 @@ fun SldEditorScreen(
                                         "Preliminary calculation"
                                     }
                                 )
+
                                 appendLine(
                                     "${if (arabic) "الحمل المتصل" else "Connected load"}: %.2f kW"
                                         .format(result.totalConnectedKw)
                                 )
+
                                 appendLine(
                                     "${if (arabic) "حمل الطلب" else "Demand load"}: %.2f kW"
                                         .format(result.totalDemandKw)
                                 )
+
                                 appendLine(
                                     "${if (arabic) "القدرة الظاهرية" else "Apparent power"}: %.2f kVA"
                                         .format(result.totalKva)
                                 )
+
                                 appendLine(
                                     "${if (arabic) "تيار المصدر" else "Source current"}: %.2f A"
                                         .format(result.sourceCurrentA)
                                 )
+
                                 appendLine(
                                     "${if (arabic) "القاطع الرئيسي المقترح" else "Recommended main breaker"}: %.0f A"
                                         .format(result.recommendedMainBreakerA)
                                 )
+
                                 appendLine(
                                     "${if (arabic) "المحول المقترح" else "Recommended transformer"}: %.0f kVA"
                                         .format(result.recommendedTransformerKva)
                                 )
+
                                 appendLine(
                                     "${if (arabic) "أقصى هبوط جهد" else "Maximum voltage drop"}: %.3f %%"
                                         .format(result.maximumVoltageDropPercent)
@@ -730,6 +985,7 @@ fun SldEditorScreen(
                                             "Engineering notes:"
                                         }
                                     )
+
                                     result.warnings.forEach {
                                         appendLine("• $it")
                                     }
@@ -743,6 +999,7 @@ fun SldEditorScreen(
                             }
                         } catch (error: Exception) {
                             calculationSummary = null
+
                             status = error.message ?: if (arabic) {
                                 "تعذر إكمال الحساب."
                             } else {
@@ -756,8 +1013,12 @@ fun SldEditorScreen(
                     Icons.Outlined.Calculate,
                     contentDescription = null
                 )
+
                 Spacer(Modifier.width(6.dp))
-                Text(if (arabic) "حساب" else "Calculate")
+
+                Text(
+                    if (arabic) "حساب" else "Calculate"
+                )
             }
         }
 
@@ -765,27 +1026,45 @@ fun SldEditorScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 4.dp
+                ),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SldNodeType.values().forEach { type ->
-                OutlinedButton(onClick = { addNode(type) }) {
-                    Icon(Icons.Outlined.Add, contentDescription = null)
+                OutlinedButton(
+                    onClick = {
+                        addNode(type)
+                    }
+                ) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = null
+                    )
+
                     Spacer(Modifier.width(4.dp))
-                    Text(sldTypeLabel(type, arabic))
+
+                    Text(
+                        sldTypeLabel(type, arabic)
+                    )
                 }
             }
 
             Box {
                 OutlinedButton(
-                    onClick = { showConnectionMenu = true }
+                    onClick = {
+                        showConnectionMenu = true
+                    }
                 ) {
                     Icon(
                         Icons.Outlined.AccountTree,
                         contentDescription = null
                     )
+
                     Spacer(Modifier.width(4.dp))
+
                     Text(
                         when (connectionType) {
                             SldConnectionType.CABLE ->
@@ -814,11 +1093,17 @@ fun SldEditorScreen(
                     DropdownMenuItem(
                         text = {
                             Text(
-                                if (arabic) "مغذي كابل" else "Cable feeder"
+                                if (arabic) {
+                                    "مغذي كابل"
+                                } else {
+                                    "Cable feeder"
+                                }
                             )
                         },
                         onClick = {
-                            connectionType = SldConnectionType.CABLE
+                            connectionType =
+                                SldConnectionType.CABLE
+
                             showConnectionMenu = false
                         }
                     )
@@ -834,7 +1119,9 @@ fun SldEditorScreen(
                             )
                         },
                         onClick = {
-                            connectionType = SldConnectionType.BUSBAR
+                            connectionType =
+                                SldConnectionType.BUSBAR
+
                             showConnectionMenu = false
                         }
                     )
@@ -844,6 +1131,7 @@ fun SldEditorScreen(
             Button(
                 onClick = {
                     val enablingConnectionMode = !connectMode
+
                     connectMode = enablingConnectionMode
                     connectionStartId = null
 
@@ -864,9 +1152,17 @@ fun SldEditorScreen(
             ) {
                 Text(
                     if (connectMode) {
-                        if (arabic) "إنهاء التوصيل" else "Finish connecting"
+                        if (arabic) {
+                            "إنهاء التوصيل"
+                        } else {
+                            "Finish connecting"
+                        }
                     } else {
-                        if (arabic) "بدء التوصيل" else "Connect"
+                        if (arabic) {
+                            "بدء التوصيل"
+                        } else {
+                            "Connect"
+                        }
                     }
                 )
             }
@@ -874,9 +1170,12 @@ fun SldEditorScreen(
             OutlinedButton(
                 onClick = {
                     if (network.nodes.isNotEmpty()) {
-                        val arranged = SldAutoLayoutEngine.arrange(network)
+                        val arranged =
+                            SldAutoLayoutEngine.arrange(network)
+
                         network = arranged.network
                         calculationSummary = null
+
                         status = if (arabic) {
                             "تم ترتيب العناصر آليًا. راجع مواقع اللوحات والتوصيلات."
                         } else {
@@ -885,25 +1184,43 @@ fun SldEditorScreen(
                     }
                 }
             ) {
-                Icon(Icons.Outlined.Settings, contentDescription = null)
+                Icon(
+                    Icons.Outlined.Settings,
+                    contentDescription = null
+                )
+
                 Spacer(Modifier.width(4.dp))
-                Text(if (arabic) "ترتيب آلي" else "Auto layout")
+
+                Text(
+                    if (arabic) {
+                        "ترتيب آلي"
+                    } else {
+                        "Auto layout"
+                    }
+                )
             }
         }
 
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 4.dp
+                ),
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                containerColor =
+                    MaterialTheme.colorScheme.surfaceVariant
             )
         ) {
-            Column(Modifier.padding(10.dp)) {
+            Column(
+                Modifier.padding(10.dp)
+            ) {
                 Text(
                     status,
                     style = MaterialTheme.typography.bodyMedium
                 )
+
                 Text(
                     if (arabic) {
                         "العناصر: ${network.nodes.size}  |  التوصيلات: ${network.connections.size}  |  أخطاء التحقق: ${validation.errors.size}"
@@ -920,7 +1237,10 @@ fun SldEditorScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .padding(
+                        horizontal = 8.dp,
+                        vertical = 4.dp
+                    ),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -936,7 +1256,10 @@ fun SldEditorScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 2.dp),
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 2.dp
+                ),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -952,17 +1275,27 @@ fun SldEditorScreen(
 
             OutlinedButton(
                 enabled = selectedNode != null,
-                onClick = { showNodeDialog = true }
+                onClick = {
+                    showNodeDialog = true
+                }
             ) {
-                Icon(Icons.Outlined.Edit, contentDescription = null)
+                Icon(
+                    Icons.Outlined.Edit,
+                    contentDescription = null
+                )
+
                 Spacer(Modifier.width(4.dp))
-                Text(if (arabic) "تعديل" else "Edit")
+
+                Text(
+                    if (arabic) "تعديل" else "Edit"
+                )
             }
 
             OutlinedButton(
                 enabled = selectedNode != null,
                 onClick = {
                     val id = selectedNodeId
+
                     if (id != null) {
                         network = network.copy(
                             nodes = network.nodes.filterNot {
@@ -973,9 +1306,11 @@ fun SldEditorScreen(
                                     it.toNodeId == id
                             }
                         )
+
                         selectedNodeId = null
                         connectionStartId = null
                         calculationSummary = null
+
                         status = if (arabic) {
                             "تم حذف العنصر وتوصيلاته."
                         } else {
@@ -984,9 +1319,16 @@ fun SldEditorScreen(
                     }
                 }
             ) {
-                Icon(Icons.Outlined.Delete, contentDescription = null)
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = null
+                )
+
                 Spacer(Modifier.width(4.dp))
-                Text(if (arabic) "حذف" else "Delete")
+
+                Text(
+                    if (arabic) "حذف" else "Delete"
+                )
             }
         }
 
@@ -1004,8 +1346,12 @@ fun SldEditorScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .horizontalScroll(rememberScrollState())
-                    .verticalScroll(rememberScrollState())
+                    .horizontalScroll(
+                        rememberScrollState()
+                    )
+                    .verticalScroll(
+                        rememberScrollState()
+                    )
             ) {
                 Canvas(
                     modifier = Modifier
@@ -1013,8 +1359,11 @@ fun SldEditorScreen(
                         .height(SLD_CANVAS_HEIGHT.dp)
                         .pointerInput(density.density) {
                             detectTapGestures { tap ->
-                                val tapX = tap.x / density.density
-                                val tapY = tap.y / density.density
+                                val tapX =
+                                    tap.x / density.density
+
+                                val tapY =
+                                    tap.y / density.density
 
                                 val hit = currentNetwork.nodes
                                     .asReversed()
@@ -1037,8 +1386,11 @@ fun SldEditorScreen(
 
                             detectDragGestures(
                                 onDragStart = { point ->
-                                    val x = point.x / density.density
-                                    val y = point.y / density.density
+                                    val x =
+                                        point.x / density.density
+
+                                    val y =
+                                        point.y / density.density
 
                                     val hit = currentNetwork.nodes
                                         .asReversed()
@@ -1053,18 +1405,24 @@ fun SldEditorScreen(
 
                                     dragNodeId = hit?.id
 
-                                    if (hit != null && !currentConnectMode) {
+                                    if (
+                                        hit != null &&
+                                        !currentConnectMode
+                                    ) {
                                         selectedNodeId = hit.id
                                     }
                                 },
                                 onDrag = { change, dragAmount ->
                                     change.consume()
+
                                     if (!currentConnectMode) {
                                         dragNodeId?.let { id ->
                                             currentMoveNode(
                                                 id,
-                                                dragAmount.x / density.density,
-                                                dragAmount.y / density.density
+                                                dragAmount.x /
+                                                    density.density,
+                                                dragAmount.y /
+                                                    density.density
                                             )
                                         }
                                     }
@@ -1082,6 +1440,7 @@ fun SldEditorScreen(
                     val gridStep = 40.dp.toPx()
 
                     var gridX = 0f
+
                     while (gridX < size.width) {
                         drawLine(
                             color = gridColor,
@@ -1089,10 +1448,12 @@ fun SldEditorScreen(
                             end = Offset(gridX, size.height),
                             strokeWidth = 1f
                         )
+
                         gridX += gridStep
                     }
 
                     var gridY = 0f
+
                     while (gridY < size.height) {
                         drawLine(
                             color = gridColor,
@@ -1100,10 +1461,13 @@ fun SldEditorScreen(
                             end = Offset(size.width, gridY),
                             strokeWidth = 1f
                         )
+
                         gridY += gridStep
                     }
 
-                    val nodesById = network.nodes.associateBy { it.id }
+                    val nodesById =
+                        network.nodes.associateBy { it.id }
+
                     val panelGeometries =
                         buildPanelDrawingGeometry(network)
 
@@ -1115,10 +1479,14 @@ fun SldEditorScreen(
                                 geometry.top.dp.toPx()
                             ),
                             size = Size(
-                                (geometry.right - geometry.left).dp.toPx(),
-                                (geometry.bottom - geometry.top).dp.toPx()
+                                (geometry.right -
+                                    geometry.left).dp.toPx(),
+                                (geometry.bottom -
+                                    geometry.top).dp.toPx()
                             ),
-                            style = Stroke(width = 2.dp.toPx())
+                            style = Stroke(
+                                width = 2.dp.toPx()
+                            )
                         )
 
                         drawLine(
@@ -1135,14 +1503,21 @@ fun SldEditorScreen(
                         )
 
                         geometry.breakerIds.forEach { breakerId ->
-                            val breaker = nodesById[breakerId]
-                                ?: return@forEach
+                            val breaker =
+                                nodesById[breakerId]
+                                    ?: return@forEach
 
                             val branchX =
-                                (breaker.x + SLD_NODE_WIDTH / 2f)
-                                    .dp.toPx()
+                                (
+                                    breaker.x +
+                                        SLD_NODE_WIDTH / 2f
+                                    ).dp.toPx()
+
                             val branchY =
-                                (breaker.y + 25f).dp.toPx()
+                                (
+                                    breaker.y +
+                                        SLD_SYMBOL_CENTER_Y
+                                    ).dp.toPx()
 
                             drawLine(
                                 color = Color(0xFFB66A16),
@@ -1150,12 +1525,20 @@ fun SldEditorScreen(
                                     branchX,
                                     geometry.busY.dp.toPx()
                                 ),
-                                end = Offset(branchX, branchY),
+                                end = Offset(
+                                    branchX,
+                                    branchY
+                                ),
                                 strokeWidth = 3.dp.toPx()
                             )
                         }
                     }
 
+                    /*
+                     * BUSBAR connections are represented by the
+                     * panel bus and branches. Cable connections are
+                     * rendered independently with their stored direction.
+                     */
                     network.connections.forEach connectionLoop@{ connection ->
                         if (
                             connection.connectionType ==
@@ -1164,12 +1547,19 @@ fun SldEditorScreen(
                             return@connectionLoop
                         }
 
-                        val from = nodesById[connection.fromNodeId]
-                            ?: return@connectionLoop
-                        val to = nodesById[connection.toNodeId]
-                            ?: return@connectionLoop
+                        val from =
+                            nodesById[connection.fromNodeId]
+                                ?: return@connectionLoop
 
-                        drawDirectedCable(from, to)
+                        val to =
+                            nodesById[connection.toNodeId]
+                                ?: return@connectionLoop
+
+                        drawDirectedCable(
+                            from = from,
+                            to = to,
+                            network = network
+                        )
                     }
 
                     network.nodes.forEach { node ->
@@ -1178,19 +1568,37 @@ fun SldEditorScreen(
                         val w = SLD_NODE_WIDTH.dp.toPx()
                         val h = SLD_NODE_HEIGHT.dp.toPx()
 
-                        val isSelected = node.id == selectedNodeId
-                        val isConnectionStart = node.id == connectionStartId
+                        val symbolCenter = Offset(
+                            left + w / 2f,
+                            top + SLD_SYMBOL_CENTER_Y.dp.toPx()
+                        )
+
+                        val isSelected =
+                            node.id == selectedNodeId
+
+                        val isConnectionStart =
+                            node.id == connectionStartId
 
                         val borderColor = when {
-                            isConnectionStart -> Color(0xFF008577)
-                            isSelected -> Color(0xFF1976D2)
-                            else -> Color(0xFF34495E)
+                            isConnectionStart ->
+                                Color(0xFF008577)
+
+                            isSelected ->
+                                Color(0xFF1976D2)
+
+                            else ->
+                                Color(0xFF34495E)
                         }
 
                         val fillColor = when {
-                            isConnectionStart -> Color(0xFFD5F5F0)
-                            isSelected -> Color(0xFFE3F2FD)
-                            else -> Color.White
+                            isConnectionStart ->
+                                Color(0xFFD5F5F0)
+
+                            isSelected ->
+                                Color(0xFFE3F2FD)
+
+                            else ->
+                                Color.White
                         }
 
                         when (node.type) {
@@ -1198,218 +1606,236 @@ fun SldEditorScreen(
                                 drawCircle(
                                     color = fillColor,
                                     radius = 25.dp.toPx(),
-                                    center = Offset(
-                                        left + w / 2f,
-                                        top + 25.dp.toPx()
-                                    )
+                                    center = symbolCenter
                                 )
+
                                 drawCircle(
                                     color = borderColor,
                                     radius = 25.dp.toPx(),
-                                    center = Offset(
-                                        left + w / 2f,
-                                        top + 25.dp.toPx()
-                                    ),
-                                    style = Stroke(width = 2.dp.toPx())
+                                    center = symbolCenter,
+                                    style = Stroke(
+                                        width = 2.dp.toPx()
+                                    )
                                 )
+
                                 drawLine(
-                                    borderColor,
-                                    Offset(
-                                        left + w / 2f - 12.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                    color = borderColor,
+                                    start = Offset(
+                                        symbolCenter.x -
+                                            12.dp.toPx(),
+                                        symbolCenter.y
                                     ),
-                                    Offset(
-                                        left + w / 2f + 12.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                    end = Offset(
+                                        symbolCenter.x +
+                                            12.dp.toPx(),
+                                        symbolCenter.y
                                     ),
-                                    2.dp.toPx()
+                                    strokeWidth = 2.dp.toPx()
                                 )
+
                                 drawLine(
-                                    borderColor,
-                                    Offset(
-                                        left + w / 2f,
-                                        top + 13.dp.toPx()
+                                    color = borderColor,
+                                    start = Offset(
+                                        symbolCenter.x,
+                                        symbolCenter.y -
+                                            12.dp.toPx()
                                     ),
-                                    Offset(
-                                        left + w / 2f,
-                                        top + 37.dp.toPx()
+                                    end = Offset(
+                                        symbolCenter.x,
+                                        symbolCenter.y +
+                                            12.dp.toPx()
                                     ),
-                                    2.dp.toPx()
+                                    strokeWidth = 2.dp.toPx()
                                 )
                             }
 
                             SldNodeType.TRANSFORMER -> {
                                 drawCircle(
-                                    borderColor,
-                                    22.dp.toPx(),
-                                    Offset(
-                                        left + w / 2f - 13.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                    color = borderColor,
+                                    radius = 22.dp.toPx(),
+                                    center = Offset(
+                                        symbolCenter.x -
+                                            13.dp.toPx(),
+                                        symbolCenter.y
                                     ),
-                                    style = Stroke(width = 2.dp.toPx())
+                                    style = Stroke(
+                                        width = 2.dp.toPx()
+                                    )
                                 )
+
                                 drawCircle(
-                                    borderColor,
-                                    22.dp.toPx(),
-                                    Offset(
-                                        left + w / 2f + 13.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                    color = borderColor,
+                                    radius = 22.dp.toPx(),
+                                    center = Offset(
+                                        symbolCenter.x +
+                                            13.dp.toPx(),
+                                        symbolCenter.y
                                     ),
-                                    style = Stroke(width = 2.dp.toPx())
+                                    style = Stroke(
+                                        width = 2.dp.toPx()
+                                    )
                                 )
                             }
 
                             SldNodeType.BUS -> {
                                 drawLine(
-                                    Color(0xFFB66A16),
-                                    Offset(
+                                    color = Color(0xFFB66A16),
+                                    start = Offset(
                                         left + 15.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                        symbolCenter.y
                                     ),
-                                    Offset(
-                                        left + w - 15.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                    end = Offset(
+                                        left + w -
+                                            15.dp.toPx(),
+                                        symbolCenter.y
                                     ),
-                                    6.dp.toPx()
+                                    strokeWidth = 6.dp.toPx()
                                 )
                             }
 
                             SldNodeType.BREAKER -> {
-                                val incoming = network.connections
-                                    .filter {
-                                        it.connectionType ==
-                                            SldConnectionType.CABLE &&
-                                            it.toNodeId == node.id
-                                    }
-                                    .mapNotNull {
-                                        nodesById[it.fromNodeId]
-                                    }
-
-                                val outgoing = network.connections
-                                    .filter {
-                                        it.connectionType ==
-                                            SldConnectionType.CABLE &&
-                                            it.fromNodeId == node.id
-                                    }
-                                    .mapNotNull {
-                                        nodesById[it.toNodeId]
-                                    }
-
-                                val connectedNodes = incoming + outgoing
-                                val horizontal = connectedNodes.any {
-                                    abs(
-                                        nodeCenter(it).x -
-                                            nodeCenter(node).x
-                                    ) >= abs(
-                                        nodeCenter(it).y -
-                                            nodeCenter(node).y
+                                val horizontal =
+                                    isBreakerHorizontal(
+                                        node,
+                                        network
                                     )
-                                }
 
                                 if (horizontal) {
+                                    val breakerLeft =
+                                        symbolCenter.x -
+                                            25.dp.toPx()
+
+                                    val breakerTop =
+                                        symbolCenter.y -
+                                            19.dp.toPx()
+
                                     drawRect(
-                                        fillColor,
-                                        Offset(
-                                            left + w / 2f - 25.dp.toPx(),
-                                            top + 7.dp.toPx()
+                                        color = fillColor,
+                                        topLeft = Offset(
+                                            breakerLeft,
+                                            breakerTop
                                         ),
-                                        Size(
+                                        size = Size(
                                             50.dp.toPx(),
                                             38.dp.toPx()
                                         )
                                     )
+
                                     drawRect(
-                                        borderColor,
-                                        Offset(
-                                            left + w / 2f - 25.dp.toPx(),
-                                            top + 7.dp.toPx()
+                                        color = borderColor,
+                                        topLeft = Offset(
+                                            breakerLeft,
+                                            breakerTop
                                         ),
-                                        Size(
+                                        size = Size(
                                             50.dp.toPx(),
                                             38.dp.toPx()
                                         ),
-                                        style = Stroke(width = 2.dp.toPx())
+                                        style = Stroke(
+                                            width = 2.dp.toPx()
+                                        )
                                     )
+
                                     drawLine(
-                                        borderColor,
-                                        Offset(
-                                            left + w / 2f - 13.dp.toPx(),
-                                            top + 33.dp.toPx()
+                                        color = borderColor,
+                                        start = Offset(
+                                            symbolCenter.x -
+                                                13.dp.toPx(),
+                                            symbolCenter.y +
+                                                8.dp.toPx()
                                         ),
-                                        Offset(
-                                            left + w / 2f + 13.dp.toPx(),
-                                            top + 15.dp.toPx()
+                                        end = Offset(
+                                            symbolCenter.x +
+                                                13.dp.toPx(),
+                                            symbolCenter.y -
+                                                10.dp.toPx()
                                         ),
-                                        2.dp.toPx()
+                                        strokeWidth = 2.dp.toPx()
                                     )
                                 } else {
+                                    val breakerLeft =
+                                        symbolCenter.x -
+                                            19.dp.toPx()
+
+                                    val breakerTop =
+                                        symbolCenter.y -
+                                            24.dp.toPx()
+
                                     drawRect(
-                                        fillColor,
-                                        Offset(
-                                            left + w / 2f - 19.dp.toPx(),
-                                            top + 1.dp.toPx()
+                                        color = fillColor,
+                                        topLeft = Offset(
+                                            breakerLeft,
+                                            breakerTop
                                         ),
-                                        Size(
+                                        size = Size(
                                             38.dp.toPx(),
                                             48.dp.toPx()
                                         )
                                     )
+
                                     drawRect(
-                                        borderColor,
-                                        Offset(
-                                            left + w / 2f - 19.dp.toPx(),
-                                            top + 1.dp.toPx()
+                                        color = borderColor,
+                                        topLeft = Offset(
+                                            breakerLeft,
+                                            breakerTop
                                         ),
-                                        Size(
+                                        size = Size(
                                             38.dp.toPx(),
                                             48.dp.toPx()
                                         ),
-                                        style = Stroke(width = 2.dp.toPx())
+                                        style = Stroke(
+                                            width = 2.dp.toPx()
+                                        )
                                     )
+
                                     drawLine(
-                                        borderColor,
-                                        Offset(
-                                            left + w / 2f - 12.dp.toPx(),
-                                            top + 37.dp.toPx()
+                                        color = borderColor,
+                                        start = Offset(
+                                            symbolCenter.x -
+                                                12.dp.toPx(),
+                                            symbolCenter.y +
+                                                12.dp.toPx()
                                         ),
-                                        Offset(
-                                            left + w / 2f + 12.dp.toPx(),
-                                            top + 13.dp.toPx()
+                                        end = Offset(
+                                            symbolCenter.x +
+                                                12.dp.toPx(),
+                                            symbolCenter.y -
+                                                12.dp.toPx()
                                         ),
-                                        2.dp.toPx()
+                                        strokeWidth = 2.dp.toPx()
                                     )
                                 }
                             }
 
                             SldNodeType.GENERATOR -> {
                                 drawCircle(
-                                    fillColor,
-                                    25.dp.toPx(),
-                                    Offset(
-                                        left + w / 2f,
-                                        top + 25.dp.toPx()
+                                    color = fillColor,
+                                    radius = 25.dp.toPx(),
+                                    center = symbolCenter
+                                )
+
+                                drawCircle(
+                                    color = borderColor,
+                                    radius = 25.dp.toPx(),
+                                    center = symbolCenter,
+                                    style = Stroke(
+                                        width = 2.dp.toPx()
                                     )
                                 )
-                                drawCircle(
-                                    borderColor,
-                                    25.dp.toPx(),
-                                    Offset(
-                                        left + w / 2f,
-                                        top + 25.dp.toPx()
-                                    ),
-                                    style = Stroke(width = 2.dp.toPx())
-                                )
+
                                 drawLine(
-                                    borderColor,
-                                    Offset(
-                                        left + w / 2f - 12.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                    color = borderColor,
+                                    start = Offset(
+                                        symbolCenter.x -
+                                            12.dp.toPx(),
+                                        symbolCenter.y
                                     ),
-                                    Offset(
-                                        left + w / 2f + 12.dp.toPx(),
-                                        top + 25.dp.toPx()
+                                    end = Offset(
+                                        symbolCenter.x +
+                                            12.dp.toPx(),
+                                        symbolCenter.y
                                     ),
-                                    2.dp.toPx()
+                                    strokeWidth = 2.dp.toPx()
                                 )
                             }
 
@@ -1426,6 +1852,7 @@ fun SldEditorScreen(
                                         42.dp.toPx()
                                     )
                                 )
+
                                 drawRect(
                                     color = borderColor,
                                     topLeft = Offset(
@@ -1436,13 +1863,19 @@ fun SldEditorScreen(
                                         w - 40.dp.toPx(),
                                         42.dp.toPx()
                                     ),
-                                    style = Stroke(width = 2.dp.toPx())
+                                    style = Stroke(
+                                        width = 2.dp.toPx()
+                                    )
                                 )
                             }
                         }
 
                         val paint = AndroidPaint().apply {
-                            color = android.graphics.Color.rgb(30, 41, 51)
+                            color = android.graphics.Color.rgb(
+                                30,
+                                41,
+                                51
+                            )
                             textSize = 13.dp.toPx()
                             textAlign = AndroidPaint.Align.CENTER
                             isAntiAlias = true
@@ -1473,10 +1906,12 @@ fun SldEditorScreen(
                                     "Rating not set"
                                 }
 
-                            else -> "${node.voltage.toInt()} V"
+                            else ->
+                                "${node.voltage.toInt()} V"
                         }
 
                         paint.textSize = 11.dp.toPx()
+
                         drawContext.canvas.nativeCanvas.drawText(
                             detail,
                             left + w / 2f,
@@ -1495,7 +1930,9 @@ fun SldEditorScreen(
                                     w + 8.dp.toPx(),
                                     h + 8.dp.toPx()
                                 ),
-                                style = Stroke(width = 2.dp.toPx())
+                                style = Stroke(
+                                    width = 2.dp.toPx()
+                                )
                             )
                         }
                     }
@@ -1514,15 +1951,22 @@ fun SldEditorScreen(
             onSave = { updated ->
                 network = network.copy(
                     nodes = network.nodes.map {
-                        if (it.id == updated.id) updated else it
+                        if (it.id == updated.id) {
+                            updated
+                        } else {
+                            it
+                        }
                     }
                 )
+
                 calculationSummary = null
+
                 status = if (arabic) {
                     "تم تحديث بيانات العنصر. أعد الحساب لمراجعة النتائج."
                 } else {
                     "Equipment updated. Recalculate to refresh the results."
                 }
+
                 showNodeDialog = false
             }
         )
@@ -1539,21 +1983,27 @@ private fun SldNodePropertiesDialog(
     var name by remember(node.id) {
         mutableStateOf(node.name)
     }
+
     var voltage by remember(node.id) {
         mutableStateOf(node.voltage.toString())
     }
+
     var loadKw by remember(node.id) {
         mutableStateOf(node.loadKw.toString())
     }
+
     var powerFactor by remember(node.id) {
         mutableStateOf(node.powerFactor.toString())
     }
+
     var ratedKva by remember(node.id) {
         mutableStateOf(node.ratedKva.toString())
     }
+
     var ratedCurrent by remember(node.id) {
         mutableStateOf(node.ratedCurrentA.toString())
     }
+
     var faultRating by remember(node.id) {
         mutableStateOf(node.shortCircuitRatingKA.toString())
     }
@@ -1562,7 +2012,11 @@ private fun SldNodePropertiesDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                if (arabic) "بيانات العنصر" else "Equipment properties"
+                if (arabic) {
+                    "بيانات العنصر"
+                } else {
+                    "Equipment properties"
+                }
             )
         },
         text = {
@@ -1574,10 +2028,16 @@ private fun SldNodePropertiesDialog(
             ) {
                 OutlinedTextField(
                     value = name,
-                    onValueChange = { name = it },
+                    onValueChange = {
+                        name = it
+                    },
                     label = {
                         Text(
-                            if (arabic) "الاسم / Tag" else "Name / Tag"
+                            if (arabic) {
+                                "الاسم / Tag"
+                            } else {
+                                "Name / Tag"
+                            }
                         )
                     },
                     singleLine = true
@@ -1585,10 +2045,16 @@ private fun SldNodePropertiesDialog(
 
                 OutlinedTextField(
                     value = voltage,
-                    onValueChange = { voltage = it },
+                    onValueChange = {
+                        voltage = it
+                    },
                     label = {
                         Text(
-                            if (arabic) "الجهد (V)" else "Voltage (V)"
+                            if (arabic) {
+                                "الجهد (V)"
+                            } else {
+                                "Voltage (V)"
+                            }
                         )
                     },
                     singleLine = true
@@ -1597,10 +2063,16 @@ private fun SldNodePropertiesDialog(
                 if (node.type == SldNodeType.LOAD) {
                     OutlinedTextField(
                         value = loadKw,
-                        onValueChange = { loadKw = it },
+                        onValueChange = {
+                            loadKw = it
+                        },
                         label = {
                             Text(
-                                if (arabic) "الحمل (kW)" else "Load (kW)"
+                                if (arabic) {
+                                    "الحمل (kW)"
+                                } else {
+                                    "Load (kW)"
+                                }
                             )
                         },
                         singleLine = true
@@ -1608,10 +2080,16 @@ private fun SldNodePropertiesDialog(
 
                     OutlinedTextField(
                         value = powerFactor,
-                        onValueChange = { powerFactor = it },
+                        onValueChange = {
+                            powerFactor = it
+                        },
                         label = {
                             Text(
-                                if (arabic) "معامل القدرة" else "Power factor"
+                                if (arabic) {
+                                    "معامل القدرة"
+                                } else {
+                                    "Power factor"
+                                }
                             )
                         },
                         singleLine = true
@@ -1621,7 +2099,9 @@ private fun SldNodePropertiesDialog(
                 if (node.type == SldNodeType.TRANSFORMER) {
                     OutlinedTextField(
                         value = ratedKva,
-                        onValueChange = { ratedKva = it },
+                        onValueChange = {
+                            ratedKva = it
+                        },
                         label = {
                             Text(
                                 if (arabic) {
@@ -1638,7 +2118,9 @@ private fun SldNodePropertiesDialog(
                 if (node.type == SldNodeType.BREAKER) {
                     OutlinedTextField(
                         value = ratedCurrent,
-                        onValueChange = { ratedCurrent = it },
+                        onValueChange = {
+                            ratedCurrent = it
+                        },
                         label = {
                             Text(
                                 if (arabic) {
@@ -1653,7 +2135,9 @@ private fun SldNodePropertiesDialog(
 
                     OutlinedTextField(
                         value = faultRating,
-                        onValueChange = { faultRating = it },
+                        onValueChange = {
+                            faultRating = it
+                        },
                         label = {
                             Text(
                                 if (arabic) {
@@ -1671,42 +2155,59 @@ private fun SldNodePropertiesDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val parsedVoltage = voltage.toDoubleOrNull()
-                    val parsedLoad = loadKw.toDoubleOrNull()
-                    val parsedPf = powerFactor.toDoubleOrNull()
-                    val parsedKva = ratedKva.toDoubleOrNull()
-                    val parsedCurrent = ratedCurrent.toDoubleOrNull()
-                    val parsedFault = faultRating.toDoubleOrNull()
+                    val parsedVoltage =
+                        voltage.toDoubleOrNull()
+
+                    val parsedLoad =
+                        loadKw.toDoubleOrNull()
+
+                    val parsedPf =
+                        powerFactor.toDoubleOrNull()
+
+                    val parsedKva =
+                        ratedKva.toDoubleOrNull()
+
+                    val parsedCurrent =
+                        ratedCurrent.toDoubleOrNull()
+
+                    val parsedFault =
+                        faultRating.toDoubleOrNull()
 
                     if (
                         name.isBlank() ||
                         parsedVoltage == null ||
+                        !parsedVoltage.isFinite() ||
                         parsedVoltage <= 0.0 ||
                         (
                             node.type == SldNodeType.LOAD &&
                                 (
                                     parsedLoad == null ||
+                                        !parsedLoad.isFinite() ||
                                         parsedLoad < 0.0 ||
                                         parsedPf == null ||
+                                        !parsedPf.isFinite() ||
                                         parsedPf <= 0.0 ||
                                         parsedPf > 1.0
-                                )
+                                    )
                             ) ||
                         (
                             node.type == SldNodeType.TRANSFORMER &&
                                 (
                                     parsedKva == null ||
+                                        !parsedKva.isFinite() ||
                                         parsedKva <= 0.0
-                                )
+                                    )
                             ) ||
                         (
                             node.type == SldNodeType.BREAKER &&
                                 (
                                     parsedCurrent == null ||
+                                        !parsedCurrent.isFinite() ||
                                         parsedCurrent <= 0.0 ||
                                         parsedFault == null ||
+                                        !parsedFault.isFinite() ||
                                         parsedFault <= 0.0
-                                )
+                                    )
                             )
                     ) {
                         return@TextButton
@@ -1718,8 +2219,10 @@ private fun SldNodePropertiesDialog(
                             tag = name.trim(),
                             voltage = parsedVoltage,
                             loadKw = parsedLoad ?: node.loadKw,
-                            powerFactor = parsedPf ?: node.powerFactor,
-                            ratedKva = parsedKva ?: node.ratedKva,
+                            powerFactor = parsedPf
+                                ?: node.powerFactor,
+                            ratedKva = parsedKva
+                                ?: node.ratedKva,
                             ratedCurrentA = parsedCurrent
                                 ?: node.ratedCurrentA,
                             breakerFrameA = parsedCurrent
@@ -1730,12 +2233,18 @@ private fun SldNodePropertiesDialog(
                     )
                 }
             ) {
-                Text(if (arabic) "حفظ" else "Save")
+                Text(
+                    if (arabic) "حفظ" else "Save"
+                )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(if (arabic) "إلغاء" else "Cancel")
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(
+                    if (arabic) "إلغاء" else "Cancel"
+                )
             }
         }
     )
