@@ -1,185 +1,95 @@
+
 package com.electrical.calculationspro.data
 
 import com.electrical.calculationspro.data.standards.CodeEngineFactory
 import com.electrical.calculationspro.data.standards.StandardEngine
 
 /**
- * ================================================================
- * SLD ENGINEERING CONTEXT
- * ================================================================
- *
- * Shared engineering configuration for one SLD calculation cycle.
+ * Shared engineering configuration for the SLD calculation cycle.
  *
  * Architecture:
  *
- * Android / SLD UI
- *        |
- *        v
- * SldEngineeringFacade
- *        |
- *        v
- * SldEngineeringContext
- *        |
- *        v
- * StandardEngine
+ * SLD UI
+ *   -> SldEngineeringFacade
+ *   -> SldEngineeringContext
+ *   -> StandardEngine
  *
- * This class contains engineering configuration only.
+ * This class contains configuration and validation only.
+ * Electrical calculation formulas belong to engineering engines.
  *
- * NO electrical calculation formulas belong here.
- *
- * IMPORTANT PROFESSIONAL-DESIGN RULE
- *
- * An engineering calculation must NEVER use an incomplete or
- * unverified standard dataset.
- *
- * The standard-readiness gate is therefore enforced by this class
- * itself and cannot be disabled by copying the context with
- * requireImplementedStandard = false.
+ * Professional calculations require a fully implemented and
+ * verified engineering-standard dataset.
  *
  * The legacy requireImplementedStandard property is retained for
- * source compatibility with existing callers, but it is no longer
- * allowed to weaken professional engineering validation.
- *
- * ================================================================
+ * source compatibility. It cannot bypass standard readiness.
  */
 data class SldEngineeringContext(
 
-    /**
-     * Electrical design standard selected for this calculation.
-     */
     val standard: Standard = Standard.EGYPTIAN,
 
-    /**
-     * Voltage factor used by short-circuit calculations.
-     *
-     * This is an engineering input and is intentionally not
-     * hard-coded inside individual calculation engines.
-     */
     val voltageFactor: Double = 1.05,
 
-    /**
-     * Maximum permitted voltage drop for the circuit category.
-     *
-     * The selected StandardEngine may provide a more specific
-     * standard-defined limit. This value remains the fallback.
-     */
     val voltageDropLimitPercent: Double = 3.0,
 
-    /**
-     * Short-circuit clearing time used for thermal withstand checks.
-     */
     val shortCircuitTimeSeconds: Double = 1.0,
 
-    /**
-     * Circuit category passed to StandardEngine.
-     *
-     * Examples:
-     * - GENERAL
-     * - LIGHTING
-     * - MOTOR
-     * - FEEDER
-     */
     val circuitCategory: String = "FEEDER",
 
-    /**
-     * Ambient design temperature.
-     */
     val ambientTemperatureC: Double = 30.0,
 
-    /**
-     * Number of loaded circuits used for grouping calculations.
-     */
     val numberOfCircuits: Int = 1,
 
     /**
      * Legacy compatibility property.
      *
-     * IMPORTANT:
-     *
-     * This property MUST NOT be used to bypass standard readiness.
-     *
-     * Existing code may still create:
-     *
-     * copy(requireImplementedStandard = false)
-     *
-     * but validate() and validateForEngineering() always enforce
-     * standard readiness.
-     *
-     * This keeps source compatibility while closing the professional
-     * engineering validation bypass.
+     * This value never disables standard-readiness validation.
      */
     val requireImplementedStandard: Boolean = true
 
 ) {
 
-    // ============================================================
-    // STANDARD ENGINE
-    // ============================================================
-
     /**
      * Selected engineering-code engine.
-     *
-     * All code-dependent calculations must obtain their
-     * standard-dependent data through this engine.
      */
     val standardEngine: StandardEngine
-        get() =
-            CodeEngineFactory.get(
-                standard
-            )
+        get() = CodeEngineFactory.get(standard)
 
     /**
      * Code name exposed to reports and UI.
      */
     val codeName: String
-        get() =
-            standardEngine.codeName
+        get() = standardEngine.codeName
 
     /**
-     * Code revision exposed to reports and engineering records.
+     * Code revision exposed to engineering records.
      */
     val codeRevision: String
-        get() =
-            standardEngine.codeRevision
+        get() = standardEngine.codeRevision
 
     /**
-     * Indicates whether the selected standard has a fully
-     * implemented and verified engineering dataset.
+     * True only when the selected standard reports a fully
+     * implemented engineering dataset.
      */
     val standardImplemented: Boolean
-        get() =
-            standardEngine.isFullyImplemented()
+        get() = standardEngine.isFullyImplemented()
 
     /**
-     * Human-readable implementation status.
+     * Human-readable standard implementation status.
      */
     val standardImplementationStatus: String
-        get() =
-            standardEngine.implementationStatus()
-
-    // ============================================================
-    // VOLTAGE DROP
-    // ============================================================
+        get() = standardEngine.implementationStatus()
 
     /**
-     * Returns the standard-defined voltage-drop limit when the
-     * selected StandardEngine provides one.
+     * Resolves the effective voltage-drop limit.
      *
-     * Otherwise the explicitly supplied context value is used.
-     *
-     * IMPORTANT:
-     *
-     * This method does NOT mean that an incomplete standard is
-     * acceptable. Standard readiness is checked separately by
-     * validateForEngineering().
+     * A valid positive standard-specific limit takes precedence
+     * over the explicitly configured fallback.
      */
     fun effectiveVoltageDropLimitPercent(): Double {
-
-        require(
-            voltageDropLimitPercent > 0.0
-        ) {
-            "Voltage drop limit must be greater than zero."
-        }
+        validateFinitePositive(
+            value = voltageDropLimitPercent,
+            fieldName = "Voltage drop limit"
+        )
 
         val standardLimit =
             standardEngine.maximumVoltageDropPercent(
@@ -187,6 +97,7 @@ data class SldEngineeringContext(
             )
 
         return if (
+            standardLimit.isFinite() &&
             standardLimit > 0.0
         ) {
             standardLimit
@@ -195,141 +106,107 @@ data class SldEngineeringContext(
         }
     }
 
-    // ============================================================
-    // AMBIENT TEMPERATURE
-    // ============================================================
-
     /**
-     * Returns the ambient-temperature correction factor supplied
-     * by the selected standard.
+     * Returns the ambient-temperature correction factor provided
+     * by the selected engineering standard.
      *
-     * No conductor properties or correction tables are embedded
-     * in this context.
+     * No correction tables are embedded in this context.
      */
     fun ambientTemperatureFactor(
         insulation: InsulationType
     ): Double {
+        validateEngineeringInputs()
 
-        return standardEngine.ambientTemperatureFactor(
-            insulation = insulation,
-            ambientTemperatureC = ambientTemperatureC
-        )
+        requireStandardReadiness()
+
+        val factor =
+            standardEngine.ambientTemperatureFactor(
+                insulation = insulation,
+                ambientTemperatureC = ambientTemperatureC
+            )
+
+        require(
+            factor.isFinite() && factor > 0.0
+        ) {
+            "The selected standard returned an invalid ambient-temperature correction factor."
+        }
+
+        return factor
     }
 
-    // ============================================================
-    // GROUPING
-    // ============================================================
-
     /**
-     * Returns the grouping factor supplied by the selected
-     * standard.
+     * Returns the grouping factor provided by the selected standard.
      */
     fun groupingFactor(): Double {
+        validateEngineeringInputs()
+
+        requireStandardReadiness()
+
+        val factor =
+            standardEngine.groupingFactor(
+                numberOfCircuits = numberOfCircuits
+            )
 
         require(
-            numberOfCircuits >= 1
+            factor.isFinite() &&
+                factor > 0.0 &&
+                factor <= 1.0
         ) {
-            "Number of circuits must be at least 1."
+            "The selected standard returned an invalid grouping factor."
         }
 
-        return standardEngine.groupingFactor(
-            numberOfCircuits = numberOfCircuits
-        )
+        return factor
     }
 
-    // ============================================================
-    // BASIC INPUT VALIDATION
-    // ============================================================
-
     /**
-     * Validates engineering inputs.
-     *
-     * This method intentionally performs NO electrical calculations.
-     *
-     * IMPORTANT:
-     *
-     * Standard readiness is ALWAYS enforced.
-     *
-     * The legacy requireImplementedStandard flag is deliberately
-     * ignored as a bypass mechanism.
-     *
-     * This means all existing calls such as:
-     *
-     * engineeringContext
-     *     .copy(requireImplementedStandard = false)
-     *     .validate()
-     *
-     * are still source-compatible but will correctly reject an
-     * incomplete standard dataset.
+     * Validates all inputs and confirms that the selected standard
+     * is ready for professional engineering calculations.
      */
     fun validate(): SldEngineeringContext {
-
         validateEngineeringInputs()
-
         requireStandardReadiness()
-
         return this
     }
 
     /**
-     * Explicit professional-engineering validation entry point.
-     *
-     * New engineering code should call this method when it needs
-     * to make the intent clear.
-     *
-     * Unlike editor/preview state, this method represents an actual
-     * engineering calculation request.
+     * Explicit validation entry point for actual engineering studies.
      */
     fun validateForEngineering(): SldEngineeringContext {
-
         validateEngineeringInputs()
-
         requireStandardReadiness()
-
         return this
     }
 
     /**
-     * Validates only the numerical/configuration inputs.
-     *
-     * This method exists so future editor-preview workflows can
-     * validate basic user input without pretending that a standard
-     * dataset is engineering-ready.
-     *
-     * It MUST NOT be used as authorization to run professional
-     * engineering calculations.
+     * Validates configuration values without authorizing engineering
+     * calculations against an incomplete standard.
      */
     fun validateInputsOnly(): SldEngineeringContext {
-
         validateEngineeringInputs()
-
         return this
     }
 
     /**
-     * Internal validation of context values.
+     * Validates numerical and configuration inputs.
      *
-     * No standard readiness decision is made here.
+     * All floating-point values are checked for finiteness.
+     * Positive infinity and NaN must never pass engineering checks.
      */
     private fun validateEngineeringInputs() {
+        validateFinitePositive(
+            value = voltageFactor,
+            fieldName = "Voltage factor"
+        )
 
-        require(
-            voltageFactor > 0.0
-        ) {
-            "Voltage factor must be greater than zero."
-        }
+        validateFinitePositive(
+            value = voltageDropLimitPercent,
+            fieldName = "Voltage drop limit"
+        )
 
-        require(
-            voltageDropLimitPercent > 0.0
-        ) {
-            "Voltage drop limit must be greater than zero."
-        }
-
-        require(
-            shortCircuitTimeSeconds > 0.0
-        ) {
-            "Short-circuit clearing time must be greater than zero."
-        }
+        validateFinitePositive(
+            value = shortCircuitTimeSeconds,
+            fieldName = "Short-circuit clearing time"
+        )
 
         require(
             circuitCategory.isNotBlank()
@@ -338,9 +215,11 @@ data class SldEngineeringContext(
         }
 
         require(
-            ambientTemperatureC > -50.0
+            ambientTemperatureC.isFinite() &&
+                ambientTemperatureC > -50.0 &&
+                ambientTemperatureC <= 200.0
         ) {
-            "Ambient temperature is outside the supported engineering range."
+            "Ambient temperature must be finite and within the supported range (-50 to 200 °C)."
         }
 
         require(
@@ -351,16 +230,25 @@ data class SldEngineeringContext(
     }
 
     /**
-     * HARD PROFESSIONAL STANDARD GATE
+     * Shared finite-positive input validation.
+     */
+    private fun validateFinitePositive(
+        value: Double,
+        fieldName: String
+    ) {
+        require(
+            value.isFinite() && value > 0.0
+        ) {
+            "$fieldName must be finite and greater than zero."
+        }
+    }
+
+    /**
+     * Hard professional-standard readiness gate.
      *
-     * This method intentionally contains NO condition based on
-     * requireImplementedStandard.
-     *
-     * Therefore there is no lower-level switch that can disable
-     * standard readiness for professional engineering.
+     * This check deliberately ignores requireImplementedStandard.
      */
     private fun requireStandardReadiness() {
-
         require(
             standardImplemented
         ) {
@@ -369,57 +257,32 @@ data class SldEngineeringContext(
     }
 
     /**
-     * Creates one consistent standard-readiness error message.
-     *
-     * Keeping the message here prevents the different SLD engines
-     * from generating contradictory readiness messages.
+     * Builds a consistent error message for an incomplete dataset.
      */
     private fun buildStandardReadinessError(): String {
-
         return buildString {
-
-            append(
-                "Selected standard '"
-            )
-
-            append(
-                standard.displayName
-            )
-
+            append("Selected standard '")
+            append(standard.displayName)
             append(
                 "' is not ready for professional engineering calculation. "
             )
-
             append(
                 "The selected standard does not have a fully implemented "
             )
-
             append(
                 "and verified engineering dataset. "
             )
-
-            append(
-                standardImplementationStatus
-            )
+            append(standardImplementationStatus)
         }
     }
 
-    // ============================================================
-    // COPY HELPERS
-    // ============================================================
-
     /**
-     * Returns a copy with another standard.
-     *
-     * The returned context still requires standard readiness before
-     * professional engineering calculations.
+     * Returns a copy configured for another engineering standard.
      */
     fun withStandard(
         value: Standard
     ): SldEngineeringContext =
-        copy(
-            standard = value
-        )
+        copy(standard = value)
 
     /**
      * Returns a copy with another voltage-drop limit.
@@ -427,9 +290,7 @@ data class SldEngineeringContext(
     fun withVoltageDropLimit(
         value: Double
     ): SldEngineeringContext =
-        copy(
-            voltageDropLimitPercent = value
-        )
+        copy(voltageDropLimitPercent = value)
 
     /**
      * Returns a copy with another short-circuit clearing time.
@@ -437,9 +298,7 @@ data class SldEngineeringContext(
     fun withShortCircuitTime(
         value: Double
     ): SldEngineeringContext =
-        copy(
-            shortCircuitTimeSeconds = value
-        )
+        copy(shortCircuitTimeSeconds = value)
 
     /**
      * Returns a copy with another circuit category.
@@ -447,9 +306,7 @@ data class SldEngineeringContext(
     fun withCircuitCategory(
         value: String
     ): SldEngineeringContext =
-        copy(
-            circuitCategory = value
-        )
+        copy(circuitCategory = value)
 
     /**
      * Returns a copy with another ambient temperature.
@@ -457,9 +314,7 @@ data class SldEngineeringContext(
     fun withAmbientTemperature(
         value: Double
     ): SldEngineeringContext =
-        copy(
-            ambientTemperatureC = value
-        )
+        copy(ambientTemperatureC = value)
 
     /**
      * Returns a copy with another grouping-circuit count.
@@ -467,54 +322,27 @@ data class SldEngineeringContext(
     fun withNumberOfCircuits(
         value: Int
     ): SldEngineeringContext =
-        copy(
-            numberOfCircuits = value
-        )
-
-    // ============================================================
-    // COMPANION
-    // ============================================================
+        copy(numberOfCircuits = value)
 
     companion object {
 
         /**
-         * Default context for the normal SLD engineering workflow.
+         * Default configuration for the SLD engineering workflow.
          *
-         * Egyptian standard is selected explicitly.
-         *
-         * IMPORTANT:
-         *
-         * The default context does NOT claim that the Egyptian
-         * dataset is fully implemented. Therefore the context will
-         * correctly reject a professional calculation until the
-         * selected StandardEngine reports a fully implemented
-         * verified dataset.
+         * Selecting the Egyptian standard does not imply that its
+         * engineering dataset is complete. The readiness gate remains
+         * authoritative.
          */
         fun default(): SldEngineeringContext =
             SldEngineeringContext(
-                standard =
-                    Standard.EGYPTIAN,
-
-                voltageFactor =
-                    1.05,
-
-                voltageDropLimitPercent =
-                    3.0,
-
-                shortCircuitTimeSeconds =
-                    1.0,
-
-                circuitCategory =
-                    "FEEDER",
-
-                ambientTemperatureC =
-                    30.0,
-
-                numberOfCircuits =
-                    1,
-
-                requireImplementedStandard =
-                    true
+                standard = Standard.EGYPTIAN,
+                voltageFactor = 1.05,
+                voltageDropLimitPercent = 3.0,
+                shortCircuitTimeSeconds = 1.0,
+                circuitCategory = "FEEDER",
+                ambientTemperatureC = 30.0,
+                numberOfCircuits = 1,
+                requireImplementedStandard = true
             )
     }
 }
