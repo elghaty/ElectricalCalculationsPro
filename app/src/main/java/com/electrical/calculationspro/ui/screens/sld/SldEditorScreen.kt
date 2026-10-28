@@ -85,6 +85,15 @@ private const val SLD_PANEL_MARGIN_Y = 28f
 private const val SLD_PANEL_MIN_WIDTH = 240f
 private const val SLD_PANEL_MIN_HEIGHT = 190f
 
+private const val SLD_GRID_STEP = 40f
+private const val SLD_NODE_HIT_PADDING = 8f
+private const val SLD_MIN_NODE_POSITION = 20f
+private const val SLD_DEFAULT_VOLTAGE = 400.0
+private const val SLD_DEFAULT_LOAD_KW = 10.0
+private const val SLD_DEFAULT_TRANSFORMER_KVA = 500.0
+private const val SLD_DEFAULT_BREAKER_CURRENT_A = 100.0
+private const val SLD_DEFAULT_BREAKER_FAULT_KA = 25.0
+
 private data class PanelDrawingGeometry(
     val panelId: String,
     val memberIds: Set<String>,
@@ -104,6 +113,24 @@ private data class SymbolBounds(
     val halfHeight: Float
 )
 
+private fun isValidBusbarPair(
+    first: SldNode,
+    second: SldNode
+): Boolean {
+    return (first.type == SldNodeType.PANEL &&
+        second.type == SldNodeType.BUS) ||
+        (first.type == SldNodeType.BUS &&
+            second.type == SldNodeType.PANEL) ||
+        (first.type == SldNodeType.PANEL &&
+            second.type == SldNodeType.BREAKER) ||
+        (first.type == SldNodeType.BREAKER &&
+            second.type == SldNodeType.PANEL) ||
+        (first.type == SldNodeType.BUS &&
+            second.type == SldNodeType.BREAKER) ||
+        (first.type == SldNodeType.BREAKER &&
+            second.type == SldNodeType.BUS)
+}
+
 private fun buildPanelDrawingGeometry(
     network: SldNetwork
 ): List<PanelDrawingGeometry> {
@@ -113,37 +140,32 @@ private fun buildPanelDrawingGeometry(
         it.connectionType == SldConnectionType.BUSBAR
     }
 
-    return network.nodes
+    val geometries = mutableListOf<PanelDrawingGeometry>()
+    val assignedMembers = mutableSetOf<String>()
+
+    network.nodes
         .filter { it.type == SldNodeType.PANEL }
-        .mapNotNull { panel ->
+        .forEach { panel ->
+            if (panel.id in assignedMembers) {
+                return@forEach
+            }
+
             val members = linkedSetOf(panel.id)
             var changed: Boolean
 
             do {
                 changed = false
 
-                busbarConnections.forEach { connection ->
+                busbarConnections.forEach connectionLoop@{ connection ->
                     val from = nodesById[connection.fromNodeId]
-                        ?: return@forEach
+                        ?: return@connectionLoop
 
                     val to = nodesById[connection.toNodeId]
-                        ?: return@forEach
+                        ?: return@connectionLoop
 
-                    val allowedPair =
-                        (from.type == SldNodeType.PANEL &&
-                            to.type == SldNodeType.BUS) ||
-                        (from.type == SldNodeType.BUS &&
-                            to.type == SldNodeType.PANEL) ||
-                        (from.type == SldNodeType.BUS &&
-                            to.type == SldNodeType.BREAKER) ||
-                        (from.type == SldNodeType.BREAKER &&
-                            to.type == SldNodeType.BUS) ||
-                        (from.type == SldNodeType.PANEL &&
-                            to.type == SldNodeType.BREAKER) ||
-                        (from.type == SldNodeType.BREAKER &&
-                            to.type == SldNodeType.PANEL)
-
-                    if (!allowedPair) return@forEach
+                    if (!isValidBusbarPair(from, to)) {
+                        return@connectionLoop
+                    }
 
                     if (from.id in members && to.id !in members) {
                         members.add(to.id)
@@ -157,10 +179,12 @@ private fun buildPanelDrawingGeometry(
                 }
             } while (changed)
 
+            assignedMembers.addAll(members)
+
             val memberNodes = members.mapNotNull(nodesById::get)
 
             if (memberNodes.isEmpty()) {
-                return@mapNotNull null
+                return@forEach
             }
 
             val breakers = memberNodes
@@ -210,42 +234,43 @@ private fun buildPanelDrawingGeometry(
                         it.x + SLD_NODE_WIDTH / 2f
                     }
 
-            PanelDrawingGeometry(
-                panelId = panel.id,
-                memberIds = members,
-                left = minX - SLD_PANEL_MARGIN_X,
-                top = minY - SLD_PANEL_MARGIN_Y,
-                right = maxOf(
-                    minX - SLD_PANEL_MARGIN_X +
-                        SLD_PANEL_MIN_WIDTH,
-                    maxX + SLD_PANEL_MARGIN_X
-                ),
-                bottom = maxOf(
-                    minY - SLD_PANEL_MARGIN_Y +
-                        SLD_PANEL_MIN_HEIGHT,
-                    maxY + SLD_PANEL_MARGIN_Y
-                ),
-                busY = busY,
-                busStartX = minOf(
-                    busReferenceXs.minOrNull() ?: panel.x,
-                    minX + SLD_PANEL_MARGIN_X
-                ),
-                busEndX = maxOf(
-                    busReferenceXs.maxOrNull()
-                        ?: (panel.x + SLD_NODE_WIDTH),
-                    maxX - SLD_PANEL_MARGIN_X
-                ),
-                breakerIds = breakers.map { it.id }
+            geometries.add(
+                PanelDrawingGeometry(
+                    panelId = panel.id,
+                    memberIds = members,
+                    left = minX - SLD_PANEL_MARGIN_X,
+                    top = minY - SLD_PANEL_MARGIN_Y,
+                    right = maxOf(
+                        minX - SLD_PANEL_MARGIN_X +
+                            SLD_PANEL_MIN_WIDTH,
+                        maxX + SLD_PANEL_MARGIN_X
+                    ),
+                    bottom = maxOf(
+                        minY - SLD_PANEL_MARGIN_Y +
+                            SLD_PANEL_MIN_HEIGHT,
+                        maxY + SLD_PANEL_MARGIN_Y
+                    ),
+                    busY = busY,
+                    busStartX = minOf(
+                        busReferenceXs.minOrNull() ?: panel.x,
+                        minX + SLD_PANEL_MARGIN_X
+                    ),
+                    busEndX = maxOf(
+                        busReferenceXs.maxOrNull()
+                            ?: (panel.x + SLD_NODE_WIDTH),
+                        maxX - SLD_PANEL_MARGIN_X
+                    ),
+                    breakerIds = breakers.map { it.id }
+                )
             )
         }
+
+    return geometries
 }
 
 /**
- * The connection point is the center of the equipment symbol,
- * not the center of the entire label area.
- *
- * Node coordinates are stored in dp units. Conversion to pixels
- * happens only when drawing on the Canvas.
+ * Node coordinates are stored in dp units.
+ * Conversion to pixels occurs only while drawing on Canvas.
  */
 private fun nodeCenter(node: SldNode): Offset {
     return Offset(
@@ -505,6 +530,21 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDirectedCable(
     )
 }
 
+private fun nodeHitTest(
+    nodes: List<SldNode>,
+    x: Float,
+    y: Float
+): SldNode? {
+    return nodes.asReversed().firstOrNull { node ->
+        x >= node.x - SLD_NODE_HIT_PADDING &&
+            x <= node.x + SLD_NODE_WIDTH +
+            SLD_NODE_HIT_PADDING &&
+            y >= node.y - SLD_NODE_HIT_PADDING &&
+            y <= node.y + SLD_NODE_HEIGHT +
+            SLD_NODE_HIT_PADDING
+    }
+}
+
 @Composable
 fun SldEditorScreen(
     language: AppLanguage,
@@ -615,29 +655,30 @@ fun SldEditorScreen(
             type = type,
             x = 120f + column * 300f,
             y = 120f + row * 220f,
-            voltage = network.nodes.firstOrNull()?.voltage ?: 400.0,
+            voltage = network.nodes.firstOrNull()?.voltage
+                ?: SLD_DEFAULT_VOLTAGE,
             loadKw = if (type == SldNodeType.LOAD) {
-                10.0
+                SLD_DEFAULT_LOAD_KW
             } else {
                 0.0
             },
             ratedKva = if (type == SldNodeType.TRANSFORMER) {
-                500.0
+                SLD_DEFAULT_TRANSFORMER_KVA
             } else {
                 0.0
             },
             ratedCurrentA = if (type == SldNodeType.BREAKER) {
-                100.0
+                SLD_DEFAULT_BREAKER_CURRENT_A
             } else {
                 0.0
             },
             breakerFrameA = if (type == SldNodeType.BREAKER) {
-                100.0
+                SLD_DEFAULT_BREAKER_CURRENT_A
             } else {
                 0.0
             },
             shortCircuitRatingKA = if (type == SldNodeType.BREAKER) {
-                25.0
+                SLD_DEFAULT_BREAKER_FAULT_KA
             } else {
                 0.0
             }
@@ -688,12 +729,6 @@ fun SldEditorScreen(
             return
         }
 
-        /*
-         * A physical connection must not be duplicated simply
-         * by reversing the order in which its endpoints are selected.
-         *
-         * The stored direction of an existing connection is preserved.
-         */
         val duplicateConnection = network.connections.any { existing ->
             existing.connectionType == connectionType &&
                 (
@@ -717,29 +752,16 @@ fun SldEditorScreen(
             return
         }
 
-        if (connectionType == SldConnectionType.BUSBAR) {
-            val validPair =
-                (first.type == SldNodeType.PANEL &&
-                    second.type == SldNodeType.BUS) ||
-                (first.type == SldNodeType.BUS &&
-                    second.type == SldNodeType.PANEL) ||
-                (first.type == SldNodeType.PANEL &&
-                    second.type == SldNodeType.BREAKER) ||
-                (first.type == SldNodeType.BREAKER &&
-                    second.type == SldNodeType.PANEL) ||
-                (first.type == SldNodeType.BUS &&
-                    second.type == SldNodeType.BREAKER) ||
-                (first.type == SldNodeType.BREAKER &&
-                    second.type == SldNodeType.BUS)
-
-            if (!validPair) {
-                status = if (arabic) {
-                    "توصيل BUSBAR مسموح داخل اللوحة فقط: PANEL–BUS أو BUS–BREAKER أو PANEL–BREAKER."
-                } else {
-                    "BUSBAR is only valid for PANEL–BUS, BUS–BREAKER, or PANEL–BREAKER."
-                }
-                return
+        if (
+            connectionType == SldConnectionType.BUSBAR &&
+            !isValidBusbarPair(first, second)
+        ) {
+            status = if (arabic) {
+                "توصيل BUSBAR مسموح داخل اللوحة فقط: PANEL–BUS أو BUS–BREAKER أو PANEL–BREAKER."
+            } else {
+                "BUSBAR is only valid for PANEL–BUS, BUS–BREAKER, or PANEL–BREAKER."
             }
+            return
         }
 
         val connection = SldConnection(
@@ -822,8 +844,12 @@ fun SldEditorScreen(
             nodes = network.nodes.map { node ->
                 if (node.id == nodeId) {
                     node.copy(
-                        x = (node.x + dx).coerceAtLeast(20f),
-                        y = (node.y + dy).coerceAtLeast(20f)
+                        x = (node.x + dx).coerceAtLeast(
+                            SLD_MIN_NODE_POSITION
+                        ),
+                        y = (node.y + dy).coerceAtLeast(
+                            SLD_MIN_NODE_POSITION
+                        )
                     )
                 } else {
                     node
@@ -1365,16 +1391,11 @@ fun SldEditorScreen(
                                 val tapY =
                                     tap.y / density.density
 
-                                val hit = currentNetwork.nodes
-                                    .asReversed()
-                                    .firstOrNull { node ->
-                                        tapX >= node.x - 8f &&
-                                            tapX <= node.x +
-                                            SLD_NODE_WIDTH + 8f &&
-                                            tapY >= node.y - 8f &&
-                                            tapY <= node.y +
-                                            SLD_NODE_HEIGHT + 8f
-                                    }
+                                val hit = nodeHitTest(
+                                    currentNetwork.nodes,
+                                    tapX,
+                                    tapY
+                                )
 
                                 if (hit != null) {
                                     currentHandleNodeTap(hit.id)
@@ -1392,16 +1413,11 @@ fun SldEditorScreen(
                                     val y =
                                         point.y / density.density
 
-                                    val hit = currentNetwork.nodes
-                                        .asReversed()
-                                        .firstOrNull { node ->
-                                            x >= node.x - 8f &&
-                                                x <= node.x +
-                                                SLD_NODE_WIDTH + 8f &&
-                                                y >= node.y - 8f &&
-                                                y <= node.y +
-                                                SLD_NODE_HEIGHT + 8f
-                                        }
+                                    val hit = nodeHitTest(
+                                        currentNetwork.nodes,
+                                        x,
+                                        y
+                                    )
 
                                     dragNodeId = hit?.id
 
@@ -1437,7 +1453,7 @@ fun SldEditorScreen(
                         }
                 ) {
                     val gridColor = Color(0xFFE0E5EB)
-                    val gridStep = 40.dp.toPx()
+                    val gridStep = SLD_GRID_STEP.dp.toPx()
 
                     var gridX = 0f
 
@@ -1534,11 +1550,6 @@ fun SldEditorScreen(
                         }
                     }
 
-                    /*
-                     * BUSBAR connections are represented by the
-                     * panel bus and branches. Cable connections are
-                     * rendered independently with their stored direction.
-                     */
                     network.connections.forEach connectionLoop@{ connection ->
                         if (
                             connection.connectionType ==
